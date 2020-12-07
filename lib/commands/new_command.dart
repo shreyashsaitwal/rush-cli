@@ -90,30 +90,10 @@ class NewCommand {
   void _downloadDepsArchive() async {
     final progress = ProgressBar('Downloading dependencies...');
 
-    const downloadUrl =
+    const url =
         'https://firebasestorage.googleapis.com/v0/b/rush-cli.appspot.com/o/compile_deps.zip?alt=media&token=63834a4c-e78f-4217-8720-4d1dc3fb7ae6';
 
-    try {
-      var prev = 0;
-      await Dio().download(
-        downloadUrl,
-        path.join(_compileDepsDirPath, 'compile_deps.zip'),
-        deleteOnError: true,
-        cancelToken: CancelToken(),
-        onReceiveProgress: (count, total) {
-          if (progress.totalProgress != null) {
-            if (total != -1 && _isSignificantIncrease(total, count, prev)) {
-              prev = count;
-              progress.update(count);
-            }
-          } else {
-            progress.totalProgress = total;
-          }
-        },
-      );
-    } catch (e) {
-      ThrowError(message: e.toString());
-    }
+    await _download(progress, url);
   }
 
   bool _isSignificantIncrease(int total, int cur, int prev) {
@@ -128,8 +108,28 @@ class NewCommand {
     return false;
   }
 
-  void _downloadAnt() {
-    final downloadUrl = 'https://downloads.apache.org//ant/binaries/apache-ant-1.9.15-bin.zip';
+  void _download(ProgressBar progressBar, String downloadUrl) async {
+    try {
+      var prev = 0;
+      await Dio().download(
+        downloadUrl,
+        path.join(_compileDepsDirPath, 'compile_deps.zip'),
+        deleteOnError: true,
+        cancelToken: CancelToken(),
+        onReceiveProgress: (count, total) {
+          if (progressBar.totalProgress != null) {
+            if (total != -1 && _isSignificantIncrease(total, count, prev)) {
+              prev = count;
+              progressBar.update(count);
+            }
+          } else {
+            progressBar.totalProgress = total;
+          }
+        },
+      );
+    } catch (e) {
+      ThrowError(message: e.toString());
+    }
   }
 
   void _extractDeps() {
