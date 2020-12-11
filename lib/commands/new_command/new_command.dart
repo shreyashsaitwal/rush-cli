@@ -5,14 +5,16 @@ import 'package:path/path.dart' as path;
 import 'package:archive/archive.dart';
 import 'package:dart_casing/dart_casing.dart';
 import 'package:dart_console/dart_console.dart';
+
+import 'package:rush_prompt/rush_prompt.dart';
 import 'package:rush_cli/commands/new_command/mixins/app_data_dir_mixin.dart';
 import 'package:rush_cli/commands/new_command/mixins/download_mixin.dart';
 import 'package:rush_cli/commands/new_command/mixins/new_cmd_ques_mixin.dart';
-import 'package:rush_prompt/rush_prompt.dart';
 import 'package:rush_cli/templates/rush_yaml_template.dart';
 import 'package:rush_cli/templates/extension_template.dart';
+import 'package:rush_cli/templates/dot_classpath_template.dart';
 
-class NewCommand with DownloadMixin, AppDataMixin, Questions {
+class NewCommand with DownloadMixin, AppDataMixin, QuestionsMixin {
   NewCommand(this._currentDir);
 
   final String _currentDir;
@@ -66,7 +68,7 @@ class NewCommand with DownloadMixin, AppDataMixin, Questions {
     ]);
 
     try {
-      File(path.join(extPath, extName))
+      File(path.join(extPath, '$extName.java'))
         ..createSync(recursive: true)
         ..writeAsStringSync(
           getExtensionTemp(
@@ -75,13 +77,17 @@ class NewCommand with DownloadMixin, AppDataMixin, Questions {
           ),
         );
 
-      File(path.join(extPath, 'rush.yaml'))
+      File(path.join(_currentDir, 'rush.yaml'))
         ..createSync(recursive: true)
         ..writeAsStringSync(
           getRushYml(extName, versionName, authorName),
         );
 
-      Directory(path.join(_currentDir, 'bin')).createSync(recursive: true);
+      File(path.join(_currentDir, '.classpath'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          getDotClasspath(path.join(AppDataMixin.dataStorageDir(), 'compile_deps')),
+        );
     } catch (e) {
       ThrowError(message: e);
     }
@@ -89,7 +95,6 @@ class NewCommand with DownloadMixin, AppDataMixin, Questions {
 
   void _downloadDepsArchive() async {
     final progress = ProgressBar('Downloading dependencies...');
-
     const url =
         'https://firebasestorage.googleapis.com/v0/b/rush-cli.appspot.com/o/compile_deps.zip?alt=media&token=63834a4c-e78f-4217-8720-4d1dc3fb7ae6';
 

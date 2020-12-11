@@ -1,6 +1,6 @@
 import 'package:rush_prompt/rush_prompt.dart';
 
-mixin Questions {
+mixin QuestionsMixin {
   List<Question> get newCmdQues {
     return [
       SimpleQuestion(
