@@ -1,23 +1,23 @@
 import 'dart:async';
 import 'dart:io' show Directory, File, exit;
 
+import 'package:path/path.dart' as path;
 import 'package:archive/archive.dart';
 import 'package:dart_casing/dart_casing.dart';
 import 'package:dart_console/dart_console.dart';
-import 'package:dio/dio.dart';
-import 'package:path/path.dart' as path;
+import 'package:rush_cli/commands/new_command/mixins/app_data_dir_mixin.dart';
+import 'package:rush_cli/commands/new_command/mixins/download_mixin.dart';
+import 'package:rush_cli/commands/new_command/mixins/new_cmd_ques_mixin.dart';
 import 'package:rush_prompt/rush_prompt.dart';
+import 'package:rush_cli/templates/rush_yaml_template.dart';
+import 'package:rush_cli/templates/extension_template.dart';
 
-import '../templates/rush_yaml_template.dart';
-import '../questions/init_questions.dart';
-import '../templates/extension_template.dart';
-import '../utils/app_data_storage_locator.dart';
-
-class NewCommand {
+class NewCommand with DownloadMixin, AppDataMixin, Questions {
   NewCommand(this._currentDir);
 
   final String _currentDir;
-  final _compileDepsDirPath = path.join(dataStorageDir(), 'compile_deps');
+  final _compileDepsDirPath =
+      path.join(AppDataMixin.dataStorageDir(), 'compile_deps');
 
   Future<void> run() async {
     final rushDataDir = Directory(_compileDepsDirPath);
@@ -51,7 +51,7 @@ class NewCommand {
       await _extractDeps();
     }
 
-    final answers = RushPrompt(questions: initQuestions).askAll();
+    final answers = RushPrompt(questions: newCmdQues).askAll();
 
     final extName = answers[0][1].toString().trim();
     final orgName = answers[1][1].toString().trim();
@@ -93,43 +93,7 @@ class NewCommand {
     const url =
         'https://firebasestorage.googleapis.com/v0/b/rush-cli.appspot.com/o/compile_deps.zip?alt=media&token=63834a4c-e78f-4217-8720-4d1dc3fb7ae6';
 
-    await _download(progress, url);
-  }
-
-  bool _isSignificantIncrease(int total, int cur, int prev) {
-    if (prev < 1) {
-      return true;
-    }
-    var prevPer = (prev / total) * 100;
-    var curPer = (cur / total) * 100;
-    if ((curPer - prevPer) >= 1) {
-      return true;
-    }
-    return false;
-  }
-
-  void _download(ProgressBar progressBar, String downloadUrl) async {
-    try {
-      var prev = 0;
-      await Dio().download(
-        downloadUrl,
-        path.join(_compileDepsDirPath, 'compile_deps.zip'),
-        deleteOnError: true,
-        cancelToken: CancelToken(),
-        onReceiveProgress: (count, total) {
-          if (progressBar.totalProgress != null) {
-            if (total != -1 && _isSignificantIncrease(total, count, prev)) {
-              prev = count;
-              progressBar.update(count);
-            }
-          } else {
-            progressBar.totalProgress = total;
-          }
-        },
-      );
-    } catch (e) {
-      ThrowError(message: e.toString());
-    }
+    await download(progress, url, _compileDepsDirPath);
   }
 
   void _extractDeps() {

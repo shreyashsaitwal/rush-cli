@@ -3,7 +3,6 @@ include: package:pedantic/analysis_options.yaml
 linter:
   rules:
     - camel_case_types
-    - prefer_relative_imports
     - always_put_required_named_parameters_first
     - sort_pub_dependencies
     - avoid_empty_else

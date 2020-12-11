@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:rush_cli/commands/new_command.dart';
+import 'package:rush_cli/commands/new_command/new_command.dart';
 
 Future<void> main(List<String> args) async {
   if (args.length < 2 && args.contains('new')) {
