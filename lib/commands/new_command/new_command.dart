@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show Directory, File, exit;
+import 'dart:io' show Directory, File, Process, exit;
 
 import 'package:path/path.dart' as path;
 import 'package:archive/archive.dart';
@@ -7,12 +7,12 @@ import 'package:dart_casing/dart_casing.dart';
 import 'package:dart_console/dart_console.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
-import 'package:rush_cli/commands/new_command/mixins/app_data_dir_mixin.dart';
-import 'package:rush_cli/commands/new_command/mixins/download_mixin.dart';
-import 'package:rush_cli/commands/new_command/mixins/new_cmd_ques_mixin.dart';
 import 'package:rush_cli/templates/rush_yaml_template.dart';
 import 'package:rush_cli/templates/extension_template.dart';
 import 'package:rush_cli/templates/dot_classpath_template.dart';
+import 'package:rush_cli/commands/new_command/mixins/app_data_dir_mixin.dart';
+import 'package:rush_cli/commands/new_command/mixins/download_mixin.dart';
+import 'package:rush_cli/commands/new_command/mixins/new_cmd_ques_mixin.dart';
 
 class NewCommand with DownloadMixin, AppDataMixin, QuestionsMixin {
   NewCommand(this._currentDir);
@@ -29,7 +29,7 @@ class NewCommand with DownloadMixin, AppDataMixin, QuestionsMixin {
         ..writeLine(
             'Rush needs to download following set of files to function properly.')
         ..setForegroundColor(ConsoleColor.cyan)
-        ..writeLine('• Apache Ant (??.? M)')
+        // ..writeLine('• Apache Ant (??.? M)')
         ..writeLine('• Android Support libraries (33.5 M)')
         ..resetColorAttributes()
         ..writeLine(

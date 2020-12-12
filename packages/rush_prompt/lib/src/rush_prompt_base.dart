@@ -9,15 +9,15 @@ class RushPrompt {
     }
   }
 
-  List<dynamic> askAll() {
-    final answers = <List>[];
+  List askAll() {
+    final answers = [];
     _questions.forEach((ques) => answers.add(ques.ask()));
     return answers;
   }
 
-  List<dynamic> askIndividual(Question ques) => ques.ask();
+  List askIndividual(Question ques) => ques.ask();
 
-  List<dynamic> askQuestionAt(String id) {
+  List askQuestionAt(String id) {
     final ques = _questions.firstWhere((ques) => ques.id == id);
     _questions.remove(ques);
     return ques.ask();

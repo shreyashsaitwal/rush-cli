@@ -32,7 +32,7 @@ class BoolQuestion extends Question {
     console
       ..setForegroundColor(ConsoleColor.green)
       ..write('? ')
-      ..resetColorAttributes()
+      ..setForegroundColor(ConsoleColor.brightWhite)
       ..write('$_question $suffix ')
       ..setForegroundColor(ConsoleColor.cyan);
 
@@ -49,11 +49,11 @@ class BoolQuestion extends Question {
         break;
       } else {
         console
-          ..resetColorAttributes()
+          ..setForegroundColor(ConsoleColor.brightWhite)
           ..writeLine('Please enter a valid answer.')
           ..setForegroundColor(ConsoleColor.green)
           ..write('? ')
-          ..resetColorAttributes()
+          ..setForegroundColor(ConsoleColor.brightWhite)
           ..write('$_question $suffix ')
           ..setForegroundColor(ConsoleColor.blue);
 

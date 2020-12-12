@@ -54,7 +54,7 @@ class MultipleChoiceQuestion extends Question {
     console
       ..setForegroundColor(ConsoleColor.green)
       ..write('? ')
-      ..setForegroundColor(ConsoleColor.white)
+      ..setForegroundColor(ConsoleColor.brightWhite)
       ..write('$_question ')
       ..setForegroundColor(ConsoleColor.brightBlack)
       ..writeLine(_hint == '' ? '' : '$_hint ');

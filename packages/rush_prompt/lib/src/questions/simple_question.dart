@@ -9,11 +9,6 @@ class SimpleQuestion extends Question {
   String _question;
   String _default;
 
-  String _prefix = '?';
-  ConsoleColor _questionColor = ConsoleColor.white;
-  ConsoleColor _prefixColor = ConsoleColor.green;
-  ConsoleColor _answerColor = ConsoleColor.cyan;
-
   SimpleQuestion({
     @required String question,
     @required String id,
@@ -24,23 +19,12 @@ class SimpleQuestion extends Question {
     _default = defaultAnswer;
   }
 
-  SimpleQuestion.fromMap(Map<String, dynamic> map) {
-    _question = map['question'];
-    this.id = map['id'];
-
-    _prefix = map['prefix'] ?? '?';
-    _default = map['default'];
-    _questionColor = map['questionColor'] ?? ConsoleColor.white;
-    _prefixColor = map['prefixColor'] ?? ConsoleColor.green;
-    _answerColor = map['answerColor'] ?? ConsoleColor.cyan;
-  }
-
   @override
   List<dynamic> ask() {
     console
-      ..setForegroundColor(_prefixColor)
-      ..write(_prefix == '' ? '' : '$_prefix ')
-      ..setForegroundColor(_questionColor)
+      ..setForegroundColor(ConsoleColor.green)
+      ..write('? ')
+      ..setForegroundColor(ConsoleColor.brightWhite)
       ..write('$_question ');
 
     if (_default != null) {
@@ -48,14 +32,18 @@ class SimpleQuestion extends Question {
         ..setForegroundColor(ConsoleColor.brightBlack)
         ..write('($_default) ');
     }
-    console.setForegroundColor(_answerColor);
+    console.setForegroundColor(ConsoleColor.cyan);
     var answer = console.readLine(cancelOnBreak: true);
 
-    if (_default == null && answer == '') {
-      answer = ask()[1];
-    } else if (_default != null) {
-      answer = _default;
-    }
+    // var key = console.readKey().controlChar;
+    // while (true) {
+    //   if (key == ControlCharacter.enter && (answer == null || answer.isEmpty)) {
+    //     answer = ask()[1];
+    //   } else {
+    //     break;
+    //   }
+    // }
+
     console.resetColorAttributes();
 
     if (answer == null) {
@@ -63,7 +51,6 @@ class SimpleQuestion extends Question {
         ..writeLine()
         ..writeLine()
         ..setForegroundColor(ConsoleColor.yellow)
-        // ..write('[WARNING] ')
         ..writeLine('Task aborted by user.')
         ..resetColorAttributes();
         
