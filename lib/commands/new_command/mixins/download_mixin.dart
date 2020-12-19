@@ -4,12 +4,12 @@ import 'package:path/path.dart' as path;
 
 mixin DownloadMixin {
   void download(ProgressBar progressBar, String downloadUrl,
-      String compileDepsDir) async {
+      String packageDir) async {
     try {
       var prev = 0;
       await Dio().download(
         downloadUrl,
-        path.join(compileDepsDir, 'compile_deps.zip'),
+        path.join(packageDir, 'packages.zip'),
         deleteOnError: true,
         cancelToken: CancelToken(),
         onReceiveProgress: (count, total) {
