@@ -47,7 +47,7 @@ This is a one-time process, and you won\'t need to download these files again (u
 
     final answers = RushPrompt(questions: newCmdQues).askAll();
 
-    final extName = Casing.pascalCase(answers[0][1].toString());
+    final extName = answers[0][1].toString().trim();
     final orgName = answers[1][1].toString().trim();
     final authorName = answers[2][1].toString().trim();
     final versionName = answers[3][1].toString().trim();
@@ -61,7 +61,7 @@ This is a one-time process, and you won\'t need to download these files again (u
     ]);
 
     try {
-      File(path.join(extPath, '$extName.java'))
+      File(path.join(extPath, '${Casing.pascalCase(extName)}.java'))
         ..createSync(recursive: true)
         ..writeAsStringSync(
           getExtensionTemp(
@@ -77,14 +77,14 @@ This is a one-time process, and you won\'t need to download these files again (u
         );
 
       Directory(path.join(
-              _currentDir, Casing.camelCase(extName), 'dependencies'))
+              _currentDir, Casing.camelCase(extName), 'dependencies', 'dev-deps'))
           .createSync();
     } catch (e) {
       ThrowError(message: e);
     }
 
-    _copyAll(_compileDepsDirPath,
-        path.join(_currentDir, Casing.camelCase(extName), 'dependencies'));
+    await _copyDir(Directory(_compileDepsDirPath),
+        Directory(path.join(_currentDir, Casing.camelCase(extName), 'dependencies', 'dev-deps')));
   }
 
   void _downloadDepsArchive() async {
@@ -125,17 +125,15 @@ This is a one-time process, and you won\'t need to download these files again (u
     packageZip.deleteSync();
   }
 
-  void _copyAll(String depsDir, String copyTo) {
-    final deps = Directory(depsDir).listSync();
-
-    deps.forEach((file) {
-      final name = file.path.split('/').last;
-
-      if (name.endsWith('.jar') || name.endsWith('.aar') || name.endsWith('.so')) {
-        File(file.path).copySync(path.join(copyTo, name));
-      } else {
-        _copyAll(file.path, path.join(copyTo, name));
+  Future<void> _copyDir(Directory source, Directory dest) async {
+    await for (final entity in source.list(recursive: false)) {
+      if (entity is Directory) {
+        final dir = Directory(path.join(dest.absolute.path, path.basename(entity.path)));
+        await dir.create();
+        await _copyDir(entity, dir);
+      } else if (entity is File) {
+        await entity.copy(path.join(dest.absolute.path, path.basename(entity.path)));
       }
-    });
+    }
   }
 }
