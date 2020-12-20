@@ -13,19 +13,26 @@ import 'package:rush_cli/commands/new_command/mixins/download_mixin.dart';
 import 'package:rush_cli/commands/new_command/mixins/new_cmd_ques_mixin.dart';
 
 class NewCommand with DownloadMixin, AppDataMixin, QuestionsMixin {
-  NewCommand(this._currentDir);
+  NewCommand(this._currentDir) {
+    run();
+  }
 
   final String _currentDir;
-  final _compileDepsDirPath =
-      path.join(AppDataMixin.dataStorageDir(), 'compile-deps');
 
+  /// Creates a new extension project in the current directory.
   Future<void> run() async {
-    final rushDataDir = Directory(AppDataMixin.dataStorageDir());
 
-    if (!rushDataDir.existsSync() || rushDataDir.listSync().isEmpty) {
+    // Dir where Rush stores all the data.
+    final dataDir = Directory(AppDataMixin.dataStorageDir());
+
+    // Dir where all the dev dependencies live in cache form.
+    final devDepsDirPath =
+        path.join(AppDataMixin.dataStorageDir(), 'dev-deps');
+
+    if (!dataDir.existsSync() || dataDir.listSync().isEmpty) {
       Console().writeLine('''
 Rush needs to download some Java dependencies and other packages (total download size: 43.3 MB) to compile your extension(s).
-This is a one-time process, and you won\'t need to download these files again (unless there is a necessary update in one or more of them).''');
+This is a one-time process, and Rush won\'t ask you to download these files again (unless there is a necessary update in one or more of them).''');
 
       final continueProcess =
           BoolQuestion(id: 'continue', question: 'Do you want to continue?')
@@ -36,13 +43,13 @@ This is a one-time process, and you won\'t need to download these files again (u
       }
 
       try {
-        rushDataDir.createSync(recursive: true);
+        dataDir.createSync(recursive: true);
       } catch (e) {
         ThrowError(message: e);
       }
 
-      await _downloadDepsArchive();
-      await _extractDeps();
+      await _downloadPackage();
+      await _extractPackage();
     }
 
     final answers = RushPrompt(questions: newCmdQues).askAll();
@@ -60,6 +67,7 @@ This is a one-time process, and you won\'t need to download these files again (u
       Casing.camelCase(extName),
     ]);
 
+    // Create the required files for the extension.
     try {
       File(path.join(extPath, '${Casing.pascalCase(extName)}.java'))
         ..createSync(recursive: true)
@@ -76,27 +84,38 @@ This is a one-time process, and you won\'t need to download these files again (u
           getRushYml(extName, versionName, authorName),
         );
 
-      Directory(path.join(
-              _currentDir, Casing.camelCase(extName), 'dependencies', 'dev-deps'))
+      Directory(path.join(_currentDir, Casing.camelCase(extName),
+              'dependencies', 'dev-deps'))
           .createSync();
     } catch (e) {
       ThrowError(message: e);
     }
 
-    await _copyDir(Directory(_compileDepsDirPath),
-        Directory(path.join(_currentDir, Casing.camelCase(extName), 'dependencies', 'dev-deps')));
+    // Copy the dev-deps from the cache.
+    await _copyDir(
+        Directory(devDepsDirPath),
+        Directory(path.join(_currentDir, Casing.camelCase(extName),
+            'dependencies', 'dev-deps')));
   }
 
-  void _downloadDepsArchive() async {
+  /// Download the required packages.
+  void _downloadPackage() async {
+    // HACK#1: Writing new line in the console because the progress bar shifts 
+    // up when intialized. Can be fixed, but you know, I'm too lazy.
+    Console().writeLine();
     final progress = ProgressBar('Downloading packages...');
+
     const url =
         'https://firebasestorage.googleapis.com/v0/b/rush-cli.appspot.com/o/packages.zip?alt=media&token=472bae35-ac1a-422c-affe-1c81ba223931';
 
     await download(progress, url, AppDataMixin.dataStorageDir());
   }
 
-  void _extractDeps() {
-    final packageZip = File(path.join(AppDataMixin.dataStorageDir(), 'packages.zip'));
+  /// Extract the package
+  void _extractPackage() {
+    final packageZip =
+        File(path.join(AppDataMixin.dataStorageDir(), 'packages.zip'));
+
     if (!packageZip.existsSync()) {
       ThrowError(message: 'Unable to extract packages. Aborting...');
     }
@@ -105,6 +124,8 @@ This is a one-time process, and you won\'t need to download these files again (u
     final zip = ZipDecoder().decodeBytes(bytes).files;
     final total = zip.length;
 
+    // See HACK#1
+    Console().writeLine();
     final progress = ProgressBar('Extracting packages...');
     progress.totalProgress = total;
 
@@ -125,14 +146,17 @@ This is a one-time process, and you won\'t need to download these files again (u
     packageZip.deleteSync();
   }
 
+  /// Copies the [source] dir to the [dest] dir
   Future<void> _copyDir(Directory source, Directory dest) async {
     await for (final entity in source.list(recursive: false)) {
       if (entity is Directory) {
-        final dir = Directory(path.join(dest.absolute.path, path.basename(entity.path)));
+        final dir = Directory(
+            path.join(dest.absolute.path, path.basename(entity.path)));
         await dir.create();
         await _copyDir(entity, dir);
       } else if (entity is File) {
-        await entity.copy(path.join(dest.absolute.path, path.basename(entity.path)));
+        await entity
+            .copy(path.join(dest.absolute.path, path.basename(entity.path)));
       }
     }
   }
