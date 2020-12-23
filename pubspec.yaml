@@ -23,4 +23,5 @@ dependencies:
   dart_casing: ^1.0.1
   dart_console: ^0.6.2
   dio: ^3.0.10
+  meta: ^1.2.4
   path: ^1.7.0

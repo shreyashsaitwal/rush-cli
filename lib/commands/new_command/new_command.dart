@@ -4,13 +4,13 @@ import 'package:path/path.dart' as path;
 import 'package:archive/archive.dart';
 import 'package:dart_casing/dart_casing.dart';
 import 'package:dart_console/dart_console.dart';
+import 'package:rush_cli/commands/mixins/app_data_dir_mixin.dart';
+import 'package:rush_cli/commands/mixins/download_mixin.dart';
+import 'package:rush_cli/commands/mixins/new_cmd_ques_mixin.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
 import 'package:rush_cli/templates/rush_yaml_template.dart';
 import 'package:rush_cli/templates/extension_template.dart';
-import 'package:rush_cli/commands/new_command/mixins/app_data_dir_mixin.dart';
-import 'package:rush_cli/commands/new_command/mixins/download_mixin.dart';
-import 'package:rush_cli/commands/new_command/mixins/new_cmd_ques_mixin.dart';
 
 class NewCommand with DownloadMixin, AppDataMixin, QuestionsMixin {
   NewCommand(this._currentDir) {
@@ -21,13 +21,11 @@ class NewCommand with DownloadMixin, AppDataMixin, QuestionsMixin {
 
   /// Creates a new extension project in the current directory.
   Future<void> run() async {
-
     // Dir where Rush stores all the data.
     final dataDir = Directory(AppDataMixin.dataStorageDir());
 
     // Dir where all the dev dependencies live in cache form.
-    final devDepsDirPath =
-        path.join(AppDataMixin.dataStorageDir(), 'dev-deps');
+    final devDepsDirPath = path.join(AppDataMixin.dataStorageDir(), 'dev-deps');
 
     if (!dataDir.existsSync() || dataDir.listSync().isEmpty) {
       Console().writeLine('''
@@ -84,23 +82,28 @@ This is a one-time process, and Rush won\'t ask you to download these files agai
           getRushYml(extName, versionName, authorName),
         );
 
-      Directory(path.join(_currentDir, Casing.camelCase(extName),
-              'dependencies', 'dev-deps'))
+      Directory(path.join(_currentDir, Casing.camelCase(extName), 'dev-deps'))
+          .createSync();
+
+      Directory(
+              path.join(_currentDir, Casing.camelCase(extName), 'dependencies'))
           .createSync();
     } catch (e) {
       ThrowError(message: e);
     }
 
     // Copy the dev-deps from the cache.
-    await _copyDir(
+    _copyDeps(
         Directory(devDepsDirPath),
-        Directory(path.join(_currentDir, Casing.camelCase(extName),
-            'dependencies', 'dev-deps')));
+        Directory(
+            path.join(_currentDir, Casing.camelCase(extName), 'dev-deps')));
+
+    exit(0);
   }
 
   /// Download the required packages.
   void _downloadPackage() async {
-    // HACK#1: Writing new line in the console because the progress bar shifts 
+    // HACK#1: Writing new line in the console because the progress bar shifts
     // up when intialized. Can be fixed, but you know, I'm too lazy.
     Console().writeLine();
     final progress = ProgressBar('Downloading packages...');
@@ -147,16 +150,25 @@ This is a one-time process, and Rush won\'t ask you to download these files agai
   }
 
   /// Copies the [source] dir to the [dest] dir
-  Future<void> _copyDir(Directory source, Directory dest) async {
-    await for (final entity in source.list(recursive: false)) {
+  void _copyDeps(Directory source, Directory dest) {
+    final progress = ProgressBar('  Getting things ready...');
+    var progCount = 0;
+
+    final entities = source.listSync(recursive: false);
+    progress.totalProgress = entities.length;
+
+    for (final entity in entities) {
+      progCount++;
+      progress.update(progCount);
+
       if (entity is Directory) {
         final dir = Directory(
             path.join(dest.absolute.path, path.basename(entity.path)));
-        await dir.create();
-        await _copyDir(entity, dir);
+        dir.createSync();
+        _copyDeps(entity, dir);
       } else if (entity is File) {
-        await entity
-            .copy(path.join(dest.absolute.path, path.basename(entity.path)));
+        entity.copySync(
+            path.join(dest.absolute.path, path.basename(entity.path)));
       }
     }
   }
