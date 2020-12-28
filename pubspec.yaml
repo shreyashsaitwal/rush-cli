@@ -25,3 +25,4 @@ dependencies:
   dio: ^3.0.10
   meta: ^1.2.4
   path: ^1.7.0
+  yaml: ^2.2.1

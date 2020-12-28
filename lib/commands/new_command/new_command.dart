@@ -4,15 +4,16 @@ import 'package:path/path.dart' as path;
 import 'package:archive/archive.dart';
 import 'package:dart_casing/dart_casing.dart';
 import 'package:dart_console/dart_console.dart';
-import 'package:rush_cli/commands/mixins/app_data_dir_mixin.dart';
-import 'package:rush_cli/commands/mixins/download_mixin.dart';
-import 'package:rush_cli/commands/mixins/new_cmd_ques_mixin.dart';
+import 'package:rush_cli/mixins/app_data_dir_mixin.dart';
+import 'package:rush_cli/mixins/copy_mixin.dart';
+import 'package:rush_cli/mixins/download_mixin.dart';
+import 'package:rush_cli/mixins/new_cmd_ques_mixin.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
 import 'package:rush_cli/templates/rush_yaml_template.dart';
 import 'package:rush_cli/templates/extension_template.dart';
 
-class NewCommand with DownloadMixin, AppDataMixin, QuestionsMixin {
+class NewCommand with DownloadMixin, AppDataMixin, QuestionsMixin, CopyMixin {
   NewCommand(this._currentDir) {
     run();
   }
@@ -93,10 +94,11 @@ This is a one-time process, and Rush won\'t ask you to download these files agai
     }
 
     // Copy the dev-deps from the cache.
-    _copyDeps(
+    copyDirWithProg(
         Directory(devDepsDirPath),
         Directory(
-            path.join(_currentDir, Casing.camelCase(extName), 'dev-deps')));
+            path.join(_currentDir, Casing.camelCase(extName), 'dev-deps')),
+        '  Getting things ready...');
 
     exit(0);
   }
@@ -147,29 +149,5 @@ This is a one-time process, and Rush won\'t ask you to download these files agai
     }
 
     packageZip.deleteSync();
-  }
-
-  /// Copies the [source] dir to the [dest] dir
-  void _copyDeps(Directory source, Directory dest) {
-    final progress = ProgressBar('  Getting things ready...');
-    var progCount = 0;
-
-    final entities = source.listSync(recursive: false);
-    progress.totalProgress = entities.length;
-
-    for (final entity in entities) {
-      progCount++;
-      progress.update(progCount);
-
-      if (entity is Directory) {
-        final dir = Directory(
-            path.join(dest.absolute.path, path.basename(entity.path)));
-        dir.createSync();
-        _copyDeps(entity, dir);
-      } else if (entity is File) {
-        entity.copySync(
-            path.join(dest.absolute.path, path.basename(entity.path)));
-      }
-    }
   }
 }

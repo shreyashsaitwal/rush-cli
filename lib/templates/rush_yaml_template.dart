@@ -2,7 +2,12 @@ String getRushYml(String name, String versionName, String author) {
   return '''
 name: $name
 description: Extension component for $name. Created using Rush.
-version_name: $versionName
+
+version:
+  number: auto
+  name: $versionName
+
+# min_sdk: 14
 
 assets:
   icon: icon.png        # Extension icon
