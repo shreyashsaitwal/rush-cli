@@ -8,7 +8,7 @@ class DesignerComponent {
   String category;
   String helpUrl;
   String dateBuilt;
-  String license;
+  // String license;
 
   DesignerComponent(
       {this.version,
@@ -19,8 +19,8 @@ class DesignerComponent {
       this.iconName,
       this.category,
       this.helpUrl,
-      this.dateBuilt,
-      this.license});
+      // this.license,
+      this.dateBuilt,});
 
   @override
   String toString() { // TODO: Add: , license="${license ?? ''}"

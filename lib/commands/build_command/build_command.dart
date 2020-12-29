@@ -5,6 +5,7 @@ import 'package:rush_cli/commands/build_command/model/designer_component.dart';
 
 import 'package:rush_cli/mixins/app_data_dir_mixin.dart';
 import 'package:rush_cli/mixins/copy_mixin.dart';
+import 'package:rush_cli/mixins/is_yaml_valid.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 import 'package:yaml/yaml.dart';
 
@@ -14,10 +15,12 @@ class BuildCommand with AppDataMixin, CopyMixin {
   final String _currentDir;
   final String _extType;
 
-  /// Builds this extension
+  /// Builds the extension in the current directory
   void run() {
     if (!Directory(_currentDir).listSync().contains(File('rush.yaml'))) {
       ThrowError(message: 'Unable to find "rush.yaml" in this directory.');
+    } else if (!(IsYamlValid.check(File('rush.yaml')))) {
+      ThrowError(message: 'The "rush.yaml" file for this project isn\'t valid.\nMake sure it is properly indented and that it follows Rush\'s YAML-schema');
     }
 
     final dataDir = AppDataMixin.dataStorageDir();
@@ -70,28 +73,43 @@ class BuildCommand with AppDataMixin, CopyMixin {
   void _createSrcMirror(String dataDirPath) {
     //? Dev note:
     // Yes, this is, in fact, a very inefficient thing to do in terms of 
-    // performance, as well as memory consumption, etc. But I'm just way to lazy
+    // performance, as well as memory consumption, etc. But I'm just way too lazy
     // to try out any solution.
     // This can be solved by, maybe, writing a different ComponentProcessor, which
     // could generate the component.json from the designer props provided to it as
     // args.
 
+    final rushYml = loadYaml(File(path.join(_currentDir, 'rush.yaml')).readAsStringSync());
+
+    // Copy src dir
     final extSrcDir = Directory(path.join(_currentDir, 'src'));
     final mirrorDir =
         Directory(path.join(dataDirPath, 'workspaces', _extType, 'temp'));
     mirrorDir.createSync(recursive: true);
     copyDir(extSrcDir, mirrorDir);
 
-    final rushYmlRaw =
-        File(path.join(_currentDir, 'rush.yaml')).readAsStringSync();
-    final rushYml = loadYaml(rushYmlRaw);
+    // Copy assets dir
+    final assetDir = Directory(path.join(_currentDir, 'assets'));
+    final dest = Directory(path.joinAll([dataDirPath, 'temp', ..._extType.split('.')]));
+    copyDir(assetDir, dest);
 
+    // Copy icon.png
+    final icon = rushYml['assets']['icon'];
+    if (icon != null && !_isImgUrl(icon)) {
+      final dest = path.joinAll([dataDirPath, 'temp', ..._extType.split('.'), 'aiwebres', icon]);
+      File(path.join(_currentDir, 'assets', icon)).copySync(dest);
+    } else if (icon == null) {
+      final dest = path.joinAll([dataDirPath, 'temp', ..._extType.split('.'), 'aiwebres', 'icon.png']);
+      File(path.join(dataDirPath, 'res', 'icon.png')).copySync(dest);
+    }
+
+    // Create @DesignerComponent annotation for this extension
     final designerComp = DesignerComponent(
       category: 'ComponentCategory.EXTENSION',
       desc: rushYml['description'],
       helpUrl: rushYml['homepage'],
-      iconName: rushYml['assets']['icon'],
-      license: rushYml['license'],
+      iconName: 'aiwebres' + rushYml['assets']['icon'],
+      // license: rushYml['license'],
       minSdk: int.tryParse(rushYml['minSdk'] ?? '7'),
       nonVisible:
           true, //? Until the release of visible ext, this will be hard coded
@@ -123,6 +141,11 @@ class BuildCommand with AppDataMixin, CopyMixin {
       ..._extType.split('.'),
       '${rushYml['name']}.java'
     ])).writeAsStringSync(ext.join('\n'));
+  }
+
+  bool _isImgUrl(String input) {
+    final regex = RegExp(r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_\+.~#?&\/\/=]*)\.(png|jpg|jpeg|svg|gif)', dotAll: true);
+    return regex.hasMatch(input);
   }
 
   int get _getVersion =>
