@@ -1,4 +1,4 @@
-String getRushYml(String name, String versionName, String author) {
+String generateRushYaml(String name, String versionName, String author) {
   return '''
 name: $name
 description: Extension component for $name. Created using Rush.

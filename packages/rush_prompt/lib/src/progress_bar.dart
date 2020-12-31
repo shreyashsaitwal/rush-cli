@@ -1,10 +1,10 @@
 import 'package:dart_console/dart_console.dart';
 
 class ProgressBar {
-  ProgressBar(this._title);
-
   final String _title;
   final console = Console();
+
+  ProgressBar(this._title);
 
   int totalProgress;
 
@@ -16,7 +16,8 @@ class ProgressBar {
     }
 
     var totalWidth = (console.windowWidth * (45 / 100)).ceil();
-    var progressWidth = ' ' * (totalWidth * (currentProgress / totalProgress)).ceil();
+    var progressWidth =
+        ' ' * (totalWidth * (currentProgress / totalProgress)).ceil();
     console
       ..hideCursor()
       ..setForegroundColor(ConsoleColor.brightWhite)
@@ -26,7 +27,8 @@ class ProgressBar {
       ..setBackgroundColor(ConsoleColor.brightBlack)
       ..write(' ' * (totalWidth - progressWidth.length))
       ..resetColorAttributes()
-      ..writeLine('  (${(currentProgress / totalProgress * 100).ceil()}% done)');
+      ..writeLine(
+          '  (${(currentProgress / totalProgress * 100).ceil()}% done)');
 
     if (currentProgress == totalProgress) {
       console.showCursor();

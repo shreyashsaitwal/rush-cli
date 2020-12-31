@@ -1,5 +1,6 @@
 import 'dart:io' show Directory, File, exit;
 
+import 'package:hive/hive.dart';
 import 'package:path/path.dart' as path;
 import 'package:archive/archive.dart';
 import 'package:dart_casing/dart_casing.dart';
@@ -14,19 +15,83 @@ import 'package:rush_cli/templates/rush_yaml_template.dart';
 import 'package:rush_cli/templates/extension_template.dart';
 
 class NewCommand with DownloadMixin, AppDataMixin, QuestionsMixin, CopyMixin {
+  final String _currentDir;
+
   NewCommand(this._currentDir) {
     run();
   }
 
-  final String _currentDir;
-
   /// Creates a new extension project in the current directory.
   Future<void> run() async {
-    // Dir where Rush stores all the data.
-    final dataDir = Directory(AppDataMixin.dataStorageDir());
+    await _checkPackage();
+
+    final answers = RushPrompt(questions: newCmdQues).askAll();
+    final extName = answers[0][1].toString().trim();
+    final orgName = answers[1][1].toString().trim();
+    final authorName = answers[2][1].toString().trim();
+    final versionName = answers[3][1].toString().trim();
+
+    final extPath = path.joinAll([
+      _currentDir,
+      Casing.camelCase(extName),
+      'src',
+      ...orgName.split('.'),
+      Casing.camelCase(extName),
+    ]);
+
+    // Creates the required files for the extension.
+    try {
+      File(path.join(extPath, '${Casing.pascalCase(extName)}.java'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          getExtensionTemp(
+            Casing.pascalCase(extName),
+            orgName + '.' + Casing.camelCase(extName),
+          ),
+        );
+
+      File(path.join(_currentDir, Casing.camelCase(extName), 'rush.yaml'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          generateRushYaml(extName, versionName, authorName),
+        );
+
+      Directory(path.join(_currentDir, Casing.camelCase(extName), 'dev-deps'))
+          .createSync();
+
+      Directory(
+              path.join(_currentDir, Casing.camelCase(extName), 'dependencies'))
+          .createSync();
+    } catch (e) {
+      ThrowError(message: e);
+    }
+
+    // Create a Hive box for this extension
+    final extBox = await Hive.openBox(extName);
+    await extBox.putAll({
+      'version': 1,
+      'lastMod': DateTime.now().toString(),
+      'desAnn': '',
+      'astAnn': '',
+      'icon': '',
+    });
 
     // Dir where all the dev dependencies live in cache form.
     final devDepsDirPath = path.join(AppDataMixin.dataStorageDir(), 'dev-deps');
+
+    // Copy the dev-deps from the cache.
+    copyDirWithProg(
+        Directory(devDepsDirPath),
+        Directory(
+            path.join(_currentDir, Casing.camelCase(extName), 'dev-deps')),
+        '  Getting things ready...');
+
+    exit(0);
+  }
+
+  Future<void> _checkPackage() async {
+    // Dir where Rush stores all the data.
+    final dataDir = Directory(AppDataMixin.dataStorageDir());
 
     if (!dataDir.existsSync() || dataDir.listSync().isEmpty) {
       Console().writeLine('''
@@ -50,60 +115,9 @@ This is a one-time process, and Rush won\'t ask you to download these files agai
       await _downloadPackage();
       await _extractPackage();
     }
-
-    final answers = RushPrompt(questions: newCmdQues).askAll();
-
-    final extName = answers[0][1].toString().trim();
-    final orgName = answers[1][1].toString().trim();
-    final authorName = answers[2][1].toString().trim();
-    final versionName = answers[3][1].toString().trim();
-
-    final extPath = path.joinAll([
-      _currentDir,
-      Casing.camelCase(extName),
-      'src',
-      ...orgName.split('.'),
-      Casing.camelCase(extName),
-    ]);
-
-    // Create the required files for the extension.
-    try {
-      File(path.join(extPath, '${Casing.pascalCase(extName)}.java'))
-        ..createSync(recursive: true)
-        ..writeAsStringSync(
-          getExtensionTemp(
-            Casing.pascalCase(extName),
-            orgName + '.' + Casing.camelCase(extName),
-          ),
-        );
-
-      File(path.join(_currentDir, Casing.camelCase(extName), 'rush.yaml'))
-        ..createSync(recursive: true)
-        ..writeAsStringSync(
-          getRushYml(extName, versionName, authorName),
-        );
-
-      Directory(path.join(_currentDir, Casing.camelCase(extName), 'dev-deps'))
-          .createSync();
-
-      Directory(
-              path.join(_currentDir, Casing.camelCase(extName), 'dependencies'))
-          .createSync();
-    } catch (e) {
-      ThrowError(message: e);
-    }
-
-    // Copy the dev-deps from the cache.
-    copyDirWithProg(
-        Directory(devDepsDirPath),
-        Directory(
-            path.join(_currentDir, Casing.camelCase(extName), 'dev-deps')),
-        '  Getting things ready...');
-
-    exit(0);
   }
 
-  /// Download the required packages.
+  /// Downloads the required packages.
   void _downloadPackage() async {
     // HACK#1: Writing new line in the console because the progress bar shifts
     // up when intialized. Can be fixed, but you know, I'm too lazy.
@@ -116,7 +130,7 @@ This is a one-time process, and Rush won\'t ask you to download these files agai
     await download(progress, url, AppDataMixin.dataStorageDir());
   }
 
-  /// Extract the package
+  /// Extracts the package
   void _extractPackage() {
     final packageZip =
         File(path.join(AppDataMixin.dataStorageDir(), 'packages.zip'));

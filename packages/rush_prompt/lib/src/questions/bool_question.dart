@@ -3,6 +3,9 @@ import 'package:rush_prompt/rush_prompt.dart';
 import 'package:meta/meta.dart';
 
 class BoolQuestion extends Question {
+  String _question;
+  bool _default;
+
   BoolQuestion({
     @required String id,
     @required String question,
@@ -12,9 +15,6 @@ class BoolQuestion extends Question {
     _question = question;
     _default = defaultAnswer;
   }
-
-  String _question;
-  bool _default;
 
   @override
   List<dynamic> ask() {

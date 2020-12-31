@@ -17,7 +17,7 @@ mixin IsYamlValid {
       'desc': yml['description'],
       'version': yml['version'],
       'assets': yml['assets'],
-      'deps': yml['dependencies'],
+      // 'deps': yml['dependencies'],
     };
 
     for (final entry in valMap.entries) {
@@ -28,7 +28,11 @@ mixin IsYamlValid {
         case 'version':
           if (val is! YamlMap) {
             return false;
-          } else if (val['version'] != 'auto' || val['version'] is! int) {
+          } else if (val['number'] is String) {
+            if (val['number'] != 'auto') {
+              return false;
+            }
+          } else if (val['number'] is! int) {
             return false;
           }
           break;
@@ -41,19 +45,22 @@ mixin IsYamlValid {
           }
           break;
 
-        case 'deps':
-          if (val is! YamlList) {
-            return false;
-          }
-          (val as YamlList).forEach((dep) {
-            if (dep is! YamlMap) {
-              return false;
-            } else if (!(dep as YamlMap).containsKey('group') ||
-                !(dep as YamlMap).containsKey('version')) {
-              return false;
-            }
-          });
-          break;
+        // case 'deps':
+        //   if (val is! YamlList) {
+        //     print(key);
+        //     return false;
+        //   }
+        //   (val as YamlList).forEach((dep) {
+        //     if (dep is! YamlMap) {
+        //     print(key);
+        //       return false;
+        //     } else if (!(dep as YamlMap).containsKey('group') ||
+        //         !(dep as YamlMap).containsKey('version')) {
+        //     print(key);
+        //       return false;
+        //     }
+        //   });
+        //   break;
 
         default:
           if (val is! String) {
