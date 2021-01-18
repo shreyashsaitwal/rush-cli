@@ -1,3 +1,4 @@
+import 'package:dart_console/dart_console.dart';
 import 'package:dio/dio.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 import 'package:path/path.dart' as path;
@@ -26,6 +27,7 @@ mixin DownloadMixin {
     } catch (e) {
       ThrowError(message: e.toString());
     }
+    Console().showCursor();
   }
 
   bool _isSignificantIncrease(int total, int cur, int prev) {

@@ -13,7 +13,7 @@ Future<void> main(List<String> args) async {
   if (args.length < 2 && args.contains('new')) {
     await NewCommand(Directory.current.path).run();
   } else if (args.length < 2 && args.contains('build')) {
-    await BuildCommand(Directory.current.path, 'io.shreyash.phase').run();
+    await BuildCommand(Directory.current.path, 'io.rush', true).run();
   } else {
     exit(2);
   }

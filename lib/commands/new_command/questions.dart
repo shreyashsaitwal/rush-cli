@@ -1,14 +1,14 @@
 import 'package:rush_prompt/rush_prompt.dart';
 
-mixin QuestionsMixin {
-  List<Question> get newCmdQues {
+class Questions {
+  static List<Question> get questions {
     return [
       SimpleQuestion(
         question: 'Extension name',
-        id: 'name',
+        id: 'extName',
       ),
       SimpleQuestion(
-        question: 'Organisation name',
+        question: 'Organisation/Package name',
         id: 'org',
       ),
       SimpleQuestion(
@@ -18,10 +18,6 @@ mixin QuestionsMixin {
       SimpleQuestion(
         question: 'Version name',
         id: 'version',
-      ),
-      SimpleQuestion(
-        question: 'License',
-        id: 'license',
       ),
     ];
   }

@@ -1,4 +1,4 @@
-String generateRushYaml(String name, String versionName, String author) {
+String getRushYaml(String name, String versionName, String author) {
   return '''
 name: $name
 description: Extension component for $name. Created using Rush.
@@ -6,8 +6,6 @@ description: Extension component for $name. Created using Rush.
 version:
   number: auto
   name: $versionName
-
-# min_sdk: 14
 
 assets:
   icon: icon.png        # Extension icon
@@ -18,9 +16,7 @@ authors:
   - $author
 
 # dependencies:
-#   - json:
-#       group: org.json
-#       version: latest
+#   - my_awesome_library.[jar/aar]
 
 ''';
 }

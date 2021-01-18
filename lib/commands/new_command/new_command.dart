@@ -1,20 +1,23 @@
 import 'dart:io' show Directory, File, exit;
 
-import 'package:hive/hive.dart';
 import 'package:path/path.dart' as path;
 import 'package:archive/archive.dart';
 import 'package:dart_casing/dart_casing.dart';
 import 'package:dart_console/dart_console.dart';
+import 'package:rush_cli/commands/new_command/questions.dart';
 import 'package:rush_cli/mixins/app_data_dir_mixin.dart';
 import 'package:rush_cli/mixins/copy_mixin.dart';
 import 'package:rush_cli/mixins/download_mixin.dart';
-import 'package:rush_cli/mixins/new_cmd_ques_mixin.dart';
+import 'package:rush_cli/templates/android_manifest.dart';
+import 'package:rush_cli/templates/dot_classpath_template.dart';
+import 'package:rush_cli/templates/dot_gitignore.dart';
+import 'package:rush_cli/templates/readme.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
 import 'package:rush_cli/templates/rush_yaml_template.dart';
 import 'package:rush_cli/templates/extension_template.dart';
 
-class NewCommand with DownloadMixin, AppDataMixin, QuestionsMixin, CopyMixin {
+class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
   final String _currentDir;
 
   NewCommand(this._currentDir) {
@@ -25,7 +28,7 @@ class NewCommand with DownloadMixin, AppDataMixin, QuestionsMixin, CopyMixin {
   Future<void> run() async {
     await _checkPackage();
 
-    final answers = RushPrompt(questions: newCmdQues).askAll();
+    final answers = RushPrompt(questions: Questions.questions).askAll();
     final extName = answers[0][1].toString().trim();
     final orgName = answers[1][1].toString().trim();
     final authorName = answers[2][1].toString().trim();
@@ -50,41 +53,53 @@ class NewCommand with DownloadMixin, AppDataMixin, QuestionsMixin, CopyMixin {
           ),
         );
 
-      File(path.join(_currentDir, Casing.camelCase(extName), 'rush.yaml'))
+      File(path.join(_currentDir, Casing.camelCase(extName), 'rush.yml'))
         ..createSync(recursive: true)
         ..writeAsStringSync(
-          generateRushYaml(extName, versionName, authorName),
+          getRushYaml(extName, versionName, authorName),
         );
 
-      Directory(path.join(_currentDir, Casing.camelCase(extName), 'dev-deps'))
-          .createSync();
+      File(path.join(_currentDir, Casing.camelCase(extName), '.gitignore'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          getDotGitignore(),
+        );
 
-      Directory(
-              path.join(_currentDir, Casing.camelCase(extName), 'dependencies'))
-          .createSync();
+      File(path.join(_currentDir, Casing.camelCase(extName), 'README.md'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          getReadme(extName),
+        );
+
+      File(path.join(
+          _currentDir, Casing.camelCase(extName), 'AndroidManifest.xml'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          getManifestXml(orgName),
+        );
     } catch (e) {
-      ThrowError(message: e);
+      ThrowError(message: 'ERR : ' + e.toString());
     }
 
-    // Create a Hive box for this extension
-    final extBox = await Hive.openBox(extName);
-    await extBox.putAll({
-      'version': 1,
-      'lastMod': DateTime.now().toString(),
-      'desAnn': '',
-      'astAnn': '',
-      'icon': '',
-    });
+    try {
+      Directory(path.join(_currentDir, Casing.camelCase(extName),
+              'dependencies', 'dev-deps'))
+          .createSync(recursive: true);
+
+      Directory(path.join(_currentDir, Casing.camelCase(extName), 'assets'))
+          .createSync(recursive: true);
+    } catch (e) {
+      ThrowError(message: 'ERR : ' + e.toString());
+    }
 
     // Dir where all the dev dependencies live in cache form.
     final devDepsDirPath = path.join(AppDataMixin.dataStorageDir(), 'dev-deps');
 
     // Copy the dev-deps from the cache.
-    copyDirWithProg(
+    copyDir(
         Directory(devDepsDirPath),
-        Directory(
-            path.join(_currentDir, Casing.camelCase(extName), 'dev-deps')),
-        '  Getting things ready...');
+        Directory(path.join(_currentDir, Casing.camelCase(extName),
+            'dependencies', 'dev-deps')));
 
     exit(0);
   }

@@ -1,6 +1,7 @@
 # Files and directories created by pub
 .dart_tool/
 .packages
+.idea
 
 # Conventional directory for build outputs
 build/
@@ -9,3 +10,5 @@ build/
 doc/api/
 
 misc/
+
+*.iml
