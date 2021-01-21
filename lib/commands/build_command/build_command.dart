@@ -1,8 +1,9 @@
 import 'dart:io';
 
+import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/commands/build_command/model/ant_args.dart';
+import 'package:rush_cli/commands/build_command/ant_args.dart';
 
 import 'package:rush_cli/mixins/app_data_dir_mixin.dart';
 import 'package:rush_cli/mixins/copy_mixin.dart';
@@ -24,7 +25,9 @@ class BuildCommand with AppDataMixin, CopyMixin {
 
     final manifestFile = File(p.join(_currentDir, 'AndroidManifest.xml'));
     if (!manifestFile.existsSync()) {
-      ThrowError(message: 'ERR : Unable to find AndroidManifest.xml file in this project.');
+      ThrowError(
+          message:
+              'ERR : Unable to find AndroidManifest.xml file in this project.');
     }
 
     var ymlLastMod = GetRushYaml.file(_currentDir).lastModifiedSync();
@@ -45,9 +48,14 @@ class BuildCommand with AppDataMixin, CopyMixin {
       });
     }
 
-    if (ymlLastMod.isAfter(extBox.get('rushYmlMod')) || manifestLastMod.isAfter(extBox.get('manifestMod'))) {
-      _cleanBuildDir(dataDir);
-    }
+    // TODO:
+    // Delete the build dir if there are any changes in the
+    // rush.yml or Android Manifest file.
+
+    // if (ymlLastMod.isAfter(extBox.get('rushYmlMod')) ||
+    //     manifestLastMod.isAfter(extBox.get('manifestMod'))) {
+    //   _cleanBuildDir(dataDir);
+    // }
 
     // Increment version number if this is a production build
     if (_isProd) {
@@ -55,21 +63,22 @@ class BuildCommand with AppDataMixin, CopyMixin {
       await extBox.put('version', version);
     }
 
-    final args =
-        AntArgs(dataDir, _currentDir, _extType, extBox.get('version').toString(), rushYml['name'])
-            .toList();
+    final args = AntArgs(dataDir, _currentDir, _extType,
+        extBox.get('version').toString(), rushYml['name']);
 
-    // Run the Ant executable
-    Process.run(pathToAntEx, args, runInShell: true)
-        .asStream()
-        // .asBroadcastStream()
-        .listen((data) {
-      stdout.writeln(data.stdout);
-    }, onError: (error) {
-      stderr.writeln(error);
-    }, onDone: () {
-      // TODO
+    Process.start('ant', args.toList(), runInShell: Platform.isWindows)
+    .asStream()
+    .asBroadcastStream()
+    .listen((process) {
+      process.stdout.asBroadcastStream().listen((data) {
+        var out = '';
+        data.forEach((code) {
+          out += String.fromCharCode(code);
+        });
+        print(out);
+      });
     });
+    Console().resetColorAttributes();
   }
 
   void _cleanBuildDir(String dataDir) {
@@ -77,7 +86,9 @@ class BuildCommand with AppDataMixin, CopyMixin {
     try {
       buildDir.deleteSync(recursive: true);
     } catch (e) {
-      ThrowError(message: 'ERR : Something went wrong while invalidating build caches.');
+      ThrowError(
+          message:
+              'ERR: Something went wrong while invalidating build caches.');
     }
   }
 }
