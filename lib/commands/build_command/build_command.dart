@@ -4,6 +4,7 @@ import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build_command/ant_args.dart';
+import 'package:rush_cli/javac/parser.dart';
 
 import 'package:rush_cli/mixins/app_data_dir_mixin.dart';
 import 'package:rush_cli/mixins/copy_mixin.dart';
@@ -66,6 +67,8 @@ class BuildCommand with AppDataMixin, CopyMixin {
     final args = AntArgs(dataDir, _currentDir, _extType,
         extBox.get('version').toString(), rushYml['name']);
 
+    final parser = JParser();
+    var count = 0;
     Process.start('ant', args.toList(), runInShell: Platform.isWindows)
     .asStream()
     .asBroadcastStream()
@@ -75,7 +78,11 @@ class BuildCommand with AppDataMixin, CopyMixin {
         data.forEach((code) {
           out += String.fromCharCode(code);
         });
-        print(out);
+        // print(out);
+        // print('******************** $count');
+        // count++;
+        parser.setMsg = out;
+        parser.parse();
       });
     });
     Console().resetColorAttributes();
