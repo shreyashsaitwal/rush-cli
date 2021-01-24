@@ -4,6 +4,7 @@ import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build_command/ant_args.dart';
+import 'package:rush_cli/javac_errors/err_data.dart';
 
 import 'package:rush_cli/mixins/app_data_dir_mixin.dart';
 import 'package:rush_cli/mixins/copy_mixin.dart';
@@ -21,13 +22,12 @@ class BuildCommand with AppDataMixin, CopyMixin {
   Future<void> run() async {
     final rushYml = GetRushYaml.data(_currentDir);
     final dataDir = AppDataMixin.dataStorageDir();
-    final pathToAntEx = p.join(dataDir, 'tools', 'apache-ant', 'bin', 'ant');
 
     final manifestFile = File(p.join(_currentDir, 'AndroidManifest.xml'));
     if (!manifestFile.existsSync()) {
       ThrowError(
           message:
-              'ERR : Unable to find AndroidManifest.xml file in this project.');
+              'ERR: Unable to find AndroidManifest.xml file in this project.');
     }
 
     var ymlLastMod = GetRushYaml.file(_currentDir).lastModifiedSync();
@@ -63,22 +63,69 @@ class BuildCommand with AppDataMixin, CopyMixin {
       await extBox.put('version', version);
     }
 
+    // Args for spawning the Apache Ant process
     final args = AntArgs(dataDir, _currentDir, _extType,
         extBox.get('version').toString(), rushYml['name']);
 
-    Process.start('ant', args.toList(), runInShell: Platform.isWindows)
-    .asStream()
-    .asBroadcastStream()
-    .listen((process) {
+    final console = Console();
+    var count = 0;
+
+    final pathToAntEx = p.join(dataDir, 'tools', 'apache-ant', 'bin', 'ant');
+    // Run the Apache Ant executable
+    Process.start(pathToAntEx, args.toList(), runInShell: Platform.isWindows)
+        .asStream()
+        .asBroadcastStream()
+        .listen((process) {
+      // Listen to the stream of stdout
       process.stdout.asBroadcastStream().listen((data) {
-        var out = '';
-        data.forEach((code) {
-          out += String.fromCharCode(code);
-        });
-        print(out);
+        // data is in decimal form, we need to format it.
+        final formatted = _format(data);
+
+        // formatted is a list of output messages.
+        // Go through each of them, and it's the start of error, part of error, or
+        // something else (simple output).
+        for (final out in formatted) {
+          final lines = ErrData.getNoOfLines(out);
+
+          // If lines is the not null then it means that out is infact the first
+          // line of the error.
+          if (lines != null) {
+            count = lines - 1;
+            console
+              ..writeLine()
+              ..setBackgroundColor(ConsoleColor.red)
+              ..setForegroundColor(ConsoleColor.brightWhite)
+              ..write('\tERR')
+              ..resetColorAttributes()
+              ..setForegroundColor(ConsoleColor.red)
+              ..writeErrorLine(' src' + out.split('src')[1]);
+          } else if (count > 0) {
+            // If count is greater than 0, then it means that out is remaining part
+            // of the previously identified error.
+            count--;
+            console.writeErrorLine('\t' + out);
+          } else {
+            // If none of the above conditions are true, out is not an error.
+            console
+              ..resetColorAttributes()
+              ..writeLine(out);
+          }
+        }
       });
     });
-    Console().resetColorAttributes();
+  }
+
+  /// Converts the given list of decimal char codes into string list and removes
+  /// empty lines from it.
+  List<String> _format(List<int> charcodes) {
+    final stringified = String.fromCharCodes(charcodes);
+    final List res = <String>[];
+    stringified.split('\r\n').forEach((el) {
+      if ('$el'.trim().isNotEmpty) {
+        res.add(el.trimRight().replaceAll('[javac]', ''));
+      }
+    });
+    return res;
   }
 
   void _cleanBuildDir(String dataDir) {
