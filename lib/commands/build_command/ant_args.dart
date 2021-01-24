@@ -68,7 +68,7 @@ class AntArgs {
     final args = <String>[];
     final workspaces = p.join(dataDirPath, 'workspaces');
 
-    // args.add('javac');
+    // args.add('-q');
     args.add(
         '-buildfile=${p.join(dataDirPath, 'tools', 'apache-ant', 'build.xml')}');
 
