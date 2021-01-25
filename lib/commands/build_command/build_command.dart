@@ -8,8 +8,9 @@ import 'package:rush_cli/javac_errors/err_data.dart';
 
 import 'package:rush_cli/mixins/app_data_dir_mixin.dart';
 import 'package:rush_cli/mixins/copy_mixin.dart';
-import 'package:rush_cli/mixins/get_rush_yaml.dart';
+import 'package:rush_cli/mixins/is_yaml_valid.dart';
 import 'package:rush_prompt/rush_prompt.dart';
+import 'package:yaml/yaml.dart';
 
 class BuildCommand with AppDataMixin, CopyMixin {
   final String _currentDir;
@@ -20,20 +21,65 @@ class BuildCommand with AppDataMixin, CopyMixin {
 
   /// Builds the extension in the current directory
   Future<void> run() async {
-    final rushYml = GetRushYaml.data(_currentDir);
+    final console = Console();
+    console
+      // ..write(Emojis.checkMark + ' ')
+      ..setForegroundColor(ConsoleColor.brightGreen)
+      ..write('[0/4] ')
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..writeLine('Validating project files...')
+      ..resetColorAttributes();
+
+    File rushYml;
+    if (File(p.join(_currentDir, 'rush.yaml')).existsSync()) {
+      rushYml = File(p.join(_currentDir, 'rush.yaml'));
+    } else if (File(p.join(_currentDir, 'rush.yml')).existsSync()) {
+      rushYml = File(p.join(_currentDir, 'rush.yml'));
+    } else {
+      console
+        ..cursorUp()
+        ..eraseLine()
+        // ..write(Emojis.crossMark + ' ')
+        ..setForegroundColor(ConsoleColor.red)
+        ..write('[0/4] ')
+        ..writeLine('Unable to find rush.yml in this extension project.')
+        ..resetColorAttributes();
+      exit(1);
+    }
+
+    if (!IsYamlValid.check(rushYml)) {
+      console
+        ..cursorUp()
+        ..eraseLine()
+        // ..write(Emojis.crossMark + ' ')
+        ..setForegroundColor(ConsoleColor.red)
+        ..write('[0/4] ')
+        ..writeLine('rush.yml in this extension project is invalid.')
+        ..resetColorAttributes();
+      exit(1);
+    }
+
     final dataDir = AppDataMixin.dataStorageDir();
 
     final manifestFile = File(p.join(_currentDir, 'AndroidManifest.xml'));
     if (!manifestFile.existsSync()) {
-      ThrowError(
-          message:
-              'ERR: Unable to find AndroidManifest.xml file in this project.');
+      console
+        ..cursorUp()
+        ..eraseLine()
+        // ..write(Emojis.crossMark + ' ')
+        ..setForegroundColor(ConsoleColor.red)
+        ..write('[0/4] ')
+        ..writeLine(
+            'Unable to find AndroidManifest.xml in this extension project.')
+        ..resetColorAttributes();
+      exit(1);
     }
 
-    var ymlLastMod = GetRushYaml.file(_currentDir).lastModifiedSync();
+    var ymlLastMod = rushYml.lastModifiedSync();
     var manifestLastMod = manifestFile.lastModifiedSync();
 
-    var extBox = await Hive.openBox(rushYml['name']);
+    final loadedYml = loadYaml(rushYml.readAsStringSync());
+    var extBox = await Hive.openBox(loadedYml['name']);
     if (!extBox.containsKey('version')) {
       await extBox.putAll({
         'version': 1,
@@ -65,31 +111,39 @@ class BuildCommand with AppDataMixin, CopyMixin {
 
     // Args for spawning the Apache Ant process
     final args = AntArgs(dataDir, _currentDir, _extType,
-        extBox.get('version').toString(), rushYml['name']);
+        extBox.get('version').toString(), loadedYml['name']);
 
-    final console = Console();
     var count = 0;
+    var gotErr = false;
 
     final pathToAntEx = p.join(dataDir, 'tools', 'apache-ant', 'bin', 'ant');
-    // Run the Apache Ant executable
-    Process.start(pathToAntEx, args.toList(), runInShell: Platform.isWindows)
+
+    console
+      // ..write(Emojis.gear)
+      ..setForegroundColor(ConsoleColor.brightGreen)
+      ..write('[1/4] ')
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..writeLine('Compiling extension...')
+      ..resetColorAttributes();
+    Process.start(pathToAntEx, args.toList('javac'),
+            runInShell: Platform.isWindows)
         .asStream()
         .asBroadcastStream()
         .listen((process) {
-      // Listen to the stream of stdout
       process.stdout.asBroadcastStream().listen((data) {
         // data is in decimal form, we need to format it.
         final formatted = _format(data);
 
         // formatted is a list of output messages.
-        // Go through each of them, and it's the start of error, part of error, or
-        // something else (simple output).
+        // Go through each of them, and check if it's the start of error, part
+        // of error, or a warning.
         for (final out in formatted) {
           final lines = ErrData.getNoOfLines(out);
 
           // If lines is the not null then it means that out is infact the first
           // line of the error.
           if (lines != null) {
+            gotErr = true;
             count = lines - 1;
             console
               ..writeLine()
@@ -105,14 +159,59 @@ class BuildCommand with AppDataMixin, CopyMixin {
             count--;
             console.writeErrorLine('\t' + out);
           } else {
+            // TODO: Check for warnings
+
             // If none of the above conditions are true, out is not an error.
-            console
-              ..resetColorAttributes()
-              ..writeLine(out);
+            // console
+            //   ..resetColorAttributes()
+            //   ..writeLine(out);
           }
+        }
+      }, onDone: () {
+        if (!gotErr) {
+          console
+            // ..write(Emojis.mantelpieceClock)
+            ..setForegroundColor(ConsoleColor.brightGreen)
+            ..write('[2/4] ')
+            ..setForegroundColor(ConsoleColor.brightWhite)
+            ..writeLine('Processing generated files...');
+          Process.start(pathToAntEx, args.toList('process'),
+                  runInShell: Platform.isWindows)
+              .asStream()
+              .asBroadcastStream()
+              .listen((_) {}, onDone: () {
+            console
+              // ..write(Emojis.sparkles)
+              ..setForegroundColor(ConsoleColor.brightGreen)
+              ..write('[3/4] ')
+              ..setForegroundColor(ConsoleColor.brightWhite)
+              ..writeLine('Compiling Java bytecode to DEX bytecode...');
+            Process.start(pathToAntEx, args.toList('dex'),
+                    runInShell: Platform.isWindows)
+                .asStream()
+                .asBroadcastStream()
+                .listen((_) {}, onDone: () {
+              console
+                // ..write(Emojis.unicorn)
+                ..setForegroundColor(ConsoleColor.brightGreen)
+                ..write('[4/4] ')
+                ..setForegroundColor(ConsoleColor.brightWhite)
+                ..writeLine('Finalizing the build...');
+              Process.start(pathToAntEx, args.toList('assemble'),
+                      runInShell: Platform.isWindows)
+                  .asStream()
+                  .asBroadcastStream()
+                  .listen((_) {}, onDone: () {
+                exit(0);
+              });
+            });
+          });
         }
       });
     });
+    // if (!gotErr) {
+
+    // }
   }
 
   /// Converts the given list of decimal char codes into string list and removes
