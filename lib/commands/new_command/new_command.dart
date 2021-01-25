@@ -9,7 +9,6 @@ import 'package:rush_cli/mixins/app_data_dir_mixin.dart';
 import 'package:rush_cli/mixins/copy_mixin.dart';
 import 'package:rush_cli/mixins/download_mixin.dart';
 import 'package:rush_cli/templates/android_manifest.dart';
-import 'package:rush_cli/templates/dot_classpath_template.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
 import 'package:rush_cli/templates/readme.dart';
 
@@ -18,9 +17,9 @@ import 'package:rush_cli/templates/rush_yaml_template.dart';
 import 'package:rush_cli/templates/extension_template.dart';
 
 class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
-  final String _currentDir;
+  final String _cd;
 
-  NewCommand(this._currentDir) {
+  NewCommand(this._cd) {
     run();
   }
 
@@ -35,7 +34,7 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
     final versionName = answers[3][1].toString().trim();
 
     final extPath = path.joinAll([
-      _currentDir,
+      _cd,
       Casing.camelCase(extName),
       'src',
       ...orgName.split('.'),
@@ -53,26 +52,26 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
           ),
         );
 
-      File(path.join(_currentDir, Casing.camelCase(extName), 'rush.yml'))
+      File(path.join(_cd, Casing.camelCase(extName), 'rush.yml'))
         ..createSync(recursive: true)
         ..writeAsStringSync(
           getRushYaml(extName, versionName, authorName),
         );
 
-      File(path.join(_currentDir, Casing.camelCase(extName), '.gitignore'))
+      File(path.join(_cd, Casing.camelCase(extName), '.gitignore'))
         ..createSync(recursive: true)
         ..writeAsStringSync(
           getDotGitignore(),
         );
 
-      File(path.join(_currentDir, Casing.camelCase(extName), 'README.md'))
+      File(path.join(_cd, Casing.camelCase(extName), 'README.md'))
         ..createSync(recursive: true)
         ..writeAsStringSync(
           getReadme(extName),
         );
 
       File(path.join(
-          _currentDir, Casing.camelCase(extName), 'AndroidManifest.xml'))
+          _cd, Casing.camelCase(extName), 'AndroidManifest.xml'))
         ..createSync(recursive: true)
         ..writeAsStringSync(
           getManifestXml(orgName),
@@ -82,11 +81,11 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
     }
 
     try {
-      Directory(path.join(_currentDir, Casing.camelCase(extName),
+      Directory(path.join(_cd, Casing.camelCase(extName),
               'dependencies', 'dev-deps'))
           .createSync(recursive: true);
 
-      Directory(path.join(_currentDir, Casing.camelCase(extName), 'assets'))
+      Directory(path.join(_cd, Casing.camelCase(extName), 'assets'))
           .createSync(recursive: true);
     } catch (e) {
       ThrowError(message: 'ERR : ' + e.toString());
@@ -98,7 +97,7 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
     // Copy the dev-deps from the cache.
     copyDir(
         Directory(devDepsDirPath),
-        Directory(path.join(_currentDir, Casing.camelCase(extName),
+        Directory(path.join(_cd, Casing.camelCase(extName),
             'dependencies', 'dev-deps')));
 
     exit(0);

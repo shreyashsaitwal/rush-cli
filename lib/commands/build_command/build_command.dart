@@ -13,11 +13,11 @@ import 'package:rush_prompt/rush_prompt.dart';
 import 'package:yaml/yaml.dart';
 
 class BuildCommand with AppDataMixin, CopyMixin {
-  final String _currentDir;
+  final String _cd;
   final String _extType;
   final bool _isProd;
 
-  BuildCommand(this._currentDir, this._extType, this._isProd);
+  BuildCommand(this._cd, this._extType, this._isProd);
 
   /// Builds the extension in the current directory
   Future<void> run() async {
@@ -31,10 +31,10 @@ class BuildCommand with AppDataMixin, CopyMixin {
       ..resetColorAttributes();
 
     File rushYml;
-    if (File(p.join(_currentDir, 'rush.yaml')).existsSync()) {
-      rushYml = File(p.join(_currentDir, 'rush.yaml'));
-    } else if (File(p.join(_currentDir, 'rush.yml')).existsSync()) {
-      rushYml = File(p.join(_currentDir, 'rush.yml'));
+    if (File(p.join(_cd, 'rush.yaml')).existsSync()) {
+      rushYml = File(p.join(_cd, 'rush.yaml'));
+    } else if (File(p.join(_cd, 'rush.yml')).existsSync()) {
+      rushYml = File(p.join(_cd, 'rush.yml'));
     } else {
       console
         ..cursorUp()
@@ -61,7 +61,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
 
     final dataDir = AppDataMixin.dataStorageDir();
 
-    final manifestFile = File(p.join(_currentDir, 'AndroidManifest.xml'));
+    final manifestFile = File(p.join(_cd, 'AndroidManifest.xml'));
     if (!manifestFile.existsSync()) {
       console
         ..cursorUp()
@@ -110,7 +110,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
     }
 
     // Args for spawning the Apache Ant process
-    final args = AntArgs(dataDir, _currentDir, _extType,
+    final args = AntArgs(dataDir, _cd, _extType,
         extBox.get('version').toString(), loadedYml['name']);
 
     var count = 0;
