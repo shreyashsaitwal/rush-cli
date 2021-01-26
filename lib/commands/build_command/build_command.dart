@@ -21,14 +21,8 @@ class BuildCommand with AppDataMixin, CopyMixin {
 
   /// Builds the extension in the current directory
   Future<void> run() async {
-    final console = Console();
-    console
-      // ..write(Emojis.checkMark + ' ')
-      ..setForegroundColor(ConsoleColor.brightGreen)
-      ..write('[0/4] ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
-      ..writeLine('Validating project files...')
-      ..resetColorAttributes();
+    final valStep = BuildStep('Validating project files', '[0/4]');
+    valStep.init();
 
     File rushYml;
     if (File(p.join(_cd, 'rush.yaml')).existsSync()) {
@@ -36,26 +30,16 @@ class BuildCommand with AppDataMixin, CopyMixin {
     } else if (File(p.join(_cd, 'rush.yml')).existsSync()) {
       rushYml = File(p.join(_cd, 'rush.yml'));
     } else {
-      console
-        ..cursorUp()
-        ..eraseLine()
-        // ..write(Emojis.crossMark + ' ')
-        ..setForegroundColor(ConsoleColor.red)
-        ..write('[0/4] ')
-        ..writeLine('Unable to find rush.yml in this extension project.')
-        ..resetColorAttributes();
+      valStep
+        ..add('Metadata file (rush.yml) not found', ConsoleColor.red, false)
+        ..finish('Failed', ConsoleColor.red);
       exit(1);
     }
 
     if (!IsYamlValid.check(rushYml)) {
-      console
-        ..cursorUp()
-        ..eraseLine()
-        // ..write(Emojis.crossMark + ' ')
-        ..setForegroundColor(ConsoleColor.red)
-        ..write('[0/4] ')
-        ..writeLine('rush.yml in this extension project is invalid.')
-        ..resetColorAttributes();
+      valStep
+        ..add('Metadata file (rush.yml) is invalid', ConsoleColor.red, false)
+        ..finish('Failed', ConsoleColor.red);
       exit(1);
     }
 
@@ -63,17 +47,12 @@ class BuildCommand with AppDataMixin, CopyMixin {
 
     final manifestFile = File(p.join(_cd, 'AndroidManifest.xml'));
     if (!manifestFile.existsSync()) {
-      console
-        ..cursorUp()
-        ..eraseLine()
-        // ..write(Emojis.crossMark + ' ')
-        ..setForegroundColor(ConsoleColor.red)
-        ..write('[0/4] ')
-        ..writeLine(
-            'Unable to find AndroidManifest.xml in this extension project.')
-        ..resetColorAttributes();
+      valStep
+        ..add('AndroidManifest.xml not found', ConsoleColor.red, false)
+        ..finish('Failed', ConsoleColor.red);
       exit(1);
     }
+    valStep.finish('Done', ConsoleColor.brightGreen);
 
     var ymlLastMod = rushYml.lastModifiedSync();
     var manifestLastMod = manifestFile.lastModifiedSync();
@@ -114,17 +93,13 @@ class BuildCommand with AppDataMixin, CopyMixin {
         extBox.get('version').toString(), loadedYml['name']);
 
     var count = 0;
-    var gotErr = false;
+    var errCount = 0;
 
     final pathToAntEx = p.join(dataDir, 'tools', 'apache-ant', 'bin', 'ant');
 
-    console
-      // ..write(Emojis.gear)
-      ..setForegroundColor(ConsoleColor.brightGreen)
-      ..write('[1/4] ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
-      ..writeLine('Compiling extension...')
-      ..resetColorAttributes();
+    final compStep = BuildStep('Compiling Java sources', '[1/4]');
+    compStep.init();
+
     Process.start(pathToAntEx, args.toList('javac'),
             runInShell: Platform.isWindows)
         .asStream()
@@ -143,21 +118,15 @@ class BuildCommand with AppDataMixin, CopyMixin {
           // If lines is the not null then it means that out is infact the first
           // line of the error.
           if (lines != null) {
-            gotErr = true;
             count = lines - 1;
-            console
-              ..writeLine()
-              ..setBackgroundColor(ConsoleColor.red)
-              ..setForegroundColor(ConsoleColor.brightWhite)
-              ..write('\tERR')
-              ..resetColorAttributes()
-              ..setForegroundColor(ConsoleColor.red)
-              ..writeErrorLine(' src' + out.split('src')[1]);
+            errCount++;
+            compStep.add(' src' + out.split('src')[1], ConsoleColor.red, true,
+                prefix: 'ERR', prefClr: ConsoleColor.red);
           } else if (count > 0) {
             // If count is greater than 0, then it means that out is remaining part
             // of the previously identified error.
             count--;
-            console.writeErrorLine('\t' + out);
+            compStep.add(out, ConsoleColor.red, false);
           } else {
             // TODO: Check for warnings
 
@@ -168,40 +137,62 @@ class BuildCommand with AppDataMixin, CopyMixin {
           }
         }
       }, onDone: () {
-        if (!gotErr) {
-          console
-            // ..write(Emojis.mantelpieceClock)
-            ..setForegroundColor(ConsoleColor.brightGreen)
-            ..write('[2/4] ')
-            ..setForegroundColor(ConsoleColor.brightWhite)
-            ..writeLine('Processing generated files...');
+        if (errCount > 0) {
+          compStep
+            ..add('Total errors: $errCount', ConsoleColor.red, true)
+            ..finish('Failed', ConsoleColor.red);
+          exit(1);
+        } else {
+          compStep.finish('Done', ConsoleColor.brightGreen);
+
+          // Process step
+          final procStep = BuildStep('Generating metadata files', '[2/4]');
+          procStep.init();
+
           Process.start(pathToAntEx, args.toList('process'),
                   runInShell: Platform.isWindows)
               .asStream()
               .asBroadcastStream()
-              .listen((_) {}, onDone: () {
-            console
-              // ..write(Emojis.sparkles)
-              ..setForegroundColor(ConsoleColor.brightGreen)
-              ..write('[3/4] ')
-              ..setForegroundColor(ConsoleColor.brightWhite)
-              ..writeLine('Compiling Java bytecode to DEX bytecode...');
+              .listen((_) {}, onError: (_) {
+            procStep
+              ..add('An internal error occured', ConsoleColor.brightBlack, false)
+              ..finish('Failed', ConsoleColor.red);
+            exit(2);
+          }, onDone: () {
+            procStep.finish('Done', ConsoleColor.brightGreen);
+
+            // Dex step
+            final dexStep =
+                BuildStep('Converting Java bytecode to DEX bytecode', '[3/4]');
+            dexStep.init();
+
             Process.start(pathToAntEx, args.toList('dex'),
                     runInShell: Platform.isWindows)
                 .asStream()
                 .asBroadcastStream()
-                .listen((_) {}, onDone: () {
-              console
-                // ..write(Emojis.unicorn)
-                ..setForegroundColor(ConsoleColor.brightGreen)
-                ..write('[4/4] ')
-                ..setForegroundColor(ConsoleColor.brightWhite)
-                ..writeLine('Finalizing the build...');
+                .listen((_) {}, onError: (_) {
+              dexStep
+                ..add('An internal error occured', ConsoleColor.brightBlack, false)
+                ..finish('Failed', ConsoleColor.red);
+              exit(2);
+            }, onDone: () {
+              dexStep.finish('Done', ConsoleColor.brightGreen);
+
+              // Assemble step
+              final asmStep = BuildStep('Finalizing the build', '[4/4]');
+              asmStep.init();
+
               Process.start(pathToAntEx, args.toList('assemble'),
                       runInShell: Platform.isWindows)
                   .asStream()
                   .asBroadcastStream()
-                  .listen((_) {}, onDone: () {
+                  .listen((_) {}, onError: (_) {
+                asmStep
+                  ..add('An internal error occured', ConsoleColor.brightBlack, false)
+                  ..finish('Failed', ConsoleColor.red);
+                exit(2);
+              }, onDone: () {
+                asmStep.finish('Done', ConsoleColor.brightGreen);
                 exit(0);
               });
             });

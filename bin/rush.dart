@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 
@@ -19,3 +20,22 @@ Future<void> main(List<String> args) async {
   }
 }
 
+// void main() {
+//   final console = Console();
+//   console
+//     ..setForegroundColor(ConsoleColor.green)
+//     // ..write(' ' * 8 + 'shb')
+//     ..resetColorAttributes()
+//     ..write('      ┌')
+//     ..setForegroundColor(ConsoleColor.brightWhite)
+//     ..writeLine(' Compiling the extension.')
+//     ..resetColorAttributes()
+//     ..writeLine('[0/4] │')
+//     ..writeLine('      │')
+//     ..writeLine('      │')
+//     ..write('      └─')
+//     ..setForegroundColor(ConsoleColor.brightGreen)
+//     ..writeLine(' Done')
+//     ..resetColorAttributes();
+
+// }
