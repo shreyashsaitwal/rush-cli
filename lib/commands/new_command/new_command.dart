@@ -33,12 +33,15 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
     final authorName = answers[2][1].toString().trim();
     final versionName = answers[3][1].toString().trim();
 
+    final isOrgAndNameSame =
+        orgName.split('.').last == Casing.camelCase(extName);
+
     final extPath = path.joinAll([
       _cd,
       Casing.camelCase(extName),
       'src',
       ...orgName.split('.'),
-      Casing.camelCase(extName),
+      if (!isOrgAndNameSame) Casing.camelCase(extName),
     ]);
 
     // Creates the required files for the extension.
@@ -71,7 +74,7 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
         );
 
       File(path.join(
-          _cd, Casing.camelCase(extName), 'AndroidManifest.xml'))
+          _cd, Casing.camelCase(extName), 'src', 'AndroidManifest.xml'))
         ..createSync(recursive: true)
         ..writeAsStringSync(
           getManifestXml(orgName),
@@ -81,14 +84,14 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
     }
 
     try {
-      Directory(path.join(_cd, Casing.camelCase(extName),
-              'dependencies', 'dev-deps'))
+      Directory(path.join(
+              _cd, Casing.camelCase(extName), 'dependencies', 'dev-deps'))
           .createSync(recursive: true);
 
       Directory(path.join(_cd, Casing.camelCase(extName), 'assets'))
           .createSync(recursive: true);
     } catch (e) {
-      ThrowError(message: 'ERR : ' + e.toString());
+      ThrowError(message: 'ERR: ' + e.toString());
     }
 
     // Dir where all the dev dependencies live in cache form.
@@ -97,8 +100,8 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
     // Copy the dev-deps from the cache.
     copyDir(
         Directory(devDepsDirPath),
-        Directory(path.join(_cd, Casing.camelCase(extName),
-            'dependencies', 'dev-deps')));
+        Directory(path.join(
+            _cd, Casing.camelCase(extName), 'dependencies', 'dev-deps')));
 
     exit(0);
   }

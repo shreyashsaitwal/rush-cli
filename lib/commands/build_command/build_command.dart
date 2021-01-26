@@ -45,7 +45,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
 
     final dataDir = AppDataMixin.dataStorageDir();
 
-    final manifestFile = File(p.join(_cd, 'AndroidManifest.xml'));
+    final manifestFile = File(p.join(_cd, 'src', 'AndroidManifest.xml'));
     if (!manifestFile.existsSync()) {
       valStep
         ..add('AndroidManifest.xml not found', ConsoleColor.red, false)
@@ -98,6 +98,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
 
     final pathToAntEx = p.join(dataDir, 'tools', 'apache-ant', 'bin', 'ant');
 
+    // Compilation step
     final compStep = BuildStep('Compiling Java sources', '[1/4]');
     compStep.init();
 
