@@ -94,6 +94,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
 
     var count = 0;
     var errCount = 0;
+    var warnCount = 0;
 
     final pathToAntEx = p.join(dataDir, 'tools', 'apache-ant', 'bin', 'ant');
 
@@ -120,7 +121,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
           if (lines != null) {
             count = lines - 1;
             errCount++;
-            compStep.add(' src' + out.split('src')[1], ConsoleColor.red, true,
+            compStep.add('src' + out.split('src')[1], ConsoleColor.red, true,
                 prefix: 'ERR', prefClr: ConsoleColor.red);
           } else if (count > 0) {
             // If count is greater than 0, then it means that out is remaining part
@@ -128,24 +129,28 @@ class BuildCommand with AppDataMixin, CopyMixin {
             count--;
             compStep.add(out, ConsoleColor.red, false);
           } else {
-            // TODO: Check for warnings
-
-            // If none of the above conditions are true, out is not an error.
-            // console
-            //   ..resetColorAttributes()
-            //   ..writeLine(out);
+            if (out.contains('warning:')) {
+              warnCount++;
+              compStep.add(out.replaceAll('warning:', '').trim(),
+                  ConsoleColor.yellow, true,
+                  prefix: 'WARN', prefClr: ConsoleColor.yellow);
+            }
           }
         }
       }, onDone: () {
+        if (warnCount > 0) {
+          compStep.add('Total warnings: $warnCount', ConsoleColor.yellow, true);
+        }
         if (errCount > 0) {
           compStep
-            ..add('Total errors: $errCount', ConsoleColor.red, true)
+            ..add('Total errors: $errCount', ConsoleColor.red,
+                warnCount <= 0)
             ..finish('Failed', ConsoleColor.red);
           exit(1);
         } else {
           compStep.finish('Done', ConsoleColor.brightGreen);
 
-          // Process step
+          //? Process step
           final procStep = BuildStep('Generating metadata files', '[2/4]');
           procStep.init();
 
@@ -155,13 +160,14 @@ class BuildCommand with AppDataMixin, CopyMixin {
               .asBroadcastStream()
               .listen((_) {}, onError: (_) {
             procStep
-              ..add('An internal error occured', ConsoleColor.brightBlack, false)
+              ..add(
+                  'An internal error occured', ConsoleColor.brightBlack, false)
               ..finish('Failed', ConsoleColor.red);
             exit(2);
           }, onDone: () {
             procStep.finish('Done', ConsoleColor.brightGreen);
 
-            // Dex step
+            //? Dex step
             final dexStep =
                 BuildStep('Converting Java bytecode to DEX bytecode', '[3/4]');
             dexStep.init();
@@ -172,13 +178,14 @@ class BuildCommand with AppDataMixin, CopyMixin {
                 .asBroadcastStream()
                 .listen((_) {}, onError: (_) {
               dexStep
-                ..add('An internal error occured', ConsoleColor.brightBlack, false)
+                ..add('An internal error occured', ConsoleColor.brightBlack,
+                    false)
                 ..finish('Failed', ConsoleColor.red);
               exit(2);
             }, onDone: () {
               dexStep.finish('Done', ConsoleColor.brightGreen);
 
-              // Assemble step
+              //? Assemble step
               final asmStep = BuildStep('Finalizing the build', '[4/4]');
               asmStep.init();
 
@@ -188,7 +195,8 @@ class BuildCommand with AppDataMixin, CopyMixin {
                   .asBroadcastStream()
                   .listen((_) {}, onError: (_) {
                 asmStep
-                  ..add('An internal error occured', ConsoleColor.brightBlack, false)
+                  ..add('An internal error occured', ConsoleColor.brightBlack,
+                      false)
                   ..finish('Failed', ConsoleColor.red);
                 exit(2);
               }, onDone: () {
@@ -200,9 +208,6 @@ class BuildCommand with AppDataMixin, CopyMixin {
         }
       });
     });
-    // if (!gotErr) {
-
-    // }
   }
 
   /// Converts the given list of decimal char codes into string list and removes

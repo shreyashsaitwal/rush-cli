@@ -33,6 +33,7 @@ class BuildStep {
         ..setForegroundColor(ConsoleColor.brightWhite)
         ..write(prefix)
         ..resetColorAttributes()
+        ..write(' ')
         ..setForegroundColor(clr)
         ..writeLine(msg)
         ..resetColorAttributes();
