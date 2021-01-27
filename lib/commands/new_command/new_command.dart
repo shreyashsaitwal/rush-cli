@@ -1,6 +1,6 @@
 import 'dart:io' show Directory, File, exit;
 
-import 'package:path/path.dart' as path;
+import 'package:path/path.dart' as p;
 import 'package:archive/archive.dart';
 import 'package:dart_casing/dart_casing.dart';
 import 'package:dart_console/dart_console.dart';
@@ -35,75 +35,68 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
 
     final isOrgAndNameSame =
         orgName.split('.').last == Casing.camelCase(extName);
+    var package;
+    if (isOrgAndNameSame) {
+      package = orgName;
+    } else {
+      package = orgName + '.' + Casing.camelCase(extName);
+    }
 
-    final extPath = path.joinAll([
-      _cd,
-      Casing.camelCase(extName),
-      'src',
-      ...orgName.split('.'),
-      if (!isOrgAndNameSame) Casing.camelCase(extName),
-    ]);
+    final extPath = p.joinAll(
+        [_cd, Casing.camelCase(extName), 'src', ...package.split('.')]);
 
     // Creates the required files for the extension.
     try {
-      File(path.join(extPath, '${Casing.pascalCase(extName)}.java'))
-        ..createSync(recursive: true)
-        ..writeAsStringSync(
+      _writeFile(
+          p.join(extPath, '${Casing.pascalCase(extName)}.java'),
           getExtensionTemp(
             Casing.pascalCase(extName),
-            orgName + '.' + Casing.camelCase(extName),
-          ),
-        );
+            package,
+          ));
 
-      File(path.join(_cd, Casing.camelCase(extName), 'rush.yml'))
-        ..createSync(recursive: true)
-        ..writeAsStringSync(
-          getRushYaml(extName, versionName, authorName),
-        );
+      _writeFile(p.join(_cd, Casing.camelCase(extName), 'rush.yml'),
+          getRushYaml(extName, versionName, authorName));
 
-      File(path.join(_cd, Casing.camelCase(extName), '.gitignore'))
-        ..createSync(recursive: true)
-        ..writeAsStringSync(
-          getDotGitignore(),
-        );
+      _writeFile(p.join(_cd, Casing.camelCase(extName), '.gitignore'),
+          getDotGitignore());
 
-      File(path.join(_cd, Casing.camelCase(extName), 'README.md'))
-        ..createSync(recursive: true)
-        ..writeAsStringSync(
-          getReadme(extName),
-        );
+      _writeFile(p.join(_cd, Casing.camelCase(extName), 'README.md'),
+          getReadme(extName));
 
-      File(path.join(
-          _cd, Casing.camelCase(extName), 'src', 'AndroidManifest.xml'))
-        ..createSync(recursive: true)
-        ..writeAsStringSync(
-          getManifestXml(orgName),
-        );
+      _writeFile(
+          p.join(_cd, Casing.camelCase(extName), 'src', 'AndroidManifest.xml'),
+          getManifestXml(orgName));
     } catch (e) {
-      ThrowError(message: 'ERR : ' + e.toString());
+      ThrowError(message: 'ERR: ' + e.toString());
     }
 
     try {
-      Directory(path.join(
+      Directory(p.join(
               _cd, Casing.camelCase(extName), 'dependencies', 'dev-deps'))
           .createSync(recursive: true);
 
-      Directory(path.join(_cd, Casing.camelCase(extName), 'assets'))
+      Directory(p.join(_cd, Casing.camelCase(extName), 'assets'))
           .createSync(recursive: true);
     } catch (e) {
       ThrowError(message: 'ERR: ' + e.toString());
     }
 
     // Dir where all the dev dependencies live in cache form.
-    final devDepsDirPath = path.join(AppDataMixin.dataStorageDir(), 'dev-deps');
+    final devDepsDirPath = p.join(AppDataMixin.dataStorageDir(), 'dev-deps');
 
     // Copy the dev-deps from the cache.
     copyDir(
         Directory(devDepsDirPath),
-        Directory(path.join(
+        Directory(p.join(
             _cd, Casing.camelCase(extName), 'dependencies', 'dev-deps')));
 
     exit(0);
+  }
+
+  void _writeFile(String path, String content) {
+    File(path)
+      ..createSync(recursive: true)
+      ..writeAsStringSync(content);
   }
 
   Future<void> _checkPackage() async {
@@ -150,7 +143,7 @@ This is a one-time process, and Rush won\'t ask you to download these files agai
   /// Extracts the package
   void _extractPackage() {
     final packageZip =
-        File(path.join(AppDataMixin.dataStorageDir(), 'packages.zip'));
+        File(p.join(AppDataMixin.dataStorageDir(), 'packages.zip'));
 
     if (!packageZip.existsSync()) {
       ThrowError(message: 'Unable to extract packages. Aborting...');
@@ -170,7 +163,7 @@ This is a one-time process, and Rush won\'t ask you to download these files agai
       if (zip[i].isFile) {
         final data = zip[i].content;
         try {
-          File(path.join(AppDataMixin.dataStorageDir(), zip[i].name))
+          File(p.join(AppDataMixin.dataStorageDir(), zip[i].name))
             ..createSync(recursive: true)
             ..writeAsBytesSync(data);
         } catch (e) {

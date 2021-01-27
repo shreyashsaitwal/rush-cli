@@ -21,9 +21,13 @@ class BuildCommand with AppDataMixin, CopyMixin {
 
   /// Builds the extension in the current directory
   Future<void> run() async {
-    final valStep = BuildStep('Validating project files', '[0/4]');
+    PrintMsg('Build initialized\n', ConsoleColor.brightWhite, '•',
+        ConsoleColor.yellow);
+
+    final valStep = BuildStep('Validating project files');
     valStep.init();
 
+    // Check if rush.yml exists and is valid
     File rushYml;
     if (File(p.join(_cd, 'rush.yaml')).existsSync()) {
       rushYml = File(p.join(_cd, 'rush.yaml'));
@@ -31,28 +35,32 @@ class BuildCommand with AppDataMixin, CopyMixin {
       rushYml = File(p.join(_cd, 'rush.yml'));
     } else {
       valStep
-        ..add('Metadata file (rush.yml) not found', ConsoleColor.red, false)
+        ..add('Metadata file (rush.yml) not found', ConsoleColor.red)
         ..finish('Failed', ConsoleColor.red);
+      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+          ConsoleColor.brightRed);
       exit(1);
     }
 
     if (!IsYamlValid.check(rushYml)) {
       valStep
-        ..add('Metadata file (rush.yml) is invalid', ConsoleColor.red, false)
+        ..add('Metadata file (rush.yml) is invalid', ConsoleColor.red)
         ..finish('Failed', ConsoleColor.red);
+      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+          ConsoleColor.brightRed);
       exit(1);
     }
-
-    final dataDir = AppDataMixin.dataStorageDir();
 
     final manifestFile = File(p.join(_cd, 'src', 'AndroidManifest.xml'));
     if (!manifestFile.existsSync()) {
       valStep
-        ..add('AndroidManifest.xml not found', ConsoleColor.red, false)
+        ..add('AndroidManifest.xml not found', ConsoleColor.red)
         ..finish('Failed', ConsoleColor.red);
+      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+          ConsoleColor.brightRed);
       exit(1);
     }
-    valStep.finish('Done', ConsoleColor.brightGreen);
+    valStep.finish('Done', ConsoleColor.cyan);
 
     var ymlLastMod = rushYml.lastModifiedSync();
     var manifestLastMod = manifestFile.lastModifiedSync();
@@ -88,6 +96,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
       await extBox.put('version', version);
     }
 
+    final dataDir = AppDataMixin.dataStorageDir();
     // Args for spawning the Apache Ant process
     final args = AntArgs(dataDir, _cd, _extType,
         extBox.get('version').toString(), loadedYml['name']);
@@ -97,13 +106,13 @@ class BuildCommand with AppDataMixin, CopyMixin {
     var warnCount = 0;
 
     final pathToAntEx = p.join(dataDir, 'tools', 'apache-ant', 'bin', 'ant');
+    final runInShell = Platform.isWindows;
 
     // Compilation step
-    final compStep = BuildStep('Compiling Java sources', '[1/4]');
+    final compStep = BuildStep('Compiling Java sources');
     compStep.init();
 
-    Process.start(pathToAntEx, args.toList('javac'),
-            runInShell: Platform.isWindows)
+    Process.start(pathToAntEx, args.toList('javac'), runInShell: runInShell)
         .asStream()
         .asBroadcastStream()
         .listen((process) {
@@ -122,86 +131,99 @@ class BuildCommand with AppDataMixin, CopyMixin {
           if (lines != null) {
             count = lines - 1;
             errCount++;
-            compStep.add('src' + out.split('src')[1], ConsoleColor.red, true,
-                prefix: 'ERR', prefClr: ConsoleColor.red);
+            compStep.add('src' + out.split('src')[1], ConsoleColor.red,
+                addSpace: true, prefix: 'ERR', prefClr: ConsoleColor.red);
           } else if (count > 0) {
             // If count is greater than 0, then it means that out is remaining part
             // of the previously identified error.
             count--;
-            compStep.add(out, ConsoleColor.red, false);
+            compStep.add(out, ConsoleColor.red);
           } else {
-            if (out.contains('warning:')) {
-              warnCount++;
-              compStep.add(out.replaceAll('warning:', '').trim(),
-                  ConsoleColor.yellow, true,
-                  prefix: 'WARN', prefClr: ConsoleColor.yellow);
+            if (!out.contains(
+                'The following options were not recognized by any processor:')) {
+              if (out.contains('warning:')) {
+                warnCount++;
+                compStep.add(
+                    out.replaceAll('warning:', '').trim(), ConsoleColor.yellow,
+                    addSpace: true,
+                    prefix: 'WARN',
+                    prefClr: ConsoleColor.yellow);
+              }
             }
           }
         }
       }, onDone: () {
         if (warnCount > 0) {
-          compStep.add('Total warnings: $warnCount', ConsoleColor.yellow, true);
+          compStep.add('Total warnings: $warnCount', ConsoleColor.yellow,
+              addSpace: true);
         }
         if (errCount > 0) {
           compStep
             ..add('Total errors: $errCount', ConsoleColor.red,
-                warnCount <= 0)
+                addSpace: warnCount <= 0)
             ..finish('Failed', ConsoleColor.red);
+          PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+              ConsoleColor.brightRed);
           exit(1);
         } else {
-          compStep.finish('Done', ConsoleColor.brightGreen);
+          compStep.finish('Done', ConsoleColor.cyan);
 
           //? Process step
-          final procStep = BuildStep('Generating metadata files', '[2/4]');
+          final procStep = BuildStep('Generating metadata files');
           procStep.init();
 
           Process.start(pathToAntEx, args.toList('process'),
-                  runInShell: Platform.isWindows)
+                  runInShell: runInShell)
               .asStream()
               .asBroadcastStream()
               .listen((_) {}, onError: (_) {
             procStep
-              ..add(
-                  'An internal error occured', ConsoleColor.brightBlack, false)
+              ..add('An internal error occured', ConsoleColor.brightBlack)
               ..finish('Failed', ConsoleColor.red);
+            PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+                ConsoleColor.brightRed);
             exit(2);
           }, onDone: () {
-            procStep.finish('Done', ConsoleColor.brightGreen);
+            procStep.finish('Done', ConsoleColor.cyan);
 
             //? Dex step
             final dexStep =
-                BuildStep('Converting Java bytecode to DEX bytecode', '[3/4]');
+                BuildStep('Converting Java bytecode to DEX bytecode');
             dexStep.init();
 
             Process.start(pathToAntEx, args.toList('dex'),
-                    runInShell: Platform.isWindows)
+                    runInShell: runInShell)
                 .asStream()
                 .asBroadcastStream()
                 .listen((_) {}, onError: (_) {
               dexStep
-                ..add('An internal error occured', ConsoleColor.brightBlack,
-                    false)
+                ..add('An internal error occured', ConsoleColor.brightBlack)
                 ..finish('Failed', ConsoleColor.red);
+              PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+                  ConsoleColor.brightRed);
               exit(2);
             }, onDone: () {
-              dexStep.finish('Done', ConsoleColor.brightGreen);
+              dexStep.finish('Done', ConsoleColor.cyan);
 
               //? Assemble step
-              final asmStep = BuildStep('Finalizing the build', '[4/4]');
+              final asmStep = BuildStep('Finalizing the build');
               asmStep.init();
 
               Process.start(pathToAntEx, args.toList('assemble'),
-                      runInShell: Platform.isWindows)
+                      runInShell: runInShell)
                   .asStream()
                   .asBroadcastStream()
                   .listen((_) {}, onError: (_) {
                 asmStep
-                  ..add('An internal error occured', ConsoleColor.brightBlack,
-                      false)
+                  ..add('An internal error occured', ConsoleColor.brightBlack)
                   ..finish('Failed', ConsoleColor.red);
+                PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+                    ConsoleColor.brightRed);
                 exit(2);
               }, onDone: () {
-                asmStep.finish('Done', ConsoleColor.brightGreen);
+                asmStep.finish('Done', ConsoleColor.cyan);
+                PrintMsg('Build successful', ConsoleColor.brightWhite, '\n•',
+                    ConsoleColor.green);
                 exit(0);
               });
             });

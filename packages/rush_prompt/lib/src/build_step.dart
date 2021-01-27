@@ -4,27 +4,33 @@ class BuildStep {
   final console = Console();
 
   final String _title;
-  final String _stepNum;
 
-  BuildStep(this._title, this._stepNum);
+  BuildStep(this._title);
 
   void init() {
     console
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..write(_stepNum)
+      ..setForegroundColor(ConsoleColor.brightBlack)
+      ..write('┌ ')
       ..resetColorAttributes()
-      ..write(' ┌ ')
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(_title)
       ..resetColorAttributes();
   }
 
-  void add(String msg, ConsoleColor clr, bool addSpace,
-      {String prefix = '', ConsoleColor prefClr = ConsoleColor.black}) {
+  void add(String msg, ConsoleColor clr,
+      {bool addSpace = false,
+      String prefix = '',
+      ConsoleColor prefClr = ConsoleColor.black}) {
     if (addSpace) {
-      console..writeLine(' ' * _stepNum.length + ' │ ');
+      console
+        ..setForegroundColor(ConsoleColor.brightBlack)
+        ..writeLine('│ ')
+        ..resetColorAttributes();
     }
-    console..write(' ' * _stepNum.length + ' │ ');
+    console
+      ..setForegroundColor(ConsoleColor.brightBlack)
+      ..write('│ ')
+      ..resetColorAttributes();
 
     if (prefix != '' && prefClr != ConsoleColor.black) {
       console
@@ -47,8 +53,9 @@ class BuildStep {
 
   void finish(String msg, ConsoleColor clr) {
     console
-      ..write(' ' * _stepNum.length)
-      ..write(' └─ ')
+      ..setForegroundColor(ConsoleColor.brightBlack)
+      ..write('└ ')
+      ..resetColorAttributes()
       ..setForegroundColor(clr)
       ..writeLine(msg)
       ..resetColorAttributes();
