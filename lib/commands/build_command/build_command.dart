@@ -97,22 +97,25 @@ class BuildCommand with AppDataMixin, CopyMixin {
     }
 
     final dataDir = AppDataMixin.dataStorageDir();
+
     // Args for spawning the Apache Ant process
     final args = AntArgs(dataDir, _cd, _extType,
         extBox.get('version').toString(), loadedYml['name']);
 
+    final pathToAntEx = p.join(dataDir, 'tools', 'apache-ant', 'bin', 'ant');
+
+    _compile(pathToAntEx, args, Platform.isWindows);
+  }
+
+  void _compile(String antPath, AntArgs args, bool runInShell) {
     var count = 0;
     var errCount = 0;
     var warnCount = 0;
 
-    final pathToAntEx = p.join(dataDir, 'tools', 'apache-ant', 'bin', 'ant');
-    final runInShell = Platform.isWindows;
-
-    // Compilation step
     final compStep = BuildStep('Compiling Java sources');
     compStep.init();
 
-    Process.start(pathToAntEx, args.toList('javac'), runInShell: runInShell)
+    Process.start(antPath, args.toList('javac'), runInShell: runInShell)
         .asStream()
         .asBroadcastStream()
         .listen((process) {
@@ -138,13 +141,18 @@ class BuildCommand with AppDataMixin, CopyMixin {
             // of the previously identified error.
             count--;
             compStep.add(out, ConsoleColor.red);
+          } else if (out.contains('error: ERR ')) {
+            errCount++;
+            compStep.add(
+                out.replaceAll('error: ERR ', '').trim(), ConsoleColor.red,
+                addSpace: true, prefix: 'ERR', prefClr: ConsoleColor.red);
           } else {
             if (!out.contains(
                 'The following options were not recognized by any processor:')) {
               if (out.contains('warning:')) {
                 warnCount++;
                 compStep.add(
-                    out.replaceAll('warning:', '').trim(), ConsoleColor.yellow,
+                    out.replaceAll('warning: ', '').trim(), ConsoleColor.yellow,
                     addSpace: true,
                     prefix: 'WARN',
                     prefClr: ConsoleColor.yellow);
@@ -168,68 +176,93 @@ class BuildCommand with AppDataMixin, CopyMixin {
         } else {
           compStep.finish('Done', ConsoleColor.cyan);
 
-          //? Process step
-          final procStep = BuildStep('Generating metadata files');
-          procStep.init();
-
-          Process.start(pathToAntEx, args.toList('process'),
-                  runInShell: runInShell)
-              .asStream()
-              .asBroadcastStream()
-              .listen((_) {}, onError: (_) {
-            procStep
-              ..add('An internal error occured', ConsoleColor.brightBlack)
-              ..finish('Failed', ConsoleColor.red);
-            PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-                ConsoleColor.brightRed);
-            exit(2);
-          }, onDone: () {
-            procStep.finish('Done', ConsoleColor.cyan);
-
-            //? Dex step
-            final dexStep =
-                BuildStep('Converting Java bytecode to DEX bytecode');
-            dexStep.init();
-
-            Process.start(pathToAntEx, args.toList('dex'),
-                    runInShell: runInShell)
-                .asStream()
-                .asBroadcastStream()
-                .listen((_) {}, onError: (_) {
-              dexStep
-                ..add('An internal error occured', ConsoleColor.brightBlack)
-                ..finish('Failed', ConsoleColor.red);
-              PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-                  ConsoleColor.brightRed);
-              exit(2);
-            }, onDone: () {
-              dexStep.finish('Done', ConsoleColor.cyan);
-
-              //? Assemble step
-              final asmStep = BuildStep('Finalizing the build');
-              asmStep.init();
-
-              Process.start(pathToAntEx, args.toList('assemble'),
-                      runInShell: runInShell)
-                  .asStream()
-                  .asBroadcastStream()
-                  .listen((_) {}, onError: (_) {
-                asmStep
-                  ..add('An internal error occured', ConsoleColor.brightBlack)
-                  ..finish('Failed', ConsoleColor.red);
-                PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-                    ConsoleColor.brightRed);
-                exit(2);
-              }, onDone: () {
-                asmStep.finish('Done', ConsoleColor.cyan);
-                PrintMsg('Build successful', ConsoleColor.brightWhite, '\n•',
-                    ConsoleColor.green);
-                exit(0);
-              });
-            });
-          });
+          _process(antPath, args, runInShell);
         }
       });
+    });
+  }
+
+  void _process(String antPath, AntArgs args, bool runInShell) {
+    final procStep = BuildStep('Generating metadata files');
+    procStep.init();
+    var procErrCount = 0;
+
+    Process.start(antPath, args.toList('process'), runInShell: runInShell)
+        .asStream()
+        .asBroadcastStream()
+        .listen((process) {
+      process.stdout.asBroadcastStream().listen((data) {
+        final formatted = _format(data);
+        for (final out in formatted) {
+          if (out.startsWith('ERR')) {
+            procStep.add(out.replaceAll('ERR ', ''), ConsoleColor.brightWhite,
+                addSpace: true, prefix: 'ERR', prefClr: ConsoleColor.red);
+            procErrCount++;
+          }
+        }
+      });
+    }, onError: (_) {
+      procStep
+        ..add('An internal error occured', ConsoleColor.brightBlack)
+        ..finish('Failed', ConsoleColor.red);
+      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+          ConsoleColor.brightRed);
+      exit(2);
+    }, onDone: () {
+      if (procErrCount > 0) {
+        procStep
+          ..add('Total errors: $procErrCount', ConsoleColor.red)
+          ..finish('Failed', ConsoleColor.red);
+        PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+            ConsoleColor.brightRed);
+        exit(1);
+      }
+      procStep.finish('Done', ConsoleColor.cyan);
+
+      _dex(antPath, args, runInShell);
+    });
+  }
+
+  void _dex(String antPath, AntArgs args, bool runInShell) {
+    final dexStep = BuildStep('Converting Java bytecode to DEX bytecode');
+    dexStep.init();
+
+    Process.start(antPath, args.toList('dex'), runInShell: runInShell)
+        .asStream()
+        .asBroadcastStream()
+        .listen((_) {}, onError: (_) {
+      dexStep
+        ..add('An internal error occured', ConsoleColor.brightBlack)
+        ..finish('Failed', ConsoleColor.red);
+      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+          ConsoleColor.brightRed);
+      exit(2);
+    }, onDone: () {
+      dexStep.finish('Done', ConsoleColor.cyan);
+
+      _finalize(antPath, args, runInShell);
+    });
+  }
+
+  void _finalize(String antPath, AntArgs args, bool runInShell) {
+    final asmStep = BuildStep('Finalizing the build');
+    asmStep.init();
+
+    Process.start(antPath, args.toList('assemble'), runInShell: runInShell)
+        .asStream()
+        .asBroadcastStream()
+        .listen((_) {}, onError: (_) {
+      asmStep
+        ..add('An internal error occured', ConsoleColor.brightBlack)
+        ..finish('Failed', ConsoleColor.red);
+      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+          ConsoleColor.brightRed);
+      exit(2);
+    }, onDone: () {
+      asmStep.finish('Done', ConsoleColor.cyan);
+      PrintMsg('Build successful', ConsoleColor.brightWhite, '\n•',
+          ConsoleColor.green);
+      exit(0);
     });
   }
 
@@ -240,7 +273,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
     final List res = <String>[];
     stringified.split('\r\n').forEach((el) {
       if ('$el'.trim().isNotEmpty) {
-        res.add(el.trimRight().replaceAll('[javac]', ''));
+        res.add(el.trimRight().replaceAll('[javac] ', ''));
       }
     });
     return res;
