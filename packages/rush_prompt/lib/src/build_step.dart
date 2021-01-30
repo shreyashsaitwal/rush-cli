@@ -32,11 +32,13 @@ class BuildStep {
       ..write('│ ')
       ..resetColorAttributes();
 
+    final foreClr = prefClr == ConsoleColor.yellow ? ConsoleColor.black : ConsoleColor.brightWhite;
+
     if (prefix != '' && prefClr != ConsoleColor.black) {
       console
         ..write(' ')
         ..setBackgroundColor(prefClr)
-        ..setForegroundColor(ConsoleColor.brightWhite)
+        ..setForegroundColor(foreClr)
         ..write(prefix)
         ..resetColorAttributes()
         ..write(' ')
