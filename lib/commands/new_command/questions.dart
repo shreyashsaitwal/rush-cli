@@ -8,7 +8,7 @@ class Questions {
         id: 'extName',
       ),
       SimpleQuestion(
-        question: 'Organisation/Package name',
+        question: 'Organization (package name)',
         id: 'org',
       ),
       SimpleQuestion(

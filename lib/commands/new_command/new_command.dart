@@ -72,7 +72,7 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
 
     try {
       Directory(p.join(
-              _cd, Casing.camelCase(extName), 'dependencies', 'dev-deps'))
+              _cd, Casing.camelCase(extName), 'dependencies', 'dev'))
           .createSync(recursive: true);
 
       Directory(p.join(_cd, Casing.camelCase(extName), 'assets'))
@@ -88,7 +88,7 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
     copyDir(
         Directory(devDepsDirPath),
         Directory(p.join(
-            _cd, Casing.camelCase(extName), 'dependencies', 'dev-deps')));
+            _cd, Casing.camelCase(extName), 'dependencies', 'dev')));
 
     exit(0);
   }

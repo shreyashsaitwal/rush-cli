@@ -1,9 +1,9 @@
 String getDotGitignore() {
   return'''
-# Dependency directory of the extension
-dependencies
+# Development dependencies' directory
+dependencies/dev
 
-# Output directory of the extension
+# Output directory
 out
 ''';
 }
