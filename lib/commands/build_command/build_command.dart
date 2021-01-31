@@ -19,6 +19,9 @@ class BuildCommand with AppDataMixin, CopyMixin {
 
   BuildCommand(this._cd, this._extType, this._isProd);
 
+  var errCount = 0;
+  var warnCount = 0;
+
   /// Builds the extension in the current directory
   Future<void> run() async {
     PrintMsg('Build initialized\n', ConsoleColor.brightWhite, '•',
@@ -109,8 +112,6 @@ class BuildCommand with AppDataMixin, CopyMixin {
 
   void _compile(String antPath, AntArgs args, bool runInShell) {
     var count = 0;
-    var errCount = 0;
-    var warnCount = 0;
 
     final compStep = BuildStep('Compiling Java sources');
     compStep.init();
@@ -128,7 +129,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
         // of error, or a warning.
         for (final out in formatted) {
           final lines = ErrData.getNoOfLines(out);
-
+          // print(out);
           // If lines is the not null then it means that out is infact the first
           // line of the error.
           if (lines != null) {
@@ -142,6 +143,9 @@ class BuildCommand with AppDataMixin, CopyMixin {
             count--;
             compStep.add(out, ConsoleColor.red);
           } else if (out.contains('error: ERR ')) {
+            // If out contains 'error: ERR' then it means that this error is from
+            // the annotaion processor. All errors coming from annotation processor
+            // are one liner, so, no need for any over head, we can directly print them.
             errCount++;
             compStep.add(
                 out.replaceAll('error: ERR ', '').trim(), ConsoleColor.red,
@@ -173,11 +177,9 @@ class BuildCommand with AppDataMixin, CopyMixin {
           PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
               ConsoleColor.brightRed);
           exit(1);
-        } else {
-          compStep.finish('Done', ConsoleColor.cyan);
-
-          _process(antPath, args, runInShell);
         }
+        compStep.finish('Done', ConsoleColor.cyan);
+        _process(antPath, args, runInShell);
       });
     });
   }
@@ -186,12 +188,12 @@ class BuildCommand with AppDataMixin, CopyMixin {
     final procStep = BuildStep('Generating metadata files');
     procStep.init();
     var procErrCount = 0;
-
     Process.start(antPath, args.toList('process'), runInShell: runInShell)
         .asStream()
         .asBroadcastStream()
         .listen((process) {
       process.stdout.asBroadcastStream().listen((data) {
+        // print(data);
         final formatted = _format(data);
         for (final out in formatted) {
           if (out.startsWith('ERR')) {
@@ -200,26 +202,26 @@ class BuildCommand with AppDataMixin, CopyMixin {
             procErrCount++;
           }
         }
-      });
-    }, onError: (_) {
-      procStep
-        ..add('An internal error occured', ConsoleColor.brightBlack)
-        ..finish('Failed', ConsoleColor.red);
-      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-          ConsoleColor.brightRed);
-      exit(2);
-    }, onDone: () {
-      if (procErrCount > 0) {
+      }, onError: (_) {
         procStep
-          ..add('Total errors: $procErrCount', ConsoleColor.red)
+          ..add('An internal error occured', ConsoleColor.brightBlack)
           ..finish('Failed', ConsoleColor.red);
         PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
             ConsoleColor.brightRed);
-        exit(1);
-      }
-      procStep.finish('Done', ConsoleColor.cyan);
+        exit(2);
+      }, onDone: () {
+        if (procErrCount > 0) {
+          procStep
+            ..add('Total errors: $procErrCount', ConsoleColor.red)
+            ..finish('Failed', ConsoleColor.red);
+          PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+              ConsoleColor.brightRed);
+          exit(1);
+        }
+        procStep.finish('Done', ConsoleColor.cyan);
 
-      _dex(antPath, args, runInShell);
+        _dex(antPath, args, runInShell);
+      });
     });
   }
 
@@ -230,17 +232,21 @@ class BuildCommand with AppDataMixin, CopyMixin {
     Process.start(antPath, args.toList('dex'), runInShell: runInShell)
         .asStream()
         .asBroadcastStream()
-        .listen((_) {}, onError: (_) {
-      dexStep
-        ..add('An internal error occured', ConsoleColor.brightBlack)
-        ..finish('Failed', ConsoleColor.red);
-      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-          ConsoleColor.brightRed);
-      exit(2);
-    }, onDone: () {
-      dexStep.finish('Done', ConsoleColor.cyan);
+        .listen((process) {
+      process.stdout.asBroadcastStream().listen((data) {
+        // Todo
+      }, onError: (_) {
+        dexStep
+          ..add('An internal error occured', ConsoleColor.brightBlack)
+          ..finish('Failed', ConsoleColor.red);
+        PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+            ConsoleColor.brightRed);
+        exit(2);
+      }, onDone: () {
+        dexStep.finish('Done', ConsoleColor.cyan);
 
-      _finalize(antPath, args, runInShell);
+        _finalize(antPath, args, runInShell);
+      });
     });
   }
 
@@ -251,18 +257,22 @@ class BuildCommand with AppDataMixin, CopyMixin {
     Process.start(antPath, args.toList('assemble'), runInShell: runInShell)
         .asStream()
         .asBroadcastStream()
-        .listen((_) {}, onError: (_) {
-      asmStep
-        ..add('An internal error occured', ConsoleColor.brightBlack)
-        ..finish('Failed', ConsoleColor.red);
-      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-          ConsoleColor.brightRed);
-      exit(2);
-    }, onDone: () {
-      asmStep.finish('Done', ConsoleColor.cyan);
-      PrintMsg('Build successful', ConsoleColor.brightWhite, '\n•',
-          ConsoleColor.green);
-      exit(0);
+        .listen((process) {
+      process.stdout.asBroadcastStream().listen((data) {
+        // Todo
+      }, onError: (_) {
+        asmStep
+          ..add('An internal error occured', ConsoleColor.brightBlack)
+          ..finish('Failed', ConsoleColor.red);
+        PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+            ConsoleColor.brightRed);
+        exit(2);
+      }, onDone: () {
+        asmStep.finish('Done', ConsoleColor.cyan);
+        PrintMsg('Build successful', ConsoleColor.brightWhite, '\n•',
+            ConsoleColor.green);
+        exit(0);
+      });
     });
   }
 
