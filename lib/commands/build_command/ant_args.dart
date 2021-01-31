@@ -16,8 +16,6 @@ class AntArgs {
     this.name,
   );
 
-  //   assemble <- dex <- jar <- unjar <- process <- javac
-
   List toList(String task) {
     final args = <String>[];
     final workspaces = p.join(dataDirPath, 'workspaces');
@@ -36,9 +34,10 @@ class AntArgs {
       args.add('-Dtype=$org.$name');
       args.add('-DdevDeps=${p.join(cd, 'dependencies', 'dev')}');
       args.add('-Ddeps=${p.join(cd, 'dependencies')}');
+      args.add('-Dprocessor=${p.join(dataDirPath, 'tools', 'processor')}');
     } else if (task == 'process') {
       args.add('jarExt');
-      args.add('-Dout=${p.join(cd, 'out')}');
+      args.add('-Dprocessor=${p.join(dataDirPath, 'tools', 'processor')}');
       args.add('-Dclasses=${p.join(workspaces, org, 'classes')}');
       args.add('-Draw=${p.join(workspaces, org, 'raw')}');
       args.add('-DrawCls=${p.join(workspaces, org, 'raw-classes')}');
@@ -53,6 +52,7 @@ class AntArgs {
       args.add('-DrawCls=${p.join(workspaces, org, 'raw-classes')}');
     } else if (task == 'assemble') {
       args.add('assemble');
+      args.add('-Dout=${p.join(cd, 'out')}');
       args.add('-Dextension=$org');
       args.add('-Draw=${p.join(workspaces, org, 'raw')}');
     }
