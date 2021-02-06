@@ -30,8 +30,9 @@ class AntArgs {
       args.add('-Dclasses=${p.join(workspaces, org, 'classes')}');
       args.add('-DextSrc=${p.join(cd, 'src')}');
       args.add('-Droot=$cd');
+      args.add('-DextName=$name');
+      args.add('-Dorg=$org');
       args.add('-Dversion=$version');
-      args.add('-Dtype=$org.$name');
       args.add('-DdevDeps=${p.join(cd, 'dependencies', 'dev')}');
       args.add('-Ddeps=${p.join(cd, 'dependencies')}');
       args.add('-Dprocessor=${p.join(dataDirPath, 'tools', 'processor')}');
@@ -44,6 +45,7 @@ class AntArgs {
       args.add('-DdevDeps=${p.join(cd, 'dependencies', 'dev')}');
       args.add('-Ddeps=${p.join(cd, 'dependencies')}');
       args.add('-Dextension=$org');
+      args.add('-Dcd=$cd');
     } else if (task == 'dex') {
       args.add('dexExt');
       args.add('-Dextension=$org');

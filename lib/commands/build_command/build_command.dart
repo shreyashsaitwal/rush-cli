@@ -14,10 +14,9 @@ import 'package:yaml/yaml.dart';
 
 class BuildCommand with AppDataMixin, CopyMixin {
   final String _cd;
-  final String _extType;
   final bool _isProd;
 
-  BuildCommand(this._cd, this._extType, this._isProd);
+  BuildCommand(this._cd, this._isProd);
 
   var errCount = 0;
   var warnCount = 0;
@@ -65,11 +64,13 @@ class BuildCommand with AppDataMixin, CopyMixin {
     }
     valStep.finish('Done', ConsoleColor.cyan);
 
+    final dataDir = AppDataMixin.dataStorageDir();
+
     var ymlLastMod = rushYml.lastModifiedSync();
     var manifestLastMod = manifestFile.lastModifiedSync();
 
-    final loadedYml = loadYaml(rushYml.readAsStringSync());
-    var extBox = await Hive.openBox(loadedYml['name']);
+    Hive.init(p.join(_cd, '.rush'));
+    var extBox = await Hive.openBox('data');
     if (!extBox.containsKey('version')) {
       await extBox.putAll({
         'version': 1,
@@ -82,16 +83,14 @@ class BuildCommand with AppDataMixin, CopyMixin {
       await extBox.putAll({
         'manifestMod': manifestLastMod,
       });
+    } else if (!extBox.containsKey('org')) {
+      ThrowError(message: 'This project is corrupted.');
     }
 
-    // TODO:
-    // Delete the build dir if there are any changes in the
-    // rush.yml or Android Manifest file.
-
-    // if (ymlLastMod.isAfter(extBox.get('rushYmlMod')) ||
-    //     manifestLastMod.isAfter(extBox.get('manifestMod'))) {
-    //   _cleanBuildDir(dataDir);
-    // }
+    if (ymlLastMod.isAfter(extBox.get('rushYmlMod')) ||
+        manifestLastMod.isAfter(extBox.get('manifestMod'))) {
+      _cleanBuildDir(p.join(dataDir, 'workspaces', extBox.get('org')));
+    }
 
     // Increment version number if this is a production build
     if (_isProd) {
@@ -99,10 +98,10 @@ class BuildCommand with AppDataMixin, CopyMixin {
       await extBox.put('version', version);
     }
 
-    final dataDir = AppDataMixin.dataStorageDir();
+    final loadedYml = loadYaml(rushYml.readAsStringSync());
 
     // Args for spawning the Apache Ant process
-    final args = AntArgs(dataDir, _cd, _extType,
+    final args = AntArgs(dataDir, _cd, extBox.get('org'),
         extBox.get('version').toString(), loadedYml['name']);
 
     final pathToAntEx = p.join(dataDir, 'tools', 'apache-ant', 'bin', 'ant');
@@ -128,14 +127,14 @@ class BuildCommand with AppDataMixin, CopyMixin {
         // Go through each of them, and check if it's the start of error, part
         // of error, or a warning.
         for (final out in formatted) {
-          final lines = ErrData.getNoOfLines(out);
           // print(out);
+          final lines = ErrData.getNoOfLines(out);
           // If lines is the not null then it means that out is infact the first
           // line of the error.
           if (lines != null) {
             count = lines - 1;
             errCount++;
-            compStep.add('src' + out.split('src')[1], ConsoleColor.red,
+            compStep.add('src' + out.split('src').last, ConsoleColor.red,
                 addSpace: true, prefix: 'ERR', prefClr: ConsoleColor.red);
           } else if (count > 0) {
             // If count is greater than 0, then it means that out is remaining part
@@ -150,17 +149,18 @@ class BuildCommand with AppDataMixin, CopyMixin {
             compStep.add(
                 out.replaceAll('error: ERR ', '').trim(), ConsoleColor.red,
                 addSpace: true, prefix: 'ERR', prefClr: ConsoleColor.red);
-          } else {
-            if (!out.contains(
-                'The following options were not recognized by any processor:')) {
-              if (out.contains('warning:')) {
-                warnCount++;
-                compStep.add(
-                    out.replaceAll('warning: ', '').trim(), ConsoleColor.yellow,
-                    addSpace: true,
-                    prefix: 'WARN',
-                    prefClr: ConsoleColor.yellow);
-              }
+          } else if (out.contains('error: ')) {
+            count += 2;
+            errCount++;
+            compStep.add('src' + out.split('src').last, ConsoleColor.red,
+                addSpace: true, prefix: 'ERR', prefClr: ConsoleColor.red);
+          } else if (!out.contains(
+              'The following options were not recognized by any processor:')) {
+            if (out.contains('warning:')) {
+              warnCount++;
+              compStep.add(
+                  out.replaceAll('warning: ', '').trim(), ConsoleColor.yellow,
+                  addSpace: true, prefix: 'WARN', prefClr: ConsoleColor.yellow);
             }
           }
         }
@@ -180,6 +180,14 @@ class BuildCommand with AppDataMixin, CopyMixin {
         }
         compStep.finish('Done', ConsoleColor.cyan);
         _process(antPath, args, runInShell);
+      }, onError: (_) {
+        compStep
+          ..add('Total errors: $errCount', ConsoleColor.red,
+              addSpace: warnCount <= 0)
+          ..finish('Failed', ConsoleColor.red);
+        PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+            ConsoleColor.brightRed);
+        exit(1);
       });
     });
   }
@@ -193,7 +201,6 @@ class BuildCommand with AppDataMixin, CopyMixin {
         .asBroadcastStream()
         .listen((process) {
       process.stdout.asBroadcastStream().listen((data) {
-        // print(data);
         final formatted = _format(data);
         for (final out in formatted) {
           if (out.startsWith('ERR')) {
@@ -270,7 +277,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
       }, onDone: () {
         asmStep.finish('Done', ConsoleColor.cyan);
         PrintMsg('Build successful', ConsoleColor.brightWhite, '\n•',
-            ConsoleColor.green);
+            ConsoleColor.brightGreen);
         exit(0);
       });
     });
@@ -289,14 +296,16 @@ class BuildCommand with AppDataMixin, CopyMixin {
     return res;
   }
 
-  void _cleanBuildDir(String dataDir) {
-    var buildDir = Directory(p.join(dataDir, 'workspaces', _extType));
-    try {
-      buildDir.deleteSync(recursive: true);
-    } catch (e) {
-      ThrowError(
-          message:
-              'ERR: Something went wrong while invalidating build caches.');
+  void _cleanBuildDir(String buildDir) {
+    final dir = Directory(buildDir);
+    if (dir.existsSync()) {
+      try {
+        dir.deleteSync(recursive: true);
+      } catch (e) {
+        ThrowError(
+            message:
+                'ERR: Something went wrong while invalidating build caches.');
+      }
     }
   }
 }
