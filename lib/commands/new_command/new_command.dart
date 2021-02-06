@@ -1,5 +1,6 @@
 import 'dart:io' show Directory, File, exit;
 
+import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:archive/archive.dart';
 import 'package:dart_casing/dart_casing.dart';
@@ -19,9 +20,7 @@ import 'package:rush_cli/templates/extension_template.dart';
 class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
   final String _cd;
 
-  NewCommand(this._cd) {
-    run();
-  }
+  NewCommand(this._cd);
 
   /// Creates a new extension project in the current directory.
   Future<void> run() async {
@@ -71,15 +70,26 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
     }
 
     try {
-      Directory(p.join(
-              _cd, Casing.camelCase(extName), 'dependencies', 'dev'))
+      Directory(p.join(_cd, Casing.camelCase(extName), 'dependencies', 'dev'))
           .createSync(recursive: true);
 
       Directory(p.join(_cd, Casing.camelCase(extName), 'assets'))
           .createSync(recursive: true);
+
+      Directory(p.join(_cd, Casing.camelCase(extName), '.rush'))
+          .createSync(recursive: true);
     } catch (e) {
       ThrowError(message: 'ERR: ' + e.toString());
     }
+
+    Hive.init(p.join(_cd, Casing.camelCase(extName), '.rush'));
+    var box = await Hive.openBox('data');
+    await box.putAll({
+      'version': 1,
+      'org': package,
+      'rushYmlMod': DateTime.now(),
+      'manifestMod': DateTime.now(),
+    });
 
     // Dir where all the dev dependencies live in cache form.
     final devDepsDirPath = p.join(AppDataMixin.dataStorageDir(), 'dev-deps');
@@ -87,8 +97,8 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
     // Copy the dev-deps from the cache.
     copyDir(
         Directory(devDepsDirPath),
-        Directory(p.join(
-            _cd, Casing.camelCase(extName), 'dependencies', 'dev')));
+        Directory(
+            p.join(_cd, Casing.camelCase(extName), 'dependencies', 'dev')));
 
     exit(0);
   }
@@ -105,7 +115,7 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
 
     if (!dataDir.existsSync() || dataDir.listSync().isEmpty) {
       Console().writeLine('''
-Rush needs to download some Java dependencies and other packages (total download size: 43.3 MB) to compile your extension(s).
+Rush needs to download some additional files (total download size: 40.81 MB) to function properly.
 This is a one-time process, and Rush won\'t ask you to download these files again (unless there is a necessary update in one or more of them).''');
 
       final continueProcess =

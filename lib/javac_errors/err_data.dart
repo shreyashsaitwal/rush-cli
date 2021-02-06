@@ -1,6 +1,5 @@
 import 'package:rush_cli/javac_errors/atse_errs.dart';
 import 'package:rush_cli/javac_errors/computation_errs.dart';
-import 'package:rush_cli/javac_errors/err.dart';
 import 'package:rush_cli/javac_errors/indentifier_errs.dart';
 import 'package:rush_cli/javac_errors/return_errs.dart';
 import 'package:rush_cli/javac_errors/syntax_errs.dart';
