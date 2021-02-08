@@ -23,5 +23,6 @@ public class $name extends AndroidNonvisibleComponent {
     return sum;
   }
 
-}''';
+}
+''';
 }
