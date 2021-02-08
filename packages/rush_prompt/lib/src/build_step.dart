@@ -20,7 +20,8 @@ class BuildStep {
   void add(String msg, ConsoleColor clr,
       {bool addSpace = false,
       String prefix = '',
-      ConsoleColor prefClr = ConsoleColor.black}) {
+      ConsoleColor prefClr = ConsoleColor.white,
+      ConsoleColor prefBgClr = ConsoleColor.black}) {
     if (addSpace) {
       console
         ..setForegroundColor(ConsoleColor.brightBlack)
@@ -32,13 +33,11 @@ class BuildStep {
       ..write('│ ')
       ..resetColorAttributes();
 
-    final foreClr = prefClr == ConsoleColor.yellow ? ConsoleColor.black : ConsoleColor.brightWhite;
-
-    if (prefix != '' && prefClr != ConsoleColor.black) {
+    if (prefix != '' && prefBgClr != ConsoleColor.black) {
       console
         ..write(' ')
-        ..setBackgroundColor(prefClr)
-        ..setForegroundColor(foreClr)
+        ..setBackgroundColor(prefBgClr)
+        ..setForegroundColor(prefClr)
         ..write(prefix)
         ..resetColorAttributes()
         ..write(' ')
