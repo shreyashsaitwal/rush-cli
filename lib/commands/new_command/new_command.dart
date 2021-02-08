@@ -27,68 +27,68 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
     await _checkPackage();
 
     final answers = RushPrompt(questions: Questions.questions).askAll();
-    final extName = answers[0][1].toString().trim();
+    final name = answers[0][1].toString().trim();
     final orgName = answers[1][1].toString().trim();
     final authorName = answers[2][1].toString().trim();
     final versionName = answers[3][1].toString().trim();
 
     final isOrgAndNameSame =
-        orgName.split('.').last == Casing.camelCase(extName);
+        orgName.split('.').last == Casing.camelCase(name);
     var package;
     if (isOrgAndNameSame) {
       package = orgName;
     } else {
-      package = orgName + '.' + Casing.camelCase(extName);
+      package = orgName + '.' + Casing.camelCase(name);
     }
 
     final extPath = p.joinAll(
-        [_cd, Casing.camelCase(extName), 'src', ...package.split('.')]);
+        [_cd, Casing.camelCase(name), 'src', ...package.split('.')]);
 
     // Creates the required files for the extension.
     try {
       _writeFile(
-          p.join(extPath, '${Casing.pascalCase(extName)}.java'),
+          p.join(extPath, '${Casing.pascalCase(name)}.java'),
           getExtensionTemp(
-            Casing.pascalCase(extName),
+            Casing.pascalCase(name),
             package,
           ));
 
-      _writeFile(p.join(_cd, Casing.camelCase(extName), 'rush.yml'),
-          getRushYaml(extName, versionName, authorName));
+      _writeFile(p.join(_cd, Casing.camelCase(name), 'rush.yml'),
+          getRushYaml(name, versionName, authorName));
 
-      _writeFile(p.join(_cd, Casing.camelCase(extName), '.gitignore'),
+      _writeFile(p.join(_cd, Casing.camelCase(name), '.gitignore'),
           getDotGitignore());
 
-      _writeFile(p.join(_cd, Casing.camelCase(extName), 'README.md'),
-          getReadme(extName));
+      _writeFile(p.join(_cd, Casing.camelCase(name), 'README.md'),
+          getReadme(name));
 
       _writeFile(
-          p.join(_cd, Casing.camelCase(extName), 'src', 'AndroidManifest.xml'),
+          p.join(_cd, Casing.camelCase(name), 'src', 'AndroidManifest.xml'),
           getManifestXml(orgName));
     } catch (e) {
       ThrowError(message: 'ERR: ' + e.toString());
     }
 
     try {
-      Directory(p.join(_cd, Casing.camelCase(extName), 'dependencies', 'dev'))
+      Directory(p.join(_cd, Casing.camelCase(name), 'dependencies', 'dev'))
           .createSync(recursive: true);
 
-      Directory(p.join(_cd, Casing.camelCase(extName), 'assets'))
+      Directory(p.join(_cd, Casing.camelCase(name), 'assets'))
           .createSync(recursive: true);
 
-      Directory(p.join(_cd, Casing.camelCase(extName), '.rush'))
+      Directory(p.join(_cd, Casing.camelCase(name), '.rush'))
           .createSync(recursive: true);
     } catch (e) {
       ThrowError(message: 'ERR: ' + e.toString());
     }
 
-    Hive.init(p.join(_cd, Casing.camelCase(extName), '.rush'));
+    Hive.init(p.join(_cd, Casing.camelCase(name), '.rush'));
     var box = await Hive.openBox('data');
     await box.putAll({
       'version': 1,
       'org': package,
-      'rushYmlMod': DateTime.now(),
-      'manifestMod': DateTime.now(),
+      'rushYmlLastMod': DateTime.now(),
+      'srcDirLastMod': DateTime.now(),
     });
 
     // Dir where all the dev dependencies live in cache form.
@@ -98,7 +98,7 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
     copyDir(
         Directory(devDepsDirPath),
         Directory(
-            p.join(_cd, Casing.camelCase(extName), 'dependencies', 'dev')));
+            p.join(_cd, Casing.camelCase(name), 'dependencies', 'dev')));
 
     exit(0);
   }
@@ -145,7 +145,7 @@ This is a one-time process, and Rush won\'t ask you to download these files agai
     final progress = ProgressBar('Downloading packages...');
 
     const url =
-        'https://firebasestorage.googleapis.com/v0/b/rush-cli.appspot.com/o/packages.zip?alt=media&token=472bae35-ac1a-422c-affe-1c81ba223931';
+        'https://firebasestorage.googleapis.com/v0/b/rush-cli.appspot.com/o/package.zip?alt=media&token=d7f929e3-8c67-4982-9c45-1ab7e5c1e936';
 
     await download(progress, url, AppDataMixin.dataStorageDir());
   }

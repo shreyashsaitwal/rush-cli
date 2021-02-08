@@ -21,6 +21,8 @@ class BuildCommand with AppDataMixin, CopyMixin {
   var errCount = 0;
   var warnCount = 0;
 
+  final runInShell = Platform.isWindows;
+
   /// Builds the extension in the current directory
   Future<void> run() async {
     PrintMsg('Build initialized\n', ConsoleColor.brightWhite, '•',
@@ -51,6 +53,12 @@ class BuildCommand with AppDataMixin, CopyMixin {
       PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
           ConsoleColor.brightRed);
       exit(1);
+    } else {
+      valStep.add('Metadata file (rush.yml)', ConsoleColor.brightWhite,
+          addSpace: true,
+          prefix: 'OKAY',
+          prefBgClr: ConsoleColor.brightGreen,
+          prefClr: ConsoleColor.black);
     }
 
     final manifestFile = File(p.join(_cd, 'src', 'AndroidManifest.xml'));
@@ -61,34 +69,55 @@ class BuildCommand with AppDataMixin, CopyMixin {
       PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
           ConsoleColor.brightRed);
       exit(1);
+    } else {
+      valStep.add('AndroidManifest.xml file', ConsoleColor.brightWhite,
+          addSpace: true,
+          prefix: 'OKAY',
+          prefBgClr: ConsoleColor.brightGreen,
+          prefClr: ConsoleColor.black);
     }
     valStep.finish('Done', ConsoleColor.cyan);
 
     final dataDir = AppDataMixin.dataStorageDir();
 
-    var ymlLastMod = rushYml.lastModifiedSync();
-    var manifestLastMod = manifestFile.lastModifiedSync();
-
     Hive.init(p.join(_cd, '.rush'));
-    var extBox = await Hive.openBox('data');
+    final extBox = await Hive.openBox('data');
+
+    // This is done in case the user deletes the .rush directory.
     if (!extBox.containsKey('version')) {
       await extBox.putAll({
         'version': 1,
       });
-    } else if (!extBox.containsKey('rushYmlMod')) {
+    } else if (!extBox.containsKey('rushYmlLastMod')) {
       await extBox.putAll({
-        'rushYmlMod': ymlLastMod,
+        'rushYmlLastMod': rushYml.lastModifiedSync(),
       });
-    } else if (!extBox.containsKey('manifestMod')) {
+    } else if (!extBox.containsKey('srcDirLastMod')) {
       await extBox.putAll({
-        'manifestMod': manifestLastMod,
+        'srcDirLastMod': rushYml.lastModifiedSync(),
       });
     } else if (!extBox.containsKey('org')) {
+      // todo: Infer the package name from the src
       ThrowError(message: 'This project is corrupted.');
     }
 
-    if (ymlLastMod.isAfter(extBox.get('rushYmlMod')) ||
-        manifestLastMod.isAfter(extBox.get('manifestMod'))) {
+    var isYmlMod =
+        rushYml.lastModifiedSync().isAfter(extBox.get('rushYmlLastMod'));
+    var isSrcDirMod = false;
+
+    Directory(p.join(_cd, 'src')).listSync(recursive: true).forEach((el) {
+      if (el is File) {
+        final mod = el.lastModifiedSync();
+        if (mod.isAfter(extBox.get('srcDirLastMod'))) {
+          isSrcDirMod = true;
+          extBox.put('srcDirLastMod', mod);
+        }
+      }
+    });
+
+    final areFilesModified = isYmlMod || isSrcDirMod;
+
+    if (areFilesModified) {
       _cleanBuildDir(p.join(dataDir, 'workspaces', extBox.get('org')));
     }
 
@@ -106,70 +135,128 @@ class BuildCommand with AppDataMixin, CopyMixin {
 
     final pathToAntEx = p.join(dataDir, 'tools', 'apache-ant', 'bin', 'ant');
 
-    _compile(pathToAntEx, args, Platform.isWindows);
+    // This box stores the warnings/errors that appeared while building
+    // the extension. This is done in order to skip the compilation in
+    // case there is no change in src dir and/or rush.yml; just print
+    // the previous errors/warnings stored in the box.
+    final buildBox = await Hive.openBox('build');
+
+    await _compile(pathToAntEx, args, areFilesModified, buildBox);
   }
 
-  void _compile(String antPath, AntArgs args, bool runInShell) {
-    var count = 0;
-
+  Future<void> _compile(
+      String antPath, AntArgs args, bool areFilesMod, Box box) async {
     final compStep = BuildStep('Compiling Java sources');
     compStep.init();
 
-    Process.start(antPath, args.toList('javac'), runInShell: runInShell)
-        .asStream()
-        .asBroadcastStream()
-        .listen((process) {
-      process.stdout.asBroadcastStream().listen((data) {
-        // data is in decimal form, we need to format it.
-        final formatted = _format(data);
+    // Compile only if there are any changes in the src dir and/or rush.yml
+    if (areFilesMod) {
+      var count = 0;
+      if (box.isNotEmpty) {
+        await box.clear();
+      }
 
-        // formatted is a list of output messages.
-        // Go through each of them, and check if it's the start of error, part
-        // of error, or a warning.
-        for (final out in formatted) {
-          // print(out);
-          final lines = ErrData.getNoOfLines(out);
-          // If lines is the not null then it means that out is infact the first
-          // line of the error.
-          if (lines != null) {
-            count = lines - 1;
-            errCount++;
-            compStep.add('src' + out.split('src').last, ConsoleColor.red,
-                addSpace: true, prefix: 'ERR', prefClr: ConsoleColor.red);
-          } else if (count > 0) {
-            // If count is greater than 0, then it means that out is remaining part
-            // of the previously identified error.
-            count--;
-            compStep.add(out, ConsoleColor.red);
-          } else if (out.contains('error: ERR ')) {
-            // If out contains 'error: ERR' then it means that this error is from
-            // the annotaion processor. All errors coming from annotation processor
-            // are one liner, so, no need for any over head, we can directly print them.
-            errCount++;
-            compStep.add(
-                out.replaceAll('error: ERR ', '').trim(), ConsoleColor.red,
-                addSpace: true, prefix: 'ERR', prefClr: ConsoleColor.red);
-          } else if (out.contains('error: ')) {
-            count += 2;
-            errCount++;
-            compStep.add('src' + out.split('src').last, ConsoleColor.red,
-                addSpace: true, prefix: 'ERR', prefClr: ConsoleColor.red);
-          } else if (!out.contains(
-              'The following options were not recognized by any processor:')) {
-            if (out.contains('warning:')) {
+      Process.start(antPath, args.toList('javac'), runInShell: runInShell)
+          .asStream()
+          .asBroadcastStream()
+          .listen((process) {
+        final temp = <String>[];
+        process.stdout.asBroadcastStream().listen((data) async {
+          // data is in decimal form, we need to format it.
+          final formatted = _format(data);
+
+          // formatted is a list of output messages.
+          // Go through each of them, and check if it's the start of error, part
+          // of error, or a warning.
+          for (final out in formatted) {
+            final lines = ErrData.getNoOfLines(out);
+
+            // If lines is the not null then it means that out is infact the first
+            // line of the error.
+            if (lines != null) {
+              count = lines - 1;
+              errCount++;
+
+              final msg = 'src' + out.split('src').last;
+              temp.add(msg);
+              compStep.add(msg, ConsoleColor.red,
+                  addSpace: true,
+                  prefix: 'ERR',
+                  prefBgClr: ConsoleColor.brightRed,
+                  prefClr: ConsoleColor.brightWhite);
+            } else if (count > 0) {
+              // If count is greater than 0, then it means that out is remaining part
+              // of the previously identified error.
+
+              count--;
+              temp.add(out);
+              compStep.add(out, ConsoleColor.red);
+              if (count == 0) {
+                await box.put('err$errCount', temp);
+                temp.clear();
+              }
+            } else if (out.contains('error: ERR ')) {
+              // If out contains 'error: ERR' then it means that this error is from
+              // the annotaion processor. All errors coming from annotation processor
+              // are one liner, so, no need for any over head, we can directly print them.
+
+              errCount++;
+              final msg = out.replaceAll('error: ERR ', '').trim();
+              compStep.add(msg, ConsoleColor.red,
+                  addSpace: true, prefix: 'ERR', prefBgClr: ConsoleColor.red);
+
+              // No need to add this err in temp. Since it's one liner, it can directly
+              // be added to the box.
+              await box.put('err$errCount', msg);
+            } else if (out.contains('error: ')) {
+              // If this condition is reached then it means this of error *maybe*
+              // doesn't fall in any of the javac err categories.
+              // So, we increase the count by 2 assuming this error is a 3-liner
+              // since most javac errors are 3-liner.
+
+              count += 2;
+              errCount++;
+              final msg = 'src' + out.split('src').last;
+
+              temp.add(msg);
+              compStep.add(msg, ConsoleColor.red,
+                  addSpace: true, prefix: 'ERR', prefBgClr: ConsoleColor.red);
+            } else if (out.contains('warning:') &&
+                !out.contains(
+                    'The following options were not recognized by any processor:')) {
               warnCount++;
-              compStep.add(
-                  out.replaceAll('warning: ', '').trim(), ConsoleColor.yellow,
-                  addSpace: true, prefix: 'WARN', prefClr: ConsoleColor.yellow);
+
+              final msg = out.replaceAll('warning: ', '').trim();
+              compStep.add(msg, ConsoleColor.yellow,
+                  addSpace: true,
+                  prefix: 'WARN',
+                  prefBgClr: ConsoleColor.yellow,
+                  prefClr: ConsoleColor.black);
+
+              // Warnings are usually one liner, so, we can add them to the box directly.
+              await box.put('warn$warnCount', msg);
             }
           }
-        }
-      }, onDone: () {
-        if (warnCount > 0) {
-          compStep.add('Total warnings: $warnCount', ConsoleColor.yellow,
-              addSpace: true);
-        }
-        if (errCount > 0) {
+        }, onDone: () async {
+          await box.put('totalErr', errCount);
+          await box.put('totalWarn', warnCount);
+
+          if (warnCount > 0) {
+            compStep.add('Total warnings: $warnCount', ConsoleColor.yellow,
+                addSpace: true);
+          }
+          if (errCount > 0) {
+            compStep
+              ..add('Total errors: $errCount', ConsoleColor.red,
+                  addSpace: warnCount <= 0)
+              ..finish('Failed', ConsoleColor.red);
+            PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+                ConsoleColor.brightRed);
+            exit(1);
+          }
+          compStep.finish('Done', ConsoleColor.cyan);
+          _process(antPath, args);
+        }, onError: (_) {
           compStep
             ..add('Total errors: $errCount', ConsoleColor.red,
                 addSpace: warnCount <= 0)
@@ -177,22 +264,55 @@ class BuildCommand with AppDataMixin, CopyMixin {
           PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
               ConsoleColor.brightRed);
           exit(1);
+        });
+      });
+    } else {
+      final totalWarn = box.get('totalWarn');
+      final totalErr = box.get('totalErr');
+
+      if (totalWarn > 0) {
+        for (var i = 0; i < totalWarn; i++) {
+          final warn = box.get('warn${i + 1}');
+          compStep.add(warn, ConsoleColor.yellow,
+              addSpace: true,
+              prefix: 'WARN',
+              prefBgClr: ConsoleColor.yellow,
+              prefClr: ConsoleColor.black);
         }
-        compStep.finish('Done', ConsoleColor.cyan);
-        _process(antPath, args, runInShell);
-      }, onError: (_) {
+        compStep.add('Total warnings: $warnCount', ConsoleColor.yellow,
+            addSpace: true);
+      }
+
+      if (totalErr > 0) {
+        for (var i = 0; i < totalErr; i++) {
+          final err = box.get('err${i + 1}');
+          err.forEach((el) {
+            if (err.indexOf(el) == 0) {
+              compStep.add(el, ConsoleColor.red,
+                  addSpace: true,
+                  prefix: 'ERR',
+                  prefClr: ConsoleColor.brightWhite,
+                  prefBgClr: ConsoleColor.brightRed);
+            } else {
+              compStep.add(el, ConsoleColor.red);
+            }
+          });
+        }
         compStep
-          ..add('Total errors: $errCount', ConsoleColor.red,
-              addSpace: warnCount <= 0)
+          ..add('Total errors: $totalErr', ConsoleColor.red,
+              addSpace: totalWarn <= 0)
           ..finish('Failed', ConsoleColor.red);
         PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
             ConsoleColor.brightRed);
         exit(1);
-      });
-    });
+      }
+
+      compStep.finish('Done', ConsoleColor.cyan);
+      _process(antPath, args);
+    }
   }
 
-  void _process(String antPath, AntArgs args, bool runInShell) {
+  void _process(String antPath, AntArgs args) {
     final procStep = BuildStep('Generating metadata files');
     procStep.init();
     var procErrCount = 0;
@@ -205,7 +325,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
         for (final out in formatted) {
           if (out.startsWith('ERR')) {
             procStep.add(out.replaceAll('ERR ', ''), ConsoleColor.brightWhite,
-                addSpace: true, prefix: 'ERR', prefClr: ConsoleColor.red);
+                addSpace: true, prefix: 'ERR', prefBgClr: ConsoleColor.red);
             procErrCount++;
           }
         }
@@ -227,12 +347,12 @@ class BuildCommand with AppDataMixin, CopyMixin {
         }
         procStep.finish('Done', ConsoleColor.cyan);
 
-        _dex(antPath, args, runInShell);
+        _dex(antPath, args);
       });
     });
   }
 
-  void _dex(String antPath, AntArgs args, bool runInShell) {
+  void _dex(String antPath, AntArgs args) {
     final dexStep = BuildStep('Converting Java bytecode to DEX bytecode');
     dexStep.init();
 
@@ -252,12 +372,12 @@ class BuildCommand with AppDataMixin, CopyMixin {
       }, onDone: () {
         dexStep.finish('Done', ConsoleColor.cyan);
 
-        _finalize(antPath, args, runInShell);
+        _finalize(antPath, args);
       });
     });
   }
 
-  void _finalize(String antPath, AntArgs args, bool runInShell) {
+  void _finalize(String antPath, AntArgs args) {
     final asmStep = BuildStep('Finalizing the build');
     asmStep.init();
 
@@ -304,7 +424,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
       } catch (e) {
         ThrowError(
             message:
-                'ERR: Something went wrong while invalidating build caches.');
+                'ERR Something went wrong while invalidating build caches.');
       }
     }
   }
