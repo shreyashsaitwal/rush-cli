@@ -14,7 +14,7 @@ public class $name extends AndroidNonvisibleComponent {
     super(container.\$form());
   }
 
-  @SimpleFunction(description = "Returns the sum of all numbers in a list.")
+  @SimpleFunction(description = "Returns the sum of all numbers from the given list.")
   public int SumAll(List<Integer> list) {
     int sum = 0;
     for (int i : list) {
@@ -22,7 +22,6 @@ public class $name extends AndroidNonvisibleComponent {
     }
     return sum;
   }
-
 }
 ''';
 }

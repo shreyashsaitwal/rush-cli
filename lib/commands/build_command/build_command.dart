@@ -18,9 +18,6 @@ class BuildCommand with AppDataMixin, CopyMixin {
 
   BuildCommand(this._cd, this._isProd);
 
-  var errCount = 0;
-  var warnCount = 0;
-
   final runInShell = Platform.isWindows;
 
   /// Builds the extension in the current directory
@@ -97,7 +94,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
         'srcDirLastMod': rushYml.lastModifiedSync(),
       });
     } else if (!extBox.containsKey('org')) {
-      // todo: Infer the package name from the src
+      // TODO: Infer the package name from the src
       ThrowError(message: 'This project is corrupted.');
     }
 
@@ -118,15 +115,16 @@ class BuildCommand with AppDataMixin, CopyMixin {
     final areFilesModified = isYmlMod || isSrcDirMod;
 
     if (areFilesModified) {
-      _cleanBuildDir(p.join(dataDir, 'workspaces', extBox.get('org')));
+      _cleanDir(p.join(dataDir, 'workspaces', extBox.get('org')));
     }
 
-    // Increment version number if this is a production build
+    // Increment version number if this is a production build.
     if (_isProd) {
       var version = extBox.get('version') + 1;
       await extBox.put('version', version);
     }
 
+    // Load rush.yml in a Dart understandable way.
     final loadedYml = loadYaml(rushYml.readAsStringSync());
 
     // Args for spawning the Apache Ant process
@@ -141,19 +139,36 @@ class BuildCommand with AppDataMixin, CopyMixin {
     // the previous errors/warnings stored in the box.
     final buildBox = await Hive.openBox('build');
 
-    await _compile(pathToAntEx, args, areFilesModified, buildBox);
+    if (!buildBox.containsKey('count')) {
+      await buildBox.put('count', 1);
+    } else {
+      final i = (await buildBox.get('count') as int) + 1;
+      await buildBox.put('count', i);
+    }
+
+    await _compile(pathToAntEx, args,
+        areFilesModified || await buildBox.get('count') == 1, buildBox);
   }
 
+  /// Compiles all the Java files located at _cd/src.
   Future<void> _compile(
-      String antPath, AntArgs args, bool areFilesMod, Box box) async {
-    final compStep = BuildStep('Compiling Java sources');
+      String antPath, AntArgs args, bool shouldRecompile, Box box) async {
+    var errCount = 0;
+    var warnCount = 0;
+
+    final compStep = BuildStep('Compiling Java files');
     compStep.init();
 
-    // Compile only if there are any changes in the src dir and/or rush.yml
-    if (areFilesMod) {
+    // Compile only if there are any changes in the src dir and/or rush.yml.
+    if (shouldRecompile) {
       var count = 0;
-      if (box.isNotEmpty) {
-        await box.clear();
+
+      // Delete previous errors and warnings
+      if (box.containsKey('totalErr')) {
+        await box.delete('totalErr');
+      }
+      if (box.containsKey('totalWarn')) {
+        await box.delete('totalWarn');
       }
 
       Process.start(antPath, args.toList('javac'), runInShell: runInShell)
@@ -162,7 +177,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
           .listen((process) {
         final temp = <String>[];
         process.stdout.asBroadcastStream().listen((data) async {
-          // data is in decimal form, we need to format it.
+          // format data in human readable format
           final formatted = _format(data);
 
           // formatted is a list of output messages.
@@ -312,10 +327,13 @@ class BuildCommand with AppDataMixin, CopyMixin {
     }
   }
 
+  /// Further process the extension by generating extension files, adding
+  /// libraries and jaring the extension.
   void _process(String antPath, AntArgs args) {
     final procStep = BuildStep('Generating metadata files');
     procStep.init();
     var procErrCount = 0;
+
     Process.start(antPath, args.toList('process'), runInShell: runInShell)
         .asStream()
         .asBroadcastStream()
@@ -352,6 +370,8 @@ class BuildCommand with AppDataMixin, CopyMixin {
     });
   }
 
+  /// Convert generated extension JAR file from previous step into DEX
+  /// bytecode.
   void _dex(String antPath, AntArgs args) {
     final dexStep = BuildStep('Converting Java bytecode to DEX bytecode');
     dexStep.init();
@@ -361,7 +381,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
         .asBroadcastStream()
         .listen((process) {
       process.stdout.asBroadcastStream().listen((data) {
-        // Todo
+        // TODO Listen to errors
       }, onError: (_) {
         dexStep
           ..add('An internal error occured', ConsoleColor.brightBlack)
@@ -377,6 +397,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
     });
   }
 
+  /// Finalize the build.
   void _finalize(String antPath, AntArgs args) {
     final asmStep = BuildStep('Finalizing the build');
     asmStep.init();
@@ -386,7 +407,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
         .asBroadcastStream()
         .listen((process) {
       process.stdout.asBroadcastStream().listen((data) {
-        // Todo
+        // TODO Listen to errors
       }, onError: (_) {
         asmStep
           ..add('An internal error occured', ConsoleColor.brightBlack)
@@ -416,8 +437,9 @@ class BuildCommand with AppDataMixin, CopyMixin {
     return res;
   }
 
-  void _cleanBuildDir(String buildDir) {
-    final dir = Directory(buildDir);
+  /// Deletes directory located at [path] recursively.
+  void _cleanDir(String path) {
+    final dir = Directory(path);
     if (dir.existsSync()) {
       try {
         dir.deleteSync(recursive: true);
