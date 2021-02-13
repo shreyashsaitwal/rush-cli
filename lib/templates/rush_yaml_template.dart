@@ -15,7 +15,7 @@ assets:
 authors:
   - $author
 
-# dependencies:         # Depenedencies should be first added to the "deps" folder
+# deps:         # Depenedencies should be first added to the "deps" folder
 #   - my_awesome_library.jar
 
 ''';

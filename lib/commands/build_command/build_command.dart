@@ -210,15 +210,15 @@ class BuildCommand with AppDataMixin, CopyMixin {
                 await box.put('err$errCount', temp);
                 temp.clear();
               }
-            } else if (out.contains('error: ERR ')) {
-              // If out contains 'error: ERR' then it means that this error is from
+            } else if (out.contains('ERR ')) {
+              // If out contains 'ERR' then it means that this error is from
               // the annotaion processor. All errors coming from annotation processor
               // are one liner, so, no need for any over head, we can directly print them.
 
               errCount++;
-              final msg = out.replaceAll('error: ERR ', '').trim();
+              final msg = out.split('ERR ').last;
               compStep.add(msg, ConsoleColor.red,
-                  addSpace: true, prefix: 'ERR', prefBgClr: ConsoleColor.red);
+                  addSpace: true, prefix: 'ERR', prefBgClr: ConsoleColor.red, prefClr: ConsoleColor.brightWhite);
 
               // No need to add this err in temp. Since it's one liner, it can directly
               // be added to the box.
