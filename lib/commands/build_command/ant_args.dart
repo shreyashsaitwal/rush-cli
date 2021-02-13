@@ -34,8 +34,8 @@ class AntArgs {
       args.add('-DextName=${Casing.pascalCase(name)}');
       args.add('-Dorg=$org');
       args.add('-Dversion=$version');
-      args.add('-DdevDeps=${p.join(cd, 'dependencies', 'dev')}');
-      args.add('-Ddeps=${p.join(cd, 'dependencies')}');
+      args.add('-DdevDeps=${p.join(cd, '.rush', 'dev_deps')}');
+      args.add('-Ddeps=${p.join(cd, 'deps')}');
       args.add('-Dprocessor=${p.join(dataDirPath, 'tools', 'processor')}');
     } else if (task == 'process') {
       args.add('jarExt');
@@ -43,8 +43,8 @@ class AntArgs {
       args.add('-Dclasses=${p.join(workspaces, org, 'classes')}');
       args.add('-Draw=${p.join(workspaces, org, 'raw')}');
       args.add('-DrawCls=${p.join(workspaces, org, 'raw-classes')}');
-      args.add('-DdevDeps=${p.join(cd, 'dependencies', 'dev')}');
-      args.add('-Ddeps=${p.join(cd, 'dependencies')}');
+      args.add('-DdevDeps=${p.join(cd, '.rush', 'dev_deps')}');
+      args.add('-Ddeps=${p.join(cd, 'deps')}');
       args.add('-Dextension=$org');
       args.add('-Dcd=$cd');
     } else if (task == 'dex') {

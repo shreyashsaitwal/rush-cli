@@ -32,8 +32,7 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
     final authorName = answers[2][1].toString().trim();
     final versionName = answers[3][1].toString().trim();
 
-    final isOrgAndNameSame =
-        orgName.split('.').last == Casing.camelCase(name);
+    final isOrgAndNameSame = orgName.split('.').last == Casing.camelCase(name);
     var package;
     if (isOrgAndNameSame) {
       package = orgName;
@@ -41,8 +40,8 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
       package = orgName + '.' + Casing.camelCase(name);
     }
 
-    final extPath = p.joinAll(
-        [_cd, Casing.camelCase(name), 'src', ...package.split('.')]);
+    final extPath =
+        p.joinAll([_cd, Casing.camelCase(name), 'src', ...package.split('.')]);
 
     // Creates the required files for the extension.
     try {
@@ -56,21 +55,24 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
       _writeFile(p.join(_cd, Casing.camelCase(name), 'rush.yml'),
           getRushYaml(name, versionName, authorName));
 
-      _writeFile(p.join(_cd, Casing.camelCase(name), '.gitignore'),
-          getDotGitignore());
+      _writeFile(
+          p.join(_cd, Casing.camelCase(name), '.gitignore'), getDotGitignore());
 
-      _writeFile(p.join(_cd, Casing.camelCase(name), 'README.md'),
-          getReadme(name));
+      _writeFile(
+          p.join(_cd, Casing.camelCase(name), 'README.md'), getReadme(name));
 
       _writeFile(
           p.join(_cd, Casing.camelCase(name), 'src', 'AndroidManifest.xml'),
           getManifestXml(orgName));
+
+      _writeFile(
+          p.join(_cd, Casing.camelCase(name), 'deps', '.placeholder'), '');
     } catch (e) {
-      ThrowError(message: 'ERR: ' + e.toString());
+      ThrowError(message: 'ERR ' + e.toString());
     }
 
     try {
-      Directory(p.join(_cd, Casing.camelCase(name), 'dependencies', 'dev'))
+      Directory(p.join(_cd, Casing.camelCase(name), '.rush', 'dev_deps'))
           .createSync(recursive: true);
 
       Directory(p.join(_cd, Casing.camelCase(name), 'assets'))
@@ -79,7 +81,7 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
       Directory(p.join(_cd, Casing.camelCase(name), '.rush'))
           .createSync(recursive: true);
     } catch (e) {
-      ThrowError(message: 'ERR: ' + e.toString());
+      ThrowError(message: 'ERR ' + e.toString());
     }
 
     Hive.init(p.join(_cd, Casing.camelCase(name), '.rush'));
@@ -95,10 +97,8 @@ class NewCommand with DownloadMixin, AppDataMixin, CopyMixin {
     final devDepsDirPath = p.join(AppDataMixin.dataStorageDir(), 'dev-deps');
 
     // Copy the dev-deps from the cache.
-    copyDir(
-        Directory(devDepsDirPath),
-        Directory(
-            p.join(_cd, Casing.camelCase(name), 'dependencies', 'dev')));
+    copyDir(Directory(devDepsDirPath),
+        Directory(p.join(_cd, Casing.camelCase(name), '.rush', 'dev_deps')));
 
     exit(0);
   }

@@ -186,7 +186,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
           for (final out in formatted) {
             final lines = ErrData.getNoOfLines(out);
 
-            // If lines is the not null then it means that out is infact the first
+            // If lines is the not null then it means that out is in fact the first
             // line of the error.
             if (lines != null) {
               count = lines - 1;
@@ -282,8 +282,8 @@ class BuildCommand with AppDataMixin, CopyMixin {
         });
       });
     } else {
-      final totalWarn = box.get('totalWarn');
-      final totalErr = box.get('totalErr');
+      final totalWarn = box.get('totalWarn') ?? 0;
+      final totalErr = box.get('totalErr') ?? 0;
 
       if (totalWarn > 0) {
         for (var i = 0; i < totalWarn; i++) {
@@ -330,7 +330,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
   /// Further process the extension by generating extension files, adding
   /// libraries and jaring the extension.
   void _process(String antPath, AntArgs args) {
-    final procStep = BuildStep('Generating metadata files');
+    final procStep = BuildStep('Generating extension files');
     procStep.init();
     var procErrCount = 0;
 
