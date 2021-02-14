@@ -3,7 +3,7 @@ import 'dart:io' show Directory, File, Platform, exit;
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:dart_casing/dart_casing.dart';
-import 'package:rush_cli/commands/new_command/questions.dart';
+import 'package:rush_cli/commands/create_command/questions.dart';
 import 'package:rush_cli/mixins/copy_mixin.dart';
 import 'package:rush_cli/templates/android_manifest.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
@@ -13,10 +13,10 @@ import 'package:rush_prompt/rush_prompt.dart';
 import 'package:rush_cli/templates/rush_yaml_template.dart';
 import 'package:rush_cli/templates/extension_template.dart';
 
-class NewCommand with CopyMixin {
+class CreateCommand with CopyMixin {
   final String _cd;
 
-  NewCommand(this._cd);
+  CreateCommand(this._cd);
 
   /// Creates a new extension project in the current directory.
   Future<void> run() async {
