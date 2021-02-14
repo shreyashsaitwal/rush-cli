@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
 import 'package:dart_casing/dart_casing.dart';
 
@@ -20,11 +22,12 @@ class AntArgs {
   List toList(String task) {
     final args = <String>[];
     final workspaces = p.join(dataDirPath, 'workspaces');
+    final baseDir = p.dirname(p.dirname(Platform.script.path));
 
     args.add(
-        '-buildfile=${p.join(dataDirPath, 'tools', 'apache-ant', 'build.xml')}');
+        '-buildfile=${p.joinAll([...baseDir.split('/'), 'tools', 'apache-ant', 'build.xml'])}');
     args.add(
-        '-DantCon=${p.join(dataDirPath, 'tools', 'ant-contrib-1.0b3.jar')}');
+        '-DantCon=${p.joinAll([...baseDir.split('/'), 'tools', 'ant-contrib-1.0b3.jar'])}');
 
     if (task == 'javac') {
       args.add('javac');
@@ -36,10 +39,10 @@ class AntArgs {
       args.add('-Dversion=$version');
       args.add('-DdevDeps=${p.join(cd, '.rush', 'dev_deps')}');
       args.add('-Ddeps=${p.join(cd, 'deps')}');
-      args.add('-Dprocessor=${p.join(dataDirPath, 'tools', 'processor')}');
+      args.add('-Dprocessor=${p.joinAll([...baseDir.split('/'), 'tools', 'processor'])}');
     } else if (task == 'process') {
       args.add('jarExt');
-      args.add('-Dprocessor=${p.join(dataDirPath, 'tools', 'processor')}');
+      args.add('-Dprocessor=${p.joinAll([...baseDir.split('/'), 'tools', 'processor'])}');
       args.add('-Dclasses=${p.join(workspaces, org, 'classes')}');
       args.add('-Draw=${p.join(workspaces, org, 'raw')}');
       args.add('-DrawCls=${p.join(workspaces, org, 'raw-classes')}');
@@ -50,7 +53,7 @@ class AntArgs {
     } else if (task == 'dex') {
       args.add('dexExt');
       args.add('-Dextension=$org');
-      args.add('-Ddexer=${p.join(dataDirPath, 'tools', 'dx.jar')}');
+      args.add('-Ddexer=${p.joinAll([...baseDir.split('/'), 'tools', 'dx.jar'])}');
       args.add('-Draw=${p.join(workspaces, org, 'raw')}');
       args.add('-DrawCls=${p.join(workspaces, org, 'raw-classes')}');
     } else if (task == 'assemble') {

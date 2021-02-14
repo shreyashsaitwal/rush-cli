@@ -131,7 +131,9 @@ class BuildCommand with AppDataMixin, CopyMixin {
     final args = AntArgs(dataDir, _cd, extBox.get('org'),
         extBox.get('version').toString(), loadedYml['name']);
 
-    final pathToAntEx = p.join(dataDir, 'tools', 'apache-ant', 'bin', 'ant');
+    final baseDir = Platform.script.toFilePath(windows: Platform.isWindows);
+
+    final pathToAntEx = p.join(baseDir.split('bin').first, 'tools', 'apache-ant', 'bin', 'ant');
 
     // This box stores the warnings/errors that appeared while building
     // the extension. This is done in order to skip the compilation in
@@ -184,6 +186,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
           // Go through each of them, and check if it's the start of error, part
           // of error, or a warning.
           for (final out in formatted) {
+            // print(out);
             final lines = ErrData.getNoOfLines(out);
 
             // If lines is the not null then it means that out is in fact the first
