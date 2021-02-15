@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dart_console/dart_console.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 import 'package:meta/meta.dart';
@@ -36,7 +38,7 @@ class BoolQuestion extends Question {
       ..write('$_question $suffix ')
       ..setForegroundColor(ConsoleColor.cyan);
 
-    var input = console.readLine(cancelOnBreak: true, cancelOnEscape: true);
+    var input = stdin.readLineSync();
     final validYesAnswers = ['y', 'yes', 'yeah', 'yep', 'ya', 'ye'];
     final validNoAnswers = ['n', 'no', 'nah', 'never'];
 
@@ -57,7 +59,7 @@ class BoolQuestion extends Question {
           ..write('$_question $suffix ')
           ..setForegroundColor(ConsoleColor.blue);
 
-        input = console.readLine(cancelOnBreak: true, cancelOnEscape: true);
+        input = stdin.readLineSync();
       }
     }
 

@@ -33,16 +33,7 @@ class SimpleQuestion extends Question {
         ..write('($_default) ');
     }
     console.setForegroundColor(ConsoleColor.cyan);
-    var answer = console.readLine(cancelOnBreak: true);
-
-    // var key = console.readKey().controlChar;
-    // while (true) {
-    //   if (key == ControlCharacter.enter && (answer == null || answer.isEmpty)) {
-    //     answer = ask()[1];
-    //   } else {
-    //     break;
-    //   }
-    // }
+    var answer = stdin.readLineSync();
 
     console.resetColorAttributes();
 
@@ -53,7 +44,7 @@ class SimpleQuestion extends Question {
         ..setForegroundColor(ConsoleColor.yellow)
         ..writeLine('Task aborted by user.')
         ..resetColorAttributes();
-        
+
       exit(1);
     }
 
