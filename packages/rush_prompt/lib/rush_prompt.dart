@@ -10,3 +10,4 @@ export 'src/progress_bar.dart';
 export 'src/throw_error.dart';
 export 'src/build_step.dart';
 export 'src/print_msg.dart';
+export 'src/print_art.dart';

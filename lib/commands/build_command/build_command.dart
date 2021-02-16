@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
@@ -12,16 +13,65 @@ import 'package:rush_cli/mixins/is_yaml_valid.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 import 'package:yaml/yaml.dart';
 
-class BuildCommand with AppDataMixin, CopyMixin {
+class BuildCommand extends Command with AppDataMixin, CopyMixin {
   final String _cd;
-  final bool _isProd;
 
-  BuildCommand(this._cd, this._isProd);
+  BuildCommand(this._cd) {
+    argParser.addFlag('release',
+        abbr: 'r',
+        defaultsTo: false,
+        help:
+            'Marks this build as a release build, and hence, increments the version number of the extension by 1.');
+  }
 
   final runInShell = Platform.isWindows;
 
+  @override
+  String get description =>
+      'Identifies and builds the extension project in current working directory.';
+
+  @override
+  String get name => 'build';
+
+  @override
+  void printUsage() {
+    PrintArt();
+    final console = Console();
+
+    console
+      ..setForegroundColor(ConsoleColor.cyan)
+      ..write(' build: ')
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..writeLine(description)
+      ..writeLine()
+      ..writeLine(' Usage: ')
+      ..setForegroundColor(ConsoleColor.brightBlue)
+      ..write('   rush ')
+      ..setForegroundColor(ConsoleColor.cyan)
+      ..writeLine('build')
+      ..resetColorAttributes()
+      ..writeLine();
+
+    // Print available flags
+    console
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..writeLine(' Available flags:')
+      ..setForegroundColor(ConsoleColor.yellow)
+      ..write('   -r, --release')
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..writeLine('     Marks this build as a release build, which results in the version number being incremented by one.')
+      ..resetColorAttributes()
+      ..writeLine();
+  }
+
+
   /// Builds the extension in the current directory
+  @override
   Future<void> run() async {
+    final isProd = argResults['release'];
+
+        PrintArt();
+
     PrintMsg('Build initialized\n', ConsoleColor.brightWhite, '•',
         ConsoleColor.yellow);
 
@@ -119,7 +169,7 @@ class BuildCommand with AppDataMixin, CopyMixin {
     }
 
     // Increment version number if this is a production build.
-    if (_isProd) {
+    if (isProd) {
       var version = extBox.get('version') + 1;
       await extBox.put('version', version);
     }
@@ -133,7 +183,8 @@ class BuildCommand with AppDataMixin, CopyMixin {
 
     final baseDir = Platform.script.toFilePath(windows: Platform.isWindows);
 
-    final pathToAntEx = p.join(baseDir.split('bin').first, 'tools', 'apache-ant', 'bin', 'ant');
+    final pathToAntEx =
+        p.join(baseDir.split('bin').first, 'tools', 'apache-ant', 'bin', 'ant');
 
     // This box stores the warnings/errors that appeared while building
     // the extension. This is done in order to skip the compilation in
@@ -221,7 +272,10 @@ class BuildCommand with AppDataMixin, CopyMixin {
               errCount++;
               final msg = out.split('ERR ').last;
               compStep.add(msg, ConsoleColor.red,
-                  addSpace: true, prefix: 'ERR', prefBgClr: ConsoleColor.red, prefClr: ConsoleColor.brightWhite);
+                  addSpace: true,
+                  prefix: 'ERR',
+                  prefBgClr: ConsoleColor.red,
+                  prefClr: ConsoleColor.brightWhite);
 
               // No need to add this err in temp. Since it's one liner, it can directly
               // be added to the box.

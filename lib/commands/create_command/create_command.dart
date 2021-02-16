@@ -1,5 +1,7 @@
 import 'dart:io' show Directory, File, Platform, exit;
 
+import 'package:args/command_runner.dart';
+import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:dart_casing/dart_casing.dart';
@@ -13,18 +15,55 @@ import 'package:rush_prompt/rush_prompt.dart';
 import 'package:rush_cli/templates/rush_yaml_template.dart';
 import 'package:rush_cli/templates/extension_template.dart';
 
-class CreateCommand with CopyMixin {
+class CreateCommand extends Command with CopyMixin {
   final String _cd;
+  String extName;
 
   CreateCommand(this._cd);
 
+  @override
+  String get description =>
+      'Scaffolds a new extension project in the current working directory.';
+
+  @override
+  String get name => 'create';
+
+  @override
+  void printUsage() {
+    PrintArt();
+
+    Console()
+      ..setForegroundColor(ConsoleColor.cyan)
+      ..write(' create: ')
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..writeLine(description)
+      ..writeLine()
+      ..writeLine(' Usage: ')
+      ..setForegroundColor(ConsoleColor.brightBlue)
+      ..write('   rush ')
+      ..setForegroundColor(ConsoleColor.cyan)
+      ..write('create ')
+      ..resetColorAttributes()
+      ..writeLine('[extension_name]');
+  }
+
   /// Creates a new extension project in the current directory.
+  @override
   Future<void> run() async {
+    String name;
+    if (argResults.rest.length == 1) {
+      name = argResults.rest.first;
+    } else {
+      printUsage();
+      exit(64); // Exit code 64 indicates usage error
+    }
+
+    PrintArt();
+
     final answers = RushPrompt(questions: Questions.questions).askAll();
-    final name = answers[0][1].toString().trim();
-    final orgName = answers[1][1].toString().trim();
-    final authorName = answers[2][1].toString().trim();
-    final versionName = answers[3][1].toString().trim();
+    final orgName = answers[0][1].toString().trim();
+    final authorName = answers[1][1].toString().trim();
+    final versionName = answers[2][1].toString().trim();
 
     final isOrgAndNameSame = orgName.split('.').last == Casing.camelCase(name);
     var package;

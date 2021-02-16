@@ -4,10 +4,6 @@ class Questions {
   static List<Question> get questions {
     return [
       SimpleQuestion(
-        question: 'Extension name',
-        id: 'extName',
-      ),
-      SimpleQuestion(
         question: 'Organization (package name)',
         id: 'org',
       ),
