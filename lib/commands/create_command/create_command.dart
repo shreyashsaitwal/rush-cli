@@ -8,7 +8,9 @@ import 'package:dart_casing/dart_casing.dart';
 import 'package:rush_cli/commands/create_command/questions.dart';
 import 'package:rush_cli/mixins/copy_mixin.dart';
 import 'package:rush_cli/templates/android_manifest.dart';
+import 'package:rush_cli/templates/dot_classpath_template.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
+import 'package:rush_cli/templates/dot_proj_template.dart';
 import 'package:rush_cli/templates/readme.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
@@ -100,6 +102,17 @@ class CreateCommand extends Command with CopyMixin {
 
       _writeFile(
           p.join(_cd, Casing.camelCase(name), 'deps', '.placeholder'), '');
+
+      _writeFile(
+          p.join(_cd, Casing.camelCase(name), '.classpath'), getDotClasspath());
+
+      _writeFile(p.join(_cd, Casing.camelCase(name), '.project'),
+          getDotProject(Casing.camelCase(name)));
+
+      _writeFile(
+          p.join(_cd, Casing.camelCase(name), '.settings',
+              'org.eclipse.jdt.core.prefs'),
+          'eclipse.preferences.version=1\norg.eclipse.jdt.core.compiler.problem.enablePreviewFeatures=disabled\n');
     } catch (e) {
       ThrowError(message: 'ERR ' + e.toString());
     }
