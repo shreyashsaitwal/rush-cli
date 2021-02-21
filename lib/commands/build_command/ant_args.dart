@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:dart_casing/dart_casing.dart';
 
 /// Generate arguments for the Ant exec.
 class AntArgs {
@@ -34,7 +33,7 @@ class AntArgs {
       args.add('-Dclasses=${p.join(workspaces, org, 'classes')}');
       args.add('-DextSrc=${p.join(cd, 'src')}');
       args.add('-Droot=$cd');
-      args.add('-DextName=${Casing.pascalCase(name)}');
+      args.add('-DextName=$name');
       args.add('-Dorg=$org');
       args.add('-Dversion=$version');
       args.add('-DdevDeps=${p.join(cd, '.rush', 'dev_deps')}');

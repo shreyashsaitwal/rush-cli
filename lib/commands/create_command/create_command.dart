@@ -4,7 +4,10 @@ import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:dart_casing/dart_casing.dart';
+
+import 'package:rush_prompt/rush_prompt.dart';
+
+import 'package:rush_cli/commands/create_command/casing.dart';
 import 'package:rush_cli/commands/create_command/questions.dart';
 import 'package:rush_cli/mixins/copy_mixin.dart';
 import 'package:rush_cli/templates/android_manifest.dart';
@@ -12,8 +15,6 @@ import 'package:rush_cli/templates/dot_classpath_template.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
 import 'package:rush_cli/templates/dot_proj_template.dart';
 import 'package:rush_cli/templates/readme.dart';
-
-import 'package:rush_prompt/rush_prompt.dart';
 import 'package:rush_cli/templates/rush_yaml_template.dart';
 import 'package:rush_cli/templates/extension_template.dart';
 
@@ -63,78 +64,67 @@ class CreateCommand extends Command with CopyMixin {
     PrintArt();
 
     final answers = RushPrompt(questions: Questions.questions).askAll();
-    final orgName = answers[0][1].toString().trim();
     final authorName = answers[1][1].toString().trim();
     final versionName = answers[2][1].toString().trim();
+    var orgName = answers[0][1].toString().trim();
 
-    final isOrgAndNameSame = orgName.split('.').last == Casing.camelCase(name);
-    var package;
-    if (isOrgAndNameSame) {
-      package = orgName;
-    } else {
-      package = orgName + '.' + Casing.camelCase(name);
+    final camelCasedName = Casing.camelCase(name);
+    final pascalCasedName = Casing.pascalCase(name);
+    final kebabCasedName = Casing.kebabCase(name);
+
+    // If the last word after '.' in pacakge name is same as the
+    // extension name, then
+    final isOrgAndNameSame = orgName.split('.').last == camelCasedName;
+    if (!isOrgAndNameSame) {
+      orgName = orgName + '.' + camelCasedName;
     }
 
-    final extPath =
-        p.joinAll([_cd, Casing.camelCase(name), 'src', ...package.split('.')]);
+    final projectDir = p.join(_cd, kebabCasedName);
 
     // Creates the required files for the extension.
     try {
+      final extPath = p.joinAll([projectDir, 'src', ...orgName.split('.')]);
       _writeFile(
-          p.join(extPath, '${Casing.pascalCase(name)}.java'),
+          p.join(extPath, '$pascalCasedName.java'),
           getExtensionTemp(
-            Casing.pascalCase(name),
-            package,
+            pascalCasedName,
+            orgName,
           ));
 
-      _writeFile(p.join(_cd, Casing.camelCase(name), 'rush.yml'),
-          getRushYaml(name, versionName, authorName));
-
-      _writeFile(
-          p.join(_cd, Casing.camelCase(name), '.gitignore'), getDotGitignore());
-
-      _writeFile(
-          p.join(_cd, Casing.camelCase(name), 'README.md'), getReadme(name));
-
-      _writeFile(
-          p.join(_cd, Casing.camelCase(name), 'src', 'AndroidManifest.xml'),
+      _writeFile(p.join(projectDir, 'src', 'AndroidManifest.xml'),
           getManifestXml(orgName));
 
-      _writeFile(
-          p.join(_cd, Casing.camelCase(name), 'deps', '.placeholder'), '');
+      _writeFile(p.join(projectDir, 'rush.yml'),
+          getRushYaml(pascalCasedName, versionName, authorName));
 
-      _writeFile(
-          p.join(_cd, Casing.camelCase(name), '.classpath'), getDotClasspath());
+      _writeFile(p.join(projectDir, 'README.md'), getReadme(pascalCasedName));
+      _writeFile(p.join(projectDir, '.gitignore'), getDotGitignore());
+      _writeFile(p.join(projectDir, 'deps', '.placeholder'),
+          'This directory stores your extension\'s depenedencies.');
 
-      _writeFile(p.join(_cd, Casing.camelCase(name), '.project'),
-          getDotProject(Casing.camelCase(name)));
-
-      _writeFile(
-          p.join(_cd, Casing.camelCase(name), '.settings',
-              'org.eclipse.jdt.core.prefs'),
+      // These files help Eclipse Java based IDE's to analyze the project and
+      // provide features like code completion.
+      _writeFile(p.join(projectDir, '.classpath'), getDotClasspath());
+      _writeFile(p.join(projectDir, '.project'), getDotProject(camelCasedName));
+      _writeFile(p.join(projectDir, '.settings', 'org.eclipse.jdt.core.prefs'),
           'eclipse.preferences.version=1\norg.eclipse.jdt.core.compiler.problem.enablePreviewFeatures=disabled\n');
     } catch (e) {
       ThrowError(message: 'ERR ' + e.toString());
     }
 
     try {
-      Directory(p.join(_cd, Casing.camelCase(name), '.rush', 'dev_deps'))
+      Directory(p.join(projectDir, '.rush', 'dev_deps'))
           .createSync(recursive: true);
-
-      Directory(p.join(_cd, Casing.camelCase(name), 'assets'))
-          .createSync(recursive: true);
-
-      Directory(p.join(_cd, Casing.camelCase(name), '.rush'))
-          .createSync(recursive: true);
+      Directory(p.join(projectDir, 'assets')).createSync(recursive: true);
     } catch (e) {
       ThrowError(message: 'ERR ' + e.toString());
     }
 
-    Hive.init(p.join(_cd, Casing.camelCase(name), '.rush'));
+    Hive.init(p.join(projectDir, '.rush'));
     var box = await Hive.openBox('data');
     await box.putAll({
       'version': 1,
-      'org': package,
+      'org': orgName,
       'rushYmlLastMod': DateTime.now(),
       'srcDirLastMod': DateTime.now(),
     });
@@ -143,11 +133,12 @@ class CreateCommand extends Command with CopyMixin {
     final baseDir = Platform.script.toFilePath(windows: Platform.isWindows);
     final devDepsDir = p.join(baseDir.split('bin').first, 'dev-deps');
     copyDir(Directory(devDepsDir),
-        Directory(p.join(_cd, Casing.camelCase(name), '.rush', 'dev_deps')));
+        Directory(p.join(projectDir, '.rush', 'dev_deps')));
 
     exit(0);
   }
 
+  /// Creates a file in [path] and writes [content] inside it.
   void _writeFile(String path, String content) {
     File(path)
       ..createSync(recursive: true)
