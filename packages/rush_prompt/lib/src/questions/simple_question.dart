@@ -46,6 +46,8 @@ class SimpleQuestion extends Question {
         ..resetColorAttributes();
 
       exit(1);
+    } else if (answer == '') {
+      ask();
     }
 
     return [id, answer];

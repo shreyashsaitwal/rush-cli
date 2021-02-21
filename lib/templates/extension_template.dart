@@ -8,8 +8,6 @@ import com.google.appinventor.components.runtime.ComponentContainer;
 import com.google.appinventor.components.runtime.errors.YailRuntimeError;
 import com.google.appinventor.components.runtime.util.YailList;
 
-import java.util.List;
-
 public class $name extends AndroidNonvisibleComponent {
 
   public $name(ComponentContainer container) {
