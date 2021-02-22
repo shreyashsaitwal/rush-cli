@@ -78,6 +78,7 @@ class CreateCommand extends Command with CopyMixin {
     if (!isOrgAndNameSame) {
       orgName = orgName + '.' + camelCasedName;
     }
+    orgName = orgName.toLowerCase();
 
     final projectDir = p.join(_cd, kebabCasedName);
 
@@ -105,7 +106,7 @@ class CreateCommand extends Command with CopyMixin {
       // These files help Eclipse Java based IDE's to analyze the project and
       // provide features like code completion.
       _writeFile(p.join(projectDir, '.classpath'), getDotClasspath());
-      _writeFile(p.join(projectDir, '.project'), getDotProject(camelCasedName));
+      _writeFile(p.join(projectDir, '.project'), getDotProject(pascalCasedName));
       _writeFile(p.join(projectDir, '.settings', 'org.eclipse.jdt.core.prefs'),
           'eclipse.preferences.version=1\norg.eclipse.jdt.core.compiler.problem.enablePreviewFeatures=disabled\n');
     } catch (e) {

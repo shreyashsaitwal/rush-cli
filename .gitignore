@@ -2,6 +2,7 @@
 .dart_tool/
 .packages
 .idea
+pubspec.lock
 
 # Conventional directory for build outputs
 build/

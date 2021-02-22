@@ -52,7 +52,7 @@ class AntArgs {
     } else if (task == 'dex') {
       args.add('dexExt');
       args.add('-Dextension=$org');
-      args.add('-Ddexer=${p.joinAll([...baseDir.split('/'), 'tools', 'dx.jar'])}');
+      args.add('-Dd8=${p.joinAll([...baseDir.split('/'), 'tools', 'd8.jar'])}');
       args.add('-Draw=${p.join(workspaces, org, 'raw')}');
       args.add('-DrawCls=${p.join(workspaces, org, 'raw-classes')}');
     } else if (task == 'assemble') {
