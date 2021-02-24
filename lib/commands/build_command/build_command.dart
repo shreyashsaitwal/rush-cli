@@ -68,10 +68,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
   /// Builds the extension in the current directory
   @override
   Future<void> run() async {
-    final isProd = argResults['release'];
-
-        PrintArt();
-
+    PrintArt();
     PrintMsg('Build initialized\n', ConsoleColor.brightWhite, '•',
         ConsoleColor.yellow);
 
@@ -169,6 +166,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     }
 
     // Increment version number if this is a production build.
+    final isProd = argResults['release'];
     if (isProd) {
       var version = extBox.get('version') + 1;
       await extBox.put('version', version);

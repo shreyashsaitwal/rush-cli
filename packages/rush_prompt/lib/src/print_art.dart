@@ -13,5 +13,6 @@ class PrintArt {
     final console = Console();
     console.setForegroundColor(ConsoleColor.brightBlue);
     art.split('\n').forEach((ln) => console.writeLine(ln));
+    console.resetColorAttributes();
   }
 }
