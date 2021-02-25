@@ -1,3 +1,0 @@
-[submodule "rush-annotation-processor"]
-	path = annotation-processor
-	url = https://github.com/ShreyashSaitwal/rush-annotation-processor.git
