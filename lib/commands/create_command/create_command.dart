@@ -116,8 +116,6 @@ class CreateCommand extends Command with CopyMixin {
     }
 
     try {
-      Directory(p.join(projectDir, '.rush', 'dev_deps'))
-          .createSync(recursive: true);
       Directory(p.join(projectDir, 'assets')).createSync(recursive: true);
     } catch (e) {
       ThrowError(message: 'ERR ' + e.toString());
