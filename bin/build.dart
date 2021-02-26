@@ -110,37 +110,45 @@ void _copyLibs(String apRepoPath) {
   final runtimeLibs = p.join(apRepoPath, 'runtime', 'build', 'implementation');
   final runtimeDest = p.join(p.current, 'build', 'dev-deps');
   Directory(runtimeDest).createSync(recursive: true);
-  _copyDir(runtimeLibs, runtimeDest);
+  _copyDir(runtimeLibs, runtimeDest, p.join(apRepoPath, 'build', 'temp_dir'));
 
   final procLibs = p.join(apRepoPath, 'processor', 'build', 'implementation');
   final procDest = p.join(p.current, 'build', 'tools', 'processor');
   Directory(procDest).createSync(recursive: true);
-  _copyDir(procLibs, procDest);
+  _copyDir(procLibs, procDest, p.join(apRepoPath, 'build', 'temp_dir'));
 
   File(p.join(apRepoPath, 'processor', 'build', 'libs', 'processor-v186a.jar'))
       .copySync(procDest + '/processor-v186a.jar');
 
   final runtimeAar = p.join(apRepoPath, 'runtime', 'build', 'outputs', 'aar');
-  _extractZip(
-      runtimeAar + '/runtime-release.aar',
-      p.join(apRepoPath, 'runtime', 'build', 'outputs', 'aar'),
-      '');
+  _extractZip(runtimeAar + '/runtime-release.aar',
+      p.join(apRepoPath, 'runtime', 'build', 'outputs', 'aar'), '');
 
-  File(runtimeAar + '/classes.jar').copySync(runtimeDest + '/runtime-v186a.jar');
+  File(runtimeAar + '/classes.jar')
+      .copySync(runtimeDest + '/runtime-v186a.jar');
 }
 
-void _copyDir(String src, String dest) {
+void _copyDir(String src, String dest, String temp) {
   final srcDir = Directory(src);
   final destDir = Directory(dest);
   var files = srcDir.listSync();
   files.forEach((entity) async {
     if (entity is File) {
-      await entity.copySync(p.join(destDir.path, p.basename(entity.path)));
+      if (p.basename(entity.path).endsWith('aar')) {
+        final tempDir = p.join(temp, p.basenameWithoutExtension(entity.path));
+        _extractZip(entity.path, tempDir, '== ${p.basename(entity.path)}.aar -> ${p.basename(entity.path)}.jar ==');
+
+        final classesJar = File(p.join(tempDir, 'classes.jar'));
+        classesJar.copySync(p.join(
+            destDir.path, p.basenameWithoutExtension(entity.path) + '.jar'));
+      } else {
+        entity.copySync(p.join(destDir.path, p.basename(entity.path)));
+      }
     } else if (entity is Directory) {
       var newDest =
           Directory(p.join(destDir.path, entity.path.split('\\').last));
       newDest.createSync();
-      _copyDir(entity.path, newDest.path);
+      _copyDir(entity.path, newDest.path, temp);
     }
   });
 }

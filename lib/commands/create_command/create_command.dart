@@ -105,7 +105,9 @@ class CreateCommand extends Command with CopyMixin {
 
       // These files help Eclipse Java based IDE's to analyze the project and
       // provide features like code completion.
-      _writeFile(p.join(projectDir, '.classpath'), getDotClasspath());
+      final scriptPath = Platform.script.toFilePath(windows: Platform.isWindows);
+      final devDepsDir = p.join(scriptPath.split('bin').first, 'dev-deps');
+      _writeFile(p.join(projectDir, '.classpath'), getDotClasspath(devDepsDir));
       _writeFile(p.join(projectDir, '.project'), getDotProject(pascalCasedName));
       _writeFile(p.join(projectDir, '.settings', 'org.eclipse.jdt.core.prefs'),
           'eclipse.preferences.version=1\norg.eclipse.jdt.core.compiler.problem.enablePreviewFeatures=disabled\n');
@@ -129,12 +131,6 @@ class CreateCommand extends Command with CopyMixin {
       'rushYmlLastMod': DateTime.now(),
       'srcDirLastMod': DateTime.now(),
     });
-
-    // Copy dev-deps.
-    final baseDir = Platform.script.toFilePath(windows: Platform.isWindows);
-    final devDepsDir = p.join(baseDir.split('bin').first, 'dev-deps');
-    copyDir(Directory(devDepsDir),
-        Directory(p.join(projectDir, '.rush', 'dev_deps')));
 
     exit(0);
   }

@@ -173,10 +173,10 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     final args = AntArgs(dataDir, _cd, extBox.get('org'),
         extBox.get('version').toString(), loadedYml['name']);
 
-    final baseDir = Platform.script.toFilePath(windows: Platform.isWindows);
+    final scriptPath = Platform.script.toFilePath(windows: Platform.isWindows);
 
     final pathToAntEx = p.join(
-        baseDir.split('bin').first, 'tools', 'apache-ant-1.10.9', 'bin', 'ant');
+        scriptPath.split('bin').first, 'tools', 'apache-ant-1.10.9', 'bin', 'ant');
 
     // This box stores the warnings/errors that appeared while building
     // the extension. This is done in order to skip the compilation in
