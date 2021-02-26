@@ -13,7 +13,7 @@ Future<void> main(List<String> args) async {
   final parser = ArgParser();
   parser
     ..addFlag('build_ap', abbr: 'a', defaultsTo: false)
-    ..addFlag('build_exe', abbr: 'e',defaultsTo: true)
+    ..addFlag('build_exe', abbr: 'e', defaultsTo: true)
     ..addOption('ap_path', abbr: 'p')
     ..addOption('version', abbr: 'v');
 
@@ -26,7 +26,7 @@ Future<void> main(List<String> args) async {
     await _buildExe();
   }
   if (res['build_ap'] && res['ap_path'].toString().isNotEmpty) {
-    await _buildAp(res['path']);
+    await _buildAp(res['ap_path']);
   } else {
     print('============= Skipping annotation processor build =============');
   }
@@ -116,6 +116,17 @@ void _copyLibs(String apRepoPath) {
   final procDest = p.join(p.current, 'build', 'tools', 'processor');
   Directory(procDest).createSync(recursive: true);
   _copyDir(procLibs, procDest);
+
+  File(p.join(apRepoPath, 'processor', 'build', 'libs', 'processor-v186a.jar'))
+      .copySync(procDest + '/processor-v186a.jar');
+
+  final runtimeAar = p.join(apRepoPath, 'runtime', 'build', 'outputs', 'aar');
+  _extractZip(
+      runtimeAar + '/runtime-release.aar',
+      p.join(apRepoPath, 'runtime', 'build', 'outputs', 'aar'),
+      '');
+
+  File(runtimeAar + '/classes.jar').copySync(runtimeDest + '/runtime-v186a.jar');
 }
 
 void _copyDir(String src, String dest) {

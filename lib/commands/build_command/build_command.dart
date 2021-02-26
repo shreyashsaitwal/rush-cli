@@ -59,11 +59,11 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       ..setForegroundColor(ConsoleColor.yellow)
       ..write('   -r, --release')
       ..setForegroundColor(ConsoleColor.brightWhite)
-      ..writeLine('     Marks this build as a release build, which results in the version number being incremented by one.')
+      ..writeLine(
+          '     Marks this build as a release build, which results in the version number being incremented by one.')
       ..resetColorAttributes()
       ..writeLine();
   }
-
 
   /// Builds the extension in the current directory
   @override
@@ -127,22 +127,19 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     Hive.init(p.join(_cd, '.rush'));
     final extBox = await Hive.openBox('data');
 
+    // Load rush.yml in a Dart understandable way.
+    final loadedYml = loadYaml(rushYml.readAsStringSync());
+
     // This is done in case the user deletes the .rush directory.
     if (!extBox.containsKey('version')) {
-      await extBox.putAll({
-        'version': 1,
-      });
+      await extBox.put('version', 1);
     } else if (!extBox.containsKey('rushYmlLastMod')) {
-      await extBox.putAll({
-        'rushYmlLastMod': rushYml.lastModifiedSync(),
-      });
+      await extBox.put('rushYmlLastMod', rushYml.lastModifiedSync());
     } else if (!extBox.containsKey('srcDirLastMod')) {
-      await extBox.putAll({
-        'srcDirLastMod': rushYml.lastModifiedSync(),
-      });
-    } else if (!extBox.containsKey('org')) {
-      // TODO: Infer the package name from the src
-      ThrowError(message: 'This project is corrupted.');
+      await extBox.put('srcDirLastMod', rushYml.lastModifiedSync());
+    } else if (!extBox.containsKey('org') ||
+        extBox.get('org') != _getPackage(loadedYml)) {
+      await extBox.put('org', _getPackage(loadedYml));
     }
 
     var isYmlMod =
@@ -172,17 +169,14 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       await extBox.put('version', version);
     }
 
-    // Load rush.yml in a Dart understandable way.
-    final loadedYml = loadYaml(rushYml.readAsStringSync());
-
     // Args for spawning the Apache Ant process
     final args = AntArgs(dataDir, _cd, extBox.get('org'),
         extBox.get('version').toString(), loadedYml['name']);
 
     final baseDir = Platform.script.toFilePath(windows: Platform.isWindows);
 
-    final pathToAntEx =
-        p.join(baseDir.split('bin').first, 'tools', 'apache-ant', 'bin', 'ant');
+    final pathToAntEx = p.join(
+        baseDir.split('bin').first, 'tools', 'apache-ant-1.10.9', 'bin', 'ant');
 
     // This box stores the warnings/errors that appeared while building
     // the extension. This is done in order to skip the compilation in
@@ -396,6 +390,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       process.stdout.asBroadcastStream().listen((data) {
         final formatted = _format(data);
         for (final out in formatted) {
+          // print(out);
           if (out.startsWith('ERR')) {
             procStep.add(out.replaceAll('ERR ', ''), ConsoleColor.brightWhite,
                 addSpace: true, prefix: 'ERR', prefBgClr: ConsoleColor.red);
@@ -504,5 +499,36 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
                 'ERR Something went wrong while invalidating build caches.');
       }
     }
+  }
+
+  String _getPackage(YamlMap loadedYml) {
+    final srcDir = Directory(p.join(_cd, 'src'));
+    var path = '';
+
+    for (final file in srcDir.listSync(recursive: true)) {
+      if (file is File &&
+          p.basename(file.path) == '${loadedYml['name']}.java') {
+        path = file.path;
+        break;
+      }
+    }
+
+    final struct = p.split(path.split(p.join(_cd, 'src')).last);
+    struct.removeAt(0);
+
+    var package = '';
+    var isFirst = true;
+    for (final dirName in struct) {
+      if (!dirName.endsWith('.java')) {
+        if (isFirst) {
+          package += dirName;
+          isFirst = false;
+        } else {
+          package += '.' + dirName;
+        }
+      }
+    }
+
+    return package;
   }
 }

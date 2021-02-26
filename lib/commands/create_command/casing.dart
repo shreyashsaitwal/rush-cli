@@ -50,7 +50,7 @@ class Casing {
     final words = <String>[];
 
     final capital = RegExp(r'[A-Z]');
-    final space = RegExp(r'\s');
+    final separator = RegExp(r'[\s-_]');
 
     var isFirst = true;
     var gotSpace = false;
@@ -61,7 +61,7 @@ class Casing {
       } else if (!isFirst) {
         if (capital.hasMatch(char)) {
           words.add(char);
-        } else if (space.hasMatch(char)) {
+        } else if (separator.hasMatch(char)) {
           gotSpace = true;
         } else {
           final word = words.last + char;

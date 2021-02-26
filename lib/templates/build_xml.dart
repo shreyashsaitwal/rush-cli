@@ -112,6 +112,5 @@ String getBuildXml() {
     />
   </target>
 </project>
-
 ''';
 }
