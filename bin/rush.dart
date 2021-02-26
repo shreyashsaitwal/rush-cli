@@ -3,29 +3,18 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
+import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build_command/build_command.dart';
 import 'package:rush_cli/commands/create_command/create_command.dart';
 import 'package:rush_prompt/rush_prompt.dart';
-
-const VERSION = 'v0.51';
-const DATE_BLT = '23-02-2021';
+import 'package:yaml/yaml.dart';
 
 final cd = Directory.current.path;
 
 void main(List<String> args) {
   final parser = ArgParser()..addFlag('version', abbr: 'v', negatable: false);
   if (parser.parse(args).wasParsed('version')) {
-    PrintArt();
-    Console()
-      ..setForegroundColor(ConsoleColor.brightWhite)
-      ..write('Version:  ')
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..writeLine(VERSION)
-      ..setForegroundColor(ConsoleColor.brightWhite)
-      ..write('Built on: ')
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..writeLine(DATE_BLT);
-    exit(0);
+    _printVersion();
   }
 
   final runner = RushCommandRunner(
@@ -41,6 +30,26 @@ void main(List<String> args) {
         throw err;
       }
     });
+}
+
+void _printVersion() {
+  final baseDir = p.dirname(Platform.script.toFilePath(windows: Platform.isWindows));
+  final info = loadYaml(File(p.join(baseDir, 'build_info')).readAsStringSync());
+
+  final version = info['name'];
+  final builton = info['built_on'];
+
+  PrintArt();
+  Console()
+    ..setForegroundColor(ConsoleColor.brightWhite)
+    ..write('Version:   ')
+    ..setForegroundColor(ConsoleColor.cyan)
+    ..writeLine(version.toString())
+    ..setForegroundColor(ConsoleColor.brightWhite)
+    ..write('Built on:  ')
+    ..setForegroundColor(ConsoleColor.cyan)
+    ..writeLine(builton);
+  exit(0);
 }
 
 class RushCommandRunner extends CommandRunner {

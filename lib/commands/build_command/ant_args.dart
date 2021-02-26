@@ -24,9 +24,9 @@ class AntArgs {
     final baseDir = p.dirname(p.dirname(Platform.script.path));
 
     args.add(
-        '-buildfile=${p.joinAll([...baseDir.split('/'), 'tools', 'apache-ant', 'build.xml'])}');
+        '-buildfile=${p.joinAll([...baseDir.split('/'), 'tools', 'apache-ant-1.10.9', 'build.xml'])}');
     args.add(
-        '-DantCon=${p.joinAll([...baseDir.split('/'), 'tools', 'ant-contrib-1.0b3.jar'])}');
+        '-DantCon=${p.joinAll([...baseDir.split('/'), 'tools', 'ant-contrib', 'ant-contrib-1.0b3.jar'])}');
 
     if (task == 'javac') {
       args.add('javac');

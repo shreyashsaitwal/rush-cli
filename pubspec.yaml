@@ -18,8 +18,10 @@ dev_dependencies:
 dependencies:
   rush_prompt:
     path: packages/rush_prompt
+  archive: ^2.0.13
   args: ^1.6.0
   dart_console: ^0.6.2
+  dio: ^3.0.10
   hive: ^1.4.4+1
   meta: ^1.2.4
   path: ^1.7.0
