@@ -21,6 +21,7 @@ Future<void> main(List<String> args) async {
 
   await _getAnt();
   await _getAntContribAndD8();
+  await _getJetifier();
 
   if (res['build_exe']) {
     await _buildExe();
@@ -136,7 +137,8 @@ void _copyDir(String src, String dest, String temp) {
     if (entity is File) {
       if (p.basename(entity.path).endsWith('aar')) {
         final tempDir = p.join(temp, p.basenameWithoutExtension(entity.path));
-        _extractZip(entity.path, tempDir, '== ${p.basename(entity.path)}.aar -> ${p.basename(entity.path)}.jar ==');
+        _extractZip(entity.path, tempDir,
+            '== ${p.basename(entity.path)}.aar -> ${p.basename(entity.path)}.jar ==');
 
         final classesJar = File(p.join(tempDir, 'classes.jar'));
         classesJar.copySync(p.join(
@@ -185,6 +187,19 @@ Future<void> _getAntContribAndD8() async {
         'https://drive.google.com/u/0/uc?id=1iBjBaX07HbF9JZBVRtGntk5wXaFRCuFE&export=download',
         p.join(p.current, 'build', 'tools', 'd8.jar'),
         'Downloading D8...');
+  }
+}
+
+Future<void> _getJetifier() async {
+  if (!Directory(p.join(p.current, 'build', 'tools', 'jetifier-standalone'))
+      .existsSync()) {
+    await _download(
+        'https://dl.google.com/dl/android/studio/jetifier-zips/1.0.0-beta09/jetifier-standalone.zip',
+        p.join(p.current, 'build', 'tools', 'jetifier-standalone.zip'),
+        'Downloading Jetifier standalone...');
+
+    _extractZip(p.join(p.current, 'build', 'tools', 'jetifier-standalone.zip'),
+        p.join(p.current, 'build', 'tools'), 'Extracting Jetifier...');
   }
 }
 
