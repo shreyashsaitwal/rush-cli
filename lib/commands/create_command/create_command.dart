@@ -4,6 +4,9 @@ import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/templates/iml_template.dart';
+import 'package:rush_cli/templates/misc_xml.dart';
+import 'package:rush_cli/templates/modules_xml.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
 
@@ -100,6 +103,11 @@ class CreateCommand extends Command with CopyMixin {
       _writeFile(p.join(projectDir, '.gitignore'), getDotGitignore());
       _writeFile(p.join(projectDir, 'deps', '.placeholder'),
           'This directory stores your extension\'s depenedencies.');
+
+      // IntelliJ IDEA files
+      _writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
+      _writeFile(p.join(projectDir, '.idea', 'modules.xml'), getModulesXml(kebabCasedName));
+      _writeFile(p.join(projectDir, '$kebabCasedName.iml'), getIml());
     } catch (e) {
       ThrowError(message: 'ERR ' + e.toString());
     }
