@@ -106,7 +106,8 @@ class CreateCommand extends Command with CopyMixin {
 
       // IntelliJ IDEA files
       _writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
-      _writeFile(p.join(projectDir, '.idea', 'modules.xml'), getModulesXml(kebabCasedName));
+      _writeFile(p.join(projectDir, '.idea', 'modules.xml'),
+          getModulesXml(kebabCasedName));
       _writeFile(p.join(projectDir, '$kebabCasedName.iml'), getIml());
     } catch (e) {
       ThrowError(message: 'ERR ' + e.toString());
@@ -132,8 +133,38 @@ class CreateCommand extends Command with CopyMixin {
     // Copy dev-deps.
     final scriptPath = Platform.script.toFilePath(windows: Platform.isWindows);
     final devDepsDir = p.join(scriptPath.split('bin').first, 'dev-deps');
+
+    PrintMsg('Getting things ready...', ConsoleColor.brightWhite, '\n•',
+        ConsoleColor.yellow);
     copyDir(Directory(devDepsDir),
         Directory(p.join(projectDir, '.rush', 'dev_deps')));
+
+    Console()
+      ..setForegroundColor(ConsoleColor.green)
+      ..write('• ')
+      ..setForegroundColor(ConsoleColor.brightGreen)
+      ..write('Success! ')
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..write('Generated a new AI2 extension project in: ')
+      ..setForegroundColor(ConsoleColor.cyan)
+      ..writeLine(projectDir)
+      ..writeLine()
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..writeLine('Next up, ')
+      ..setForegroundColor(ConsoleColor.yellow)
+      ..write(' ' * 2 + '- cd ')
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..write('into ')
+      ..setForegroundColor(ConsoleColor.brightBlue)
+      ..write(kebabCasedName + ' directory')
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..writeLine(', and')
+      ..write(' ' * 2 + '- run ')
+      ..setForegroundColor(ConsoleColor.brightBlue)
+      ..write('rush build ')
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..writeLine('to compile your extension into an AIX file.')
+      ..resetColorAttributes();
   }
 
   /// Creates a file in [path] and writes [content] inside it.
