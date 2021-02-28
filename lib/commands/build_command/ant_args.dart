@@ -49,6 +49,7 @@ class AntArgs {
       args.add('-Ddeps=${p.join(cd, 'deps')}');
       args.add('-Dextension=$org');
       args.add('-Dcd=$cd');
+      args.add('-DjetifierBin=${p.joinAll([...baseDir.split('/'), 'tools', 'jetifier-standalone', 'bin'])}');
     } else if (task == 'dex') {
       args.add('dexExt');
       args.add('-Dextension=$org');

@@ -85,6 +85,31 @@ String getBuildXml() {
          excludes = "*.jar" />
     <copy file = "\${rawCls}/\${extensionClassFolder}.jar"
           tofile = "\${raw}/\${extensionClassFolder}/files/AndroidRuntime.jar"/>
+    <copy todir="\${raw}/\${extensionClassFolder}.support">
+      <fileset dir="\${raw}/\${extensionClassFolder}" />
+    </copy>
+    <antcall target="dejetify">
+      <param name="androidRuntime" value="\${raw}/\${extensionClassFolder}.support/files/AndroidRuntime.jar" />
+    </antcall>
+  </target>
+
+  <target name="dejetify">
+    <if>
+      <os family="windows" />
+      <then>
+        <property name="jetifierPath" location="\${jetifierBin}/jetifier-standalone.bat" />
+      </then>
+      <else>
+        <property name="jetifierPath" location="\${jetifierBin}/jetifier-standalone" />
+      </else>
+    </if>
+    <exec executable="\${jetifierPath}">
+      <arg line="-i" />
+      <arg path="\${androidRuntime}" />
+      <arg line="-o" />
+      <arg path="\${androidRuntime}" />
+      <arg line="-r" />
+    </exec>
   </target>
 
   <target name = "dexExt" >
@@ -101,6 +126,15 @@ String getBuildXml() {
       <arg value="\${ExternalComponent.dir}/\${extensionType}/classes.jar"/>
       <arg value="\${ExternalComponent-class.dir}/\${extensionType}.jar"/>
     </java>
+    <java classpath="\${d8}" classname="com.android.tools.r8.D8" fork="true" failonerror="true">
+      <arg value="--release" />
+      <arg value="--no-desugaring" />
+      <arg value="--lib" />
+      <arg value="lib/appinventor/android.jar" />
+      <arg value="--output" />
+      <arg value="\${ExternalComponent.dir}/\${extensionType}.support/classes.jar" />
+      <arg value="\${ExternalComponent-class.dir}/\${extensionType}.support.jar" />
+    </java>
   </target>
 
   <target name = "assemble" >
@@ -109,6 +143,10 @@ String getBuildXml() {
     <zip destfile = "\${out}/\${extensionType}.aix"
          basedir = "\${raw}"
          includes = "\${extensionType}/"
+    />
+    <zip destfile="\${out}/\${extensionType}.support.aix"
+          basedir="\${raw}"
+          includes="\${extensionType}.support/"
     />
   </target>
 </project>
