@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:path/path.dart' as p;
@@ -12,13 +11,15 @@ import 'package:yaml/yaml.dart';
 final cd = Directory.current.path;
 
 void main(List<String> args) {
-  final parser = ArgParser()..addFlag('version', abbr: 'v', negatable: false);
-  if (parser.parse(args).wasParsed('version')) {
-    _printVersion();
-  }
-
   final runner = RushCommandRunner(
       'rush', 'A new and improved way of building App Inventor 2 extensions.');
+
+  runner.argParser.addFlag('version', abbr: 'v', negatable: false,
+      callback: (val) {
+    if (val) {
+      _printVersion();
+    }
+  });
 
   runner
     ..addCommand(CreateCommand(cd))
@@ -33,7 +34,8 @@ void main(List<String> args) {
 }
 
 void _printVersion() {
-  final baseDir = p.dirname(Platform.script.toFilePath(windows: Platform.isWindows));
+  final baseDir =
+      p.dirname(Platform.script.toFilePath(windows: Platform.isWindows));
   final info = loadYaml(File(p.join(baseDir, 'build_info')).readAsStringSync());
 
   final version = info['name'];
