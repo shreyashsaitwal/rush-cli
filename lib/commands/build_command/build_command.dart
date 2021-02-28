@@ -156,7 +156,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       }
     });
 
-    final areFilesModified = isYmlMod || isSrcDirMod;
+    var areFilesModified = isYmlMod || isSrcDirMod;
 
     if (areFilesModified) {
       _cleanDir(p.join(dataDir, 'workspaces', extBox.get('org')));
@@ -167,6 +167,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     if (isProd) {
       var version = extBox.get('version') + 1;
       await extBox.put('version', version);
+      _cleanDir(p.join(dataDir, 'workspaces', extBox.get('org')));
+      areFilesModified = true;
     }
 
     // Args for spawning the Apache Ant process
@@ -175,8 +177,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
 
     final scriptPath = Platform.script.toFilePath(windows: Platform.isWindows);
 
-    final pathToAntEx = p.join(
-        scriptPath.split('bin').first, 'tools', 'apache-ant-1.10.9', 'bin', 'ant');
+    final pathToAntEx = p.join(scriptPath.split('bin').first, 'tools',
+        'apache-ant-1.10.9', 'bin', 'ant');
 
     // This box stores the warnings/errors that appeared while building
     // the extension. This is done in order to skip the compilation in
