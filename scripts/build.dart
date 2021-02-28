@@ -7,7 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:archive/archive.dart';
 import 'package:rush_cli/templates/build_readme.dart';
 import 'package:rush_cli/templates/build_xml.dart';
-import 'package:rush_cli/templates/license.dart';
+import 'package:rush_cli/templates/license_template.dart';
 
 Future<void> main(List<String> args) async {
   final parser = ArgParser();

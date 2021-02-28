@@ -14,7 +14,7 @@ import 'package:rush_cli/templates/android_manifest.dart';
 import 'package:rush_cli/templates/dot_classpath_template.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
 import 'package:rush_cli/templates/dot_proj_template.dart';
-import 'package:rush_cli/templates/readme.dart';
+import 'package:rush_cli/templates/readme_template.dart';
 import 'package:rush_cli/templates/rush_yaml_template.dart';
 import 'package:rush_cli/templates/extension_template.dart';
 
@@ -103,12 +103,12 @@ class CreateCommand extends Command with CopyMixin {
       _writeFile(p.join(projectDir, 'deps', '.placeholder'),
           'This directory stores your extension\'s depenedencies.');
 
-      // These files help Eclipse Java based IDE's to analyze the project and
+      // These files help IDEs using Eclipse based LSP to analyze the project and
       // provide features like code completion.
-      final scriptPath = Platform.script.toFilePath(windows: Platform.isWindows);
-      final devDepsDir = p.join(scriptPath.split('bin').first, 'dev-deps');
-      _writeFile(p.join(projectDir, '.classpath'), getDotClasspath(devDepsDir));
-      _writeFile(p.join(projectDir, '.project'), getDotProject(pascalCasedName));
+      _writeFile(p.join(projectDir, '.classpath'),
+          getDotClasspath(p.join(_cd, kebabCasedName)));
+      _writeFile(p.join(projectDir, '.project'),
+          getDotProject(kebabCasedName, p.join(_cd, kebabCasedName)));
       _writeFile(p.join(projectDir, '.settings', 'org.eclipse.jdt.core.prefs'),
           'eclipse.preferences.version=1\norg.eclipse.jdt.core.compiler.problem.enablePreviewFeatures=disabled\n');
     } catch (e) {
@@ -117,6 +117,8 @@ class CreateCommand extends Command with CopyMixin {
 
     try {
       Directory(p.join(projectDir, 'assets')).createSync(recursive: true);
+      Directory(p.join(projectDir, '.rush', 'dev_deps'))
+          .createSync(recursive: true);
     } catch (e) {
       ThrowError(message: 'ERR ' + e.toString());
     }
@@ -130,7 +132,11 @@ class CreateCommand extends Command with CopyMixin {
       'srcDirLastMod': DateTime.now(),
     });
 
-    exit(0);
+    // Copy dev-deps.
+    final scriptPath = Platform.script.toFilePath(windows: Platform.isWindows);
+    final devDepsDir = p.join(scriptPath.split('bin').first, 'dev-deps');
+    copyDir(Directory(devDepsDir),
+        Directory(p.join(projectDir, '.rush', 'dev_deps')));
   }
 
   /// Creates a file in [path] and writes [content] inside it.
