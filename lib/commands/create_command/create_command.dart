@@ -11,9 +11,7 @@ import 'package:rush_cli/commands/create_command/casing.dart';
 import 'package:rush_cli/commands/create_command/questions.dart';
 import 'package:rush_cli/mixins/copy_mixin.dart';
 import 'package:rush_cli/templates/android_manifest.dart';
-import 'package:rush_cli/templates/dot_classpath_template.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
-import 'package:rush_cli/templates/dot_proj_template.dart';
 import 'package:rush_cli/templates/readme_template.dart';
 import 'package:rush_cli/templates/rush_yaml_template.dart';
 import 'package:rush_cli/templates/extension_template.dart';
@@ -102,15 +100,6 @@ class CreateCommand extends Command with CopyMixin {
       _writeFile(p.join(projectDir, '.gitignore'), getDotGitignore());
       _writeFile(p.join(projectDir, 'deps', '.placeholder'),
           'This directory stores your extension\'s depenedencies.');
-
-      // These files help IDEs using Eclipse based LSP to analyze the project and
-      // provide features like code completion.
-      _writeFile(p.join(projectDir, '.classpath'),
-          getDotClasspath(p.join(_cd, kebabCasedName)));
-      _writeFile(p.join(projectDir, '.project'),
-          getDotProject(kebabCasedName, p.join(_cd, kebabCasedName)));
-      _writeFile(p.join(projectDir, '.settings', 'org.eclipse.jdt.core.prefs'),
-          'eclipse.preferences.version=1\norg.eclipse.jdt.core.compiler.problem.enablePreviewFeatures=disabled\n');
     } catch (e) {
       ThrowError(message: 'ERR ' + e.toString());
     }
