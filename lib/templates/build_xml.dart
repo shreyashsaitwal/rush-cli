@@ -120,20 +120,16 @@ String getBuildXml() {
           failonerror="true">
       <arg value="--release"/>
       <arg value="--no-desugaring"/>
-      <arg value="--lib"/>
-      <arg value="lib/appinventor/android.jar"/>
       <arg value="--output"/>
-      <arg value="\${ExternalComponent.dir}/\${extensionType}/classes.jar"/>
-      <arg value="\${ExternalComponent-class.dir}/\${extensionType}.jar"/>
+      <arg value="\${raw}/\${extensionType}/classes.jar"/>
+      <arg value="\${rawCls}/\${extensionType}.jar"/>
     </java>
     <java classpath="\${d8}" classname="com.android.tools.r8.D8" fork="true" failonerror="true">
       <arg value="--release" />
       <arg value="--no-desugaring" />
-      <arg value="--lib" />
-      <arg value="lib/appinventor/android.jar" />
       <arg value="--output" />
-      <arg value="\${ExternalComponent.dir}/\${extensionType}.support/classes.jar" />
-      <arg value="\${ExternalComponent-class.dir}/\${extensionType}.support.jar" />
+      <arg value="\${raw}/\${extensionType}.support/classes.jar" />
+      <arg value="\${rawCls}/\${extensionType}.support.jar" />
     </java>
   </target>
 
