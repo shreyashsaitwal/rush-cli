@@ -59,7 +59,7 @@ built_on: ${DateTime.now().toUtc()}
 
   final outDir = Directory(p.join(p.current, 'build', 'out'));
   if (outDir.existsSync()) {
-    outDir.deleteSync();
+    outDir.deleteSync(recursive: true);
   }
 
   final encoder = ZipFileEncoder();
