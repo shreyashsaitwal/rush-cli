@@ -17,11 +17,17 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
   final String _cd;
 
   BuildCommand(this._cd) {
-    argParser.addFlag('release',
-        abbr: 'r',
-        defaultsTo: false,
-        help:
-            'Marks this build as a release build, and hence, increments the version number of the extension by 1.');
+    argParser
+      ..addFlag('release',
+          abbr: 'r',
+          defaultsTo: false,
+          help:
+              'Marks this build as a release build, and hence, increments the version number of the extension by 1.')
+      ..addFlag('support-lib',
+          abbr: 's',
+          defaultsTo: false,
+          help:
+              'Generates two flavors of extensions, one that uses AndroidX libraries, and other that uses support libraries. The later is supposed to be used with builders that haven\'t yet migrated to AndroidX.');
   }
 
   final runInShell = Platform.isWindows;
@@ -173,7 +179,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
 
     // Args for spawning the Apache Ant process
     final args = AntArgs(dataDir, _cd, extBox.get('org'),
-        extBox.get('version').toString(), loadedYml['name']);
+        extBox.get('version').toString(), loadedYml['name'], argResults['support-lib']);
 
     final scriptPath = Platform.script.toFilePath(windows: Platform.isWindows);
 

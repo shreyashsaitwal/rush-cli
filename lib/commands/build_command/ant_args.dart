@@ -9,6 +9,7 @@ class AntArgs {
   final String org;
   final String version;
   final String name;
+  final bool shouldJetify;
 
   AntArgs(
     this.dataDirPath,
@@ -16,6 +17,7 @@ class AntArgs {
     this.org,
     this.version,
     this.name,
+    this.shouldJetify,
   );
 
   List toList(String task) {
@@ -23,10 +25,18 @@ class AntArgs {
     final workspaces = p.join(dataDirPath, 'workspaces');
     final baseDir = p.dirname(p.dirname(Platform.script.path));
 
-    args.add(
-        '-buildfile=${p.joinAll([...baseDir.split('/'), 'tools', 'apache-ant-1.10.9', 'build.xml'])}');
-    args.add(
-        '-DantCon=${p.joinAll([...baseDir.split('/'), 'tools', 'ant-contrib', 'ant-contrib-1.0b3.jar'])}');
+    args.add('-buildfile=${p.joinAll([
+      ...baseDir.split('/'),
+      'tools',
+      'apache-ant-1.10.9',
+      'build.xml'
+    ])}');
+    args.add('-DantCon=${p.joinAll([
+      ...baseDir.split('/'),
+      'tools',
+      'ant-contrib',
+      'ant-contrib-1.0b3.jar'
+    ])}');
 
     if (task == 'javac') {
       args.add('javac');
@@ -38,10 +48,18 @@ class AntArgs {
       args.add('-Dversion=$version');
       args.add('-DdevDeps=${p.join(cd, '.rush', 'dev_deps')}');
       args.add('-Ddeps=${p.join(cd, 'deps')}');
-      args.add('-Dprocessor=${p.joinAll([...baseDir.split('/'), 'tools', 'processor'])}');
+      args.add('-Dprocessor=${p.joinAll([
+        ...baseDir.split('/'),
+        'tools',
+        'processor'
+      ])}');
     } else if (task == 'process') {
       args.add('jarExt');
-      args.add('-Dprocessor=${p.joinAll([...baseDir.split('/'), 'tools', 'processor'])}');
+      args.add('-Dprocessor=${p.joinAll([
+        ...baseDir.split('/'),
+        'tools',
+        'processor'
+      ])}');
       args.add('-Dclasses=${p.join(workspaces, org, 'classes')}');
       args.add('-Draw=${p.join(workspaces, org, 'raw')}');
       args.add('-DrawCls=${p.join(workspaces, org, 'raw-classes')}');
@@ -49,7 +67,16 @@ class AntArgs {
       args.add('-Ddeps=${p.join(cd, 'deps')}');
       args.add('-Dextension=$org');
       args.add('-Dcd=$cd');
-      args.add('-DjetifierBin=${p.joinAll([...baseDir.split('/'), 'tools', 'jetifier-standalone', 'bin'])}');
+      if (shouldJetify) {
+        args.add('-DjetifierBin=${p.joinAll([
+          ...baseDir.split('/'),
+          'tools',
+          'jetifier-standalone',
+          'bin'
+        ])}');
+      } else {
+        args.add('-DjetifierBin=0');
+      }
     } else if (task == 'dex') {
       args.add('dexExt');
       args.add('-Dextension=$org');
