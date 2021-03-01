@@ -57,14 +57,14 @@ built_on: ${DateTime.now().toUtc()}
 
   print('============= Creating rush.zip =============');
 
-  final rushZip = File(p.join(p.current, 'build', 'out', 'rush.zip'));
-  if (rushZip.existsSync()) {
-    rushZip.deleteSync();
+  final outDir = Directory(p.join(p.current, 'build', 'out'));
+  if (outDir.existsSync()) {
+    outDir.deleteSync();
   }
 
   final encoder = ZipFileEncoder();
   encoder.zipDirectory(Directory(p.join(p.current, 'build')),
-      filename: rushZip.path);
+      filename: p.join(outDir.path, 'rush.zip'));
 
   print('============= Done =============');
 }
@@ -108,25 +108,38 @@ Future<void> _buildExe() async {
 void _copyLibs(String apRepoPath) {
   print('============= Copying libraries =============');
 
-  final runtimeLibs = p.join(apRepoPath, 'runtime', 'build', 'implementation');
-  final runtimeDest = p.join(p.current, 'build', 'dev-deps');
-  Directory(runtimeDest).createSync(recursive: true);
-  _copyDir(runtimeLibs, runtimeDest, p.join(apRepoPath, 'build', 'temp_dir'));
-
+  // Copy annotation processor and its dependencies
   final procLibs = p.join(apRepoPath, 'processor', 'build', 'implementation');
   final procDest = p.join(p.current, 'build', 'tools', 'processor');
   Directory(procDest).createSync(recursive: true);
   _copyDir(procLibs, procDest, p.join(apRepoPath, 'build', 'temp_dir'));
-
   File(p.join(apRepoPath, 'processor', 'build', 'libs', 'processor-v186a.jar'))
       .copySync(procDest + '/processor-v186a.jar');
 
+  // Copy dev deps
+  final runtimeLibs = p.join(apRepoPath, 'runtime', 'build', 'implementation');
+  final devDepsDir = p.join(p.current, 'build', 'dev-deps');
+  Directory(devDepsDir).createSync(recursive: true);
+  _copyDir(runtimeLibs, devDepsDir, p.join(apRepoPath, 'build', 'temp_dir'));
+
+  // Copy runtime.jar
   final runtimeAar = p.join(apRepoPath, 'runtime', 'build', 'outputs', 'aar');
   _extractZip(runtimeAar + '/runtime-release.aar',
       p.join(apRepoPath, 'runtime', 'build', 'outputs', 'aar'), '');
-
   File(runtimeAar + '/classes.jar')
-      .copySync(runtimeDest + '/runtime-v186a.jar');
+      .copySync(devDepsDir + '/runtime-v186a.jar');
+
+  // Download android.jar if it doesn't exists
+  final androidJar = p.join(devDepsDir, 'android.jar');
+  if (!File(androidJar).existsSync()) {
+    _download(
+        'https://github.com/mit-cml/appinventor-sources/raw/master/appinventor/lib/android/android-29/android.jar',
+        androidJar,
+        'Downloading android.jar...');
+  }
+
+  // Delete android-2.1.2.jar
+  File(p.join(devDepsDir, 'android-2.1.2.jar')).deleteSync();
 }
 
 void _copyDir(String src, String dest, String temp) {
@@ -215,13 +228,13 @@ bool _isSignificantIncrease(int total, int cur, int prev) {
   return false;
 }
 
-Future<void> _download(String downloadUrl, String saveTo, String title) async {
+Future<void> _download(String downloadUrl, String saveAs, String title) async {
   print(title);
   try {
     var prev = 0;
     await Dio().download(
       downloadUrl,
-      saveTo,
+      saveAs,
       deleteOnError: true,
       cancelToken: CancelToken(),
       onReceiveProgress: (count, total) {
