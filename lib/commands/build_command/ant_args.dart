@@ -58,6 +58,7 @@ class AntArgs {
       args.add('-DrawCls=${p.join(workspaces, org, 'raw-classes')}');
     } else if (task == 'assemble') {
       args.add('assemble');
+      args.add('-DdevDeps=${p.join(cd, '.rush', 'dev_deps')}');
       args.add('-Dout=${p.join(cd, 'out')}');
       args.add('-Dextension=$org');
       args.add('-Draw=${p.join(workspaces, org, 'raw')}');
