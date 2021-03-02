@@ -82,20 +82,6 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     valStep.init();
 
     File rushYml;
-    // Load rush.yml in a Dart understandable way.
-    YamlMap loadedYml;
-    try {
-      loadedYml = loadYaml(rushYml.readAsStringSync());
-    } catch (e) {
-      valStep
-        ..add('Metadata file (rush.yml) is invalid', ConsoleColor.red)
-        ..add(e.toString(), ConsoleColor.red)
-        ..finish('Failed', ConsoleColor.red);
-      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-          ConsoleColor.brightRed);
-      exit(1);
-    }
-
     // Check if rush.yml exists and is valid
     if (File(p.join(_cd, 'rush.yaml')).existsSync()) {
       rushYml = File(p.join(_cd, 'rush.yaml'));
@@ -104,6 +90,20 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     } else {
       valStep
         ..add('Metadata file (rush.yml) not found', ConsoleColor.red)
+        ..finish('Failed', ConsoleColor.red);
+      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+          ConsoleColor.brightRed);
+      exit(1);
+    }
+    
+    // Load rush.yml in a Dart understandable way.
+    YamlMap loadedYml;
+    try {
+      loadedYml = loadYaml(rushYml.readAsStringSync());
+    } catch (e) {
+      valStep
+        ..add('Metadata file (rush.yml) is invalid', ConsoleColor.red)
+        ..add(e.toString(), ConsoleColor.red)
         ..finish('Failed', ConsoleColor.red);
       PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
           ConsoleColor.brightRed);
