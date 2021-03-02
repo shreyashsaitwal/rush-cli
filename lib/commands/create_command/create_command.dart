@@ -115,7 +115,7 @@ class CreateCommand extends Command with CopyMixin {
 
     try {
       Directory(p.join(projectDir, 'assets')).createSync(recursive: true);
-      Directory(p.join(projectDir, '.rush', 'dev_deps'))
+      Directory(p.join(projectDir, '.rush', 'dev-deps'))
           .createSync(recursive: true);
     } catch (e) {
       ThrowError(message: 'ERR ' + e.toString());
@@ -137,7 +137,7 @@ class CreateCommand extends Command with CopyMixin {
     PrintMsg('Getting things ready...', ConsoleColor.brightWhite, '\n•',
         ConsoleColor.yellow);
     copyDir(Directory(devDepsDir),
-        Directory(p.join(projectDir, '.rush', 'dev_deps')));
+        Directory(p.join(projectDir, '.rush', 'dev-deps')));
 
     Console()
       ..setForegroundColor(ConsoleColor.green)
@@ -150,15 +150,15 @@ class CreateCommand extends Command with CopyMixin {
       ..writeLine(projectDir)
       ..writeLine()
       ..setForegroundColor(ConsoleColor.brightWhite)
-      ..write('Next up, -\n')
+      ..write('Next up, \n' + ' ' * 2 + '-')
       ..setForegroundColor(ConsoleColor.yellow)
-      ..write(' ' * 2 + ' cd ')
+      ..write(' cd ')
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..write('into ')
       ..setForegroundColor(ConsoleColor.brightBlue)
-      ..write(kebabCasedName)
+      ..write(kebabCasedName + '/')
       ..setForegroundColor(ConsoleColor.brightWhite)
-      ..writeLine('directory, and')
+      ..writeLine(', and')
       ..write(' ' * 2 + '- run ')
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write('rush build ')

@@ -46,7 +46,7 @@ class AntArgs {
       args.add('-DextName=$name');
       args.add('-Dorg=$org');
       args.add('-Dversion=$version');
-      args.add('-DdevDeps=${p.join(cd, '.rush', 'dev_deps')}');
+      args.add('-DdevDeps=${p.join(cd, '.rush', 'dev-deps')}');
       args.add('-Ddeps=${p.join(cd, 'deps')}');
       args.add('-Dprocessor=${p.joinAll([
         ...baseDir.split('/'),
@@ -63,7 +63,7 @@ class AntArgs {
       args.add('-Dclasses=${p.join(workspaces, org, 'classes')}');
       args.add('-Draw=${p.join(workspaces, org, 'raw')}');
       args.add('-DrawCls=${p.join(workspaces, org, 'raw-classes')}');
-      args.add('-DdevDeps=${p.join(cd, '.rush', 'dev_deps')}');
+      args.add('-DdevDeps=${p.join(cd, '.rush', 'dev-deps')}');
       args.add('-Ddeps=${p.join(cd, 'deps')}');
       args.add('-Dextension=$org');
       args.add('-Dcd=$cd');
@@ -85,7 +85,7 @@ class AntArgs {
       args.add('-DrawCls=${p.join(workspaces, org, 'raw-classes')}');
     } else if (task == 'assemble') {
       args.add('assemble');
-      args.add('-DdevDeps=${p.join(cd, '.rush', 'dev_deps')}');
+      args.add('-DdevDeps=${p.join(cd, '.rush', 'dev-deps')}');
       args.add('-Dout=${p.join(cd, 'out')}');
       args.add('-Dextension=$org');
       args.add('-Draw=${p.join(workspaces, org, 'raw')}');
