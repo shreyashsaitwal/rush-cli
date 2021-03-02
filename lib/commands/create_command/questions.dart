@@ -4,7 +4,7 @@ class Questions {
   static List<Question> get questions {
     return [
       SimpleQuestion(
-        question: 'Organization (package name)',
+        question: 'Organisation (package name)',
         id: 'org',
       ),
       SimpleQuestion(
