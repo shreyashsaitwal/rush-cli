@@ -1,9 +1,12 @@
 String getDotGitignore() {
   return'''
 # Development dependencies' directory
-dependencies/dev
+.rush/dev-deps
 
 # Output directory
 out
+
+# IntelliJ files
+*.iml
 ''';
 }
