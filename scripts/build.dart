@@ -126,8 +126,7 @@ void _copyLibs(String apRepoPath) {
   final runtimeAar = p.join(apRepoPath, 'runtime', 'build', 'outputs', 'aar');
   _extractZip(runtimeAar + '/runtime-release.aar',
       p.join(apRepoPath, 'runtime', 'build', 'outputs', 'aar'), '');
-  File(runtimeAar + '/classes.jar')
-      .copySync(devDepsDir + '/runtime-v186a.jar');
+  File(runtimeAar + '/classes.jar').copySync(devDepsDir + '/runtime-v186a.jar');
 
   // Download android.jar if it doesn't exists
   final androidJar = p.join(devDepsDir, 'android.jar');
@@ -181,6 +180,10 @@ Future<void> _getAnt() async {
     File(p.join(p.current, 'build', 'tools', 'apache-ant-1.10.9', 'build.xml'))
       ..createSync(recursive: true)
       ..writeAsStringSync(getBuildXml());
+
+    Directory(
+            p.join(p.current, 'build', 'tools', 'apache-ant-1.10.9', 'manual'))
+        .deleteSync(recursive: true);
   }
 }
 
