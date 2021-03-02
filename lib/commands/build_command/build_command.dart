@@ -81,8 +81,22 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     final valStep = BuildStep('Validating project files');
     valStep.init();
 
-    // Check if rush.yml exists and is valid
     File rushYml;
+    // Load rush.yml in a Dart understandable way.
+    YamlMap loadedYml;
+    try {
+      loadedYml = loadYaml(rushYml.readAsStringSync());
+    } catch (e) {
+      valStep
+        ..add('Metadata file (rush.yml) is invalid', ConsoleColor.red)
+        ..add(e.toString(), ConsoleColor.red)
+        ..finish('Failed', ConsoleColor.red);
+      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+          ConsoleColor.brightRed);
+      exit(1);
+    }
+
+    // Check if rush.yml exists and is valid
     if (File(p.join(_cd, 'rush.yaml')).existsSync()) {
       rushYml = File(p.join(_cd, 'rush.yaml'));
     } else if (File(p.join(_cd, 'rush.yml')).existsSync()) {
@@ -96,7 +110,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       exit(1);
     }
 
-    if (!IsYamlValid.check(rushYml)) {
+    if (!IsYamlValid.check(rushYml, loadedYml)) {
       valStep
         ..add('Metadata file (rush.yml) is invalid', ConsoleColor.red)
         ..finish('Failed', ConsoleColor.red);
@@ -132,9 +146,6 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
 
     Hive.init(p.join(_cd, '.rush'));
     final extBox = await Hive.openBox('data');
-
-    // Load rush.yml in a Dart understandable way.
-    final loadedYml = loadYaml(rushYml.readAsStringSync());
 
     // This is done in case the user deletes the .rush directory.
     if (!extBox.containsKey('version')) {
@@ -178,8 +189,13 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     }
 
     // Args for spawning the Apache Ant process
-    final args = AntArgs(dataDir, _cd, extBox.get('org'),
-        extBox.get('version').toString(), loadedYml['name'], argResults['support-lib']);
+    final args = AntArgs(
+        dataDir,
+        _cd,
+        extBox.get('org'),
+        extBox.get('version').toString(),
+        loadedYml['name'],
+        argResults['support-lib']);
 
     final scriptPath = Platform.script.toFilePath(windows: Platform.isWindows);
 

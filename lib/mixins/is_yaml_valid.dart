@@ -4,14 +4,7 @@ import 'package:yaml/yaml.dart';
 
 /// Mixin to check if the rush.yaml file is valid.
 mixin IsYamlValid {
-  static bool check(File yaml) {
-    var yml;
-    try {
-      yml = loadYaml(yaml.readAsStringSync());
-    } catch (e) {
-      return false;
-    }
-
+  static bool check(File yaml, YamlMap yml) {
     final valMap = {
       'name': yml['name'],
       'desc': yml['description'],
@@ -63,10 +56,7 @@ mixin IsYamlValid {
         //   break;
 
         default:
-          if (val is! String) {
-            return false;
-          }
-          break;
+          return true;
       }
     }
     return true;
