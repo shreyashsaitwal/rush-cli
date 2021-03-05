@@ -3,19 +3,19 @@ import 'dart:io' show Platform, Directory;
 import 'package:path/path.dart' as path;
 
 mixin AppDataMixin {
-  static String dataStorageDir() {
+  static String? dataStorageDir() {
     var os = Platform.operatingSystem;
-    var appDataDir;
+    late var appDataDir;
 
     switch (os) {
       case 'windows':
         appDataDir = path.join(
-            Platform.environment['UserProfile'], 'AppData', 'Roaming');
+            Platform.environment['UserProfile']!, 'AppData', 'Roaming');
         break;
 
       case 'macos':
         appDataDir = path.join(
-            Platform.environment['HOME'], 'Library', 'Application Support');
+            Platform.environment['HOME']!, 'Library', 'Application Support');
         break;
 
       case 'linux':

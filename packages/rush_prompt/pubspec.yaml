@@ -1,6 +1,6 @@
 name: rush_prompt
 description: A library for creating CLI prompts.
-version: 0.0.1+10
+version: 1.0.0
 
 authors:
   - 'Shreyash Saitwal'

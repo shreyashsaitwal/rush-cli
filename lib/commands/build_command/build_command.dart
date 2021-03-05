@@ -81,7 +81,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     final valStep = BuildStep('Validating project files');
     valStep.init();
 
-    File rushYml;
+    File? rushYml;
     // Check if rush.yml exists and is valid
     if (File(p.join(_cd, 'rush.yaml')).existsSync()) {
       rushYml = File(p.join(_cd, 'rush.yaml'));
@@ -95,9 +95,9 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
           ConsoleColor.brightRed);
       exit(1);
     }
-    
+
     // Load rush.yml in a Dart understandable way.
-    YamlMap loadedYml;
+    YamlMap? loadedYml;
     try {
       loadedYml = loadYaml(rushYml.readAsStringSync());
     } catch (e) {
@@ -110,7 +110,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       exit(1);
     }
 
-    if (!IsYamlValid.check(rushYml, loadedYml)) {
+    if (!IsYamlValid.check(rushYml, loadedYml!)) {
       valStep
         ..add('Metadata file (rush.yml) is invalid', ConsoleColor.red)
         ..finish('Failed', ConsoleColor.red);
@@ -176,15 +176,15 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     var areFilesModified = isYmlMod || isSrcDirMod;
 
     if (areFilesModified) {
-      _cleanDir(p.join(dataDir, 'workspaces', extBox.get('org')));
+      _cleanDir(p.join(dataDir!, 'workspaces', extBox.get('org')));
     }
 
     // Increment version number if this is a production build.
-    final isProd = argResults['release'];
+    final isProd = argResults!['release'];
     if (isProd) {
       var version = extBox.get('version') + 1;
       await extBox.put('version', version);
-      _cleanDir(p.join(dataDir, 'workspaces', extBox.get('org')));
+      _cleanDir(p.join(dataDir!, 'workspaces', extBox.get('org')));
       areFilesModified = true;
     }
 
@@ -195,7 +195,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         extBox.get('org'),
         extBox.get('version').toString(),
         loadedYml['name'],
-        argResults['support-lib']);
+        argResults!['support-lib']);
 
     final scriptPath = Platform.script.toFilePath(windows: Platform.isWindows);
 
@@ -240,7 +240,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         await box.delete('totalWarn');
       }
 
-      Process.start(antPath, args.toList('javac'), runInShell: runInShell)
+      Process.start(antPath, args.toList('javac') as List<String>, runInShell: runInShell)
           .asStream()
           .asBroadcastStream()
           .listen((process) {
@@ -407,7 +407,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     procStep.init();
     var procErrCount = 0;
 
-    Process.start(antPath, args.toList('process'), runInShell: runInShell)
+    Process.start(antPath, args.toList('process') as List<String>, runInShell: runInShell)
         .asStream()
         .asBroadcastStream()
         .listen((process) {
@@ -450,7 +450,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     final dexStep = BuildStep('Converting Java bytecode to DEX bytecode');
     dexStep.init();
 
-    Process.start(antPath, args.toList('dex'), runInShell: runInShell)
+    Process.start(antPath, args.toList('dex') as List<String>, runInShell: runInShell)
         .asStream()
         .asBroadcastStream()
         .listen((process) {
@@ -476,7 +476,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     final asmStep = BuildStep('Finalizing the build');
     asmStep.init();
 
-    Process.start(antPath, args.toList('assemble'), runInShell: runInShell)
+    Process.start(antPath, args.toList('assemble') as List<String>, runInShell: runInShell)
         .asStream()
         .asBroadcastStream()
         .listen((process) {
@@ -508,7 +508,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         res.add(el.trimRight().replaceAll('[javac] ', ''));
       }
     });
-    return res;
+    return res as List<String>;
   }
 
   /// Deletes directory located at [path] recursively.
@@ -525,13 +525,13 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     }
   }
 
-  String _getPackage(YamlMap loadedYml) {
+  String _getPackage(YamlMap? loadedYml) {
     final srcDir = Directory(p.join(_cd, 'src'));
     var path = '';
 
     for (final file in srcDir.listSync(recursive: true)) {
       if (file is File &&
-          p.basename(file.path) == '${loadedYml['name']}.java') {
+          p.basename(file.path) == '${loadedYml!['name']}.java') {
         path = file.path;
         break;
       }

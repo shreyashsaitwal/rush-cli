@@ -4,13 +4,12 @@ import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
+
+import 'package:rush_prompt/rush_prompt.dart';
 import 'package:rush_cli/templates/iml_template.dart';
 import 'package:rush_cli/templates/libs_xml.dart';
 import 'package:rush_cli/templates/misc_xml.dart';
 import 'package:rush_cli/templates/modules_xml.dart';
-
-import 'package:rush_prompt/rush_prompt.dart';
-
 import 'package:rush_cli/commands/create_command/casing.dart';
 import 'package:rush_cli/commands/create_command/questions.dart';
 import 'package:rush_cli/mixins/copy_mixin.dart';
@@ -22,7 +21,7 @@ import 'package:rush_cli/templates/extension_template.dart';
 
 class CreateCommand extends Command with CopyMixin {
   final String _cd;
-  String extName;
+  String? extName;
 
   CreateCommand(this._cd);
 
@@ -55,9 +54,9 @@ class CreateCommand extends Command with CopyMixin {
   /// Creates a new extension project in the current directory.
   @override
   Future<void> run() async {
-    String name;
-    if (argResults.rest.length == 1) {
-      name = argResults.rest.first;
+    late String name;
+    if (argResults!.rest.length == 1) {
+      name = argResults!.rest.first;
     } else {
       printUsage();
       exit(64); // Exit code 64 indicates usage error
