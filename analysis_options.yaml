@@ -9,6 +9,6 @@ linter:
     - avoid_relative_lib_imports
     - prefer_single_quotes
 
-# analyzer:
-#   exclude:
-    # - packages/rush_prompt/**
+analyzer:
+  enable-experiment:
+    - non-nullable
