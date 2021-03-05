@@ -12,7 +12,6 @@ import 'package:rush_cli/templates/license_template.dart';
 Future<void> main(List<String> args) async {
   final parser = ArgParser();
   parser
-    ..addFlag('build_ap', abbr: 'a', defaultsTo: false)
     ..addFlag('build_exe', abbr: 'e', defaultsTo: true)
     ..addOption('ap_path', abbr: 'p')
     ..addOption('version', abbr: 'v');
@@ -26,7 +25,7 @@ Future<void> main(List<String> args) async {
   if (res['build_exe']) {
     await _buildExe();
   }
-  if (res['build_ap'] && res['ap_path'].toString().isNotEmpty) {
+  if (res['ap_path'].toString().isNotEmpty) {
     await _buildAp(res['ap_path']);
   } else {
     print('============= Skipping annotation processor build =============');
@@ -150,7 +149,7 @@ void _copyDir(String src, String dest, String temp) {
       if (p.basename(entity.path).endsWith('aar')) {
         final tempDir = p.join(temp, p.basenameWithoutExtension(entity.path));
         _extractZip(entity.path, tempDir,
-            '== ${p.basename(entity.path)}.aar -> ${p.basename(entity.path)}.jar ==');
+            '${p.basenameWithoutExtension(entity.path)}.aar -> ${p.basenameWithoutExtension(entity.path)}.jar');
 
         final classesJar = File(p.join(tempDir, 'classes.jar'));
         classesJar.copySync(p.join(

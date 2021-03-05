@@ -6,7 +6,7 @@ import 'package:rush_cli/javac_errors/syntax_errs.dart';
 
 class ErrData {
   /// Returns the type of error.
-  static int getNoOfLines(String err) {
+  static int? getNoOfLines(String err) {
     if (SyntaxErrs().isSyntaxErr(err).keys.first) {
       return SyntaxErrs().isSyntaxErr(err).values.first;
     } else if (IdentifierErrs().isIdentErr(err).keys.first) {

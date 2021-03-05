@@ -4,12 +4,12 @@ import 'package:path/path.dart' as p;
 
 /// Generate arguments for the Ant exec.
 class AntArgs {
-  final String dataDirPath;
+  final String? dataDirPath;
   final String cd;
-  final String org;
+  final String? org;
   final String version;
-  final String name;
-  final bool shouldJetify;
+  final String? name;
+  final bool? shouldJetify;
 
   AntArgs(
     this.dataDirPath,
@@ -22,7 +22,7 @@ class AntArgs {
 
   List toList(String task) {
     final args = <String>[];
-    final workspaces = p.join(dataDirPath, 'workspaces');
+    final workspaces = p.join(dataDirPath!, 'workspaces');
     final baseDir = p.dirname(p.dirname(Platform.script.path));
 
     args.add('-buildfile=${p.joinAll([
@@ -67,7 +67,7 @@ class AntArgs {
       args.add('-Ddeps=${p.join(cd, 'deps')}');
       args.add('-Dextension=$org');
       args.add('-Dcd=$cd');
-      if (shouldJetify) {
+      if (shouldJetify!) {
         args.add('-DjetifierBin=${p.joinAll([
           ...baseDir.split('/'),
           'tools',
