@@ -1,7 +1,7 @@
 import 'questions/question.dart';
 
 class RushPrompt {
-  RushPrompt({List<Question> questions}) {
+  RushPrompt({List<Question>? questions}) {
     if (questions != null) {
       _questions.addAll(questions);
     }

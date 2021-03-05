@@ -6,7 +6,7 @@ class ProgressBar {
 
   ProgressBar(this._title);
 
-  int totalProgress;
+  int? totalProgress;
 
   void update(int currentProgress) {
     if (currentProgress > 0) {
@@ -17,7 +17,7 @@ class ProgressBar {
 
     var totalWidth = (_console.windowWidth * (45 / 100)).ceil();
     var progressWidth =
-        ' ' * (totalWidth * (currentProgress / totalProgress)).ceil();
+        ' ' * (totalWidth * (currentProgress / totalProgress!)).ceil();
     _console
       ..hideCursor()
       ..setForegroundColor(ConsoleColor.brightWhite)
@@ -28,7 +28,7 @@ class ProgressBar {
       ..write(' ' * (totalWidth - progressWidth.length))
       ..resetColorAttributes()
       ..writeLine(
-          '  (${(currentProgress / totalProgress * 100).ceil()}% done)');
+          '  (${(currentProgress / totalProgress! * 100).ceil()}% done)');
 
     if (currentProgress == totalProgress) {
       _console.showCursor();

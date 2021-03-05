@@ -3,16 +3,14 @@ import 'dart:io';
 import 'package:dart_console/dart_console.dart';
 import 'package:rush_prompt/src/questions/question.dart';
 
-import 'package:meta/meta.dart';
-
 class SimpleQuestion extends Question {
-  String _question;
-  String _default;
+  String? _question;
+  String? _default;
 
   SimpleQuestion({
-    @required String question,
-    @required String id,
-    String defaultAnswer,
+    required String question,
+    required String id,
+    String? defaultAnswer,
   }) {
     _question = question;
     this.id = id;

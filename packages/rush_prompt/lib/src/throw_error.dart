@@ -1,11 +1,10 @@
 import 'dart:io';
 
 import 'package:dart_console/dart_console.dart';
-import 'package:meta/meta.dart';
 
 class ThrowError {
   ThrowError({
-    @required String message,
+    required String message,
   }) {
     final console = Console();
     console

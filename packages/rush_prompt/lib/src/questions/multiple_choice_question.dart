@@ -1,22 +1,21 @@
 import 'dart:io';
 
 import 'package:dart_console/dart_console.dart';
-import 'package:meta/meta.dart';
 
 import '../questions/question.dart';
 
 class MultipleChoiceQuestion extends Question {
-  String _question;
-  List<String> _options;
-  String _id;
-  String _hint;
+  String? _question;
+  late List<String> _options;
+  String? _id;
+  String? _hint;
 
   MultipleChoiceQuestion({
-    @required String question,
-    @required List<String> options,
-    @required String id,
-    String hint,
-    String defaultAnswer,
+    required String question,
+    required List<String> options,
+    required String id,
+    String? hint,
+    String? defaultAnswer,
   }) {
     _question = question;
     _id = id;
