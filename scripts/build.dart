@@ -25,7 +25,7 @@ Future<void> main(List<String> args) async {
   if (res['build_exe']) {
     await _buildExe();
   }
-  if (res['ap_path'].toString().isNotEmpty) {
+  if (res['ap_path'] != null) {
     await _buildAp(res['ap_path']);
   } else {
     print('============= Skipping annotation processor build =============');
