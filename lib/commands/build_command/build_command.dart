@@ -67,6 +67,10 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(
           '     Marks this build as a release build, which results in the version number being incremented by one.')
+      ..write('   -s, --support-lib')
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..writeLine(
+          '     Generates two flavors of extensions, one that uses AndroidX libraries, and other that uses support libraries. The later is supposed to be used with builders that haven\'t yet migrated to AndroidX.')
       ..resetColorAttributes()
       ..writeLine();
   }
@@ -75,6 +79,15 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
   @override
   Future<void> run() async {
     PrintArt();
+
+    final scriptPath = Platform.script.toFilePath(windows: Platform.isWindows);
+    if (scriptPath.startsWith(_cd)) {
+      PrintMsg(
+          '  Uh, oh! Looks like you\'re using an unsupported terminal. Please try ',
+          ConsoleColor.red);
+      exit(64);
+    }
+
     PrintMsg('Build initialized\n', ConsoleColor.brightWhite, '•',
         ConsoleColor.yellow);
 
@@ -154,9 +167,11 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       await extBox.put('rushYmlLastMod', rushYml.lastModifiedSync());
     } else if (!extBox.containsKey('srcDirLastMod')) {
       await extBox.put('srcDirLastMod', rushYml.lastModifiedSync());
-    } else if (!extBox.containsKey('org') ||
-        extBox.get('org') != _getPackage(loadedYml)) {
-      await extBox.put('org', _getPackage(loadedYml));
+    } else if (!extBox.containsKey('org')
+    // ||
+    //     extBox.get('org') != _getPackage(loadedYml, p.join(_cd, 'src'))
+        ) {
+      await extBox.put('org', _getPackage(loadedYml, p.join(_cd, 'src')));
     }
 
     var isYmlMod =
@@ -196,8 +211,6 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         extBox.get('version').toString(),
         loadedYml['name'],
         argResults!['support-lib']);
-
-    final scriptPath = Platform.script.toFilePath(windows: Platform.isWindows);
 
     final pathToAntEx = p.join(scriptPath.split('bin').first, 'tools',
         'apache-ant-1.10.9', 'bin', 'ant');
@@ -240,7 +253,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         await box.delete('totalWarn');
       }
 
-      Process.start(antPath, args.toList('javac') as List<String>, runInShell: runInShell)
+      Process.start(antPath, args.toList('javac') as List<String>,
+              runInShell: runInShell)
           .asStream()
           .asBroadcastStream()
           .listen((process) {
@@ -302,7 +316,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
               // So, we increase the count by 2 assuming this error is a 3-liner
               // since most javac errors are 3-liner.
 
-              count += 2;
+              count += 4;
               errCount++;
               final msg = 'src' + out.split('src').last;
 
@@ -407,7 +421,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     procStep.init();
     var procErrCount = 0;
 
-    Process.start(antPath, args.toList('process') as List<String>, runInShell: runInShell)
+    Process.start(antPath, args.toList('process') as List<String>,
+            runInShell: runInShell)
         .asStream()
         .asBroadcastStream()
         .listen((process) {
@@ -450,7 +465,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     final dexStep = BuildStep('Converting Java bytecode to DEX bytecode');
     dexStep.init();
 
-    Process.start(antPath, args.toList('dex') as List<String>, runInShell: runInShell)
+    Process.start(antPath, args.toList('dex') as List<String>,
+            runInShell: runInShell)
         .asStream()
         .asBroadcastStream()
         .listen((process) {
@@ -476,7 +492,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     final asmStep = BuildStep('Finalizing the build');
     asmStep.init();
 
-    Process.start(antPath, args.toList('assemble') as List<String>, runInShell: runInShell)
+    Process.start(antPath, args.toList('assemble') as List<String>,
+            runInShell: runInShell)
         .asStream()
         .asBroadcastStream()
         .listen((process) {
@@ -525,8 +542,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     }
   }
 
-  String _getPackage(YamlMap? loadedYml) {
-    final srcDir = Directory(p.join(_cd, 'src'));
+  String _getPackage(YamlMap? loadedYml, String srcDirPath) {
+    final srcDir = Directory(srcDirPath);
     var path = '';
 
     for (final file in srcDir.listSync(recursive: true)) {
