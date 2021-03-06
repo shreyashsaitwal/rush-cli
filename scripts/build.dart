@@ -61,9 +61,15 @@ built_on: ${DateTime.now().toUtc()}
     outDir.deleteSync(recursive: true);
   }
 
+  final temp = Directory(p.join(p.current, 'temp'))..createSync();
+
   final encoder = ZipFileEncoder();
   encoder.zipDirectory(Directory(p.join(p.current, 'build')),
-      filename: p.join(outDir.path, 'rush.zip'));
+      filename: p.join(temp.path, 'rush.zip'));
+
+  outDir.createSync();
+  File(p.join(temp.path, 'rush.zip')).copySync(p.join(outDir.path, 'rush.zip'));
+  temp.deleteSync(recursive: true);
 
   print('============= Done =============');
 }
