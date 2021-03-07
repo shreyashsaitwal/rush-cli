@@ -21,6 +21,7 @@ Future<void> main(List<String> args) async {
   await _getAnt();
   await _getAntContribAndD8();
   await _getJetifier();
+  await _getProGuard();
 
   if (res['build_exe']) {
     await _buildExe();
@@ -196,7 +197,7 @@ Future<void> _getAntContribAndD8() async {
   if (!Directory(p.join(p.current, 'build', 'tools', 'ant-contrib'))
       .existsSync()) {
     await _download(
-        'https://drive.google.com/uc?id=1c4EXJcJigoUEtKs6-CZkEuculWkZ5xvJ&export=download',
+        'https://drive.google.com/u/0/uc?id=1c4EXJcJigoUEtKs6-CZkEuculWkZ5xvJ&export=download',
         p.join(p.current, 'build', 'tools', 'ant-contrib.zip'),
         'Downloading ant-contrib...');
     _extractZip(p.join(p.current, 'build', 'tools', 'ant-contrib.zip'),
@@ -221,6 +222,19 @@ Future<void> _getJetifier() async {
 
     _extractZip(p.join(p.current, 'build', 'tools', 'jetifier-standalone.zip'),
         p.join(p.current, 'build', 'tools'), 'Extracting Jetifier...');
+  }
+}
+
+Future<void> _getProGuard() async {
+  if (!Directory(p.join(p.current, 'build', 'tools', 'proguard'))
+      .existsSync()) {
+    await _download(
+        'https://drive.google.com/u/0/uc?id=1gFu4-Qfa7efOubQERd0U6n8IlaHdludm&export=download',
+        p.join(p.current, 'build', 'tools', 'proguard'),
+        'Downloading ProGuard...');
+
+    _extractZip(p.join(p.current, 'build', 'tools', 'proguard'),
+        p.join(p.current, 'build', 'tools'), 'Extracting ProGuard...');
   }
 }
 
