@@ -10,6 +10,7 @@ class AntArgs {
   final String version;
   final String? name;
   final bool? shouldJetify;
+  final bool? optimize;
 
   AntArgs(
     this.dataDirPath,
@@ -18,6 +19,7 @@ class AntArgs {
     this.version,
     this.name,
     this.shouldJetify,
+    this.optimize,
   );
 
   List toList(String task) {
@@ -67,6 +69,19 @@ class AntArgs {
       args.add('-Ddeps=${p.join(cd, 'deps')}');
       args.add('-Dextension=$org');
       args.add('-Dcd=$cd');
+      if (optimize!) {
+        final rules = File(p.join(cd, 'src', 'proguard-rules.pro'));
+        if (rules.existsSync()) {
+          args.add('-Doptimize=1');
+          args.add('-DpgPath=${p.joinAll([
+            ...baseDir.split('/'),
+            'tools',
+            'proguard'
+          ])}');
+          args.add('-DpgRules=${rules.path}');
+          args.add('-Dout=${p.join(cd, 'out')}');
+        }
+      }
       if (shouldJetify!) {
         args.add('-DjetifierBin=${p.joinAll([
           ...baseDir.split('/'),

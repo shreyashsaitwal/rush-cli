@@ -4,6 +4,7 @@ import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/templates/rules_pro.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
 import 'package:rush_cli/templates/iml_template.dart';
@@ -95,6 +96,7 @@ class CreateCommand extends Command with CopyMixin {
 
       _writeFile(p.join(projectDir, 'src', 'AndroidManifest.xml'),
           getManifestXml(orgName));
+      _writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'), getPgRules());
 
       _writeFile(p.join(projectDir, 'rush.yml'),
           getRushYaml(pascalCasedName, versionName, authorName));
@@ -106,7 +108,8 @@ class CreateCommand extends Command with CopyMixin {
 
       // IntelliJ IDEA files
       _writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
-      _writeFile(p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'), getLibsXml());
+      _writeFile(p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
+          getLibsXml());
       _writeFile(p.join(projectDir, '.idea', 'modules.xml'),
           getModulesXml(kebabCasedName));
       _writeFile(p.join(projectDir, '$kebabCasedName.iml'), getIml());
