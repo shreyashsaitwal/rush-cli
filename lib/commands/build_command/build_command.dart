@@ -32,8 +32,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
           abbr: 'o',
           defaultsTo: false,
           help:
-              'Optimizes, skrinks and obfuscates extension\'s Java bytecode using ProGuard.');
-
+              'Optimizes, skrinks and obfuscates extension\'s Java bytecode using ProGuard.')
+      ..addFlag('extended-output', abbr: 'x', hide: true, defaultsTo: false);
   }
 
   final runInShell = Platform.isWindows;
@@ -346,6 +346,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
 
               // Warnings are usually one liner, so, we can add them to the box directly.
               await box.put('warn$warnCount', msg);
+            } else if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
+              compStep.add(out.trimRight(), ConsoleColor.brightWhite);
             }
           }
         }, onDone: () async {
@@ -466,9 +468,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
             procStep.add(out.replaceAll('ERR ', ''), ConsoleColor.brightWhite,
                 addSpace: true, prefix: 'ERR', prefBgClr: ConsoleColor.red);
             procErrCount++;
-          }
-
-          if (_isProGuardOutput(out)) {
+          } else if (_isProGuardOutput(out)) {
             var proOut = out.replaceAll('[proguard] ', '').trimRight();
             if (proOut.startsWith(RegExp(r'\sWarning:'))) {
               proOut = proOut.replaceAll('Warning: ', '');
@@ -489,6 +489,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
             } else {
               procStep.add(proOut, ConsoleColor.brightWhite);
             }
+          } else if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
+            procStep.add(out.trimRight(), ConsoleColor.brightWhite);
           }
         }
       }, onError: (_) {
@@ -534,6 +536,11 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         .listen((process) {
       process.stdout.asBroadcastStream().listen((data) {
         // TODO Listen to errors
+        final out = String.fromCharCodes(data).trimRight();
+        if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
+          dexStep.add(
+              out, ConsoleColor.brightWhite);
+        }
       }, onError: (_) {
         dexStep
           ..add('An internal error occured', ConsoleColor.brightBlack)
@@ -561,6 +568,11 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         .listen((process) {
       process.stdout.asBroadcastStream().listen((data) {
         // TODO Listen to errors
+        final out = String.fromCharCodes(data).trimRight();
+        if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
+          asmStep.add(
+              out, ConsoleColor.brightWhite);
+        }
       }, onError: (_) {
         asmStep
           ..add('An internal error occured', ConsoleColor.brightBlack)
