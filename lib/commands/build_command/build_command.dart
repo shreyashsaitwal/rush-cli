@@ -27,7 +27,13 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
           abbr: 's',
           defaultsTo: false,
           help:
-              'Generates two flavors of extensions, one that uses AndroidX libraries, and other that uses support libraries. The later is supposed to be used with builders that haven\'t yet migrated to AndroidX.');
+              'Generates two flavors of extensions, one that uses AndroidX libraries, and other that uses support libraries. The later is supposed to be used with builders that haven\'t yet migrated to AndroidX.')
+      ..addFlag('optimize',
+          abbr: 'o',
+          defaultsTo: false,
+          help:
+              'Optimizes, skrinks and obfuscates extension\'s Java bytecode using ProGuard.');
+
   }
 
   final runInShell = Platform.isWindows;
@@ -168,8 +174,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     } else if (!extBox.containsKey('srcDirLastMod')) {
       await extBox.put('srcDirLastMod', rushYml.lastModifiedSync());
     } else if (!extBox.containsKey('org')
-    // ||
-    //     extBox.get('org') != _getPackage(loadedYml, p.join(_cd, 'src'))
+        // ||
+        //     extBox.get('org') != _getPackage(loadedYml, p.join(_cd, 'src'))
         ) {
       await extBox.put('org', _getPackage(loadedYml, p.join(_cd, 'src')));
     }
@@ -203,6 +209,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       areFilesModified = true;
     }
 
+    final optimize = argResults!['release'] || argResults!['optimize'];
+
     // Args for spawning the Apache Ant process
     final args = AntArgs(
         dataDir,
@@ -210,7 +218,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         extBox.get('org'),
         extBox.get('version').toString(),
         loadedYml['name'],
-        argResults!['support-lib']);
+        argResults!['support-lib'],
+        optimize);
 
     final pathToAntEx = p.join(scriptPath.split('bin').first, 'tools',
         'apache-ant-1.10.9', 'bin', 'ant');
@@ -417,9 +426,27 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
   /// Further process the extension by generating extension files, adding
   /// libraries and jaring the extension.
   void _process(String antPath, AntArgs args) {
-    final procStep = BuildStep('Generating extension files');
-    procStep.init();
+    BuildStep procStep;
+    if (argResults!['release'] || argResults!['optimize']) {
+      final rules = File(p.join(_cd, 'src', 'proguard-rules.pro'));
+      procStep = BuildStep('Optimizing Java bytecode');
+      procStep.init();
+      if (!rules.existsSync()) {
+        procStep.add(
+            '\'proguard-rules.pro file not found. Your extension won\'t be optimised.',
+            ConsoleColor.yellow,
+            addSpace: true,
+            prefix: 'WARN',
+            prefBgClr: ConsoleColor.yellow,
+            prefClr: ConsoleColor.black);
+      }
+    } else {
+      procStep = BuildStep('Processing extension files');
+      procStep.init();
+    }
     var procErrCount = 0;
+
+    var lastOutLine = '';
 
     Process.start(antPath, args.toList('process') as List<String>,
             runInShell: runInShell)
@@ -427,13 +454,41 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         .asBroadcastStream()
         .listen((process) {
       process.stdout.asBroadcastStream().listen((data) {
+        var isFirst = true;
         final formatted = _format(data);
         for (final out in formatted) {
+          if (!RegExp(r'Total\s*time:.*', dotAll: true, caseSensitive: true)
+              .hasMatch(out)) {
+            lastOutLine = out;
+          }
           // print(out);
           if (out.startsWith('ERR')) {
             procStep.add(out.replaceAll('ERR ', ''), ConsoleColor.brightWhite,
                 addSpace: true, prefix: 'ERR', prefBgClr: ConsoleColor.red);
             procErrCount++;
+          }
+
+          if (_isProGuardOutput(out)) {
+            var proOut = out.replaceAll('[proguard] ', '').trimRight();
+            if (proOut.startsWith(RegExp(r'\sWarning:'))) {
+              proOut = proOut.replaceAll('Warning: ', '');
+              procStep.add(proOut, ConsoleColor.yellow,
+                  prefix: 'WARN',
+                  prefClr: ConsoleColor.black,
+                  prefBgClr: ConsoleColor.yellow,
+                  addSpace: isFirst);
+              isFirst = false;
+            } else if (proOut.startsWith(RegExp(r'\sNote: '))) {
+              proOut = proOut.replaceAll('Note: ', '');
+              procStep.add(proOut, ConsoleColor.brightBlue,
+                  prefix: 'NOTE',
+                  prefClr: ConsoleColor.black,
+                  prefBgClr: ConsoleColor.brightBlue,
+                  addSpace: isFirst);
+              isFirst = false;
+            } else {
+              procStep.add(proOut, ConsoleColor.brightWhite);
+            }
           }
         }
       }, onError: (_) {
@@ -444,6 +499,13 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
             ConsoleColor.brightRed);
         exit(2);
       }, onDone: () {
+        if (lastOutLine == 'BUILD FAILED') {
+          procStep.finish('Failed', ConsoleColor.red);
+          PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+              ConsoleColor.brightRed);
+          exit(1);
+        }
+
         if (procErrCount > 0) {
           procStep
             ..add('Total errors: $procErrCount', ConsoleColor.red)
@@ -513,6 +575,24 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         exit(0);
       });
     });
+  }
+
+  /// Checks if [out] is an useful ProGuard output.
+  bool _isProGuardOutput(String out) {
+    final useless = [
+      '[proguard] ProGuard, version 7.1.0-beta1',
+      '[proguard] ProGuard is released under the GNU General Public License. You therefore',
+      '[proguard] must ensure that programs that link to it (net.sf.antcontrib.logic, ...)',
+      '[proguard] carry the GNU General Public License as well. Alternatively, you can',
+      '[proguard] apply for an exception with the author of ProGuard.',
+    ];
+
+    if (!useless.contains(out.trim()) &&
+        out.startsWith(RegExp(r'\s\[proguard\]', caseSensitive: true))) {
+      return true;
+    }
+
+    return false;
   }
 
   /// Converts the given list of decimal char codes into string list and removes

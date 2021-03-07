@@ -83,6 +83,16 @@ String getBuildXml() {
          basedir = "\${rawCls}/\${extensionClassFolder}"
          includes = "**/*.class"
          excludes = "*.jar" />
+
+    <if>
+      <equals arg1="\${optimize}" arg2="1" />
+      <then>
+        <antcall target="proGuard">
+          <param name="extensionClassFolder" value="\${extensionClassFolder}" />
+        </antcall>
+      </then>
+    </if>
+
     <copy file = "\${rawCls}/\${extensionClassFolder}.jar"
           tofile = "\${raw}/\${extensionClassFolder}/files/AndroidRuntime.jar"/>
 
@@ -152,6 +162,33 @@ String getBuildXml() {
           basedir="\${raw}/support"
           includes="\${extensionType}/"
     />
+  </target>
+
+  <target name="proGuard">
+    <taskdef resource="proguard/ant/task.properties" classpath="\${pgPath}/proguard-ant.jar" />
+    <proguard printmapping="\${out}/proguard.map"
+              configuration="\${pgRules}">
+
+      <injar file="\${rawCls}/\${extensionClassFolder}.jar" />
+      <outjar file="\${rawCls}/\${extensionClassFolder}_p.jar" />
+
+      <libraryjar>
+        <fileset dir="\${devDeps}">
+          <include name="**/*.jar" />
+          <include name="**/*.aar" />
+        </fileset>
+        <fileset dir="\${deps}">
+          <include name="**/*.jar" />
+          <include name="**/*.aar" />
+        </fileset>
+      </libraryjar>
+
+      <dontnote filter="proguard.configuration.ConfigurationLogger" />
+      <adaptresourcefilecontents filter="proguard/ant/task.properties" />
+    </proguard>
+
+    <delete file="\${rawCls}/\${extensionClassFolder}.jar" />
+    <move file="\${rawCls}/\${extensionClassFolder}_p.jar" tofile="\${rawCls}/\${extensionClassFolder}.jar" />
   </target>
 </project>
 ''';
