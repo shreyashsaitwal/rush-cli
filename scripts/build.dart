@@ -104,7 +104,7 @@ Future<void> _buildExe() async {
   }
 }
 
-void _copyLibs(String apRepoPath) {
+Future<void> _copyLibs(String apRepoPath) async {
   print('============= Copying libraries =============');
 
   // Copy annotation processor and its dependencies
@@ -130,7 +130,7 @@ void _copyLibs(String apRepoPath) {
   // Download android.jar if it doesn't exists
   final androidJar = p.join(devDepsDir, 'android.jar');
   if (!File(androidJar).existsSync()) {
-    _download(
+    await _download(
         'https://github.com/mit-cml/appinventor-sources/raw/master/appinventor/lib/android/android-29/android.jar',
         androidJar,
         'Downloading android.jar...');
