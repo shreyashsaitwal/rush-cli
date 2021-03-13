@@ -41,13 +41,6 @@ Future<void> main(List<String> args) async {
       ..writeAsStringSync(getLicense());
   }
 
-  final readme = File(p.join(p.current, 'build', 'README.md'));
-  if (!readme.existsSync()) {
-    readme
-      ..createSync(recursive: true)
-      ..writeAsStringSync(getBuildReadme());
-  }
-
   File(p.join(p.current, 'build', 'bin', 'build_info'))
     ..createSync(recursive: true)
     ..writeAsStringSync('''
