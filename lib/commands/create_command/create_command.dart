@@ -63,6 +63,8 @@ class CreateCommand extends Command with CopyMixin {
       exit(64); // Exit code 64 indicates usage error
     }
 
+    final scriptPath = Platform.script.toFilePath(windows: Platform.isWindows);
+
     PrintArt();
 
     final answers = RushPrompt(questions: Questions.questions).askAll();
@@ -125,6 +127,10 @@ class CreateCommand extends Command with CopyMixin {
       ThrowError(message: 'ERR ' + e.toString());
     }
 
+    // Copy icon
+    File(p.join(scriptPath.split('bin').first, 'tools', 'icon-rush.png'))
+        .copySync(p.join(projectDir, 'assets', 'icon.png'));
+
     Hive.init(p.join(projectDir, '.rush'));
     var box = await Hive.openBox('data');
     await box.putAll({
@@ -135,7 +141,6 @@ class CreateCommand extends Command with CopyMixin {
     });
 
     // Copy dev-deps.
-    final scriptPath = Platform.script.toFilePath(windows: Platform.isWindows);
     final devDepsDir = p.join(scriptPath.split('bin').first, 'dev-deps');
 
     PrintMsg('Getting things ready...', ConsoleColor.brightWhite, '\n•',

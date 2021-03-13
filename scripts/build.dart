@@ -5,7 +5,6 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 import 'package:dio/dio.dart';
 import 'package:archive/archive.dart';
-import 'package:rush_cli/templates/build_readme.dart';
 import 'package:rush_cli/templates/build_xml.dart';
 import 'package:rush_cli/templates/license_template.dart';
 

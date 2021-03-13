@@ -31,8 +31,10 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       ..addFlag('optimize',
           abbr: 'o',
           defaultsTo: false,
+          negatable: false,
           help:
               'Optimizes, skrinks and obfuscates extension\'s Java bytecode using ProGuard.')
+      ..addFlag('no-optimize', negatable: false, defaultsTo: false)
       ..addFlag('extended-output', abbr: 'x', hide: true, defaultsTo: false);
   }
 
@@ -71,18 +73,18 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       ..setForegroundColor(ConsoleColor.yellow)
       ..write('   -r, --release')
       ..setForegroundColor(ConsoleColor.brightWhite)
-      ..writeLine(
-          ' ' * 9 + 'Marks this build as a release build, which results in the version number being incremented by one.')
+      ..writeLine(' ' * 9 +
+          'Marks this build as a release build, which results in the version number being incremented by one.')
       ..setForegroundColor(ConsoleColor.yellow)
       ..write('   -s, --support-lib')
       ..setForegroundColor(ConsoleColor.brightWhite)
-      ..writeLine(
-          ' ' * 5 + 'Generates two flavors of extensions, one that uses AndroidX libraries, and other that uses support libraries.')
+      ..writeLine(' ' * 5 +
+          'Generates two flavors of extensions, one that uses AndroidX libraries, and other that uses support libraries.')
       ..setForegroundColor(ConsoleColor.yellow)
       ..write('   -o, --[no-]optimize')
       ..setForegroundColor(ConsoleColor.brightWhite)
-      ..writeLine(
-          ' ' * 3 + 'Optimize, obfuscates and shrinks your code with a set of ProGuard rules defined in proguard-rules.pro rules file.')
+      ..writeLine(' ' * 3 +
+          'Optimize, obfuscates and shrinks your code with a set of ProGuard rules defined in proguard-rules.pro rules file.')
       ..resetColorAttributes()
       ..writeLine();
   }
@@ -215,7 +217,18 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       areFilesModified = true;
     }
 
-    final optimize = argResults!['release'] || argResults!['optimize'];
+    final optimize;
+    if (argResults!['optimize']) {
+      optimize = true;
+    } else if (argResults!['release']) {
+      if (argResults!['no-optimize']) {
+        optimize = false;
+      } else {
+        optimize = true;
+      }
+    } else {
+      optimize = false;
+    }
 
     // Args for spawning the Apache Ant process
     final args = AntArgs(
@@ -244,12 +257,12 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     }
 
     await _compile(pathToAntEx, args,
-        areFilesModified || await buildBox.get('count') == 1, buildBox);
+        areFilesModified || await buildBox.get('count') == 1, buildBox, optimize);
   }
 
   /// Compiles all the Java files located at _cd/src.
   Future<void> _compile(
-      String antPath, AntArgs args, bool shouldRecompile, Box box) async {
+      String antPath, AntArgs args, bool shouldRecompile, Box box, bool optimize) async {
     var errCount = 0;
     var warnCount = 0;
 
@@ -352,7 +365,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
 
               // Warnings are usually one liner, so, we can add them to the box directly.
               await box.put('warn$warnCount', msg);
-            } else if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
+            } else if (argResults!['extended-output'] &&
+                !out.startsWith('Buildfile:')) {
               compStep.add(out.trimRight(), ConsoleColor.brightWhite);
             }
           }
@@ -374,7 +388,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
             exit(1);
           }
           compStep.finish('Done', ConsoleColor.cyan);
-          _process(antPath, args);
+          _process(antPath, args, optimize);
         }, onError: (_) {
           compStep
             ..add('Total errors: $errCount', ConsoleColor.red,
@@ -427,15 +441,15 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       }
 
       compStep.finish('Done', ConsoleColor.cyan);
-      _process(antPath, args);
+      _process(antPath, args, optimize);
     }
   }
 
   /// Further process the extension by generating extension files, adding
   /// libraries and jaring the extension.
-  void _process(String antPath, AntArgs args) {
+  void _process(String antPath, AntArgs args, bool optimize) {
     BuildStep procStep;
-    if (argResults!['release'] && argResults!['optimize']) {
+    if (optimize) {
       final rules = File(p.join(_cd, 'src', 'proguard-rules.pro'));
       procStep = BuildStep('Optimizing Java bytecode');
       procStep.init();
@@ -495,7 +509,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
             } else {
               procStep.add(proOut, ConsoleColor.brightWhite);
             }
-          } else if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
+          } else if (argResults!['extended-output'] &&
+              !out.startsWith('Buildfile:')) {
             procStep.add(out.trimRight(), ConsoleColor.brightWhite);
           }
         }
@@ -544,8 +559,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         // TODO Listen to errors
         final out = String.fromCharCodes(data).trimRight();
         if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
-          dexStep.add(
-              out, ConsoleColor.brightWhite);
+          dexStep.add(out, ConsoleColor.brightWhite);
         }
       }, onError: (_) {
         dexStep
@@ -576,8 +590,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         // TODO Listen to errors
         final out = String.fromCharCodes(data).trimRight();
         if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
-          asmStep.add(
-              out, ConsoleColor.brightWhite);
+          asmStep.add(out, ConsoleColor.brightWhite);
         }
       }, onError: (_) {
         asmStep
