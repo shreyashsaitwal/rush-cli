@@ -5,6 +5,8 @@ String getManifestXml(String org) {
     xmlns:android="http://schemas.android.com/apk/res/android"
     package="$org">
 
+    <!-- For more details, see: https://github.com/ShreyashSaitwal/rush-cli/wiki/Android-Manifest-File -->
+
     <application>
       <!-- <activity android:name=".MainActivity">
             <intent-filter>
@@ -13,6 +15,6 @@ String getManifestXml(String org) {
             </intent-filter>
         </activity> -->
     </application>
-</manifest>  
+</manifest>
 ''';
 }

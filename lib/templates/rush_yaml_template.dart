@@ -3,6 +3,9 @@ String getRushYaml(String name, String versionName, String author) {
 name: $name           # Caution: DO NOT change the name.
 description: Extension component for $name. Created using Rush.
 
+# For a detailed info on this file and supported fields, check
+# out this link: https://github.com/ShreyashSaitwal/rush-cli/wiki/Metadata-File
+
 version:
   number: auto        # Auto increments version number when built with '-r' (or '--release') flag.
   name: $versionName
