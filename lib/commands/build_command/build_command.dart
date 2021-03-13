@@ -72,11 +72,17 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       ..write('   -r, --release')
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(
-          '     Marks this build as a release build, which results in the version number being incremented by one.')
+          ' ' * 9 + 'Marks this build as a release build, which results in the version number being incremented by one.')
+      ..setForegroundColor(ConsoleColor.yellow)
       ..write('   -s, --support-lib')
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(
-          '     Generates two flavors of extensions, one that uses AndroidX libraries, and other that uses support libraries. The later is supposed to be used with builders that haven\'t yet migrated to AndroidX.')
+          ' ' * 5 + 'Generates two flavors of extensions, one that uses AndroidX libraries, and other that uses support libraries.')
+      ..setForegroundColor(ConsoleColor.yellow)
+      ..write('   -o, --[no-]optimize')
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..writeLine(
+          ' ' * 3 + 'Optimize, obfuscates and shrinks your code with a set of ProGuard rules defined in proguard-rules.pro rules file.')
       ..resetColorAttributes()
       ..writeLine();
   }
@@ -429,7 +435,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
   /// libraries and jaring the extension.
   void _process(String antPath, AntArgs args) {
     BuildStep procStep;
-    if (argResults!['release'] || argResults!['optimize']) {
+    if (argResults!['release'] && argResults!['optimize']) {
       final rules = File(p.join(_cd, 'src', 'proguard-rules.pro'));
       procStep = BuildStep('Optimizing Java bytecode');
       procStep.init();
