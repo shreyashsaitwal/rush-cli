@@ -7,6 +7,8 @@ String getPgRules() {
 
 -dontnote **
 
+-keeppackagenames gnu.kawa.functions.**
+-keeppackagenames gnu.expr.**
 -keep public class * {
     public protected *;
 }
