@@ -95,9 +95,10 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     PrintArt();
 
     final scriptPath = Platform.script.toFilePath(windows: Platform.isWindows);
-    if (scriptPath.startsWith(_cd)) {
+
+    if (scriptPath == p.join(_cd, 'rush')) {
       PrintMsg(
-          '  Uh, oh! Looks like you\'re using an unsupported terminal. Please try ',
+          '  Uh, oh! Looks like you\'re using an unsupported terminal. Please try using another terminal.',
           ConsoleColor.red);
       exit(64);
     }
@@ -256,13 +257,17 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       await buildBox.put('count', i);
     }
 
-    await _compile(pathToAntEx, args,
-        areFilesModified || await buildBox.get('count') == 1, buildBox, optimize);
+    await _compile(
+        pathToAntEx,
+        args,
+        areFilesModified || await buildBox.get('count') == 1,
+        buildBox,
+        optimize);
   }
 
   /// Compiles all the Java files located at _cd/src.
-  Future<void> _compile(
-      String antPath, AntArgs args, bool shouldRecompile, Box box, bool optimize) async {
+  Future<void> _compile(String antPath, AntArgs args, bool shouldRecompile,
+      Box box, bool optimize) async {
     var errCount = 0;
     var warnCount = 0;
 
