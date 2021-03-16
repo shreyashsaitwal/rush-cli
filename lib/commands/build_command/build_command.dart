@@ -146,11 +146,14 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
           ConsoleColor.brightRed);
       exit(1);
     } else {
-      valStep.add('Metadata file (rush.yml)', ConsoleColor.brightWhite,
-          addSpace: true,
-          prefix: 'OKAY',
-          prefBgClr: ConsoleColor.brightGreen,
-          prefClr: ConsoleColor.black);
+      valStep.add(
+        'Metadata file (rush.yml)',
+        ConsoleColor.brightWhite,
+        addSpace: true,
+        prefix: 'OKAY',
+        prefBgClr: ConsoleColor.brightGreen,
+        prefClr: ConsoleColor.black,
+      );
     }
 
     final manifestFile = File(p.join(_cd, 'src', 'AndroidManifest.xml'));
@@ -162,11 +165,14 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
           ConsoleColor.brightRed);
       exit(1);
     } else {
-      valStep.add('AndroidManifest.xml file', ConsoleColor.brightWhite,
-          addSpace: true,
-          prefix: 'OKAY',
-          prefBgClr: ConsoleColor.brightGreen,
-          prefClr: ConsoleColor.black);
+      valStep.add(
+        'AndroidManifest.xml file',
+        ConsoleColor.brightWhite,
+        addSpace: true,
+        prefix: 'OKAY',
+        prefBgClr: ConsoleColor.brightGreen,
+        prefClr: ConsoleColor.black,
+      );
     }
     valStep.finish('Done', ConsoleColor.cyan);
 
@@ -286,21 +292,24 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         await box.delete('totalWarn');
       }
 
-      Process.start(antPath, args.toList('javac') as List<String>,
+      // Spawn the javac process
+      final javacStream = Process.start(
+              antPath, args.toList('javac') as List<String>,
               runInShell: runInShell)
           .asStream()
-          .asBroadcastStream()
-          .listen((process) {
+          .asBroadcastStream();
+
+      await for (final process in javacStream) {
+        final stdoutStream = process.stdout.asBroadcastStream();
         final temp = <String>[];
-        process.stdout.asBroadcastStream().listen((data) async {
-          // format data in human readable format
+
+        await for (final data in stdoutStream) {
+          // A list of output messages.
           final formatted = _format(data);
 
-          // formatted is a list of output messages.
-          // Go through each of them, and check if it's the start of error, part
+          // Go through each of the formatted message, and check if it's the start of error, part
           // of error, or a warning.
           for (final out in formatted) {
-            // print(out);
             final lines = ErrData.getNoOfLines(out);
 
             // If lines is the not null then it means that out is in fact the first
@@ -311,11 +320,14 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
 
               final msg = 'src' + out.split('src').last;
               temp.add(msg);
-              compStep.add(msg, ConsoleColor.red,
-                  addSpace: true,
-                  prefix: 'ERR',
-                  prefBgClr: ConsoleColor.brightRed,
-                  prefClr: ConsoleColor.brightWhite);
+              compStep.add(
+                msg,
+                ConsoleColor.red,
+                addSpace: true,
+                prefix: 'ERR',
+                prefBgClr: ConsoleColor.brightRed,
+                prefClr: ConsoleColor.brightWhite,
+              );
             } else if (count > 0) {
               // If count is greater than 0, then it means that out is remaining part
               // of the previously identified error.
@@ -334,11 +346,14 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
 
               errCount++;
               final msg = out.split('ERR ').last;
-              compStep.add(msg, ConsoleColor.red,
-                  addSpace: true,
-                  prefix: 'ERR',
-                  prefBgClr: ConsoleColor.red,
-                  prefClr: ConsoleColor.brightWhite);
+              compStep.add(
+                msg,
+                ConsoleColor.red,
+                addSpace: true,
+                prefix: 'ERR',
+                prefBgClr: ConsoleColor.red,
+                prefClr: ConsoleColor.brightWhite,
+              );
 
               // No need to add this err in temp. Since it's one liner, it can directly
               // be added to the box.
@@ -354,19 +369,27 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
               final msg = 'src' + out.split('src').last;
 
               temp.add(msg);
-              compStep.add(msg, ConsoleColor.red,
-                  addSpace: true, prefix: 'ERR', prefBgClr: ConsoleColor.red);
+              compStep.add(
+                msg,
+                ConsoleColor.red,
+                addSpace: true,
+                prefix: 'ERR',
+                prefBgClr: ConsoleColor.red,
+              );
             } else if (out.contains('warning:') &&
                 !out.contains(
                     'The following options were not recognized by any processor:')) {
               warnCount++;
 
               final msg = out.replaceAll('warning: ', '').trim();
-              compStep.add(msg, ConsoleColor.yellow,
-                  addSpace: true,
-                  prefix: 'WARN',
-                  prefBgClr: ConsoleColor.yellow,
-                  prefClr: ConsoleColor.black);
+              compStep.add(
+                msg,
+                ConsoleColor.yellow,
+                addSpace: true,
+                prefix: 'WARN',
+                prefBgClr: ConsoleColor.yellow,
+                prefClr: ConsoleColor.black,
+              );
 
               // Warnings are usually one liner, so, we can add them to the box directly.
               await box.put('warn$warnCount', msg);
@@ -375,35 +398,27 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
               compStep.add(out.trimRight(), ConsoleColor.brightWhite);
             }
           }
-        }, onDone: () async {
-          await box.put('totalErr', errCount);
-          await box.put('totalWarn', warnCount);
+        }
+      }
 
-          if (warnCount > 0) {
-            compStep.add('Total warnings: $warnCount', ConsoleColor.yellow,
-                addSpace: true);
-          }
-          if (errCount > 0) {
-            compStep
-              ..add('Total errors: $errCount', ConsoleColor.red,
-                  addSpace: warnCount <= 0)
-              ..finish('Failed', ConsoleColor.red);
-            PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-                ConsoleColor.brightRed);
-            exit(1);
-          }
-          compStep.finish('Done', ConsoleColor.cyan);
-          _process(antPath, args, optimize);
-        }, onError: (_) {
-          compStep
-            ..add('Total errors: $errCount', ConsoleColor.red,
-                addSpace: warnCount <= 0)
-            ..finish('Failed', ConsoleColor.red);
-          PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-              ConsoleColor.brightRed);
-          exit(1);
-        });
-      });
+      await box.put('totalErr', errCount);
+      await box.put('totalWarn', warnCount);
+
+      if (warnCount > 0) {
+        compStep.add('Total warnings: $warnCount', ConsoleColor.yellow,
+            addSpace: true);
+      }
+      if (errCount > 0) {
+        compStep
+          ..add('Total errors: $errCount', ConsoleColor.red,
+              addSpace: warnCount <= 0)
+          ..finish('Failed', ConsoleColor.red);
+        PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+            ConsoleColor.brightRed);
+        exit(1);
+      }
+      compStep.finish('Done', ConsoleColor.cyan);
+      await _process(antPath, args, optimize);
     } else {
       final totalWarn = box.get('totalWarn') ?? 0;
       final totalErr = box.get('totalErr') ?? 0;
@@ -411,11 +426,14 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       if (totalWarn > 0) {
         for (var i = 0; i < totalWarn; i++) {
           final warn = box.get('warn${i + 1}');
-          compStep.add(warn, ConsoleColor.yellow,
-              addSpace: true,
-              prefix: 'WARN',
-              prefBgClr: ConsoleColor.yellow,
-              prefClr: ConsoleColor.black);
+          compStep.add(
+            warn,
+            ConsoleColor.yellow,
+            addSpace: true,
+            prefix: 'WARN',
+            prefBgClr: ConsoleColor.yellow,
+            prefClr: ConsoleColor.black,
+          );
         }
         compStep.add('Total warnings: $warnCount', ConsoleColor.yellow,
             addSpace: true);
@@ -424,13 +442,16 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       if (totalErr > 0) {
         for (var i = 0; i < totalErr; i++) {
           final err = box.get('err${i + 1}');
-          err.forEach((el) {
+          err?.forEach((el) {
             if (err.indexOf(el) == 0) {
-              compStep.add(el, ConsoleColor.red,
-                  addSpace: true,
-                  prefix: 'ERR',
-                  prefClr: ConsoleColor.brightWhite,
-                  prefBgClr: ConsoleColor.brightRed);
+              compStep.add(
+                el,
+                ConsoleColor.red,
+                addSpace: true,
+                prefix: 'ERR',
+                prefClr: ConsoleColor.brightWhite,
+                prefBgClr: ConsoleColor.brightRed,
+              );
             } else {
               compStep.add(el, ConsoleColor.red);
             }
@@ -446,107 +467,120 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       }
 
       compStep.finish('Done', ConsoleColor.cyan);
-      _process(antPath, args, optimize);
+      await _process(antPath, args, optimize);
     }
   }
 
   /// Further process the extension by generating extension files, adding
   /// libraries and jaring the extension.
-  void _process(String antPath, AntArgs args, bool optimize) {
-    BuildStep procStep;
+  Future<void> _process(String antPath, AntArgs args, bool optimize) async {
+    final procStep;
+
     if (optimize) {
+      procStep = BuildStep('Optimizing Java bytecode')..init();
+
       final rules = File(p.join(_cd, 'src', 'proguard-rules.pro'));
-      procStep = BuildStep('Optimizing Java bytecode');
-      procStep.init();
       if (!rules.existsSync()) {
         procStep.add(
-            '\'proguard-rules.pro file not found. Your extension won\'t be optimised.',
-            ConsoleColor.yellow,
-            addSpace: true,
-            prefix: 'WARN',
-            prefBgClr: ConsoleColor.yellow,
-            prefClr: ConsoleColor.black);
+          '\'proguard-rules.pro file not found. Your extension won\'t be optimised.',
+          ConsoleColor.yellow,
+          addSpace: true,
+          prefix: 'WARN',
+          prefBgClr: ConsoleColor.yellow,
+          prefClr: ConsoleColor.black,
+        );
       }
     } else {
       procStep = BuildStep('Processing extension files');
       procStep.init();
     }
-    var procErrCount = 0;
 
+    var errCount = 0;
     var lastOutLine = '';
 
-    Process.start(antPath, args.toList('process') as List<String>,
+    final processStream = Process.start(
+            antPath, args.toList('process') as List<String>,
             runInShell: runInShell)
         .asStream()
-        .asBroadcastStream()
-        .listen((process) {
-      process.stdout.asBroadcastStream().listen((data) {
+        .asBroadcastStream();
+
+    await for (final process in processStream) {
+      final stdoutStream = process.stdout.asBroadcastStream();
+
+      await for (final data in stdoutStream) {
         var isFirst = true;
         final formatted = _format(data);
         for (final out in formatted) {
-          if (!RegExp(r'Total\s*time:.*', dotAll: true, caseSensitive: true)
-              .hasMatch(out)) {
+          final totalTimeRegex = RegExp(r'Total\s*time:.*', dotAll: true, caseSensitive: true);
+          if (!totalTimeRegex.hasMatch(out)) {
             lastOutLine = out;
           }
-          // print(out);
+
           if (out.startsWith('ERR')) {
-            procStep.add(out.replaceAll('ERR ', ''), ConsoleColor.brightWhite,
-                addSpace: true, prefix: 'ERR', prefBgClr: ConsoleColor.red);
-            procErrCount++;
+            procStep.add(
+              out.replaceAll('ERR ', ''),
+              ConsoleColor.brightWhite,
+              addSpace: true,
+              prefix: 'ERR',
+              prefBgClr: ConsoleColor.red,
+            );
+            errCount++;
           } else if (_isProGuardOutput(out)) {
             var proOut = out.replaceAll('[proguard] ', '').trimRight();
             if (proOut.startsWith(RegExp(r'\sWarning:'))) {
               proOut = proOut.replaceAll('Warning: ', '');
-              procStep.add(proOut, ConsoleColor.yellow,
-                  prefix: 'WARN',
-                  prefClr: ConsoleColor.black,
-                  prefBgClr: ConsoleColor.yellow,
-                  addSpace: isFirst);
+              procStep.add(
+                proOut,
+                ConsoleColor.yellow,
+                prefix: 'WARN',
+                prefClr: ConsoleColor.black,
+                prefBgClr: ConsoleColor.yellow,
+                addSpace: isFirst,
+              );
               isFirst = false;
             } else if (proOut.startsWith(RegExp(r'\sNote: '))) {
               proOut = proOut.replaceAll('Note: ', '');
-              procStep.add(proOut, ConsoleColor.brightBlue,
-                  prefix: 'NOTE',
-                  prefClr: ConsoleColor.black,
-                  prefBgClr: ConsoleColor.brightBlue,
-                  addSpace: isFirst);
+              procStep.add(
+                proOut,
+                ConsoleColor.brightBlue,
+                prefix: 'NOTE',
+                prefClr: ConsoleColor.black,
+                prefBgClr: ConsoleColor.brightBlue,
+                addSpace: isFirst,
+              );
               isFirst = false;
             } else {
               procStep.add(proOut, ConsoleColor.brightWhite);
             }
           } else if (argResults!['extended-output'] &&
               !out.startsWith('Buildfile:')) {
-            procStep.add(out.trimRight(), ConsoleColor.brightWhite);
+            procStep.add(
+              out.trimRight(),
+              ConsoleColor.brightWhite,
+            );
           }
         }
-      }, onError: (_) {
-        procStep
-          ..add('An internal error occured', ConsoleColor.brightBlack)
-          ..finish('Failed', ConsoleColor.red);
-        PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-            ConsoleColor.brightRed);
-        exit(2);
-      }, onDone: () {
-        if (lastOutLine == 'BUILD FAILED') {
-          procStep.finish('Failed', ConsoleColor.red);
-          PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-              ConsoleColor.brightRed);
-          exit(1);
-        }
+      }
+    }
 
-        if (procErrCount > 0) {
-          procStep
-            ..add('Total errors: $procErrCount', ConsoleColor.red)
-            ..finish('Failed', ConsoleColor.red);
-          PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-              ConsoleColor.brightRed);
-          exit(1);
-        }
-        procStep.finish('Done', ConsoleColor.cyan);
+    if (lastOutLine == 'BUILD FAILED') {
+      procStep.finish('Failed', ConsoleColor.red);
+      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+          ConsoleColor.brightRed);
+      exit(1);
+    }
 
-        _dex(antPath, args);
-      });
-    });
+    if (errCount > 0) {
+      procStep
+        ..add('Total errors: $errCount', ConsoleColor.red)
+        ..finish('Failed', ConsoleColor.red);
+      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+          ConsoleColor.brightRed);
+      exit(1);
+    }
+    procStep.finish('Done', ConsoleColor.cyan);
+
+    _dex(antPath, args);
   }
 
   /// Convert generated extension JAR file from previous step into DEX
