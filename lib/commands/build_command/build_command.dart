@@ -521,10 +521,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
           }
 
           if (isExpection) {
-            procStep.add(
-              ' ' * 7 + out.trim(),
-              ConsoleColor.red
-            );
+            procStep.add(' ' * 7 + out.trim(), ConsoleColor.red);
           }
 
           if (out.startsWith(
@@ -603,71 +600,111 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     }
     procStep.finish('Done', ConsoleColor.cyan);
 
-    _dex(antPath, args);
+    await _dex(antPath, args);
   }
 
   /// Convert generated extension JAR file from previous step into DEX
   /// bytecode.
-  void _dex(String antPath, AntArgs args) {
+  Future<void> _dex(String antPath, AntArgs args) async {
     final dexStep = BuildStep('Converting Java bytecode to DEX bytecode');
     dexStep.init();
 
-    Process.start(antPath, args.toList('dex') as List<String>,
+    final dexStream = Process.start(antPath, args.toList('dex') as List<String>,
             runInShell: runInShell)
         .asStream()
-        .asBroadcastStream()
-        .listen((process) {
-      process.stdout.asBroadcastStream().listen((data) {
-        // TODO Listen to errors
-        final out = String.fromCharCodes(data).trimRight();
-        if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
-          dexStep.add(out, ConsoleColor.brightWhite);
-        }
-      }, onError: (_) {
-        dexStep
-          ..add('An internal error occured', ConsoleColor.brightBlack)
-          ..finish('Failed', ConsoleColor.red);
-        PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-            ConsoleColor.brightRed);
-        exit(2);
-      }, onDone: () {
-        dexStep.finish('Done', ConsoleColor.cyan);
+        .asBroadcastStream();
 
-        _finalize(antPath, args);
-      });
-    });
+    var isError = false;
+
+    await for (final process in dexStream) {
+      final stdoutStream = process.stdout.asBroadcastStream();
+
+      await for (final data in stdoutStream) {
+        final formatted = _format(data);
+
+        for (final out in formatted) {
+          if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
+            dexStep.add(out, ConsoleColor.brightWhite);
+          } else {
+            if (isError) {
+              dexStep.add(out, ConsoleColor.red);
+            } else if (out.contains(RegExp(r'error', caseSensitive: false))) {
+              isError = true;
+              dexStep.add(
+                out,
+                ConsoleColor.red,
+                prefix: 'ERR',
+                prefBgClr: ConsoleColor.brightRed,
+                prefClr: ConsoleColor.brightWhite,
+              );
+            }
+          }
+        }
+      }
+    }
+
+    if (isError) {
+      dexStep.finish('Failed', ConsoleColor.red);
+      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+          ConsoleColor.brightRed);
+      exit(1);
+    } else {
+      dexStep.finish('Done', ConsoleColor.cyan);
+      await _finalize(antPath, args);
+    }
   }
 
   /// Finalize the build.
-  void _finalize(String antPath, AntArgs args) {
-    final asmStep = BuildStep('Finalizing the build');
-    asmStep.init();
+  Future<void> _finalize(String antPath, AntArgs args) async {
+    final finalStep = BuildStep('Finalizing the build');
+    finalStep.init();
 
-    Process.start(antPath, args.toList('assemble') as List<String>,
+    final finalStream = Process.start(
+            antPath, args.toList('assemble') as List<String>,
             runInShell: runInShell)
         .asStream()
-        .asBroadcastStream()
-        .listen((process) {
-      process.stdout.asBroadcastStream().listen((data) {
-        // TODO Listen to errors
-        final out = String.fromCharCodes(data).trimRight();
-        if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
-          asmStep.add(out, ConsoleColor.brightWhite);
+        .asBroadcastStream();
+
+    var isError = false;
+
+    await for (final process in finalStream) {
+      final stdoutStream = process.stdout.asBroadcastStream();
+
+      await for (final data in stdoutStream) {
+        final formatted = _format(data);
+
+        for (final out in formatted) {
+          if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
+            finalStep.add(out, ConsoleColor.brightWhite);
+          } else {
+            if (isError) {
+              finalStep.add(out, ConsoleColor.red);
+            } else if (out.contains(RegExp(r'error', caseSensitive: false))) {
+              isError = true;
+              finalStep.add(
+                out,
+                ConsoleColor.red,
+                prefix: 'ERR',
+                prefBgClr: ConsoleColor.brightRed,
+                prefClr: ConsoleColor.brightWhite,
+              );
+            }
+          }
         }
-      }, onError: (_) {
-        asmStep
-          ..add('An internal error occured', ConsoleColor.brightBlack)
-          ..finish('Failed', ConsoleColor.red);
-        PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-            ConsoleColor.brightRed);
-        exit(2);
-      }, onDone: () {
-        asmStep.finish('Done', ConsoleColor.cyan);
-        PrintMsg('Build successful', ConsoleColor.brightWhite, '\n•',
-            ConsoleColor.brightGreen);
-        exit(0);
-      });
-    });
+      }
+    }
+
+    if (isError) {
+      finalStep.finish('Failed', ConsoleColor.red);
+      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+          ConsoleColor.brightRed);
+      exit(1);
+    } else {
+      finalStep.finish('Done', ConsoleColor.cyan);
+      PrintMsg('Build successful', ConsoleColor.brightWhite, '\n•',
+          ConsoleColor.brightGreen);
+      exit(0);
+    }
   }
 
   /// Checks if [out] is an useful ProGuard output.
