@@ -9,11 +9,11 @@ String getBuildXml() {
     <depend srcdir = "\${extSrc}">
       <include name = "**/*.java" />
     </depend>
-    <javac target = "7" source = "7" destdir = "\${classes}"
+    <javac target = "8" source = "8" destdir = "\${classes}"
             srcdir = "\${extSrc}" encoding = "utf-8"
             includeantruntime = "false">
       <compilerarg line="-Xlint:-options"/>
-      <compilerarg line="-Aroot=\${root}"/>
+      <compilerarg line='-Aroot="\${root}"' />
       <compilerarg line="-AextName=\${extName}"/>
       <compilerarg line="-Aversion=\${version}"/>
       <compilerarg line="-Aorg=\${org}"/>
@@ -84,6 +84,9 @@ String getBuildXml() {
          includes = "**/*.class"
          excludes = "*.jar" />
 
+    <copy file = "\${rawCls}/\${extensionClassFolder}.jar"
+          tofile = "\${raw}/\${extensionClassFolder}/files/AndroidRuntime.jar"/>
+
     <if>
       <equals arg1="\${optimize}" arg2="1" />
       <then>
@@ -92,9 +95,6 @@ String getBuildXml() {
         </antcall>
       </then>
     </if>
-
-    <copy file = "\${rawCls}/\${extensionClassFolder}.jar"
-          tofile = "\${raw}/\${extensionClassFolder}/files/AndroidRuntime.jar"/>
 
     <if>
       <not>
@@ -142,13 +142,18 @@ String getBuildXml() {
       <arg value="\${raw}/\${extensionType}/classes.jar"/>
       <arg value="\${raw}/\${extensionType}/files/AndroidRuntime.jar"/>
     </java>
-    <java classpath="\${d8}" classname="com.android.tools.r8.D8" fork="true" failonerror="true">
-      <arg value="--release" />
-      <arg value="--no-desugaring" />
-      <arg value="--output" />
-      <arg value="\${raw}/support/\${extensionType}/classes.jar" />
-      <arg value="\${raw}/support/\${extensionType}/files/AndroidRuntime.jar" />
-    </java>
+    <if>
+      <equals arg1="\${jetifierBin}" arg2="1" />
+      <then>
+        <java classpath="\${d8}" classname="com.android.tools.r8.D8" fork="true" failonerror="true">
+          <arg value="--release" />
+          <arg value="--no-desugaring" />
+          <arg value="--output" />
+          <arg value="\${raw}/support/\${extensionType}/classes.jar" />
+          <arg value="\${raw}/support/\${extensionType}/files/AndroidRuntime.jar" />
+        </java>
+      </then>
+    </if>
   </target>
 
   <target name = "assemble" >

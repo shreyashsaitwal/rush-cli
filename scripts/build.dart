@@ -83,7 +83,7 @@ Future<void> _buildAp(String apRepoPath) async {
       print(String.fromCharCodes(data).trimRight());
     }
   }
-  _copyLibs(apRepoPath);
+  await _copyLibs(apRepoPath);
 }
 
 Future<void> _buildExe() async {

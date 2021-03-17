@@ -98,6 +98,11 @@ class AntArgs {
       args.add('-Dd8=${p.joinAll([...baseDir.split('/'), 'tools', 'd8.jar'])}');
       args.add('-Draw=${p.join(workspaces, org, 'raw')}');
       args.add('-DrawCls=${p.join(workspaces, org, 'raw-classes')}');
+      if (shouldJetify!) {
+        args.add('-DjetifierBin=1');
+      } else {
+        args.add('-DjetifierBin=0');
+      }
     } else if (task == 'assemble') {
       args.add('assemble');
       args.add('-DdevDeps=${p.join(cd, '.rush', 'dev-deps')}');
