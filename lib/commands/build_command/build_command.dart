@@ -250,7 +250,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     final pathToAntEx = p.join(scriptPath.split('bin').first, 'tools',
         'apache-ant-1.10.9', 'bin', 'ant');
 
-    // This box stores the warnings/errors that appeared while building
+    // This box stores the warnings/errors that appear while building
     // the extension. This is done in order to skip the compilation in
     // case there is no change in src dir and/or rush.yml; just print
     // the previous errors/warnings stored in the box.
@@ -277,8 +277,23 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     var errCount = 0;
     var warnCount = 0;
 
-    final compStep = BuildStep('Compiling Java files');
-    compStep.init();
+    final compStep = BuildStep('Compiling Java files')..init();
+
+    final mainExtFile = File(
+        p.joinAll([_cd, 'src', ...args.org!.split('.'), args.name! + '.java']));
+    if (!mainExtFile.existsSync()) {
+      compStep
+        ..add('The extension\'s main Java file (${args.name!}.java) not found.',
+            ConsoleColor.red,
+            addSpace: true,
+            prefix: 'ERR',
+            prefBgClr: ConsoleColor.red,
+            prefClr: ConsoleColor.brightWhite)
+        ..finish('Failed', ConsoleColor.red);
+      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
+          ConsoleColor.brightRed);
+      exit(1);
+    }
 
     // Compile only if there are any changes in the src dir and/or rush.yml.
     if (shouldRecompile) {
