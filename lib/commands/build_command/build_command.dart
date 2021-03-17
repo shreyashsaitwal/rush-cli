@@ -497,6 +497,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
 
     var errCount = 0;
     var lastOutLine = '';
+    var isExpection = false;
 
     final processStream = Process.start(
             antPath, args.toList('process') as List<String>,
@@ -509,24 +510,46 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
 
       await for (final data in stdoutStream) {
         var isFirst = true;
+
         final formatted = _format(data);
+
         for (final out in formatted) {
-          final totalTimeRegex = RegExp(r'Total\s*time:.*', dotAll: true, caseSensitive: true);
+          final totalTimeRegex =
+              RegExp(r'Total\s*time:.*', dotAll: true, caseSensitive: true);
           if (!totalTimeRegex.hasMatch(out)) {
             lastOutLine = out;
           }
 
-          if (out.startsWith('ERR')) {
+          if (isExpection) {
+            procStep.add(
+              ' ' * 7 + out.trim(),
+              ConsoleColor.red
+            );
+          }
+
+          if (out.startsWith(
+              RegExp(r'\s*Exception in thread', caseSensitive: true))) {
+            isExpection = true;
+            procStep.add(
+              out.trim(),
+              ConsoleColor.red,
+              prefix: 'ERR',
+              prefBgClr: ConsoleColor.red,
+              prefClr: ConsoleColor.brightWhite,
+            );
+          } else if (out.startsWith('ERR')) {
             procStep.add(
               out.replaceAll('ERR ', ''),
-              ConsoleColor.brightWhite,
+              ConsoleColor.red,
               addSpace: true,
               prefix: 'ERR',
               prefBgClr: ConsoleColor.red,
+              prefClr: ConsoleColor.brightWhite,
             );
             errCount++;
           } else if (_isProGuardOutput(out)) {
             var proOut = out.replaceAll('[proguard] ', '').trimRight();
+
             if (proOut.startsWith(RegExp(r'\sWarning:'))) {
               proOut = proOut.replaceAll('Warning: ', '');
               procStep.add(
@@ -563,7 +586,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       }
     }
 
-    if (lastOutLine == 'BUILD FAILED') {
+    if (lastOutLine == 'BUILD FAILED' || isExpection) {
       procStep.finish('Failed', ConsoleColor.red);
       PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
           ConsoleColor.brightRed);
@@ -670,11 +693,16 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
   List<String> _format(List<int> charcodes) {
     final stringified = String.fromCharCodes(charcodes);
     final List res = <String>[];
+
     stringified.split('\r\n').forEach((el) {
+      final antKeywords =
+          RegExp(r'\[(javac|java|mkdir|zip)\]', caseSensitive: true);
+
       if ('$el'.trim().isNotEmpty) {
-        res.add(el.trimRight().replaceAll('[javac] ', ''));
+        res.add(el.trimRight().replaceAll(antKeywords, ''));
       }
     });
+
     return res as List<String>;
   }
 
