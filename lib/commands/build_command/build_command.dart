@@ -106,6 +106,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     PrintMsg('Build initialized\n', ConsoleColor.brightWhite, '•',
         ConsoleColor.yellow);
 
+    _copyDevDepsIfNeeded(scriptPath);
+
     final valStep = BuildStep('Validating project files');
     valStep.init();
 
@@ -756,6 +758,20 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     });
 
     return res as List<String>;
+  }
+
+  /// Copys the dev deps in case they are not present.
+  /// This might be needed when the project is cloned from a VCS.
+  void _copyDevDepsIfNeeded(String scriptPath) {
+    final devDepsDir = Directory(p.join(_cd, '.rush', 'dev-deps'));
+    final devDepsCache =
+        Directory(p.join(scriptPath.split('bin').first, 'dev-deps'));
+
+    if (devDepsDir.listSync().isEmpty) {
+      PrintMsg('Getting things ready...', ConsoleColor.brightWhite, '\n•',
+          ConsoleColor.yellow);
+      copyDir(devDepsCache, devDepsDir);
+    }
   }
 
   /// Deletes directory located at [path] recursively.
