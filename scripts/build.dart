@@ -40,10 +40,19 @@ Future<void> main(List<String> args) async {
       ..writeAsStringSync(getLicense());
   }
 
+  var suffix = '';
+  if (Platform.isWindows) {
+    suffix = '-Win';
+  } else if (Platform.isLinux) {
+    suffix = '-Linux';
+  } else if (Platform.isMacOS) {
+    suffix = '-Mac';
+  }
+
   File(p.join(p.current, 'build', 'bin', 'build_info'))
     ..createSync(recursive: true)
     ..writeAsStringSync('''
-name: ${res['version']}
+name: ${res['version']}$suffix
 built_on: ${DateTime.now().toUtc()}
 ''');
 
@@ -91,8 +100,8 @@ Future<void> _buildExe() async {
   final outDir = Directory(p.join(p.current, 'build', 'bin'))
     ..createSync(recursive: true);
   final wd = p.join(p.current, 'bin');
-  final stream = Process.start('dart',
-          ['compile', 'exe', '-o', '${outDir.path}/rush.exe', 'rush.dart'],
+  final stream = Process.start(
+          'dart', ['compile', 'exe', '-o', '${outDir.path}/rush', 'rush.dart'],
           runInShell: Platform.isWindows, workingDirectory: wd)
       .asStream()
       .asBroadcastStream();
