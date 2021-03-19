@@ -192,8 +192,14 @@ String getBuildXml() {
       <adaptresourcefilecontents filter="proguard/ant/task.properties" />
     </proguard>
 
-    <delete file="\${rawCls}/\${extensionClassFolder}.jar" />
-    <move file="\${rawCls}/\${extensionClassFolder}_p.jar" tofile="\${rawCls}/\${extensionClassFolder}.jar" />
+    <available file="\${rawCls}/\${extensionClassFolder}_p.jar" property="shouldDelete" />
+    <if>
+      <equals arg1="shouldDelete" arg2="true" />
+      <then>
+        <delete file="\${rawCls}/\${extensionClassFolder}.jar" />
+        <move file="\${rawCls}/\${extensionClassFolder}_p.jar" tofile="\${rawCls}/\${extensionClassFolder}.jar" />
+      </then>
+    </if>
   </target>
 </project>
 ''';
