@@ -5,6 +5,7 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 import 'package:dio/dio.dart';
 import 'package:archive/archive.dart';
+import 'package:process_run/shell.dart';
 import 'package:rush_cli/templates/build_xml.dart';
 import 'package:rush_cli/templates/license_template.dart';
 
@@ -56,22 +57,13 @@ name: ${res['version']}$suffix
 built_on: ${DateTime.now().toUtc()}
 ''');
 
-  print('============= Creating rush.zip =============');
+  print('============= Creating rush archive =============');
 
-  final outDir = Directory(p.join(p.current, 'build', 'out'));
-  if (outDir.existsSync()) {
-    outDir.deleteSync(recursive: true);
+  if (Platform.isWindows) {
+    _createZip();
+  } else {
+    await _createTarGz();
   }
-
-  final temp = Directory(p.join(p.current, 'temp'))..createSync();
-
-  final encoder = ZipFileEncoder();
-  encoder.zipDirectory(Directory(p.join(p.current, 'build')),
-      filename: p.join(temp.path, 'rush.zip'));
-
-  outDir.createSync();
-  File(p.join(temp.path, 'rush.zip')).copySync(p.join(outDir.path, 'rush.zip'));
-  temp.deleteSync(recursive: true);
 
   print('============= Done =============');
 }
@@ -96,12 +88,20 @@ Future<void> _buildAp(String apRepoPath) async {
 }
 
 Future<void> _buildExe() async {
-  print('============= Building rush.exe =============');
+  print('============= Building rush executable =============');
   final outDir = Directory(p.join(p.current, 'build', 'bin'))
     ..createSync(recursive: true);
   final wd = p.join(p.current, 'bin');
+
+  final exePath;
+  if (Platform.isWindows) {
+    exePath = p.join(outDir.path, 'rush.exe');
+  } else {
+    exePath = p.join(outDir.path, 'rush');
+  }
+
   final stream = Process.start(
-          'dart', ['compile', 'exe', '-o', '${outDir.path}/rush', 'rush.dart'],
+          'dart', ['compile', 'exe', '-o', exePath, 'rush.dart'],
           runInShell: Platform.isWindows, workingDirectory: wd)
       .asStream()
       .asBroadcastStream();
@@ -146,6 +146,30 @@ Future<void> _copyLibs(String apRepoPath) async {
 
   // Delete android-2.1.2.jar
   File(p.join(devDepsDir, 'android-2.1.2.jar')).deleteSync();
+}
+
+void _createZip() {
+  final outDir = Directory(p.join(p.current, 'build', 'out'));
+  if (outDir.existsSync()) {
+    outDir.deleteSync(recursive: true);
+  }
+
+  final temp = Directory(p.join(p.current, 'temp'))..createSync();
+
+  final encoder = ZipFileEncoder();
+  encoder.zipDirectory(Directory(p.join(p.current, 'build')),
+      filename: p.join(temp.path, 'rush.zip'));
+
+  outDir.createSync();
+  File(p.join(temp.path, 'rush.zip')).copySync(p.join(outDir.path, 'rush.zip'));
+  temp.deleteSync(recursive: true);
+}
+
+Future<void> _createTarGz() async {
+  await Shell().run('''
+chmod +x build/bin/rush
+tar -czf rush.tar.gz -C build .
+''');
 }
 
 void _copyDir(String src, String dest, String temp) {
