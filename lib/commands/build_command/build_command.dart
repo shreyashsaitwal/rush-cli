@@ -4,6 +4,7 @@ import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
+import 'package:process_run/which.dart';
 import 'package:rush_cli/commands/build_command/ant_args.dart';
 import 'package:rush_cli/javac_errors/err_data.dart';
 
@@ -37,8 +38,6 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       ..addFlag('no-optimize', negatable: false, defaultsTo: false)
       ..addFlag('extended-output', abbr: 'x', hide: true, defaultsTo: false);
   }
-
-  final runInShell = Platform.isWindows;
 
   @override
   String get description =>
@@ -94,7 +93,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
   Future<void> run() async {
     PrintArt();
 
-    final scriptPath = Platform.script.toFilePath(windows: Platform.isWindows);
+    final scriptPath = whichSync('rush');
 
     if (scriptPath == p.join(_cd, 'rush')) {
       PrintMsg(
@@ -106,7 +105,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     PrintMsg('Build initialized\n', ConsoleColor.brightWhite, '•',
         ConsoleColor.yellow);
 
-    _copyDevDepsIfNeeded(scriptPath);
+    _copyDevDepsIfNeeded(scriptPath!);
 
     final valStep = BuildStep('Validating project files');
     valStep.init();
@@ -312,7 +311,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       // Spawn the javac process
       final javacStream = Process.start(
               antPath, args.toList('javac') as List<String>,
-              runInShell: runInShell)
+              runInShell: true)
           .asStream()
           .asBroadcastStream();
 
@@ -518,7 +517,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
 
     final processStream = Process.start(
             antPath, args.toList('process') as List<String>,
-            runInShell: runInShell)
+            runInShell: true)
         .asStream()
         .asBroadcastStream();
 
@@ -627,7 +626,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     dexStep.init();
 
     final dexStream = Process.start(antPath, args.toList('dex') as List<String>,
-            runInShell: runInShell)
+            runInShell: true)
         .asStream()
         .asBroadcastStream();
 
@@ -678,7 +677,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
 
     final finalStream = Process.start(
             antPath, args.toList('assemble') as List<String>,
-            runInShell: runInShell)
+            runInShell: true)
         .asStream()
         .asBroadcastStream();
 

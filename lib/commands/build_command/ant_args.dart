@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:process_run/shell.dart';
 
 /// Generate arguments for the Ant exec.
 class AntArgs {
@@ -25,20 +26,13 @@ class AntArgs {
   List toList(String task) {
     final args = <String>[];
     final workspaces = p.join(dataDirPath!, 'workspaces');
-    final baseDir = p.dirname(p.dirname(Platform.script.path));
+    final scriptPath = whichSync('rush');
+    final toolsDir = p.join(scriptPath!.split('bin').first, 'tools');
 
-    args.add('-buildfile=${p.joinAll([
-      ...baseDir.split('/'),
-      'tools',
-      'apache-ant-1.10.9',
-      'build.xml'
-    ])}');
-    args.add('-DantCon=${p.joinAll([
-      ...baseDir.split('/'),
-      'tools',
-      'ant-contrib',
-      'ant-contrib-1.0b3.jar'
-    ])}');
+    args.add(
+        '-buildfile=${p.join(toolsDir, 'apache-ant-1.10.9', 'build.xml')}');
+    args.add(
+        '-DantCon=${p.join(toolsDir, 'ant-contrib', 'ant-contrib-1.0b3.jar')}');
 
     if (task == 'javac') {
       args.add('javac');
@@ -50,18 +44,10 @@ class AntArgs {
       args.add('-Dversion=$version');
       args.add('-DdevDeps=${p.join(cd, '.rush', 'dev-deps')}');
       args.add('-Ddeps=${p.join(cd, 'deps')}');
-      args.add('-Dprocessor=${p.joinAll([
-        ...baseDir.split('/'),
-        'tools',
-        'processor'
-      ])}');
+      args.add('-Dprocessor=${p.join(toolsDir, 'processor')}');
     } else if (task == 'process') {
       args.add('jarExt');
-      args.add('-Dprocessor=${p.joinAll([
-        ...baseDir.split('/'),
-        'tools',
-        'processor'
-      ])}');
+      args.add('-Dprocessor=${p.join(toolsDir, 'processor')}');
       args.add('-Dclasses=${p.join(workspaces, org, 'classes')}');
       args.add('-Draw=${p.join(workspaces, org, 'raw')}');
       args.add('-DrawCls=${p.join(workspaces, org, 'raw-classes')}');
@@ -73,29 +59,21 @@ class AntArgs {
         final rules = File(p.join(cd, 'src', 'proguard-rules.pro'));
         if (rules.existsSync()) {
           args.add('-Doptimize=1');
-          args.add('-DpgPath=${p.joinAll([
-            ...baseDir.split('/'),
-            'tools',
-            'proguard'
-          ])}');
+          args.add('-DpgPath=${p.join(toolsDir, 'proguard')}');
           args.add('-DpgRules=${rules.path}');
           args.add('-Dout=${p.join(cd, 'out')}');
         }
       }
       if (shouldJetify!) {
-        args.add('-DjetifierBin=${p.joinAll([
-          ...baseDir.split('/'),
-          'tools',
-          'jetifier-standalone',
-          'bin'
-        ])}');
+        args.add('-DjetifierBin=${p.join(toolsDir, 'jetifier-standalone', 'bin')}');
       } else {
         args.add('-DjetifierBin=0');
       }
     } else if (task == 'dex') {
       args.add('dexExt');
       args.add('-Dextension=$org');
-      args.add('-Dd8=${p.joinAll([...baseDir.split('/'), 'tools', 'd8.jar'])}');
+      args.add(
+          '-Dd8=${p.join(toolsDir, 'd8.jar')}');
       args.add('-Draw=${p.join(workspaces, org, 'raw')}');
       args.add('-DrawCls=${p.join(workspaces, org, 'raw-classes')}');
       if (shouldJetify!) {

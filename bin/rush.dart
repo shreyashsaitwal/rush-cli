@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:path/path.dart' as p;
+import 'package:process_run/which.dart';
 import 'package:rush_cli/commands/build_command/build_command.dart';
 import 'package:rush_cli/commands/create_command/create_command.dart';
 import 'package:rush_prompt/rush_prompt.dart';
@@ -34,9 +35,8 @@ void main(List<String> args) {
 }
 
 void _printVersion() {
-  final baseDir =
-      p.dirname(Platform.script.toFilePath(windows: Platform.isWindows));
-  final info = loadYaml(File(p.join(baseDir, 'build_info')).readAsStringSync());
+  final scriptPath = whichSync('rush');
+  final info = loadYaml(File(p.join(scriptPath!, 'build_info')).readAsStringSync());
 
   final version = info['name'];
   final builton = info['built_on'];
