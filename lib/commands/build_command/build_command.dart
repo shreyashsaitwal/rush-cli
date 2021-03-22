@@ -103,6 +103,13 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       exit(64);
     }
 
+    if (await which('java') == null) {
+      PrintMsg(
+          '  Uh, oh! Looks like you\'re don\'t have JDK installed on your system.\nPlease download and install JDK version 1.8 or above.',
+          ConsoleColor.red);
+      exit(64);
+    }
+
     PrintMsg('Build initialized\n', ConsoleColor.brightWhite, '•',
         ConsoleColor.yellow);
 
@@ -194,7 +201,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         // ||
         //     extBox.get('org') != _getPackage(loadedYml, p.join(_cd, 'src'))
         ) {
-      await extBox.put('org', Helper.getPackage(loadedYml, p.join(_cd, 'src'), _cd));
+      await extBox.put(
+          'org', Helper.getPackage(loadedYml, p.join(_cd, 'src'), _cd));
     }
 
     var isYmlMod =
@@ -226,17 +234,11 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       areFilesModified = true;
     }
 
-    final optimize;
-    if (argResults!['optimize']) {
-      optimize = true;
-    } else if (argResults!['release']) {
-      if (argResults!['no-optimize']) {
-        optimize = false;
-      } else {
-        optimize = true;
-      }
-    } else {
+    var optimize = loadedYml['release']?['optimize'] ?? false;
+    if (argResults!['no-optimize']) {
       optimize = false;
+    } else if (argResults!['optimize']) {
+      optimize = true;
     }
 
     // Args for spawning the Apache Ant process
