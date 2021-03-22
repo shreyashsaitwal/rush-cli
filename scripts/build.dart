@@ -13,6 +13,7 @@ Future<void> main(List<String> args) async {
   final parser = ArgParser();
   parser
     ..addFlag('build_exe', abbr: 'e', defaultsTo: true)
+    ..addFlag('ci', abbr: 'c', defaultsTo: false)
     ..addOption('ap_path', abbr: 'p')
     ..addOption('version', abbr: 'v');
 
@@ -28,8 +29,29 @@ Future<void> main(List<String> args) async {
   }
   if (res['ap_path'] != null) {
     await _buildAp(res['ap_path']);
-  } else {
-    print('============= Skipping annotation processor build =============');
+  } else if (res['ci']) {
+    print('============= Copying files =============');
+
+    if (Directory(p.join('temp', 'build', 'implementation')).existsSync()) {
+      _copyDir(p.join('temp', 'build', 'implementation'),
+          p.join('build', 'dev-deps'), p.join('temp', 'temp'));
+    } else {
+      _copyDir(p.join('temp', 'runtime', 'build', 'implementation'),
+          p.join('build', 'dev-deps'), p.join('temp', 'runtime'));
+    }
+
+    _copyDir(p.join('temp', 'implementation'),
+        p.join('build', 'tools', 'processor'), p.join('temp', 'temp'));
+
+    File(p.join('build', 'dev-deps', 'android-2.1.2.jar'))
+        .deleteSync(recursive: true);
+
+    print('============= Downloading android.jar =============');
+    final androidJar = File(p.join('build', 'dev-deps', 'android.jar'));
+    await _download(
+        'https://github.com/mit-cml/appinventor-sources/raw/master/appinventor/lib/android/android-29/android.jar',
+        androidJar.path,
+        'Downloading android.jar...');
   }
 
   print('============= Writing other files =============');
@@ -57,12 +79,13 @@ name: ${res['version']}$suffix
 built_on: ${DateTime.now().toUtc()}
 ''');
 
-  print('============= Creating rush archive =============');
-
-  if (Platform.isWindows) {
-    _createZip();
-  } else {
-    await _createTarGz();
+  if (!res['ci']) {
+    print('============= Creating rush archive =============');
+    if (Platform.isWindows) {
+      _createZip();
+    } else {
+      await _createTarGz();
+    }
   }
 
   print('============= Done =============');
@@ -168,15 +191,16 @@ void _createZip() {
 Future<void> _createTarGz() async {
   await Shell().run('''
 chmod +x build/bin/rush
-tar -czf rush.tar.gz -C build .
+tar -czf rush.tar.gz -C build *
 ''');
 }
 
 void _copyDir(String src, String dest, String temp) {
   final srcDir = Directory(src);
-  final destDir = Directory(dest);
+  final destDir = Directory(dest)..createSync(recursive: true);
+  Directory(temp).createSync(recursive: true);
   var files = srcDir.listSync();
-  files.forEach((entity) async {
+  files.forEach((entity) {
     if (entity is File) {
       if (p.basename(entity.path).endsWith('aar')) {
         final tempDir = p.join(temp, p.basenameWithoutExtension(entity.path));
