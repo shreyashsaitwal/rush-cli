@@ -6,6 +6,7 @@ import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_run/which.dart';
 import 'package:rush_cli/commands/build_command/ant_args.dart';
+import 'package:rush_cli/commands/build_command/helper.dart';
 import 'package:rush_cli/javac_errors/err_data.dart';
 
 import 'package:rush_cli/mixins/app_data_dir_mixin.dart';
@@ -105,7 +106,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     PrintMsg('Build initialized\n', ConsoleColor.brightWhite, '•',
         ConsoleColor.yellow);
 
-    _copyDevDepsIfNeeded(scriptPath!);
+    Helper().copyDevDepsIfNeeded(scriptPath!, _cd);
 
     final valStep = BuildStep('Validating project files');
     valStep.init();
@@ -193,7 +194,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         // ||
         //     extBox.get('org') != _getPackage(loadedYml, p.join(_cd, 'src'))
         ) {
-      await extBox.put('org', _getPackage(loadedYml, p.join(_cd, 'src')));
+      await extBox.put('org', Helper.getPackage(loadedYml, p.join(_cd, 'src'), _cd));
     }
 
     var isYmlMod =
@@ -213,7 +214,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     var areFilesModified = isYmlMod || isSrcDirMod;
 
     if (areFilesModified) {
-      _cleanDir(p.join(dataDir!, 'workspaces', extBox.get('org')));
+      Helper.cleanDir(p.join(dataDir!, 'workspaces', extBox.get('org')));
     }
 
     // Increment version number if this is a production build.
@@ -221,7 +222,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     if (isProd) {
       var version = extBox.get('version') + 1;
       await extBox.put('version', version);
-      _cleanDir(p.join(dataDir!, 'workspaces', extBox.get('org')));
+      Helper.cleanDir(p.join(dataDir!, 'workspaces', extBox.get('org')));
       areFilesModified = true;
     }
 
@@ -321,7 +322,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
 
         await for (final data in stdoutStream) {
           // A list of output messages.
-          final formatted = _format(data);
+          final formatted = Helper.format(data);
 
           // Go through each of the formatted message, and check if it's the start of error, part
           // of error, or a warning.
@@ -527,7 +528,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       await for (final data in stdoutStream) {
         var isFirst = true;
 
-        final formatted = _format(data);
+        final formatted = Helper.format(data);
 
         for (final out in formatted) {
           final totalTimeRegex =
@@ -560,7 +561,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
               prefClr: ConsoleColor.brightWhite,
             );
             errCount++;
-          } else if (_isProGuardOutput(out)) {
+          } else if (Helper.isProGuardOutput(out)) {
             var proOut = out.replaceAll('[proguard] ', '').trimRight();
 
             if (proOut.startsWith(RegExp(r'\sWarning:'))) {
@@ -636,7 +637,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       final stdoutStream = process.stdout.asBroadcastStream();
 
       await for (final data in stdoutStream) {
-        final formatted = _format(data);
+        final formatted = Helper.format(data);
 
         for (final out in formatted) {
           if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
@@ -687,7 +688,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       final stdoutStream = process.stdout.asBroadcastStream();
 
       await for (final data in stdoutStream) {
-        final formatted = _format(data);
+        final formatted = Helper.format(data);
 
         for (final out in formatted) {
           if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
@@ -721,100 +722,5 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
           ConsoleColor.brightGreen);
       exit(0);
     }
-  }
-
-  /// Checks if [out] is an useful ProGuard output.
-  bool _isProGuardOutput(String out) {
-    final useless = [
-      '[proguard] ProGuard, version 7.1.0-beta1',
-      '[proguard] ProGuard is released under the GNU General Public License. You therefore',
-      '[proguard] must ensure that programs that link to it (net.sf.antcontrib.logic, ...)',
-      '[proguard] carry the GNU General Public License as well. Alternatively, you can',
-      '[proguard] apply for an exception with the author of ProGuard.',
-    ];
-
-    if (!useless.contains(out.trim()) &&
-        out.startsWith(RegExp(r'\s\[proguard\]', caseSensitive: true))) {
-      return true;
-    }
-
-    return false;
-  }
-
-  /// Converts the given list of decimal char codes into string list and removes
-  /// empty lines from it.
-  List<String> _format(List<int> charcodes) {
-    final stringified = String.fromCharCodes(charcodes);
-    final List res = <String>[];
-
-    stringified.split('\r\n').forEach((el) {
-      final antKeywords =
-          RegExp(r'\[(javac|java|mkdir|zip)\]', caseSensitive: true);
-
-      if ('$el'.trim().isNotEmpty) {
-        res.add(el.trimRight().replaceAll(antKeywords, ''));
-      }
-    });
-
-    return res as List<String>;
-  }
-
-  /// Copys the dev deps in case they are not present.
-  /// This might be needed when the project is cloned from a VCS.
-  void _copyDevDepsIfNeeded(String scriptPath) {
-    final devDepsDir = Directory(p.join(_cd, '.rush', 'dev-deps'));
-    final devDepsCache =
-        Directory(p.join(scriptPath.split('bin').first, 'dev-deps'));
-
-    if (devDepsDir.listSync().isEmpty) {
-      PrintMsg('Getting things ready...', ConsoleColor.brightWhite, '\n•',
-          ConsoleColor.yellow);
-      copyDir(devDepsCache, devDepsDir);
-    }
-  }
-
-  /// Deletes directory located at [path] recursively.
-  void _cleanDir(String path) {
-    final dir = Directory(path);
-    if (dir.existsSync()) {
-      try {
-        dir.deleteSync(recursive: true);
-      } catch (e) {
-        ThrowError(
-            message:
-                'ERR Something went wrong while invalidating build caches.');
-      }
-    }
-  }
-
-  String _getPackage(YamlMap? loadedYml, String srcDirPath) {
-    final srcDir = Directory(srcDirPath);
-    var path = '';
-
-    for (final file in srcDir.listSync(recursive: true)) {
-      if (file is File &&
-          p.basename(file.path) == '${loadedYml!['name']}.java') {
-        path = file.path;
-        break;
-      }
-    }
-
-    final struct = p.split(path.split(p.join(_cd, 'src')).last);
-    struct.removeAt(0);
-
-    var package = '';
-    var isFirst = true;
-    for (final dirName in struct) {
-      if (!dirName.endsWith('.java')) {
-        if (isFirst) {
-          package += dirName;
-          isFirst = false;
-        } else {
-          package += '.' + dirName;
-        }
-      }
-    }
-
-    return package;
   }
 }
