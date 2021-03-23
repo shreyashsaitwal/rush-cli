@@ -1,5 +1,5 @@
 String getDotGitignore() {
-  return'''
+  return '''
 # Development dependencies' directory
 .rush/dev-deps
 

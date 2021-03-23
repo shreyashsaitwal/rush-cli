@@ -1,0 +1,219 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-processor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Clone annotation processor repo
+        run: |
+          sudo apt update
+          sudo apt install git
+          git clone https://github.com/ShreyashSaitwal/rush-annotation-processor processor
+
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
+
+      - name: Build annotation processor
+        run: |
+          cd processor
+          chmod +x ./gradlew
+          ./gradlew assemble copyImpl
+
+      - name: Upload dev dependencies
+        uses: actions/upload-artifact@v2
+        with:
+          name: dev-deps
+          path: processor/runtime/build/implementation/
+
+      - name: Upload runtime.jar
+        uses: actions/upload-artifact@v2
+        with:
+          name: runtime
+          path: processor/runtime/build/outputs/aar/runtime-release.aar
+
+      - name: Upload processor.jar
+        uses: actions/upload-artifact@v2
+        with:
+          name: processor
+          path: processor/processor/build/libs/*.jar
+
+      - name: Upload processor libs
+        uses: actions/upload-artifact@v2
+        with:
+          name: processor-libs
+          path: processor/processor/build/implementation/
+
+  mac-build:
+    needs: build-processor
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Create required dirs
+        run: |
+          mkdir -p temp/dev-deps
+          mkdir -p temp/processor-libs
+
+      - name: Download dev-deps
+        uses: actions/download-artifact@v2
+        with:
+          name: dev-deps
+          path: temp/dev-deps
+
+      - name: Download runtime.jar
+        uses: actions/download-artifact@v2
+        with:
+          name: runtime
+          path: temp/
+
+      - name: Download processor.jar
+        uses: actions/download-artifact@v2
+        with:
+          name: processor
+          path: temp/
+
+      - name: Download processor-libs
+        uses: actions/download-artifact@v2
+        with:
+          name: processor-libs
+          path: temp/processor-libs
+
+      - name: Install Dart dependencies
+        run: dart pub get
+
+      - name: Run build script
+        run: dart scripts/build.dart -c -v 1.0.1
+
+      - name: Create archive
+        run: |
+          cd build
+          chmod +x bin/rush
+          tar -czf ../rush-mac.tar.gz *
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v2
+        with:
+          name: macos
+          path: rush-mac.tar.gz
+
+  linux-build:
+    needs: build-processor
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Create required dirs
+        run: |
+          mkdir temp/dev-deps -p
+          mkdir temp/processor-libs -p
+
+      - name: Download dev-deps
+        uses: actions/download-artifact@v2
+        with:
+          name: dev-deps
+          path: temp/dev-deps
+
+      - name: Download runtime.jar
+        uses: actions/download-artifact@v2
+        with:
+          name: runtime
+          path: temp/
+
+      - name: Download processor.jar
+        uses: actions/download-artifact@v2
+        with:
+          name: processor
+          path: temp/
+
+      - name: Download processor-libs
+        uses: actions/download-artifact@v2
+        with:
+          name: processor-libs
+          path: temp/processor-libs
+
+      - name: Install Dart dependencies
+        run: dart pub get
+
+      - name: Run build script
+        run: dart scripts/build.dart -c -v 1.0.1
+
+      - name: Create archive
+        run: |
+          cd build
+          chmod +x bin/rush
+          tar -czf ../rush-linux.tar.gz *
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v2
+        with:
+          name: linux
+          path: rush-linux.tar.gz
+
+  windows-build:
+    needs: build-processor
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Create required dirs
+        run: |
+          mkdir temp/dev-deps
+          mkdir temp/processor-libs
+
+      - name: Download dev-deps
+        uses: actions/download-artifact@v2
+        with:
+          name: dev-deps
+          path: temp/dev-deps
+
+      - name: Download runtime.jar
+        uses: actions/download-artifact@v2
+        with:
+          name: runtime
+          path: temp/
+
+      - name: Download processor.jar
+        uses: actions/download-artifact@v2
+        with:
+          name: processor
+          path: temp/
+
+      - name: Download processor-libs
+        uses: actions/download-artifact@v2
+        with:
+          name: processor-libs
+          path: temp/processor-libs
+
+      - name: Install Dart dependencies
+        run: dart pub get
+
+      - name: Run build script
+        run: dart scripts/build.dart -c -v 1.0.1
+
+      - name: Create archive
+        run: |
+          cd build
+          tar.exe -cf ../rush-win64.zip *
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v2
+        with:
+          name: win64
+          path: rush-win64.zip

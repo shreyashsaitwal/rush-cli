@@ -5,13 +5,16 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 import 'package:dio/dio.dart';
 import 'package:archive/archive.dart';
+import 'package:process_run/shell.dart';
 import 'package:rush_cli/templates/build_xml.dart';
+import 'package:rush_cli/templates/license-apache.dart';
 import 'package:rush_cli/templates/license_template.dart';
 
 Future<void> main(List<String> args) async {
   final parser = ArgParser();
   parser
     ..addFlag('build_exe', abbr: 'e', defaultsTo: true)
+    ..addFlag('ci', abbr: 'c', defaultsTo: false)
     ..addOption('ap_path', abbr: 'p')
     ..addOption('version', abbr: 'v');
 
@@ -27,18 +30,58 @@ Future<void> main(List<String> args) async {
   }
   if (res['ap_path'] != null) {
     await _buildAp(res['ap_path']);
-  } else {
-    print('============= Skipping annotation processor build =============');
+  } else if (res['ci']) {
+    print('============= Copying files =============');
+
+    final deps = Directory(p.join('temp', 'dev-deps'));
+    final runtime = File(p.join('temp', 'runtime-release.aar'));
+
+    final procLibs = Directory(p.join('temp', 'processor-libs'));
+    final proc = File(p.join('temp', 'processor-v186a.jar'));
+
+    final tempDirForRuntime = Directory(p.join('temp', 'runtime-temp'))
+      ..createSync(recursive: true);
+    _extractZip(runtime.path, tempDirForRuntime.path, 'Extracting runtime.jar...');
+    final runtimeCls = File(p.join(tempDirForRuntime.path, 'classes.jar'));
+
+    _copyDir(deps.path, p.join('build', 'dev-deps'), p.join('temp', 'temp'));
+    runtimeCls.copySync(p.join('build', 'dev-deps', 'runtime-v186a.jar'));
+
+    _copyDir(procLibs.path, p.join('build', 'tools', 'processor'),
+        p.join('temp', 'temp'));
+    proc.copySync(p.join('build', 'tools', 'processor', 'processor-v186a.jar'));
+
+    File(p.join('build', 'dev-deps', 'android-2.1.2.jar'))
+        .deleteSync(recursive: true);
+
+    print('============= Downloading android.jar =============');
+    final androidJar = File(p.join('build', 'dev-deps', 'android.jar'));
+    await _download(
+        'https://github.com/mit-cml/appinventor-sources/raw/master/appinventor/lib/android/android-29/android.jar',
+        androidJar.path,
+        'Downloading android.jar...');
   }
 
   print('============= Writing other files =============');
 
-  final license = File(p.join(p.current, 'build', 'LICENSE'));
+  final license = File(p.join(p.current, 'build', 'LICENSE.txt'));
   if (!license.existsSync()) {
     license
       ..createSync(recursive: true)
       ..writeAsStringSync(getLicense());
   }
+
+  final apacheLicense =
+      File(p.join(p.current, 'build', 'LICENSE-Apache-2.0.txt'));
+  if (!apacheLicense.existsSync()) {
+    apacheLicense
+      ..createSync(recursive: true)
+      ..writeAsStringSync(getApacheLicense());
+  }
+
+  final iconDest = File(p.join(p.current, 'build', 'tools', 'icon-rush.png'));
+  final iconSrc = File(p.join(p.current, 'assets', 'icon-ext.png'));
+  iconSrc.copySync(iconDest.path);
 
   File(p.join(p.current, 'build', 'bin', 'build_info'))
     ..createSync(recursive: true)
@@ -47,22 +90,14 @@ name: ${res['version']}
 built_on: ${DateTime.now().toUtc()}
 ''');
 
-  print('============= Creating rush.zip =============');
-
-  final outDir = Directory(p.join(p.current, 'build', 'out'));
-  if (outDir.existsSync()) {
-    outDir.deleteSync(recursive: true);
+  if (!res['ci']) {
+    print('============= Creating rush archive =============');
+    if (Platform.isWindows) {
+      _createZip();
+    } else {
+      await _createTarGz();
+    }
   }
-
-  final temp = Directory(p.join(p.current, 'temp'))..createSync();
-
-  final encoder = ZipFileEncoder();
-  encoder.zipDirectory(Directory(p.join(p.current, 'build')),
-      filename: p.join(temp.path, 'rush.zip'));
-
-  outDir.createSync();
-  File(p.join(temp.path, 'rush.zip')).copySync(p.join(outDir.path, 'rush.zip'));
-  temp.deleteSync(recursive: true);
 
   print('============= Done =============');
 }
@@ -83,16 +118,24 @@ Future<void> _buildAp(String apRepoPath) async {
       print(String.fromCharCodes(data).trimRight());
     }
   }
-  _copyLibs(apRepoPath);
+  await _copyLibs(apRepoPath);
 }
 
 Future<void> _buildExe() async {
-  print('============= Building rush.exe =============');
+  print('============= Building rush executable =============');
   final outDir = Directory(p.join(p.current, 'build', 'bin'))
     ..createSync(recursive: true);
   final wd = p.join(p.current, 'bin');
-  final stream = Process.start('dart',
-          ['compile', 'exe', '-o', '${outDir.path}/rush.exe', 'rush.dart'],
+
+  final exePath;
+  if (Platform.isWindows) {
+    exePath = p.join(outDir.path, 'rush.exe');
+  } else {
+    exePath = p.join(outDir.path, 'rush');
+  }
+
+  final stream = Process.start(
+          'dart', ['compile', 'exe', '-o', exePath, 'rush.dart'],
           runInShell: Platform.isWindows, workingDirectory: wd)
       .asStream()
       .asBroadcastStream();
@@ -139,11 +182,36 @@ Future<void> _copyLibs(String apRepoPath) async {
   File(p.join(devDepsDir, 'android-2.1.2.jar')).deleteSync();
 }
 
+void _createZip() {
+  final outDir = Directory(p.join(p.current, 'build', 'out'));
+  if (outDir.existsSync()) {
+    outDir.deleteSync(recursive: true);
+  }
+
+  final temp = Directory(p.join(p.current, 'temp'))..createSync();
+
+  final encoder = ZipFileEncoder();
+  encoder.zipDirectory(Directory(p.join(p.current, 'build')),
+      filename: p.join(temp.path, 'rush.zip'));
+
+  outDir.createSync();
+  File(p.join(temp.path, 'rush.zip')).copySync(p.join(outDir.path, 'rush.zip'));
+  temp.deleteSync(recursive: true);
+}
+
+Future<void> _createTarGz() async {
+  await Shell().run('''
+chmod +x build/bin/rush
+tar -czf rush.tar.gz -C build *
+''');
+}
+
 void _copyDir(String src, String dest, String temp) {
   final srcDir = Directory(src);
-  final destDir = Directory(dest);
+  final destDir = Directory(dest)..createSync(recursive: true);
+  Directory(temp).createSync(recursive: true);
   var files = srcDir.listSync();
-  files.forEach((entity) async {
+  files.forEach((entity) {
     if (entity is File) {
       if (p.basename(entity.path).endsWith('aar')) {
         final tempDir = p.join(temp, p.basenameWithoutExtension(entity.path));
