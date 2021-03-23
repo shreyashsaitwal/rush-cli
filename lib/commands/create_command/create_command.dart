@@ -79,11 +79,10 @@ class CreateCommand extends Command with CopyMixin {
 
     // If the last word after '.' in pacakge name is same as the
     // extension name, then
-    final isOrgAndNameSame = orgName.split('.').last == camelCasedName;
+    final isOrgAndNameSame = orgName.split('.').last.toLowerCase() == camelCasedName.toLowerCase();
     if (!isOrgAndNameSame) {
-      orgName = orgName + '.' + camelCasedName;
+      orgName = orgName.toLowerCase() + '.' + camelCasedName.toLowerCase();
     }
-    orgName = orgName.toLowerCase();
 
     final projectDir = p.join(_cd, kebabCasedName);
 
