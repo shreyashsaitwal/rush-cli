@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:archive/archive.dart';
 import 'package:process_run/shell.dart';
 import 'package:rush_cli/templates/build_xml.dart';
+import 'package:rush_cli/templates/license-apache.dart';
 import 'package:rush_cli/templates/license_template.dart';
 
 Future<void> main(List<String> args) async {
@@ -61,6 +62,13 @@ Future<void> main(List<String> args) async {
     license
       ..createSync(recursive: true)
       ..writeAsStringSync(getLicense());
+  }
+
+  final apacheLicense = File(p.join(p.current, 'build', 'LICENSE-Apache-2.0'));
+  if (!apacheLicense.existsSync()) {
+    apacheLicense
+      ..createSync(recursive: true)
+      ..writeAsStringSync(getApacheLicense());
   }
 
   var suffix = '';
