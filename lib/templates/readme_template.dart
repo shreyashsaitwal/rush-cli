@@ -1,5 +1,5 @@
 String getReadme(String name) {
-  return'''
+  return '''
 ## $name
 ---
 An App Inventor 2 extension created using Rush.

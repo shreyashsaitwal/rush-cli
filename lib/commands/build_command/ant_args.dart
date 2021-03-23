@@ -65,15 +65,15 @@ class AntArgs {
         }
       }
       if (shouldJetify!) {
-        args.add('-DjetifierBin=${p.join(toolsDir, 'jetifier-standalone', 'bin')}');
+        args.add(
+            '-DjetifierBin=${p.join(toolsDir, 'jetifier-standalone', 'bin')}');
       } else {
         args.add('-DjetifierBin=0');
       }
     } else if (task == 'dex') {
       args.add('dexExt');
       args.add('-Dextension=$org');
-      args.add(
-          '-Dd8=${p.join(toolsDir, 'd8.jar')}');
+      args.add('-Dd8=${p.join(toolsDir, 'd8.jar')}');
       args.add('-Draw=${p.join(workspaces, org, 'raw')}');
       args.add('-DrawCls=${p.join(workspaces, org, 'raw-classes')}');
       if (shouldJetify!) {

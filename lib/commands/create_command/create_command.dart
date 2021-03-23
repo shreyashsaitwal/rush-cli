@@ -1,4 +1,4 @@
-import 'dart:io' show Directory, File, Platform, exit;
+import 'dart:io' show Directory, File, exit;
 
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
@@ -79,7 +79,8 @@ class CreateCommand extends Command with CopyMixin {
 
     // If the last word after '.' in pacakge name is same as the
     // extension name, then
-    final isOrgAndNameSame = orgName.split('.').last.toLowerCase() == camelCasedName.toLowerCase();
+    final isOrgAndNameSame =
+        orgName.split('.').last.toLowerCase() == camelCasedName.toLowerCase();
     if (!isOrgAndNameSame) {
       orgName = orgName.toLowerCase() + '.' + camelCasedName.toLowerCase();
     }

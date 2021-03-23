@@ -16,10 +16,8 @@ class ReturnErrs extends Err {
           r'.*\.java:\d*:\serror:\sinvalid\smethod\sdeclaration;.*',
           caseSensitive: true,
           dotAll: true),
-      'unreachable': RegExp(
-          r'.*\.java:\d*:\serror:\sunreachable\sstatement\s?',
-          caseSensitive: true,
-          dotAll: true),
+      'unreachable': RegExp(r'.*\.java:\d*:\serror:\sunreachable\sstatement\s?',
+          caseSensitive: true, dotAll: true),
     };
 
     var isMatch = false;
