@@ -18,6 +18,11 @@ assets:
 authors:
   - $author
 
+# Uncomment the below field if you wish to apply ProGuard while building a release
+# build ('-r') of your extension:
+# release:
+#   optimize: true
+
 # deps:         # Dependencies should be first added to the "deps" folder
 #   - my_awesome_library.jar
 

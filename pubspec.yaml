@@ -18,6 +18,8 @@ dev_dependencies:
 publish_to: none
 
 dependencies:
+  rush_prompt:
+    path: ./packages/rush_prompt
   archive: ^3.1.2
   args: ^2.0.0
   dart_console: ^1.0.0
@@ -25,6 +27,5 @@ dependencies:
   hive: ^2.0.0
   meta: ^1.3.0
   path: ^1.8.0
+  process_run: ^0.12.1
   yaml: ^3.1.0
-  rush_prompt:
-    path: ./packages/rush_prompt
