@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:process_run/which.dart';
 import 'package:rush_cli/commands/build_command/build_command.dart';
 import 'package:rush_cli/commands/create_command/create_command.dart';
+import 'package:rush_cli/commands/migrate_command/migrate_command.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 import 'package:yaml/yaml.dart';
 
@@ -25,6 +26,7 @@ void main(List<String> args) {
   runner
     ..addCommand(CreateCommand(cd))
     ..addCommand(BuildCommand(cd))
+    ..addCommand(MigrateCommand(cd, p.dirname(whichSync('rush')!)))
     ..run(args).catchError((err) {
       if (err is UsageException) {
         runner.printUsage();
@@ -98,15 +100,20 @@ class RushCommandRunner extends CommandRunner {
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(' Available commands:')
       ..setForegroundColor(ConsoleColor.cyan)
-      ..write('   build')
+      ..write('    build')
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(
-          '          Identifies and builds the extension project in current working directory.')
+          '  Identifies and builds the extension project in current working directory.')
       ..setForegroundColor(ConsoleColor.cyan)
       ..write('   create')
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(
-          '         Scaffolds a new extension project in current working directory.')
+          '  Scaffolds a new extension project in current working directory.')
+      ..setForegroundColor(ConsoleColor.cyan)
+      ..write('  migrate')
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..writeLine(
+          '  Introspects and migrates the extension-template project in CWD to Rush.')
       ..resetColorAttributes();
   }
 }

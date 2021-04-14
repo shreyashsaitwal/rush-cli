@@ -50,7 +50,7 @@ class CreateCommand extends Command with CopyMixin {
       ..setForegroundColor(ConsoleColor.cyan)
       ..write('create ')
       ..resetColorAttributes()
-      ..writeLine('[extension_name]');
+      ..writeLine('<extension_name>');
   }
 
   /// Creates a new extension project in the current directory.
@@ -117,7 +117,7 @@ class CreateCommand extends Command with CopyMixin {
           getModulesXml(kebabCasedName));
       _writeFile(p.join(projectDir, '$kebabCasedName.iml'), getIml());
     } catch (e) {
-      ThrowError(message: 'ERR ' + e.toString());
+      Logger.logErr(e.toString(), exitCode: 1);
     }
 
     try {
@@ -125,7 +125,7 @@ class CreateCommand extends Command with CopyMixin {
       Directory(p.join(projectDir, '.rush', 'dev-deps'))
           .createSync(recursive: true);
     } catch (e) {
-      ThrowError(message: 'ERR ' + e.toString());
+      Logger.logErr(e.toString(), exitCode: 1);
     }
 
     // Copy icon
@@ -144,8 +144,10 @@ class CreateCommand extends Command with CopyMixin {
     // Copy dev-deps.
     final devDepsDir = p.join(scriptPath.split('bin').first, 'dev-deps');
 
-    PrintMsg('Getting things ready...', ConsoleColor.brightWhite, '\n•',
-        ConsoleColor.yellow);
+    Logger.log('Getting things ready...',
+        color: ConsoleColor.brightWhite,
+        prefix: '\n•',
+        prefixFG: ConsoleColor.yellow);
     copyDir(Directory(devDepsDir),
         Directory(p.join(projectDir, '.rush', 'dev-deps')));
 

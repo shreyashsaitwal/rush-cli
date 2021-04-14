@@ -97,23 +97,23 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     final scriptPath = whichSync('rush');
 
     if (scriptPath == p.join(_cd, 'rush')) {
-      PrintMsg(
-          '  Uh, oh! Looks like you\'re using an unsupported terminal. Please try using another terminal.',
-          ConsoleColor.red);
-      exit(64);
+      Logger.logErr(
+          'Uh, oh! Looks like you\'re using an unsupported terminal.\nPlease try using another terminal.',
+          exitCode: 64);
     }
 
     if (await which('java') == null) {
-      PrintMsg(
-          '  Uh, oh! Looks like you\'re don\'t have JDK installed on your system.\nPlease download and install JDK version 1.8 or above.',
-          ConsoleColor.red);
-      exit(64);
+      Logger.logErr(
+          'Uh, oh! Looks like you\'re don\'t have JDK installed on your system.\nPlease download and install JDK version 1.8 or above.',
+          exitCode: 64);
     }
 
-    PrintMsg('Build initialized\n', ConsoleColor.brightWhite, '•',
-        ConsoleColor.yellow);
+    Logger.log('Build initialized\n',
+        color: ConsoleColor.brightWhite,
+        prefix: '•',
+        prefixFG: ConsoleColor.yellow);
 
-    Helper().copyDevDepsIfNeeded(scriptPath!, _cd);
+    Helper().copyDevDeps(scriptPath!, _cd);
 
     final valStep = BuildStep('Validating project files');
     valStep.init();
@@ -126,10 +126,12 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       rushYml = File(p.join(_cd, 'rush.yml'));
     } else {
       valStep
-        ..add('Metadata file (rush.yml) not found', ConsoleColor.red)
+        ..logErr('Metadata file (rush.yml) not found')
         ..finish('Failed', ConsoleColor.red);
-      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-          ConsoleColor.brightRed);
+      Logger.log('Build failed',
+          color: ConsoleColor.brightWhite,
+          prefix: '\n•',
+          prefixFG: ConsoleColor.brightRed);
       exit(1);
     }
 
@@ -139,48 +141,55 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       loadedYml = loadYaml(rushYml.readAsStringSync());
     } catch (e) {
       valStep
-        ..add('Metadata file (rush.yml) is invalid', ConsoleColor.red)
-        ..add(e.toString(), ConsoleColor.red)
+        ..logErr('Metadata file (rush.yml) is invalid')
+        ..logErr(e.toString(), addPrefix: false, addSpace: true)
         ..finish('Failed', ConsoleColor.red);
-      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-          ConsoleColor.brightRed);
+      Logger.log('Build failed',
+          color: ConsoleColor.brightWhite,
+          prefix: '\n•',
+          prefixFG: ConsoleColor.brightRed);
       exit(1);
     }
 
     if (!IsYamlValid.check(rushYml, loadedYml!)) {
       valStep
-        ..add('Metadata file (rush.yml) is invalid', ConsoleColor.red)
+        ..logErr(
+            'One or more necessary fields are missing in the metadata file (rush.yml)')
         ..finish('Failed', ConsoleColor.red);
-      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-          ConsoleColor.brightRed);
+      Logger.log('Build failed',
+          color: ConsoleColor.brightWhite,
+          prefix: '\n•',
+          prefixFG: ConsoleColor.brightRed);
       exit(1);
     } else {
-      valStep.add(
+      valStep.log(
         'Metadata file (rush.yml)',
         ConsoleColor.brightWhite,
         addSpace: true,
-        prefix: 'OKAY',
-        prefBgClr: ConsoleColor.brightGreen,
-        prefClr: ConsoleColor.black,
+        prefix: 'OK',
+        prefBG: ConsoleColor.brightGreen,
+        prefFG: ConsoleColor.black,
       );
     }
 
     final manifestFile = File(p.join(_cd, 'src', 'AndroidManifest.xml'));
     if (!manifestFile.existsSync()) {
       valStep
-        ..add('AndroidManifest.xml not found', ConsoleColor.red)
+        ..logErr('AndroidManifest.xml not found')
         ..finish('Failed', ConsoleColor.red);
-      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-          ConsoleColor.brightRed);
+      Logger.log('Build failed',
+          color: ConsoleColor.brightWhite,
+          prefix: '\n•',
+          prefixFG: ConsoleColor.brightRed);
       exit(1);
     } else {
-      valStep.add(
+      valStep.log(
         'AndroidManifest.xml file',
         ConsoleColor.brightWhite,
         addSpace: true,
-        prefix: 'OKAY',
-        prefBgClr: ConsoleColor.brightGreen,
-        prefClr: ConsoleColor.black,
+        prefix: 'OK',
+        prefBG: ConsoleColor.brightGreen,
+        prefFG: ConsoleColor.black,
       );
     }
     valStep.finish('Done', ConsoleColor.cyan);
@@ -202,7 +211,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         //     extBox.get('org') != _getPackage(loadedYml, p.join(_cd, 'src'))
         ) {
       await extBox.put(
-          'org', Helper.getPackage(loadedYml, p.join(_cd, 'src'), _cd));
+          'org', Helper.getPackage(loadedYml['name'], p.join(_cd, 'src')));
     }
 
     var isYmlMod =
@@ -225,10 +234,18 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
       Helper.cleanDir(p.join(dataDir!, 'workspaces', extBox.get('org')));
     }
 
+    // Update version number stored in box if it doesn't matches with the
+    // version from rush.yml
+    final extVerYml = loadedYml['version']['number'];
+    final extVerBox = await extBox.get('version');
+    if (extVerYml != 'auto' && extVerYml != extVerBox) {
+      await extBox.put('version', extVerYml);
+    }
+
     // Increment version number if this is a production build.
     final isProd = argResults!['release'];
-    if (isProd) {
-      var version = extBox.get('version') + 1;
+    if (isProd && extVerYml == 'auto') {
+      var version = extVerBox + 1;
       await extBox.put('version', version);
       Helper.cleanDir(p.join(dataDir!, 'workspaces', extBox.get('org')));
       areFilesModified = true;
@@ -254,264 +271,137 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     final pathToAntEx = p.join(scriptPath.split('bin').first, 'tools',
         'apache-ant-1.10.9', 'bin', 'ant');
 
-    // This box stores the warnings/errors that appear while building
-    // the extension. This is done in order to skip the compilation in
-    // case there is no change in src dir and/or rush.yml; just print
-    // the previous errors/warnings stored in the box.
-    final buildBox = await Hive.openBox('build');
-
-    if (!buildBox.containsKey('count')) {
-      await buildBox.put('count', 1);
-    } else {
-      final i = (await buildBox.get('count') as int) + 1;
-      await buildBox.put('count', i);
-    }
-
-    await _compile(
-        pathToAntEx,
-        args,
-        areFilesModified || await buildBox.get('count') == 1,
-        buildBox,
-        optimize);
+    await _compile(pathToAntEx, args, optimize);
   }
 
   /// Compiles all the Java files located at _cd/src.
-  Future<void> _compile(String antPath, AntArgs args, bool shouldRecompile,
-      Box box, bool optimize) async {
-    var errCount = 0;
-    var warnCount = 0;
-
+  Future<void> _compile(String antPath, AntArgs args, bool optimize) async {
     final compStep = BuildStep('Compiling Java files')..init();
 
     final mainExtFile = File(
         p.joinAll([_cd, 'src', ...args.org!.split('.'), args.name! + '.java']));
     if (!mainExtFile.existsSync()) {
       compStep
-        ..add('The extension\'s main Java file (${args.name!}.java) not found.',
-            ConsoleColor.red,
-            addSpace: true,
-            prefix: 'ERR',
-            prefBgClr: ConsoleColor.red,
-            prefClr: ConsoleColor.brightWhite)
+        ..logErr(
+            'The extension\'s main Java file (${args.name!}.java) not found.',
+            addSpace: true)
         ..finish('Failed', ConsoleColor.red);
-      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-          ConsoleColor.brightRed);
+      Logger.log('Build failed',
+          color: ConsoleColor.brightWhite,
+          prefix: '\n•',
+          prefixFG: ConsoleColor.brightRed);
       exit(1);
     }
 
-    // Compile only if there are any changes in the src dir and/or rush.yml.
-    if (shouldRecompile) {
-      var count = 0;
+    var count = 0;
+    var errCount = 0;
+    var warnCount = 0;
 
-      // Delete previous errors and warnings
-      if (box.containsKey('totalErr')) {
-        await box.delete('totalErr');
-      }
-      if (box.containsKey('totalWarn')) {
-        await box.delete('totalWarn');
-      }
+    // Spawn the javac process
+    final javacStream = Process.start(
+            antPath, args.toList('javac') as List<String>,
+            runInShell: true)
+        .asStream()
+        .asBroadcastStream();
 
-      // Spawn the javac process
-      final javacStream = Process.start(
-              antPath, args.toList('javac') as List<String>,
-              runInShell: true)
-          .asStream()
-          .asBroadcastStream();
+    await for (final process in javacStream) {
+      final stdoutStream = process.stdout.asBroadcastStream();
 
-      await for (final process in javacStream) {
-        final stdoutStream = process.stdout.asBroadcastStream();
-        final temp = <String>[];
+      await for (final data in stdoutStream) {
+        // A list of output messages.
+        final formatted = Helper.format(data);
 
-        await for (final data in stdoutStream) {
-          // A list of output messages.
-          final formatted = Helper.format(data);
+        // Go through each of the formatted message, and check if it's the start
+        // of error, part of error, or a warning.
+        for (final out in formatted) {
+          final lines = ErrData.getNoOfLines(out);
 
-          // Go through each of the formatted message, and check if it's the start of error, part
-          // of error, or a warning.
-          for (final out in formatted) {
-            final lines = ErrData.getNoOfLines(out);
+          // If lines is the not null then it means that out is in fact the first
+          // line of the error.
+          if (lines != null) {
+            count = lines - 1;
 
-            // If lines is the not null then it means that out is in fact the first
-            // line of the error.
-            if (lines != null) {
-              count = lines - 1;
-              errCount++;
+            final msg = 'src' + out.split('src').last;
+            compStep.logErr(msg, addSpace: true);
 
-              final msg = 'src' + out.split('src').last;
-              temp.add(msg);
-              compStep.add(
-                msg,
-                ConsoleColor.red,
-                addSpace: true,
-                prefix: 'ERR',
-                prefBgClr: ConsoleColor.brightRed,
-                prefClr: ConsoleColor.brightWhite,
-              );
-            } else if (count > 0) {
-              // If count is greater than 0, then it means that out is remaining part
-              // of the previously identified error.
+            errCount++;
+          } else if (count > 0) {
+            // If count is greater than 0, then it means that out is remaining part
+            // of the previously identified error.
 
-              count--;
-              temp.add(out);
-              compStep.add(out, ConsoleColor.red);
-              if (count == 0) {
-                await box.put('err$errCount', temp);
-                temp.clear();
-              }
-            } else if (out.contains('ERR ')) {
-              // If out contains 'ERR' then it means that this error is from
-              // the annotaion processor. All errors coming from annotation processor
-              // are one liner, so, no need for any over head, we can directly print them.
+            count--;
+            compStep.logErr(out, addPrefix: false);
+          } else if (out.contains('ERR ')) {
+            // If out contains 'ERR' then it means that this error is from
+            // the annotaion processor. All errors coming from annotation processor
+            // are one liner, so, no need for any over head, we can directly print
+            // them.
 
-              errCount++;
-              final msg = out.split('ERR ').last;
-              compStep.add(
-                msg,
-                ConsoleColor.red,
-                addSpace: true,
-                prefix: 'ERR',
-                prefBgClr: ConsoleColor.red,
-                prefClr: ConsoleColor.brightWhite,
-              );
+            final msg = out.split('ERR ').last;
+            compStep.logErr(msg, addSpace: true);
 
-              // No need to add this err in temp. Since it's one liner, it can directly
-              // be added to the box.
-              await box.put('err$errCount', msg);
-            } else if (out.contains('error: ')) {
-              // If this condition is reached then it means this of error *maybe*
-              // doesn't fall in any of the javac err categories.
-              // So, we increase the count by 2 assuming this error is a 3-liner
-              // since most javac errors are 3-liner.
+            errCount++;
+          } else if (out.contains('error: ')) {
+            // If this condition is reached then it means this of error *maybe*
+            // doesn't fall in any of the javac err categories.
+            // So, we increase the count by 2 assuming this error is a 3-liner
+            // since most javac errors are 3-liner.
 
-              count += 4;
-              errCount++;
-              final msg = 'src' + out.split('src').last;
+            count += 4;
+            final msg = 'src' + out.split('src').last;
+            compStep.logErr(msg, addSpace: true);
 
-              temp.add(msg);
-              compStep.add(
-                msg,
-                ConsoleColor.red,
-                addSpace: true,
-                prefix: 'ERR',
-                prefBgClr: ConsoleColor.red,
-              );
-            } else if (out.contains('warning:') &&
-                !out.contains(
-                    'The following options were not recognized by any processor:')) {
-              warnCount++;
-
-              final msg = out.replaceAll('warning: ', '').trim();
-              compStep.add(
-                msg,
-                ConsoleColor.yellow,
-                addSpace: true,
-                prefix: 'WARN',
-                prefBgClr: ConsoleColor.yellow,
-                prefClr: ConsoleColor.black,
-              );
-
-              // Warnings are usually one liner, so, we can add them to the box directly.
-              await box.put('warn$warnCount', msg);
-            } else if (argResults!['extended-output'] &&
-                !out.startsWith('Buildfile:')) {
-              compStep.add(out.trimRight(), ConsoleColor.brightWhite);
-            }
+            errCount++;
+          } else if (out.contains('warning:') &&
+              !out.contains(
+                  'The following options were not recognized by any processor:')) {
+            final msg = out.replaceAll('warning: ', '').trim();
+            compStep.logWarn(msg, addSpace: true);
+            
+            warnCount++;
+          } else if (argResults!['extended-output'] &&
+              !out.startsWith('Buildfile:')) {
+            compStep.log(out.trimRight(), ConsoleColor.brightWhite);
           }
         }
       }
-
-      await box.put('totalErr', errCount);
-      await box.put('totalWarn', warnCount);
-
-      if (warnCount > 0) {
-        compStep.add('Total warnings: $warnCount', ConsoleColor.yellow,
-            addSpace: true);
-      }
-      if (errCount > 0) {
-        compStep
-          ..add('Total errors: $errCount', ConsoleColor.red,
-              addSpace: warnCount <= 0)
-          ..finish('Failed', ConsoleColor.red);
-        PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-            ConsoleColor.brightRed);
-        exit(1);
-      }
-      compStep.finish('Done', ConsoleColor.cyan);
-      await _process(antPath, args, optimize);
-    } else {
-      final totalWarn = box.get('totalWarn') ?? 0;
-      final totalErr = box.get('totalErr') ?? 0;
-
-      if (totalWarn > 0) {
-        for (var i = 0; i < totalWarn; i++) {
-          final warn = box.get('warn${i + 1}');
-          compStep.add(
-            warn,
-            ConsoleColor.yellow,
-            addSpace: true,
-            prefix: 'WARN',
-            prefBgClr: ConsoleColor.yellow,
-            prefClr: ConsoleColor.black,
-          );
-        }
-        compStep.add('Total warnings: $warnCount', ConsoleColor.yellow,
-            addSpace: true);
-      }
-
-      if (totalErr > 0) {
-        for (var i = 0; i < totalErr; i++) {
-          final err = box.get('err${i + 1}');
-          err?.forEach((el) {
-            if (err.indexOf(el) == 0) {
-              compStep.add(
-                el,
-                ConsoleColor.red,
-                addSpace: true,
-                prefix: 'ERR',
-                prefClr: ConsoleColor.brightWhite,
-                prefBgClr: ConsoleColor.brightRed,
-              );
-            } else {
-              compStep.add(el, ConsoleColor.red);
-            }
-          });
-        }
-        compStep
-          ..add('Total errors: $totalErr', ConsoleColor.red,
-              addSpace: totalWarn <= 0)
-          ..finish('Failed', ConsoleColor.red);
-        PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-            ConsoleColor.brightRed);
-        exit(1);
-      }
-
-      compStep.finish('Done', ConsoleColor.cyan);
-      await _process(antPath, args, optimize);
     }
+
+    if (warnCount > 0) {
+      compStep.log('Total warning(s): $warnCount', ConsoleColor.yellow,
+          addSpace: true);
+    }
+    if (errCount > 0) {
+      compStep
+        ..log('Total error(s): $errCount', ConsoleColor.red,
+            addSpace: warnCount <= 0)
+        ..finish('Failed', ConsoleColor.red);
+      Logger.log('Build failed',
+          color: ConsoleColor.brightWhite,
+          prefix: '\n•',
+          prefixFG: ConsoleColor.brightRed);
+      exit(1);
+    }
+    compStep.finish('Done', ConsoleColor.cyan);
+    await _process(antPath, args, optimize);
   }
 
   /// Further process the extension by generating extension files, adding
   /// libraries and jaring the extension.
   Future<void> _process(String antPath, AntArgs args, bool optimize) async {
-    final procStep;
+    final BuildStep procStep;
 
     if (optimize) {
       procStep = BuildStep('Optimizing Java bytecode')..init();
 
       final rules = File(p.join(_cd, 'src', 'proguard-rules.pro'));
       if (!rules.existsSync()) {
-        procStep.add(
-          '\'proguard-rules.pro file not found. Your extension won\'t be optimised.',
-          ConsoleColor.yellow,
-          addSpace: true,
-          prefix: 'WARN',
-          prefBgClr: ConsoleColor.yellow,
-          prefClr: ConsoleColor.black,
-        );
+        procStep.logWarn(
+            '\'proguard-rules.pro file not found. Your extension won\'t be optimised.',
+            addSpace: true);
       }
     } else {
-      procStep = BuildStep('Processing extension files');
-      procStep.init();
+      procStep = BuildStep('Processing extension files')..init();
     }
 
     var errCount = 0;
@@ -535,65 +425,45 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         for (final out in formatted) {
           final totalTimeRegex =
               RegExp(r'Total\s*time:.*', dotAll: true, caseSensitive: true);
+
           if (!totalTimeRegex.hasMatch(out)) {
             lastOutLine = out;
           }
 
           if (isExpection) {
-            procStep.add(' ' * 7 + out.trim(), ConsoleColor.red);
+            procStep.logErr(' ' * 7 + out.trim(), addPrefix: false);
           }
 
           if (out.startsWith(
               RegExp(r'\s*Exception in thread', caseSensitive: true))) {
             isExpection = true;
-            procStep.add(
-              out.trim(),
-              ConsoleColor.red,
-              prefix: 'ERR',
-              prefBgClr: ConsoleColor.red,
-              prefClr: ConsoleColor.brightWhite,
-            );
+            procStep.logErr(out.trim());
           } else if (out.startsWith('ERR')) {
-            procStep.add(
-              out.replaceAll('ERR ', ''),
-              ConsoleColor.red,
-              addSpace: true,
-              prefix: 'ERR',
-              prefBgClr: ConsoleColor.red,
-              prefClr: ConsoleColor.brightWhite,
-            );
+            procStep.logErr(out.replaceAll('ERR ', ''), addSpace: true);
             errCount++;
           } else if (Helper.isProGuardOutput(out)) {
             var proOut = out.replaceAll('[proguard] ', '').trimRight();
 
             if (proOut.startsWith(RegExp(r'\sWarning:'))) {
-              proOut = proOut.replaceAll('Warning: ', '');
-              procStep.add(
-                proOut,
-                ConsoleColor.yellow,
-                prefix: 'WARN',
-                prefClr: ConsoleColor.black,
-                prefBgClr: ConsoleColor.yellow,
-                addSpace: isFirst,
-              );
+              procStep.logWarn(proOut.replaceAll('Warning: ', ''));
               isFirst = false;
             } else if (proOut.startsWith(RegExp(r'\sNote: '))) {
               proOut = proOut.replaceAll('Note: ', '');
-              procStep.add(
+              procStep.log(
                 proOut,
                 ConsoleColor.brightBlue,
                 prefix: 'NOTE',
-                prefClr: ConsoleColor.black,
-                prefBgClr: ConsoleColor.brightBlue,
+                prefFG: ConsoleColor.black,
+                prefBG: ConsoleColor.brightBlue,
                 addSpace: isFirst,
               );
               isFirst = false;
             } else {
-              procStep.add(proOut, ConsoleColor.brightWhite);
+              procStep.log(proOut, ConsoleColor.brightWhite);
             }
           } else if (argResults!['extended-output'] &&
               !out.startsWith('Buildfile:')) {
-            procStep.add(
+            procStep.log(
               out.trimRight(),
               ConsoleColor.brightWhite,
             );
@@ -604,17 +474,21 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
 
     if (lastOutLine == 'BUILD FAILED' || isExpection) {
       procStep.finish('Failed', ConsoleColor.red);
-      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-          ConsoleColor.brightRed);
+      Logger.log('Build failed',
+          color: ConsoleColor.brightWhite,
+          prefix: '\n•',
+          prefixFG: ConsoleColor.brightRed);
       exit(1);
     }
 
     if (errCount > 0) {
       procStep
-        ..add('Total errors: $errCount', ConsoleColor.red)
+        ..log('Total errors: $errCount', ConsoleColor.red)
         ..finish('Failed', ConsoleColor.red);
-      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-          ConsoleColor.brightRed);
+      Logger.log('Build failed',
+          color: ConsoleColor.brightWhite,
+          prefix: '\n•',
+          prefixFG: ConsoleColor.brightRed);
       exit(1);
     }
     procStep.finish('Done', ConsoleColor.cyan);
@@ -633,7 +507,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         .asStream()
         .asBroadcastStream();
 
-    var isError = false;
+    var hasGotError = false;
 
     await for (final process in dexStream) {
       final stdoutStream = process.stdout.asBroadcastStream();
@@ -643,29 +517,25 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
 
         for (final out in formatted) {
           if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
-            dexStep.add(out, ConsoleColor.brightWhite);
+            dexStep.log(out, ConsoleColor.brightWhite);
           } else {
-            if (isError) {
-              dexStep.add(out, ConsoleColor.red);
+            if (hasGotError) {
+              dexStep.logErr(out, addPrefix: false);
             } else if (out.contains(RegExp(r'error', caseSensitive: false))) {
-              isError = true;
-              dexStep.add(
-                out,
-                ConsoleColor.red,
-                prefix: 'ERR',
-                prefBgClr: ConsoleColor.brightRed,
-                prefClr: ConsoleColor.brightWhite,
-              );
+              hasGotError = true;
+              dexStep.logErr(out);
             }
           }
         }
       }
     }
 
-    if (isError) {
+    if (hasGotError) {
       dexStep.finish('Failed', ConsoleColor.red);
-      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-          ConsoleColor.brightRed);
+      Logger.log('Build failed',
+          color: ConsoleColor.brightWhite,
+          prefix: '\n•',
+          prefixFG: ConsoleColor.brightRed);
       exit(1);
     } else {
       dexStep.finish('Done', ConsoleColor.cyan);
@@ -684,7 +554,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         .asStream()
         .asBroadcastStream();
 
-    var isError = false;
+    var hasGotError = false;
 
     await for (final process in finalStream) {
       final stdoutStream = process.stdout.asBroadcastStream();
@@ -694,34 +564,32 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
 
         for (final out in formatted) {
           if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
-            finalStep.add(out, ConsoleColor.brightWhite);
+            finalStep.log(out, ConsoleColor.brightWhite);
           } else {
-            if (isError) {
-              finalStep.add(out, ConsoleColor.red);
+            if (hasGotError) {
+              finalStep.logErr(out);
             } else if (out.contains(RegExp(r'error', caseSensitive: false))) {
-              isError = true;
-              finalStep.add(
-                out,
-                ConsoleColor.red,
-                prefix: 'ERR',
-                prefBgClr: ConsoleColor.brightRed,
-                prefClr: ConsoleColor.brightWhite,
-              );
+              hasGotError = true;
+              finalStep.logErr(out);
             }
           }
         }
       }
     }
 
-    if (isError) {
+    if (hasGotError) {
       finalStep.finish('Failed', ConsoleColor.red);
-      PrintMsg('Build failed', ConsoleColor.brightWhite, '\n•',
-          ConsoleColor.brightRed);
+      Logger.log('Build failed',
+          color: ConsoleColor.brightWhite,
+          prefix: '\n•',
+          prefixFG: ConsoleColor.brightRed);
       exit(1);
     } else {
       finalStep.finish('Done', ConsoleColor.cyan);
-      PrintMsg('Build successful', ConsoleColor.brightWhite, '\n•',
-          ConsoleColor.brightGreen);
+      Logger.log('Build successful',
+          color: ConsoleColor.brightWhite,
+          prefix: '\n•',
+          prefixFG: ConsoleColor.brightGreen);
       exit(0);
     }
   }

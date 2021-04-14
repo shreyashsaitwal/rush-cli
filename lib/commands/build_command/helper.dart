@@ -45,14 +45,16 @@ class Helper with CopyMixin {
 
   /// Copys the dev deps in case they are not present.
   /// This might be needed when the project is cloned from a VCS.
-  void copyDevDepsIfNeeded(String scriptPath, String cd) {
-    final devDepsDir = Directory(p.join(cd, '.rush', 'dev-deps'));
+  void copyDevDeps(String scriptPath, String cd) {
+    final devDepsDir = Directory(p.join(cd, '.rush', 'dev-deps'))..createSync(recursive: true);
     final devDepsCache =
         Directory(p.join(scriptPath.split('bin').first, 'dev-deps'));
 
     if (devDepsDir.listSync().isEmpty) {
-      PrintMsg('Getting things ready...', ConsoleColor.brightWhite, '\n•',
-          ConsoleColor.yellow);
+      Logger.log('Getting things ready...',
+          color: ConsoleColor.brightWhite,
+          prefix: '\n•',
+          prefixFG: ConsoleColor.yellow);
       copyDir(devDepsCache, devDepsDir);
     }
   }
@@ -64,26 +66,25 @@ class Helper with CopyMixin {
       try {
         dir.deleteSync(recursive: true);
       } catch (e) {
-        ThrowError(
-            message:
-                'ERR Something went wrong while invalidating build caches.');
+        Logger.logErr('Something went wrong while invalidating build caches.',
+            exitCode: 1);
       }
     }
   }
 
-  static String getPackage(YamlMap? loadedYml, String srcDirPath, String cd) {
+  // Returns the package name in com.example form
+  static String getPackage(String extName, String srcDirPath) {
     final srcDir = Directory(srcDirPath);
     var path = '';
 
     for (final file in srcDir.listSync(recursive: true)) {
-      if (file is File &&
-          p.basename(file.path) == '${loadedYml!['name']}.java') {
+      if (file is File && p.basename(file.path) == '$extName.java') {
         path = file.path;
         break;
       }
     }
 
-    final struct = p.split(path.split(p.join(cd, 'src')).last);
+    final struct = p.split(path.split(srcDirPath).last);
     struct.removeAt(0);
 
     var package = '';

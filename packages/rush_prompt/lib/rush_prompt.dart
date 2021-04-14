@@ -7,7 +7,6 @@ export 'src/questions/simple_question.dart';
 export 'src/questions/multiple_choice_question.dart';
 export 'src/questions/bool_question.dart';
 export 'src/progress_bar.dart';
-export 'src/throw_error.dart';
 export 'src/build_step.dart';
-export 'src/print_msg.dart';
 export 'src/print_art.dart';
+export 'src/logger.dart';
