@@ -1,9 +1,9 @@
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:dart_console/dart_console.dart';
 import 'package:rush_prompt/rush_prompt.dart';
-import 'package:yaml/yaml.dart';
 import 'package:rush_cli/mixins/copy_mixin.dart';
 
 class Helper with CopyMixin {
@@ -46,7 +46,8 @@ class Helper with CopyMixin {
   /// Copys the dev deps in case they are not present.
   /// This might be needed when the project is cloned from a VCS.
   void copyDevDeps(String scriptPath, String cd) {
-    final devDepsDir = Directory(p.join(cd, '.rush', 'dev-deps'))..createSync(recursive: true);
+    final devDepsDir = Directory(p.join(cd, '.rush', 'dev-deps'))
+      ..createSync(recursive: true);
     final devDepsCache =
         Directory(p.join(scriptPath.split('bin').first, 'dev-deps'));
 
@@ -101,5 +102,31 @@ class Helper with CopyMixin {
     }
 
     return package;
+  }
+
+  static void extractJar(String filePath, String saveTo) {
+    final file = File(filePath);
+    if (!file.existsSync()) {
+      print('[${file.path}] doesn\'t exist. Aborting...');
+      exit(1);
+    }
+
+    final bytes = file.readAsBytesSync();
+    final jar = ZipDecoder().decodeBytes(bytes).files;
+
+    for (var i = 0; i < jar.length; i++) {
+      if (jar[i].isFile) {
+        final data = jar[i].content;
+        try {
+          File(p.join(saveTo, jar[i].name))
+            ..createSync(recursive: true)
+            ..writeAsBytesSync(data);
+        } catch (e) {
+          print(e.toString());
+        }
+      }
+    }
+
+    file.deleteSync();
   }
 }

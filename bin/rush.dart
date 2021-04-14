@@ -38,8 +38,8 @@ void main(List<String> args) {
 
 void _printVersion() {
   final scriptPath = whichSync('rush');
-  final info =
-      loadYaml(File(p.join(p.dirname(scriptPath!), 'build_info')).readAsStringSync());
+  final info = loadYaml(
+      File(p.join(p.dirname(scriptPath!), 'build_info')).readAsStringSync());
 
   final version = info['name'];
   final builton = info['built_on'];

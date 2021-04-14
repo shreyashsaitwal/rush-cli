@@ -3,7 +3,7 @@ import 'dart:io' show Platform, Directory;
 import 'package:path/path.dart' as path;
 
 mixin AppDataMixin {
-  static String? dataStorageDir() {
+  String? dataStorageDir() {
     var os = Platform.operatingSystem;
     late var appDataDir;
 

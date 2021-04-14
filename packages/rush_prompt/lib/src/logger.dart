@@ -38,7 +38,7 @@ class Logger {
         ..write(addSpace ? '\n' : '')
         ..setBackgroundColor(ConsoleColor.yellow)
         ..setForegroundColor(ConsoleColor.black)
-        ..write('ERR')
+        ..write('WARN')
         ..resetColorAttributes()
         ..write(' ');
     }
@@ -55,7 +55,7 @@ class Logger {
     ConsoleColor color = ConsoleColor.brightWhite,
     String prefix = '',
     ConsoleColor prefixFG = ConsoleColor.brightWhite,
-    ConsoleColor prefixBG = ConsoleColor.brightBlack,
+    ConsoleColor prefixBG = ConsoleColor.black,
   }) {
     Console()
       ..setBackgroundColor(prefixBG)

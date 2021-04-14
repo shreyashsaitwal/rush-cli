@@ -1,13 +1,15 @@
 import 'dart:io';
 
+import 'package:archive/archive_io.dart';
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_run/which.dart';
-import 'package:rush_cli/commands/build_command/ant_args.dart';
+import 'package:process_runner/process_runner.dart';
 import 'package:rush_cli/commands/build_command/helper.dart';
-import 'package:rush_cli/javac_errors/err_data.dart';
+import 'package:rush_cli/java/javac.dart';
+import 'package:rush_cli/java/jar_runner.dart';
 
 import 'package:rush_cli/mixins/app_data_dir_mixin.dart';
 import 'package:rush_cli/mixins/copy_mixin.dart';
@@ -15,8 +17,9 @@ import 'package:rush_cli/mixins/is_yaml_valid.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 import 'package:yaml/yaml.dart';
 
-class BuildCommand extends Command with AppDataMixin, CopyMixin {
+class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
   final String _cd;
+  final _rushDir = p.dirname(p.dirname(Platform.resolvedExecutable));
 
   BuildCommand(this._cd) {
     argParser
@@ -110,7 +113,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
 
     Logger.log('Build initialized\n',
         color: ConsoleColor.brightWhite,
-        prefix: '•',
+        prefix: '• ',
         prefixFG: ConsoleColor.yellow);
 
     Helper().copyDevDeps(scriptPath!, _cd);
@@ -127,40 +130,28 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     } else {
       valStep
         ..logErr('Metadata file (rush.yml) not found')
-        ..finish('Failed', ConsoleColor.red);
-      Logger.log('Build failed',
-          color: ConsoleColor.brightWhite,
-          prefix: '\n•',
-          prefixFG: ConsoleColor.brightRed);
-      exit(1);
+        ..finishNotOk('Failed');
+      _failBuild();
     }
 
     // Load rush.yml in a Dart understandable way.
     YamlMap? loadedYml;
     try {
-      loadedYml = loadYaml(rushYml.readAsStringSync());
+      loadedYml = loadYaml(rushYml!.readAsStringSync());
     } catch (e) {
       valStep
         ..logErr('Metadata file (rush.yml) is invalid')
         ..logErr(e.toString(), addPrefix: false, addSpace: true)
-        ..finish('Failed', ConsoleColor.red);
-      Logger.log('Build failed',
-          color: ConsoleColor.brightWhite,
-          prefix: '\n•',
-          prefixFG: ConsoleColor.brightRed);
-      exit(1);
+        ..finishNotOk('Failed');
+      _failBuild();
     }
 
-    if (!IsYamlValid.check(rushYml, loadedYml!)) {
+    if (!check(rushYml, loadedYml!)) {
       valStep
         ..logErr(
             'One or more necessary fields are missing in the metadata file (rush.yml)')
-        ..finish('Failed', ConsoleColor.red);
-      Logger.log('Build failed',
-          color: ConsoleColor.brightWhite,
-          prefix: '\n•',
-          prefixFG: ConsoleColor.brightRed);
-      exit(1);
+        ..finishNotOk('Failed');
+      _failBuild();
     } else {
       valStep.log(
         'Metadata file (rush.yml)',
@@ -176,12 +167,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     if (!manifestFile.existsSync()) {
       valStep
         ..logErr('AndroidManifest.xml not found')
-        ..finish('Failed', ConsoleColor.red);
-      Logger.log('Build failed',
-          color: ConsoleColor.brightWhite,
-          prefix: '\n•',
-          prefixFG: ConsoleColor.brightRed);
-      exit(1);
+        ..finishNotOk('Failed');
+      _failBuild();
     } else {
       valStep.log(
         'AndroidManifest.xml file',
@@ -192,38 +179,38 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
         prefFG: ConsoleColor.black,
       );
     }
-    valStep.finish('Done', ConsoleColor.cyan);
+    valStep.finishOk('Done');
 
-    final dataDir = AppDataMixin.dataStorageDir();
+    final dataDir = dataStorageDir();
 
     Hive.init(p.join(_cd, '.rush'));
-    final extBox = await Hive.openBox('data');
+    final dataBox = await Hive.openBox('data');
 
     // This is done in case the user deletes the .rush directory.
-    if (!extBox.containsKey('version')) {
-      await extBox.put('version', 1);
-    } else if (!extBox.containsKey('rushYmlLastMod')) {
-      await extBox.put('rushYmlLastMod', rushYml.lastModifiedSync());
-    } else if (!extBox.containsKey('srcDirLastMod')) {
-      await extBox.put('srcDirLastMod', rushYml.lastModifiedSync());
-    } else if (!extBox.containsKey('org')
-        // ||
-        //     extBox.get('org') != _getPackage(loadedYml, p.join(_cd, 'src'))
-        ) {
-      await extBox.put(
+    if (!dataBox.containsKey('name')) {
+      await dataBox.put('name', loadedYml['name']! as String);
+    } else if (!dataBox.containsKey('version')) {
+      await dataBox.put('version', 1);
+    } else if (!dataBox.containsKey('rushYmlLastMod')) {
+      await dataBox.put('rushYmlLastMod', rushYml!.lastModifiedSync());
+    } else if (!dataBox.containsKey('srcDirLastMod')) {
+      await dataBox.put('srcDirLastMod', rushYml!.lastModifiedSync());
+    } else if (!dataBox.containsKey('org')) {
+      await dataBox.put(
           'org', Helper.getPackage(loadedYml['name'], p.join(_cd, 'src')));
     }
 
-    var isYmlMod =
-        rushYml.lastModifiedSync().isAfter(extBox.get('rushYmlLastMod'));
+    var isYmlMod = rushYml!
+        .lastModifiedSync()
+        .isAfter(await dataBox.get('rushYmlLastMod'));
     var isSrcDirMod = false;
 
     Directory(p.join(_cd, 'src')).listSync(recursive: true).forEach((el) {
       if (el is File) {
         final mod = el.lastModifiedSync();
-        if (mod.isAfter(extBox.get('srcDirLastMod'))) {
+        if (mod.isAfter(dataBox.get('srcDirLastMod'))) {
           isSrcDirMod = true;
-          extBox.put('srcDirLastMod', mod);
+          dataBox.put('srcDirLastMod', mod);
         }
       }
     });
@@ -231,366 +218,306 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin {
     var areFilesModified = isYmlMod || isSrcDirMod;
 
     if (areFilesModified) {
-      Helper.cleanDir(p.join(dataDir!, 'workspaces', extBox.get('org')));
+      Helper.cleanDir(p.join(dataDir!, 'workspaces', dataBox.get('org')));
     }
 
     // Update version number stored in box if it doesn't matches with the
     // version from rush.yml
     final extVerYml = loadedYml['version']['number'];
-    final extVerBox = await extBox.get('version');
+    final extVerBox = await dataBox.get('version');
     if (extVerYml != 'auto' && extVerYml != extVerBox) {
-      await extBox.put('version', extVerYml);
+      await dataBox.put('version', extVerYml);
     }
 
     // Increment version number if this is a production build.
     final isProd = argResults!['release'];
     if (isProd && extVerYml == 'auto') {
       var version = extVerBox + 1;
-      await extBox.put('version', version);
-      Helper.cleanDir(p.join(dataDir!, 'workspaces', extBox.get('org')));
+      await dataBox.put('version', version);
+      Helper.cleanDir(p.join(dataDir!, 'workspaces', dataBox.get('org')));
       areFilesModified = true;
     }
 
-    var optimize = loadedYml['release']?['optimize'] ?? false;
-    if (argResults!['no-optimize']) {
-      optimize = false;
-    } else if (argResults!['optimize']) {
+    final optimize;
+    if (argResults!['optimize']) {
       optimize = true;
+    } else if (isProd) {
+      if ((loadedYml['release']['optimize'] ?? false) &&
+          !argResults!['no-optimize']) {
+        optimize = true;
+      } else {
+        optimize = false;
+      }
+    } else {
+      optimize = false;
     }
 
-    // Args for spawning the Apache Ant process
-    final args = AntArgs(
-        dataDir,
-        _cd,
-        extBox.get('org'),
-        extBox.get('version').toString(),
-        loadedYml['name'],
-        argResults!['support-lib'],
-        optimize);
-
-    final pathToAntEx = p.join(scriptPath.split('bin').first, 'tools',
-        'apache-ant-1.10.9', 'bin', 'ant');
-
-    await _compile(pathToAntEx, args, optimize);
+    await _compile(dataBox, optimize);
   }
 
-  /// Compiles all the Java files located at _cd/src.
-  Future<void> _compile(String antPath, AntArgs args, bool optimize) async {
+  Future<void> _compile(Box dataBox, bool optimize) async {
     final compStep = BuildStep('Compiling Java files')..init();
+    final javac = Javac();
 
-    final mainExtFile = File(
-        p.joinAll([_cd, 'src', ...args.org!.split('.'), args.name! + '.java']));
-    if (!mainExtFile.existsSync()) {
-      compStep
-        ..logErr(
-            'The extension\'s main Java file (${args.name!}.java) not found.',
-            addSpace: true)
-        ..finish('Failed', ConsoleColor.red);
-      Logger.log('Build failed',
-          color: ConsoleColor.brightWhite,
-          prefix: '\n•',
-          prefixFG: ConsoleColor.brightRed);
-      exit(1);
-    }
-
-    var count = 0;
-    var errCount = 0;
-    var warnCount = 0;
-
-    // Spawn the javac process
-    final javacStream = Process.start(
-            antPath, args.toList('javac') as List<String>,
-            runInShell: true)
-        .asStream()
-        .asBroadcastStream();
-
-    await for (final process in javacStream) {
-      final stdoutStream = process.stdout.asBroadcastStream();
-
-      await for (final data in stdoutStream) {
-        // A list of output messages.
-        final formatted = Helper.format(data);
-
-        // Go through each of the formatted message, and check if it's the start
-        // of error, part of error, or a warning.
-        for (final out in formatted) {
-          final lines = ErrData.getNoOfLines(out);
-
-          // If lines is the not null then it means that out is in fact the first
-          // line of the error.
-          if (lines != null) {
-            count = lines - 1;
-
-            final msg = 'src' + out.split('src').last;
-            compStep.logErr(msg, addSpace: true);
-
-            errCount++;
-          } else if (count > 0) {
-            // If count is greater than 0, then it means that out is remaining part
-            // of the previously identified error.
-
-            count--;
-            compStep.logErr(out, addPrefix: false);
-          } else if (out.contains('ERR ')) {
-            // If out contains 'ERR' then it means that this error is from
-            // the annotaion processor. All errors coming from annotation processor
-            // are one liner, so, no need for any over head, we can directly print
-            // them.
-
-            final msg = out.split('ERR ').last;
-            compStep.logErr(msg, addSpace: true);
-
-            errCount++;
-          } else if (out.contains('error: ')) {
-            // If this condition is reached then it means this of error *maybe*
-            // doesn't fall in any of the javac err categories.
-            // So, we increase the count by 2 assuming this error is a 3-liner
-            // since most javac errors are 3-liner.
-
-            count += 4;
-            final msg = 'src' + out.split('src').last;
-            compStep.logErr(msg, addSpace: true);
-
-            errCount++;
-          } else if (out.contains('warning:') &&
-              !out.contains(
-                  'The following options were not recognized by any processor:')) {
-            final msg = out.replaceAll('warning: ', '').trim();
-            compStep.logWarn(msg, addSpace: true);
-            
-            warnCount++;
-          } else if (argResults!['extended-output'] &&
-              !out.startsWith('Buildfile:')) {
-            compStep.log(out.trimRight(), ConsoleColor.brightWhite);
-          }
-        }
-      }
-    }
-
-    if (warnCount > 0) {
-      compStep.log('Total warning(s): $warnCount', ConsoleColor.yellow,
-          addSpace: true);
-    }
-    if (errCount > 0) {
-      compStep
-        ..log('Total error(s): $errCount', ConsoleColor.red,
-            addSpace: warnCount <= 0)
-        ..finish('Failed', ConsoleColor.red);
-      Logger.log('Build failed',
-          color: ConsoleColor.brightWhite,
-          prefix: '\n•',
-          prefixFG: ConsoleColor.brightRed);
-      exit(1);
-    }
-    compStep.finish('Done', ConsoleColor.cyan);
-    await _process(antPath, args, optimize);
+    await javac.compile(
+      CompileType.build,
+      compStep,
+      dataBox: dataBox,
+      onDone: () async {
+        _process(
+            await dataBox.get('org'), optimize, argResults!['support-lib']);
+      },
+      onError: () {
+        _failBuild();
+      },
+    );
   }
 
   /// Further process the extension by generating extension files, adding
   /// libraries and jaring the extension.
-  Future<void> _process(String antPath, AntArgs args, bool optimize) async {
-    final BuildStep procStep;
+  void _process(String org, bool optimize, bool dejet) {
+    final BuildStep step;
+    final rulesPro = File(p.join(_cd, 'src', 'proguard-rules.pro'));
 
-    if (optimize) {
-      procStep = BuildStep('Optimizing Java bytecode')..init();
-
-      final rules = File(p.join(_cd, 'src', 'proguard-rules.pro'));
-      if (!rules.existsSync()) {
-        procStep.logWarn(
-            '\'proguard-rules.pro file not found. Your extension won\'t be optimised.',
-            addSpace: true);
-      }
+    if (optimize && rulesPro.existsSync()) {
+      step = BuildStep('Optimizing your extension')..init();
     } else {
-      procStep = BuildStep('Processing extension files')..init();
-    }
-
-    var errCount = 0;
-    var lastOutLine = '';
-    var isExpection = false;
-
-    final processStream = Process.start(
-            antPath, args.toList('process') as List<String>,
-            runInShell: true)
-        .asStream()
-        .asBroadcastStream();
-
-    await for (final process in processStream) {
-      final stdoutStream = process.stdout.asBroadcastStream();
-
-      await for (final data in stdoutStream) {
-        var isFirst = true;
-
-        final formatted = Helper.format(data);
-
-        for (final out in formatted) {
-          final totalTimeRegex =
-              RegExp(r'Total\s*time:.*', dotAll: true, caseSensitive: true);
-
-          if (!totalTimeRegex.hasMatch(out)) {
-            lastOutLine = out;
-          }
-
-          if (isExpection) {
-            procStep.logErr(' ' * 7 + out.trim(), addPrefix: false);
-          }
-
-          if (out.startsWith(
-              RegExp(r'\s*Exception in thread', caseSensitive: true))) {
-            isExpection = true;
-            procStep.logErr(out.trim());
-          } else if (out.startsWith('ERR')) {
-            procStep.logErr(out.replaceAll('ERR ', ''), addSpace: true);
-            errCount++;
-          } else if (Helper.isProGuardOutput(out)) {
-            var proOut = out.replaceAll('[proguard] ', '').trimRight();
-
-            if (proOut.startsWith(RegExp(r'\sWarning:'))) {
-              procStep.logWarn(proOut.replaceAll('Warning: ', ''));
-              isFirst = false;
-            } else if (proOut.startsWith(RegExp(r'\sNote: '))) {
-              proOut = proOut.replaceAll('Note: ', '');
-              procStep.log(
-                proOut,
-                ConsoleColor.brightBlue,
-                prefix: 'NOTE',
-                prefFG: ConsoleColor.black,
-                prefBG: ConsoleColor.brightBlue,
-                addSpace: isFirst,
-              );
-              isFirst = false;
-            } else {
-              procStep.log(proOut, ConsoleColor.brightWhite);
-            }
-          } else if (argResults!['extended-output'] &&
-              !out.startsWith('Buildfile:')) {
-            procStep.log(
-              out.trimRight(),
-              ConsoleColor.brightWhite,
-            );
-          }
-        }
+      step = BuildStep('Processing your extension')..init();
+      if (!rulesPro.existsSync() && optimize) {
+        step.logWarn(
+            'Unable to find \'proguard-rules.pro\' in \'src\' directory.',
+            addSpace: true);
+        optimize = false;
       }
     }
 
-    if (lastOutLine == 'BUILD FAILED' || isExpection) {
-      procStep.finish('Failed', ConsoleColor.red);
-      Logger.log('Build failed',
-          color: ConsoleColor.brightWhite,
-          prefix: '\n•',
-          prefixFG: ConsoleColor.brightRed);
-      exit(1);
+    // Run the rush annotation processor
+    final runner = JarRunner();
+    runner.run(
+      JarType.processor,
+      org,
+      step,
+      onSuccess: () {
+        _jarExtension(
+          org,
+          step,
+          optimize,
+          dejet,
+          onSuccess: (String jarPath) async {
+            final jar = File(jarPath);
+
+            if (jar.existsSync()) {
+              final destDir = Directory(p.join(dataStorageDir()!, 'workspaces',
+                  org, 'raw', 'x', org, 'files'))
+                ..createSync(recursive: true);
+
+              jar.copySync(p.join(destDir.path, 'AndroidRuntime.jar'));
+
+              // De-jetify the extension
+              if (dejet) {
+                _dejetify(
+                  org,
+                  step,
+                  onSuccess: (bool needDejet) {
+                    if (!needDejet) {
+                      // Delete the raw/sup directory so that support version of
+                      // the extension isn't generated.
+                      Directory(p.join(dataStorageDir()!, 'workspaces', org,
+                              'raw', 'sup'))
+                          .deleteSync(recursive: true);
+
+                      step
+                        ..logWarn('No references to androidx.* were found.',
+                            addSpace: true)
+                        ..logWarn(
+                            ' ' * 5 +
+                                'You don\'t need to create a support library version of the extension.',
+                            addPrefix: false)
+                        ..finishOk('Done');
+                      _dex(org, false);
+                    } else {
+                      step.finishOk('Done');
+                      _dex(org, true);
+                    }
+                  },
+                  onError: () {
+                    step.finishNotOk('Failed');
+                    _failBuild();
+                  },
+                );
+              } else {
+                step.finishOk('Done');
+                _dex(org, false);
+              }
+            } else {
+              step
+                ..logErr('File not found: ' + jar.path)
+                ..finishNotOk('Failed');
+
+              _failBuild();
+            }
+          },
+        );
+      },
+      onError: () {
+        step.finishNotOk('Failed');
+        _failBuild();
+      },
+    );
+  }
+
+  /// JAR the compiled class files and third-party dependencies into a
+  /// single JAR.
+  void _jarExtension(
+      String org, BuildStep processStep, bool optimize, bool dejet,
+      {required Function onSuccess}) {
+    final rawClassesDir = Directory(
+        p.join(dataStorageDir()!, 'workspaces', org, 'raw-classes', org));
+
+    // Unjar dependencies
+    for (final entity in rawClassesDir.listSync()) {
+      if (entity is File && p.extension(entity.path) == '.jar') {
+        Helper.extractJar(entity.path, p.dirname(entity.path));
+      }
     }
 
-    if (errCount > 0) {
-      procStep
-        ..log('Total errors: $errCount', ConsoleColor.red)
-        ..finish('Failed', ConsoleColor.red);
-      Logger.log('Build failed',
-          color: ConsoleColor.brightWhite,
-          prefix: '\n•',
-          prefixFG: ConsoleColor.brightRed);
-      exit(1);
-    }
-    procStep.finish('Done', ConsoleColor.cyan);
+    // Run the jar command-line tool. It is used to generate a JAR.
+    final runner = JarRunner();
+    runner.run(
+      JarType.jar,
+      org,
+      processStep,
+      onSuccess: () {
+        if (optimize) {
+          // Optimize the extension
+          _optimize(
+            org,
+            processStep,
+            onSuccess: () {
+              // Delete the old non-optimized JAR...
+              final oldJar = File(rawClassesDir.path + '.jar')..deleteSync();
 
-    await _dex(antPath, args);
+              // ...and rename the optimized JAR with old JAR's name
+              File(rawClassesDir.path + '_pg.jar')
+                ..copySync(oldJar.path)
+                ..deleteSync(recursive: true);
+
+              onSuccess(oldJar.path);
+            },
+            onError: () {
+              processStep.finishNotOk('Failed');
+              _failBuild();
+            },
+          );
+        } else {
+          onSuccess(rawClassesDir.path + '.jar');
+        }
+      },
+      onError: () {
+        processStep.finishNotOk('Failed');
+        _failBuild();
+      },
+    );
+  }
+
+  /// ProGuards the extension.
+  void _optimize(String org, BuildStep processStep,
+      {required Function onSuccess, required Function onError}) {
+    final runner = JarRunner();
+    runner.run(
+      JarType.proguard,
+      org,
+      processStep,
+      onSuccess: onSuccess,
+      onError: onError,
+    );
+  }
+
+  void _dejetify(String org, BuildStep processStep,
+      {required Function onSuccess, required Function onError}) {
+    final runner = JarRunner();
+    runner.run(
+      JarType.jetifier,
+      org,
+      processStep,
+      onSuccess: onSuccess,
+      onError: onError,
+    );
   }
 
   /// Convert generated extension JAR file from previous step into DEX
   /// bytecode.
-  Future<void> _dex(String antPath, AntArgs args) async {
-    final dexStep = BuildStep('Converting Java bytecode to DEX bytecode');
-    dexStep.init();
+  void _dex(String org, bool dejet) {
+    final step = BuildStep('Converting Java bytecode to DEX bytecode')..init();
 
-    final dexStream = Process.start(antPath, args.toList('dex') as List<String>,
-            runInShell: true)
-        .asStream()
-        .asBroadcastStream();
-
-    var hasGotError = false;
-
-    await for (final process in dexStream) {
-      final stdoutStream = process.stdout.asBroadcastStream();
-
-      await for (final data in stdoutStream) {
-        final formatted = Helper.format(data);
-
-        for (final out in formatted) {
-          if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
-            dexStep.log(out, ConsoleColor.brightWhite);
-          } else {
-            if (hasGotError) {
-              dexStep.logErr(out, addPrefix: false);
-            } else if (out.contains(RegExp(r'error', caseSensitive: false))) {
-              hasGotError = true;
-              dexStep.logErr(out);
-            }
-          }
+    final runner = JarRunner();
+    runner.run(
+      JarType.d8,
+      org,
+      step,
+      onSuccess: () {
+        if (dejet) {
+          final runner = JarRunner();
+          runner.run(
+            JarType.d8sup,
+            org,
+            step,
+            onSuccess: () {
+              step.finishOk('Done');
+              _assemble(org);
+            },
+            onError: () {
+              step.finishNotOk('Failed');
+              _failBuild();
+            },
+          );
+        } else {
+          step.finishOk('Done');
+          _assemble(org);
         }
-      }
-    }
-
-    if (hasGotError) {
-      dexStep.finish('Failed', ConsoleColor.red);
-      Logger.log('Build failed',
-          color: ConsoleColor.brightWhite,
-          prefix: '\n•',
-          prefixFG: ConsoleColor.brightRed);
-      exit(1);
-    } else {
-      dexStep.finish('Done', ConsoleColor.cyan);
-      await _finalize(antPath, args);
-    }
+      },
+      onError: () {
+        step.finishNotOk('Failed');
+        _failBuild();
+      },
+    );
   }
 
   /// Finalize the build.
-  Future<void> _finalize(String antPath, AntArgs args) async {
-    final finalStep = BuildStep('Finalizing the build');
-    finalStep.init();
+  void _assemble(String org) {
+    final step = BuildStep('Finalizing the build')..init();
 
-    final finalStream = Process.start(
-            antPath, args.toList('assemble') as List<String>,
-            runInShell: true)
-        .asStream()
-        .asBroadcastStream();
+    final rawDirX =
+        Directory(p.join(dataStorageDir()!, 'workspaces', org, 'raw', 'x'));
+    final rawDirSup =
+        Directory(p.join(dataStorageDir()!, 'workspaces', org, 'raw', 'sup'));
 
-    var hasGotError = false;
+    final outputDir = Directory(p.join(_cd, 'out'))
+      ..createSync(recursive: true);
 
-    await for (final process in finalStream) {
-      final stdoutStream = process.stdout.asBroadcastStream();
+    final zipEncoder = ZipFileEncoder();
+    zipEncoder.zipDirectory(rawDirX,
+        filename: p.join(outputDir.path, '$org.aix'));
 
-      await for (final data in stdoutStream) {
-        final formatted = Helper.format(data);
-
-        for (final out in formatted) {
-          if (argResults!['extended-output'] && !out.startsWith('Buildfile:')) {
-            finalStep.log(out, ConsoleColor.brightWhite);
-          } else {
-            if (hasGotError) {
-              finalStep.logErr(out);
-            } else if (out.contains(RegExp(r'error', caseSensitive: false))) {
-              hasGotError = true;
-              finalStep.logErr(out);
-            }
-          }
-        }
-      }
+    if (rawDirSup.existsSync()) {
+      zipEncoder.zipDirectory(rawDirSup,
+          filename: p.join(outputDir.path, '$org.support.aix'));
     }
 
-    if (hasGotError) {
-      finalStep.finish('Failed', ConsoleColor.red);
-      Logger.log('Build failed',
-          color: ConsoleColor.brightWhite,
-          prefix: '\n•',
-          prefixFG: ConsoleColor.brightRed);
-      exit(1);
-    } else {
-      finalStep.finish('Done', ConsoleColor.cyan);
-      Logger.log('Build successful',
-          color: ConsoleColor.brightWhite,
-          prefix: '\n•',
-          prefixFG: ConsoleColor.brightGreen);
-      exit(0);
-    }
+    step.finishOk('Done');
+
+    Logger.log('Build successful',
+        color: ConsoleColor.brightWhite,
+        prefix: '\n• ',
+        prefixFG: ConsoleColor.brightGreen);
+    exit(0);
+  }
+
+  void _failBuild() {
+    Logger.log('Build failed',
+        color: ConsoleColor.brightWhite,
+        prefix: '\n• ',
+        prefixFG: ConsoleColor.brightRed);
+    exit(1);
   }
 }

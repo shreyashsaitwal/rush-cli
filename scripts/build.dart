@@ -6,7 +6,6 @@ import 'package:path/path.dart' as p;
 import 'package:dio/dio.dart';
 import 'package:archive/archive.dart';
 import 'package:process_run/shell.dart';
-import 'package:rush_cli/templates/build_xml.dart';
 import 'package:rush_cli/templates/license-apache.dart';
 import 'package:rush_cli/templates/license_template.dart';
 
@@ -20,8 +19,6 @@ Future<void> main(List<String> args) async {
 
   final res = parser.parse(args);
 
-  await _getAnt();
-  await _getAntContribAndD8();
   await _getJetifier();
   await _getProGuard();
 
@@ -41,7 +38,8 @@ Future<void> main(List<String> args) async {
 
     final tempDirForRuntime = Directory(p.join('temp', 'runtime-temp'))
       ..createSync(recursive: true);
-    _extractZip(runtime.path, tempDirForRuntime.path, 'Extracting runtime.jar...');
+    _extractZip(
+        runtime.path, tempDirForRuntime.path, 'Extracting runtime.jar...');
     final runtimeCls = File(p.join(tempDirForRuntime.path, 'classes.jar'));
 
     _copyDir(deps.path, p.join('build', 'dev-deps'), p.join('temp', 'temp'));
@@ -231,45 +229,6 @@ void _copyDir(String src, String dest, String temp) {
       _copyDir(entity.path, newDest.path, temp);
     }
   });
-}
-
-Future<void> _getAnt() async {
-  if (!Directory(p.join(p.current, 'build', 'tools', 'apache-ant-1.10.9'))
-      .existsSync()) {
-    await _download(
-        'https://downloads.apache.org//ant/binaries/apache-ant-1.10.9-bin.zip',
-        p.join(p.current, 'build', 'tools', 'apache-ant.zip'),
-        'Downloading apache-ant...');
-    _extractZip(p.join(p.current, 'build', 'tools', 'apache-ant.zip'),
-        p.join(p.current, 'build', 'tools'), 'Extracting apache-ant.zip...');
-
-    File(p.join(p.current, 'build', 'tools', 'apache-ant-1.10.9', 'build.xml'))
-      ..createSync(recursive: true)
-      ..writeAsStringSync(getBuildXml());
-
-    Directory(
-            p.join(p.current, 'build', 'tools', 'apache-ant-1.10.9', 'manual'))
-        .deleteSync(recursive: true);
-  }
-}
-
-Future<void> _getAntContribAndD8() async {
-  if (!Directory(p.join(p.current, 'build', 'tools', 'ant-contrib'))
-      .existsSync()) {
-    await _download(
-        'https://drive.google.com/u/0/uc?id=1c4EXJcJigoUEtKs6-CZkEuculWkZ5xvJ&export=download',
-        p.join(p.current, 'build', 'tools', 'ant-contrib.zip'),
-        'Downloading ant-contrib...');
-    _extractZip(p.join(p.current, 'build', 'tools', 'ant-contrib.zip'),
-        p.join(p.current, 'build', 'tools'), 'Extracting ant-contrib.zip...');
-  }
-
-  if (!File(p.join(p.current, 'build', 'tools', 'd8.jar')).existsSync()) {
-    await _download(
-        'https://drive.google.com/u/0/uc?id=1iBjBaX07HbF9JZBVRtGntk5wXaFRCuFE&export=download',
-        p.join(p.current, 'build', 'tools', 'd8.jar'),
-        'Downloading D8...');
-  }
 }
 
 Future<void> _getJetifier() async {

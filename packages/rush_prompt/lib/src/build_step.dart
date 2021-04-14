@@ -23,7 +23,7 @@ class BuildStep {
     if (addSpace) {
       console
         ..setForegroundColor(ConsoleColor.brightBlack)
-        ..writeLine('│ ')
+        ..writeErrorLine('│ ')
         ..resetColorAttributes();
     }
     console
@@ -41,7 +41,7 @@ class BuildStep {
     }
 
     console
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..setForegroundColor(ConsoleColor.red)
       ..writeErrorLine(msg)
       ..resetColorAttributes();
   }
@@ -63,13 +63,13 @@ class BuildStep {
       console
         ..setBackgroundColor(ConsoleColor.yellow)
         ..setForegroundColor(ConsoleColor.black)
-        ..write('ERR')
+        ..write('WARN')
         ..resetColorAttributes()
         ..write(' ');
     }
 
     console
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..setForegroundColor(ConsoleColor.yellow)
       ..writeErrorLine(msg)
       ..resetColorAttributes();
   }
@@ -111,12 +111,23 @@ class BuildStep {
   }
 
   /// Finishes this step.
-  void finish(String msg, ConsoleColor clr) {
+  void finishOk(String msg) {
     console
       ..setForegroundColor(ConsoleColor.brightBlack)
       ..write('└ ')
       ..resetColorAttributes()
-      ..setForegroundColor(clr)
+      ..setForegroundColor(ConsoleColor.green)
+      ..writeLine(msg)
+      ..resetColorAttributes();
+  }
+
+  /// Finishes this step.
+  void finishNotOk(String msg) {
+    console
+      ..setForegroundColor(ConsoleColor.brightBlack)
+      ..write('└ ')
+      ..resetColorAttributes()
+      ..setForegroundColor(ConsoleColor.red)
       ..writeLine(msg)
       ..resetColorAttributes();
   }

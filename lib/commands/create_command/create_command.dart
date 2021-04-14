@@ -135,6 +135,7 @@ class CreateCommand extends Command with CopyMixin {
     Hive.init(p.join(projectDir, '.rush'));
     var box = await Hive.openBox('data');
     await box.putAll({
+      'name': pascalCasedName,
       'version': 1,
       'org': orgName,
       'rushYmlLastMod': DateTime.now(),

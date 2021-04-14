@@ -3,7 +3,8 @@ import 'dart:io' show Directory, File, FileSystemEntity;
 
 mixin CopyMixin {
   /// Copies the contents of [source] dir to the [dest] dir.
-  void copyDir(Directory source, Directory dest, {List<FileSystemEntity>? ignore}) {
+  void copyDir(Directory source, Directory dest,
+      {List<FileSystemEntity>? ignore}) {
     var files = source.listSync();
     for (final entity in files) {
       if (ignore != null && ignore.contains(entity)) {
