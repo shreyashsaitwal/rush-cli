@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:yaml/yaml.dart';
 
 /// Mixin to check if the rush.yaml file is valid.
-mixin IsYamlValid {
-  bool check(File? yaml, YamlMap yml) {
+class IsYamlValid {
+  static bool check(File? yaml, YamlMap yml) {
     final valMap = {
       'name': yml['name'],
       'desc': yml['description'],

@@ -2,8 +2,8 @@ import 'dart:io' show Platform, Directory;
 
 import 'package:path/path.dart' as path;
 
-mixin AppDataMixin {
-  String? dataStorageDir() {
+class RushDataDir {
+  static String? dataDir() {
     var os = Platform.operatingSystem;
     late var appDataDir;
 

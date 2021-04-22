@@ -3,11 +3,10 @@ import 'dart:io';
 import 'package:dart_console/dart_console.dart';
 import 'package:path/path.dart' as p;
 import 'package:args/command_runner.dart';
-import 'package:rush_cli/commands/build_command/helper.dart';
-import 'package:rush_cli/commands/create_command/casing.dart';
+import 'package:rush_cli/helpers/copy.dart';
+import 'package:rush_cli/helpers/utils.dart';
+import 'package:rush_cli/helpers/casing.dart';
 import 'package:rush_cli/java/javac.dart';
-import 'package:rush_cli/mixins/app_data_dir_mixin.dart';
-import 'package:rush_cli/mixins/copy_mixin.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
 import 'package:rush_cli/templates/iml_template.dart';
 import 'package:rush_cli/templates/libs_xml.dart';
@@ -17,11 +16,11 @@ import 'package:rush_cli/templates/readme_template.dart';
 import 'package:rush_cli/templates/rules_pro.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-class MigrateCommand extends Command with AppDataMixin, CopyMixin {
-  final String cd;
-  final String binDir;
+class MigrateCommand extends Command {
+  final String _cd;
+  final String _dataDir;
 
-  MigrateCommand(this.cd, this.binDir);
+  MigrateCommand(this._cd, this._dataDir);
 
   @override
   String get description =>
@@ -50,12 +49,12 @@ class MigrateCommand extends Command with AppDataMixin, CopyMixin {
 
   @override
   Future<void> run() async {
-    final dir = Directory(p.join(dataStorageDir()!, 'cache'))..createSync();
+    final dir = Directory(p.join(_dataDir, 'cache'))..createSync();
     final outputDir = Directory(dir.path).createTempSync();
 
     final compStep = BuildStep('Introspecting the Java files')..init();
 
-    final javac = Javac();
+    final javac = Javac(_cd, _dataDir);
     await javac.compile(
       CompileType.migrate,
       compStep,
@@ -104,9 +103,9 @@ class MigrateCommand extends Command with AppDataMixin, CopyMixin {
             .basenameWithoutExtension(genFiles['rushYml']!.first.path)
             .split('rush-')
             .last;
-        final package = Helper.getPackage(extName, p.join(cd, 'src'));
+        final package = Helper.getPackage(extName, p.join(_cd, 'src'));
         final projectDir =
-            Directory(p.join(p.dirname(cd), Casing.kebabCase(extName)))
+            Directory(p.join(p.dirname(_cd), Casing.kebabCase(extName)))
               ..createSync(recursive: true);
 
         final rushYmlDest = p.join(projectDir.path, 'rush.yml');
@@ -144,12 +143,12 @@ class MigrateCommand extends Command with AppDataMixin, CopyMixin {
   /// This doesn't perform any checks, just copies everything except the assets and
   /// aiwebres directory.
   void _copySrcFiles(String package, String projectDirPath, BuildStep step) {
-    final baseDir = Directory(p.joinAll([cd, 'src', ...package.split('.')]));
+    final baseDir = Directory(p.joinAll([_cd, 'src', ...package.split('.')]));
     final dest =
         Directory(p.joinAll([projectDirPath, 'src', ...package.split('.')]))
           ..createSync(recursive: true);
 
-    copyDir(baseDir, dest, ignore: [
+    Copy.copyDir(baseDir, dest, ignore: [
       Directory(p.join(baseDir.path, 'assets')),
       Directory(p.join(baseDir.path, 'aiwebres')),
     ]);
@@ -162,19 +161,19 @@ class MigrateCommand extends Command with AppDataMixin, CopyMixin {
   /// Copies extension assets and icon.
   void _copyAssets(String package, String projectDirPath, BuildStep step) {
     final baseDir =
-        Directory(p.joinAll([cd, 'src', ...package.split('.'), 'assets']));
+        Directory(p.joinAll([_cd, 'src', ...package.split('.'), 'assets']));
 
     final assetsDir = Directory(p.join(baseDir.path, 'assets'));
     final assetsDest = Directory(p.join(projectDirPath, 'assets'))
       ..createSync();
 
     if (assetsDir.existsSync() && assetsDir.listSync().isNotEmpty) {
-      copyDir(assetsDir, assetsDest);
+      Copy.copyDir(assetsDir, assetsDest);
     }
 
     final aiwebres = Directory(p.join(baseDir.path, 'aiwebres'));
     if (aiwebres.existsSync() && aiwebres.listSync().isNotEmpty) {
-      copyDir(aiwebres, assetsDest);
+      Copy.copyDir(aiwebres, assetsDest);
     }
     step.log('Copied assets', ConsoleColor.cyan,
         prefix: 'OK',
@@ -184,15 +183,15 @@ class MigrateCommand extends Command with AppDataMixin, CopyMixin {
 
   /// Copies all necessary deps.
   void _copyDeps(String projectDir, BuildStep step) {
-    final devDeps = Directory(p.join(p.dirname(binDir), 'dev-deps'));
+    final devDeps = Directory(p.join(_dataDir, 'dev-deps'));
     final devDepsDest = Directory(p.join(projectDir, '.rush', 'dev-deps'))
       ..createSync(recursive: true);
-    copyDir(devDeps, devDepsDest);
+    Copy.copyDir(devDeps, devDepsDest);
 
-    final deps = Directory(p.join(cd, 'lib', 'deps'));
+    final deps = Directory(p.join(_cd, 'lib', 'deps'));
     final depsDest = Directory(p.join(projectDir, 'deps'))..createSync();
     if (deps.existsSync() && deps.listSync().isNotEmpty) {
-      copyDir(deps, depsDest);
+      Copy.copyDir(deps, depsDest);
     } else {
       _writeFile(p.join(depsDest.path, '.placeholder'),
           'This directory stores your extension\'s depenedencies.');
@@ -206,7 +205,7 @@ class MigrateCommand extends Command with AppDataMixin, CopyMixin {
   /// Generates files like readme, proguard-rules.pro, etc.
   void _genNecessaryFiles(String extName) {
     final kebabCasedName = Casing.kebabCase(extName);
-    final projectDir = p.join(p.dirname(cd), kebabCasedName);
+    final projectDir = p.join(p.dirname(_cd), kebabCasedName);
 
     _writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'), getPgRules());
     _writeFile(p.join(projectDir, 'README.md'), getReadme(extName));

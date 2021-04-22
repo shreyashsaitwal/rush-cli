@@ -1,9 +1,9 @@
 import 'package:path/path.dart' as p;
 import 'dart:io' show Directory, File, FileSystemEntity;
 
-mixin CopyMixin {
+mixin Copy {
   /// Copies the contents of [source] dir to the [dest] dir.
-  void copyDir(Directory source, Directory dest,
+  static void copyDir(Directory source, Directory dest,
       {List<FileSystemEntity>? ignore}) {
     var files = source.listSync();
     for (final entity in files) {

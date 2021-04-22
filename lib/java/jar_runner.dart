@@ -2,16 +2,17 @@ import 'dart:io' show Directory, File, Platform;
 
 import 'package:process_runner/process_runner.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/helpers/copy.dart';
 import 'package:rush_cli/java/helper.dart';
-import 'package:rush_cli/mixins/app_data_dir_mixin.dart';
-import 'package:rush_cli/mixins/copy_mixin.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 enum JarType { processor, d8, d8sup, proguard, jar, jetifier }
 
-class JarRunner with AppDataMixin, CopyMixin {
-  final _cd = p.current;
-  final _rushDir = p.dirname(p.dirname(Platform.resolvedExecutable));
+class JarRunner {
+  final String _cd;
+  final String _dataDir;
+
+  JarRunner(this._cd, this._dataDir);
 
   /// Runs the specified [type] of JAR, printing the required stdout and the whole
   /// stderr.
@@ -35,7 +36,7 @@ class JarRunner with AppDataMixin, CopyMixin {
         args.addAll(_getD8Args(org, true));
         break;
       case JarType.jar:
-        dwd = p.join(dataStorageDir()!, 'workspaces', org, 'raw-classes', org);
+        dwd = p.join(_dataDir, 'workspaces', org, 'raw-classes', org);
         args.addAll(_getJarArgs(org, dwd));
         break;
       case JarType.proguard:
@@ -111,17 +112,17 @@ class JarRunner with AppDataMixin, CopyMixin {
     final args = <String>['java'];
 
     final devDeps = Directory(p.join(_cd, '.rush', 'dev-deps'));
-    final processor = Directory(p.join(_rushDir, 'tools', 'processor'));
+    final processor = Directory(p.join(_dataDir, 'tools', 'processor'));
 
     final classpath = Helper.generateClasspath([devDeps, processor]);
 
     final classesDir =
-        Directory(p.join(dataStorageDir()!, 'workspaces', org, 'classes'));
+        Directory(p.join(_dataDir, 'workspaces', org, 'classes'));
     final rawClassesDir =
-        Directory(p.join(dataStorageDir()!, 'workspaces', org, 'raw-classes'))
+        Directory(p.join(_dataDir, 'workspaces', org, 'raw-classes'))
           ..createSync(recursive: true);
     final rawDirX =
-        Directory(p.join(dataStorageDir()!, 'workspaces', org, 'raw', 'x'))
+        Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'x'))
           ..createSync(recursive: true);
 
     final deps = p.join(_cd, 'deps');
@@ -147,11 +148,11 @@ class JarRunner with AppDataMixin, CopyMixin {
   List<String> _getD8Args(String org, bool isSup) {
     final args = <String>['java'];
 
-    final d8 = File(p.join(_rushDir, 'tools', 'd8.jar'));
+    final d8 = File(p.join(_dataDir, 'tools', 'other', 'd8.jar'));
     final rawOrgDirX = Directory(
-        p.join(dataStorageDir()!, 'workspaces', org, 'raw', 'x', org));
+        p.join(_dataDir, 'workspaces', org, 'raw', 'x', org));
     final rawOrgDirSup = Directory(
-        p.join(dataStorageDir()!, 'workspaces', org, 'raw', 'sup', org));
+        p.join(_dataDir, 'workspaces', org, 'raw', 'sup', org));
 
     final rawPath = isSup ? rawOrgDirSup.path : rawOrgDirX.path;
     args
@@ -188,7 +189,7 @@ class JarRunner with AppDataMixin, CopyMixin {
 
   /// Returns the args required for running ProGuard
   List<String> _getPgArgs(String org) {
-    final proguardJar = File(p.join(_rushDir, 'tools', 'proguard.jar'));
+    final proguardJar = File(p.join(_dataDir, 'tools', 'other', 'proguard.jar'));
 
     final devDeps = Directory(p.join(_cd, '.rush', 'dev-deps'));
     final deps = Directory(p.join(_cd, 'deps'));
@@ -196,7 +197,7 @@ class JarRunner with AppDataMixin, CopyMixin {
     final libraryJars = Helper.generateClasspath([devDeps, deps]);
 
     final rawClasses =
-        Directory(p.join(dataStorageDir()!, 'workspaces', org, 'raw-classes'));
+        Directory(p.join(_dataDir, 'workspaces', org, 'raw-classes'));
     final injar = File(p.join(rawClasses.path, '$org.jar'));
     final outjar = File(p.join(rawClasses.path, '${org}_pg.jar'));
 
@@ -215,22 +216,22 @@ class JarRunner with AppDataMixin, CopyMixin {
   /// Returns the args required for running jetifier-standalone.
   List<String> _getJetifierArgs(String org) {
     final rawOrgDir = Directory(
-        p.join(dataStorageDir()!, 'workspaces', org, 'raw', 'x', org));
+        p.join(_dataDir, 'workspaces', org, 'raw', 'x', org));
     final rawOrgDirSup = Directory(
-        p.join(dataStorageDir()!, 'workspaces', org, 'raw', 'sup', org))
+        p.join(_dataDir, 'workspaces', org, 'raw', 'sup', org))
       ..createSync(recursive: true);
 
-    copyDir(rawOrgDir, rawOrgDirSup);
+    Copy.copyDir(rawOrgDir, rawOrgDirSup);
 
     final androidRuntimeSup =
         File(p.join(rawOrgDirSup.path, 'files', 'AndroidRuntime.jar'));
 
     final exe;
     if (Platform.isWindows) {
-      exe = p.join(_rushDir, 'tools', 'jetifier-standalone', 'bin',
+      exe = p.join(_dataDir, 'tools', 'jetifier-standalone', 'bin',
           'jetifier-standalone.bat');
     } else {
-      exe = p.join(_rushDir, 'tools', 'jetifier-standalone', 'bin',
+      exe = p.join(_dataDir, 'tools', 'jetifier-standalone', 'bin',
           'jetifier-standalone');
     }
 

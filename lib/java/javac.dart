@@ -1,17 +1,18 @@
-import 'dart:io' show Directory, File, Platform;
+import 'dart:io' show Directory, File;
 
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_runner/process_runner.dart';
 import 'package:rush_cli/java/helper.dart';
-import 'package:rush_cli/mixins/app_data_dir_mixin.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 enum CompileType { build, migrate }
 
-class Javac with AppDataMixin {
-  final _cd = p.current;
-  final _rushDir = p.dirname(p.dirname(Platform.resolvedExecutable));
+class Javac {
+  final String _cd;
+  final String _dataDir;
+
+  Javac(this._cd, this._dataDir);
 
   Future<void> compile(CompileType type, BuildStep step,
       {required Function() onDone,
@@ -96,12 +97,13 @@ class Javac with AppDataMixin {
 
     final srcDir = Directory(p.join(_cd, 'src'));
     final classesDir =
-        Directory(p.join(dataStorageDir()!, 'workspaces', org, 'classes'))
+        Directory(p.join(_dataDir, 'workspaces', org, 'classes'))
           ..createSync(recursive: true);
 
     final devDeps = Directory(p.join(_cd, '.rush', 'dev-deps'));
     final deps = Directory(p.join(_cd, 'deps'));
-    final processor = Directory(p.join(_rushDir, 'tools', 'processor'));
+    final processor =
+        Directory(p.join(_dataDir, 'tools', 'processor'));
 
     final javacArgs = <String>[
       '-Xlint:-options',
@@ -128,11 +130,11 @@ class Javac with AppDataMixin {
   List<String> _generateMigratorArgs(Directory output) {
     final devDeps = Directory(p.join(_cd, 'lib', 'appinventor'));
     final deps = Directory(p.join(_cd, 'lib', 'deps'));
-    final migrator = File(p.join(_rushDir, 'tools', 'migrator.jar'));
+    final migrator =
+        File(p.join(_dataDir, 'tools', 'other', 'migrator.jar'));
 
-    final classpath = Helper.generateClasspath([devDeps, deps, migrator], exclude: [
-      'AnnotationProcessors.jar'
-    ]);
+    final classpath = Helper.generateClasspath([devDeps, deps, migrator],
+        exclude: ['AnnotationProcessors.jar']);
     final javacArgs = <String>[
       '-Xlint:-options',
       '-AoutputDir=${output.path}',

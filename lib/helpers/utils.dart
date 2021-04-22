@@ -3,46 +3,10 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:dart_console/dart_console.dart';
+import 'package:rush_cli/helpers/copy.dart';
 import 'package:rush_prompt/rush_prompt.dart';
-import 'package:rush_cli/mixins/copy_mixin.dart';
 
-class Helper with CopyMixin {
-  /// Checks if [out] is an useful ProGuard output.
-  static bool isProGuardOutput(String out) {
-    final useless = [
-      '[proguard] ProGuard, version 7.1.0-beta1',
-      '[proguard] ProGuard is released under the GNU General Public License. You therefore',
-      '[proguard] must ensure that programs that link to it (net.sf.antcontrib.logic, ...)',
-      '[proguard] carry the GNU General Public License as well. Alternatively, you can',
-      '[proguard] apply for an exception with the author of ProGuard.',
-    ];
-
-    if (!useless.contains(out.trim()) &&
-        out.startsWith(RegExp(r'\s\[proguard\]', caseSensitive: true))) {
-      return true;
-    }
-
-    return false;
-  }
-
-  /// Converts the given list of decimal char codes into string list and removes
-  /// empty lines from it.
-  static List<String> format(List<int> charcodes) {
-    final stringified = String.fromCharCodes(charcodes);
-    final List res = <String>[];
-
-    stringified.split('\r\n').forEach((el) {
-      final antKeywords =
-          RegExp(r'\[(javac|java|mkdir|zip)\]', caseSensitive: true);
-
-      if ('$el'.trim().isNotEmpty) {
-        res.add(el.trimRight().replaceAll(antKeywords, ''));
-      }
-    });
-
-    return res as List<String>;
-  }
-
+class Helper {
   /// Copys the dev deps in case they are not present.
   /// This might be needed when the project is cloned from a VCS.
   void copyDevDeps(String scriptPath, String cd) {
@@ -56,7 +20,7 @@ class Helper with CopyMixin {
           color: ConsoleColor.brightWhite,
           prefix: '\n•',
           prefixFG: ConsoleColor.yellow);
-      copyDir(devDepsCache, devDepsDir);
+      Copy.copyDir(devDepsCache, devDepsDir);
     }
   }
 
@@ -104,6 +68,7 @@ class Helper with CopyMixin {
     return package;
   }
 
+  /// Extracts JAR file from [filePath] and saves the content to [saveTo].
   static void extractJar(String filePath, String saveTo) {
     final file = File(filePath);
     if (!file.existsSync()) {

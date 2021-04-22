@@ -7,10 +7,12 @@ import 'package:process_run/which.dart';
 import 'package:rush_cli/commands/build_command/build_command.dart';
 import 'package:rush_cli/commands/create_command/create_command.dart';
 import 'package:rush_cli/commands/migrate_command/migrate_command.dart';
+import 'package:rush_cli/helpers/app_data_dir.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 import 'package:yaml/yaml.dart';
 
-final cd = Directory.current.path;
+final _cd = Directory.current.path;
+final _dataDir = RushDataDir.dataDir()!;
 
 void main(List<String> args) {
   final runner = RushCommandRunner(
@@ -24,9 +26,9 @@ void main(List<String> args) {
   });
 
   runner
-    ..addCommand(CreateCommand(cd))
-    ..addCommand(BuildCommand(cd))
-    ..addCommand(MigrateCommand(cd, p.dirname(whichSync('rush')!)))
+    ..addCommand(CreateCommand(_cd, _dataDir))
+    ..addCommand(BuildCommand(_cd, _dataDir))
+    ..addCommand(MigrateCommand(_cd, _dataDir))
     ..run(args).catchError((err) {
       if (err is UsageException) {
         runner.printUsage();

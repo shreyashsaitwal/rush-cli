@@ -6,22 +6,19 @@ import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_run/which.dart';
-import 'package:process_runner/process_runner.dart';
-import 'package:rush_cli/commands/build_command/helper.dart';
+import 'package:rush_cli/helpers/is_yaml_valid.dart';
+import 'package:rush_cli/helpers/utils.dart';
 import 'package:rush_cli/java/javac.dart';
 import 'package:rush_cli/java/jar_runner.dart';
 
-import 'package:rush_cli/mixins/app_data_dir_mixin.dart';
-import 'package:rush_cli/mixins/copy_mixin.dart';
-import 'package:rush_cli/mixins/is_yaml_valid.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 import 'package:yaml/yaml.dart';
 
-class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
+class BuildCommand extends Command {
   final String _cd;
-  final _rushDir = p.dirname(p.dirname(Platform.resolvedExecutable));
+  final String _dataDir;
 
-  BuildCommand(this._cd) {
+  BuildCommand(this._cd, this._dataDir) {
     argParser
       ..addFlag('release',
           abbr: 'r',
@@ -146,7 +143,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
       _failBuild();
     }
 
-    if (!check(rushYml, loadedYml!)) {
+    if (!IsYamlValid.check(rushYml, loadedYml!)) {
       valStep
         ..logErr(
             'One or more necessary fields are missing in the metadata file (rush.yml)')
@@ -180,8 +177,6 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
       );
     }
     valStep.finishOk('Done');
-
-    final dataDir = dataStorageDir();
 
     Hive.init(p.join(_cd, '.rush'));
     final dataBox = await Hive.openBox('data');
@@ -218,7 +213,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
     var areFilesModified = isYmlMod || isSrcDirMod;
 
     if (areFilesModified) {
-      Helper.cleanDir(p.join(dataDir!, 'workspaces', dataBox.get('org')));
+      Helper.cleanDir(p.join(_dataDir, 'workspaces', dataBox.get('org')));
     }
 
     // Update version number stored in box if it doesn't matches with the
@@ -234,7 +229,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
     if (isProd && extVerYml == 'auto') {
       var version = extVerBox + 1;
       await dataBox.put('version', version);
-      Helper.cleanDir(p.join(dataDir!, 'workspaces', dataBox.get('org')));
+      Helper.cleanDir(p.join(_dataDir, 'workspaces', dataBox.get('org')));
       areFilesModified = true;
     }
 
@@ -242,7 +237,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
     if (argResults!['optimize']) {
       optimize = true;
     } else if (isProd) {
-      if ((loadedYml['release']['optimize'] ?? false) &&
+      if ((loadedYml['release']?['optimize'] ?? false) &&
           !argResults!['no-optimize']) {
         optimize = true;
       } else {
@@ -257,7 +252,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
 
   Future<void> _compile(Box dataBox, bool optimize) async {
     final compStep = BuildStep('Compiling Java files')..init();
-    final javac = Javac();
+    final javac = Javac(_cd, _dataDir);
 
     await javac.compile(
       CompileType.build,
@@ -280,9 +275,9 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
     final rulesPro = File(p.join(_cd, 'src', 'proguard-rules.pro'));
 
     if (optimize && rulesPro.existsSync()) {
-      step = BuildStep('Optimizing your extension')..init();
+      step = BuildStep('Optimizing the extension')..init();
     } else {
-      step = BuildStep('Processing your extension')..init();
+      step = BuildStep('Processing the extension')..init();
       if (!rulesPro.existsSync() && optimize) {
         step.logWarn(
             'Unable to find \'proguard-rules.pro\' in \'src\' directory.',
@@ -292,7 +287,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
     }
 
     // Run the rush annotation processor
-    final runner = JarRunner();
+    final runner = JarRunner(_cd, _dataDir);
     runner.run(
       JarType.processor,
       org,
@@ -307,8 +302,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
             final jar = File(jarPath);
 
             if (jar.existsSync()) {
-              final destDir = Directory(p.join(dataStorageDir()!, 'workspaces',
-                  org, 'raw', 'x', org, 'files'))
+              final destDir = Directory(
+                  p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'files'))
                 ..createSync(recursive: true);
 
               jar.copySync(p.join(destDir.path, 'AndroidRuntime.jar'));
@@ -322,8 +317,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
                     if (!needDejet) {
                       // Delete the raw/sup directory so that support version of
                       // the extension isn't generated.
-                      Directory(p.join(dataStorageDir()!, 'workspaces', org,
-                              'raw', 'sup'))
+                      Directory(
+                              p.join(_dataDir, 'workspaces', org, 'raw', 'sup'))
                           .deleteSync(recursive: true);
 
                       step
@@ -371,8 +366,8 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
   void _jarExtension(
       String org, BuildStep processStep, bool optimize, bool dejet,
       {required Function onSuccess}) {
-    final rawClassesDir = Directory(
-        p.join(dataStorageDir()!, 'workspaces', org, 'raw-classes', org));
+    final rawClassesDir =
+        Directory(p.join(_dataDir, 'workspaces', org, 'raw-classes', org));
 
     // Unjar dependencies
     for (final entity in rawClassesDir.listSync()) {
@@ -382,7 +377,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
     }
 
     // Run the jar command-line tool. It is used to generate a JAR.
-    final runner = JarRunner();
+    final runner = JarRunner(_cd, _dataDir);
     runner.run(
       JarType.jar,
       org,
@@ -423,7 +418,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
   /// ProGuards the extension.
   void _optimize(String org, BuildStep processStep,
       {required Function onSuccess, required Function onError}) {
-    final runner = JarRunner();
+    final runner = JarRunner(_cd, _dataDir);
     runner.run(
       JarType.proguard,
       org,
@@ -435,7 +430,7 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
 
   void _dejetify(String org, BuildStep processStep,
       {required Function onSuccess, required Function onError}) {
-    final runner = JarRunner();
+    final runner = JarRunner(_cd, _dataDir);
     runner.run(
       JarType.jetifier,
       org,
@@ -450,14 +445,13 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
   void _dex(String org, bool dejet) {
     final step = BuildStep('Converting Java bytecode to DEX bytecode')..init();
 
-    final runner = JarRunner();
+    final runner = JarRunner(_cd, _dataDir);
     runner.run(
       JarType.d8,
       org,
       step,
       onSuccess: () {
         if (dejet) {
-          final runner = JarRunner();
           runner.run(
             JarType.d8sup,
             org,
@@ -487,10 +481,9 @@ class BuildCommand extends Command with AppDataMixin, CopyMixin, IsYamlValid {
   void _assemble(String org) {
     final step = BuildStep('Finalizing the build')..init();
 
-    final rawDirX =
-        Directory(p.join(dataStorageDir()!, 'workspaces', org, 'raw', 'x'));
+    final rawDirX = Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'x'));
     final rawDirSup =
-        Directory(p.join(dataStorageDir()!, 'workspaces', org, 'raw', 'sup'));
+        Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'sup'));
 
     final outputDir = Directory(p.join(_cd, 'out'))
       ..createSync(recursive: true);

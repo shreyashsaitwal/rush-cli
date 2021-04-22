@@ -4,7 +4,7 @@ import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:process_run/which.dart';
+import 'package:rush_cli/helpers/copy.dart';
 import 'package:rush_cli/templates/rules_pro.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
@@ -12,20 +12,20 @@ import 'package:rush_cli/templates/iml_template.dart';
 import 'package:rush_cli/templates/libs_xml.dart';
 import 'package:rush_cli/templates/misc_xml.dart';
 import 'package:rush_cli/templates/modules_xml.dart';
-import 'package:rush_cli/commands/create_command/casing.dart';
+import 'package:rush_cli/helpers/casing.dart';
 import 'package:rush_cli/commands/create_command/questions.dart';
-import 'package:rush_cli/mixins/copy_mixin.dart';
 import 'package:rush_cli/templates/android_manifest.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
 import 'package:rush_cli/templates/readme_template.dart';
 import 'package:rush_cli/templates/rush_yaml_template.dart';
 import 'package:rush_cli/templates/extension_template.dart';
 
-class CreateCommand extends Command with CopyMixin {
+class CreateCommand extends Command {
   final String _cd;
+  final String _dataDir;
   String? extName;
 
-  CreateCommand(this._cd);
+  CreateCommand(this._cd, this._dataDir);
 
   @override
   String get description =>
@@ -63,8 +63,6 @@ class CreateCommand extends Command with CopyMixin {
       printUsage();
       exit(64); // Exit code 64 indicates usage error
     }
-
-    final scriptPath = whichSync('rush');
 
     PrintArt();
 
@@ -129,7 +127,7 @@ class CreateCommand extends Command with CopyMixin {
     }
 
     // Copy icon
-    File(p.join(scriptPath!.split('bin').first, 'tools', 'icon-rush.png'))
+    File(p.join(_dataDir, 'tools', 'other', 'icon-rush.png'))
         .copySync(p.join(projectDir, 'assets', 'icon.png'));
 
     Hive.init(p.join(projectDir, '.rush'));
@@ -143,13 +141,13 @@ class CreateCommand extends Command with CopyMixin {
     });
 
     // Copy dev-deps.
-    final devDepsDir = p.join(scriptPath.split('bin').first, 'dev-deps');
+    final devDepsDir = p.join(_dataDir, 'dev-deps');
 
     Logger.log('Getting things ready...',
         color: ConsoleColor.brightWhite,
-        prefix: '\n•',
+        prefix: '\n• ',
         prefixFG: ConsoleColor.yellow);
-    copyDir(Directory(devDepsDir),
+    Copy.copyDir(Directory(devDepsDir),
         Directory(p.join(projectDir, '.rush', 'dev-deps')));
 
     Console()

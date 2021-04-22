@@ -77,7 +77,7 @@ Future<void> main(List<String> args) async {
       ..writeAsStringSync(getApacheLicense());
   }
 
-  final iconDest = File(p.join(p.current, 'build', 'tools', 'icon-rush.png'));
+  final iconDest = File(p.join(p.current, 'build', 'tools', 'other', 'icon-rush.png'));
   final iconSrc = File(p.join(p.current, 'assets', 'icon-ext.png'));
   iconSrc.copySync(iconDest.path);
 
@@ -245,14 +245,14 @@ Future<void> _getJetifier() async {
 }
 
 Future<void> _getProGuard() async {
-  if (!Directory(p.join(p.current, 'build', 'tools', 'proguard'))
+  if (!Directory(p.join(p.current, 'build', 'tools', 'other', 'proguard'))
       .existsSync()) {
     await _download(
         'https://drive.google.com/u/0/uc?id=1gFu4-Qfa7efOubQERd0U6n8IlaHdludm&export=download',
-        p.join(p.current, 'build', 'tools', 'proguard'),
+        p.join(p.current, 'build', 'tools', 'other', 'proguard'),
         'Downloading ProGuard...');
 
-    _extractZip(p.join(p.current, 'build', 'tools', 'proguard'),
+    _extractZip(p.join(p.current, 'build', 'tools', 'other', 'proguard'),
         p.join(p.current, 'build', 'tools'), 'Extracting ProGuard...');
   }
 }
