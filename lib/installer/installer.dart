@@ -6,7 +6,6 @@ import 'package:dio/dio.dart';
 import 'package:filepicker_windows/filepicker_windows.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_run/shell.dart';
-import 'package:process_runner/process_runner.dart';
 import 'package:rush_cli/helpers/app_data_dir.dart';
 import 'package:rush_cli/installer/model/download_data.dart';
 import 'package:rush_prompt/rush_prompt.dart';
@@ -55,7 +54,6 @@ class Installer {
         }
 
         await _downloadRush(rushDirPath!);
-        await _exportPathUnix(rushDirPath);
 
         _printFooter(rushDirPath);
       }
@@ -72,10 +70,6 @@ class Installer {
         await _downloadRush(rushDir);
       }
 
-      if (!Platform.isWindows) {
-        await _exportPathUnix(p.join(rushDir, 'bin'));
-      }
-
       _printFooter(rushDir);
     }
   }
@@ -85,15 +79,12 @@ class Installer {
     final toolsDir = Directory(p.join(rushDir, 'tools'));
     final devDepsDir = Directory(p.join(rushDir, 'dev-deps'));
 
+    binDir.deleteSync(recursive: true);
     try {
-      binDir.deleteSync(recursive: true);
       toolsDir.deleteSync(recursive: true);
       devDepsDir.deleteSync(recursive: true);
-    } catch (e) {
-      Logger.logErr('Unable to delete old Rush files...', addSpace: true);
-      Logger.logErr(e.toString(), addPrefix: false);
-      _abort(1);
-    }
+      // ignore: empty_catches
+    } catch (e) {}
   }
 
   Future<void> _downloadRush(String rushDir) async {
@@ -153,7 +144,16 @@ class Installer {
   }
 
   Future<DownloadData> _fetch() async {
-    const endpoint = 'https://rush-api.shreyashsaitwal.repl.co/download';
+    final os;
+    if (Platform.isWindows) {
+      os = 'win';
+    } else if (Platform.isMacOS) {
+      os = 'mac';
+    } else {
+      os = 'linux';
+    }
+
+    final endpoint = 'https://rush-api.shreyashsaitwal.repl.co/download/$os';
     final dio = Dio();
 
     try {
@@ -165,43 +165,36 @@ class Installer {
     }
   }
 
-  Future<void> _exportPathUnix(String binDir) async {
-    await ProcessRunner().runProcess(['export', 'PATH="\$PATH:$binDir"']);
-  }
-
   void _printFooter(String rushInstPath) {
-    final console = Console()
+    final rushPath;
+    if (rushInstPath.endsWith('rush')) {
+      rushPath = rushInstPath;
+    } else {
+      rushPath = p.join(rushInstPath, 'rush');
+    }
+
+    Console()
       ..writeLine()
       ..setForegroundColor(ConsoleColor.brightGreen)
       ..write('Success! ')
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..write('Installed Rush in directory: ')
       ..setForegroundColor(ConsoleColor.cyan)
-      ..writeLine(rushInstPath)
+      ..writeLine(rushPath)
       ..writeLine()
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..writeLine(
+          'Now, update your PATH environment variable by adding the following path to it:')
+      ..setForegroundColor(ConsoleColor.cyan)
+      ..writeLine(p.join(rushPath, 'bin'))
+      ..resetColorAttributes()
+      ..writeLine()
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..write('For more info, visit here: ')
+      ..setForegroundColor(ConsoleColor.blue)
+      ..writeLine(
+          'https://github.com/ShreyashSaitwal/rush-cli/wiki/Installation')
       ..resetColorAttributes();
-
-    if (Platform.isWindows) {
-      console
-        ..setForegroundColor(ConsoleColor.brightWhite)
-        ..writeLine(
-            'Now, update your PATH environment variable for the current user by adding the following path to it:')
-        ..setForegroundColor(ConsoleColor.cyan)
-        ..writeLine(p.join(rushInstPath, 'rush', 'bin'))
-        ..resetColorAttributes()
-        ..writeLine()
-        ..setForegroundColor(ConsoleColor.brightWhite)
-        ..write('For more info, visit here: ')
-        ..setForegroundColor(ConsoleColor.blue)
-        ..writeLine(
-            'https://github.com/ShreyashSaitwal/rush-cli/wiki/Installation#windows-64-bit')
-        ..resetColorAttributes();
-    } else {
-      console
-        ..setForegroundColor(ConsoleColor.brightWhite)
-        ..writeLine(
-            'You\'re now all set up start building awesome extensions with Rush!');
-    }
 
     _abort(0);
   }

@@ -121,9 +121,8 @@ class JarRunner {
     final rawClassesDir =
         Directory(p.join(_dataDir, 'workspaces', org, 'raw-classes'))
           ..createSync(recursive: true);
-    final rawDirX =
-        Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'x'))
-          ..createSync(recursive: true);
+    final rawDirX = Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'x'))
+      ..createSync(recursive: true);
 
     final deps = p.join(_cd, 'deps');
 
@@ -149,10 +148,10 @@ class JarRunner {
     final args = <String>['java'];
 
     final d8 = File(p.join(_dataDir, 'tools', 'other', 'd8.jar'));
-    final rawOrgDirX = Directory(
-        p.join(_dataDir, 'workspaces', org, 'raw', 'x', org));
-    final rawOrgDirSup = Directory(
-        p.join(_dataDir, 'workspaces', org, 'raw', 'sup', org));
+    final rawOrgDirX =
+        Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'x', org));
+    final rawOrgDirSup =
+        Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'sup', org));
 
     final rawPath = isSup ? rawOrgDirSup.path : rawOrgDirX.path;
     args
@@ -171,7 +170,14 @@ class JarRunner {
 
   /// Returns the args required for running the jar tool, which is used create a JAR.
   List<String> _getJarArgs(String org, String dwd) {
-    final args = <String>['jar.exe', 'cf', '../$org.jar'];
+    final jar;
+    if (Platform.isWindows) {
+      jar = 'jar.exe';
+    } else {
+      jar = 'jar';
+    }
+
+    final args = <String>[jar, 'cf', '../$org.jar'];
 
     final rawClassesOrgDir = Directory(dwd);
 
@@ -189,7 +195,8 @@ class JarRunner {
 
   /// Returns the args required for running ProGuard
   List<String> _getPgArgs(String org) {
-    final proguardJar = File(p.join(_dataDir, 'tools', 'other', 'proguard.jar'));
+    final proguardJar =
+        File(p.join(_dataDir, 'tools', 'other', 'proguard.jar'));
 
     final devDeps = Directory(p.join(_cd, '.rush', 'dev-deps'));
     final deps = Directory(p.join(_cd, 'deps'));
@@ -215,11 +222,11 @@ class JarRunner {
 
   /// Returns the args required for running jetifier-standalone.
   List<String> _getJetifierArgs(String org) {
-    final rawOrgDir = Directory(
-        p.join(_dataDir, 'workspaces', org, 'raw', 'x', org));
-    final rawOrgDirSup = Directory(
-        p.join(_dataDir, 'workspaces', org, 'raw', 'sup', org))
-      ..createSync(recursive: true);
+    final rawOrgDir =
+        Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'x', org));
+    final rawOrgDirSup =
+        Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'sup', org))
+          ..createSync(recursive: true);
 
     Copy.copyDir(rawOrgDir, rawOrgDirSup);
 
