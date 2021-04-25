@@ -2,19 +2,17 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
-import 'package:path/path.dart' as p;
-import 'package:process_run/which.dart';
 import 'package:rush_cli/commands/build_command/build_command.dart';
 import 'package:rush_cli/commands/create_command/create_command.dart';
 import 'package:rush_cli/commands/migrate_command/migrate_command.dart';
 import 'package:rush_cli/helpers/app_data_dir.dart';
+import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
-import 'package:yaml/yaml.dart';
-
-final _cd = Directory.current.path;
-final _dataDir = RushDataDir.dataDir()!;
 
 void main(List<String> args) {
+  final _cd = Directory.current.path;
+  final _dataDir = RushDataDir.dataDir()!;
+
   final runner = RushCommandRunner(
       'rush', 'A new and improved way of building App Inventor 2 extensions.');
 
@@ -39,23 +37,16 @@ void main(List<String> args) {
 }
 
 void _printVersion() {
-  final scriptPath = whichSync('rush');
-  final info = loadYaml(
-      File(p.join(p.dirname(scriptPath!), 'build_info')).readAsStringSync());
-
-  final version = info['name'];
-  final builton = info['built_on'];
-
   PrintArt();
   Console()
     ..setForegroundColor(ConsoleColor.brightWhite)
     ..write('Version:   ')
     ..setForegroundColor(ConsoleColor.cyan)
-    ..writeLine(version.toString())
+    ..writeLine(rushVersion)
     ..setForegroundColor(ConsoleColor.brightWhite)
     ..write('Built on:  ')
     ..setForegroundColor(ConsoleColor.cyan)
-    ..writeLine(builton);
+    ..writeLine(rushBuiltOn);
   exit(0);
 }
 
