@@ -22,41 +22,7 @@ class Installer {
     }
 
     if (!_isRushInstalled()) {
-      if (Platform.isWindows) {
-        Logger.log(
-            'Please select the directory in which you wish to install Rush...');
-        await Future.delayed(Duration(seconds: 3));
-
-        final picker = DirectoryPicker()..hidePinnedPlaces = true;
-        final rushDir = picker.getDirectory();
-
-        if (rushDir == null) {
-          Logger.log('Installation failed; no directory selected...',
-              color: ConsoleColor.red);
-          _abort(1);
-        }
-
-        await _downloadRush(rushDir!.path);
-        _printFooter(rushDir.path);
-      } else {
-        Logger.log(
-            'Please enter the path to the directory you wish to install Rush:');
-        final rushDirPath =
-            stdin.readLineSync(encoding: Encoding.getByName('UTF-8')!);
-
-        if (rushDirPath == null || rushDirPath == '') {
-          Logger.logErr('Invalid directory...', addSpace: true);
-          _abort(1);
-        } else if (!Directory(rushDirPath).existsSync()) {
-          Logger.logErr('Directory $rushDirPath doesn\'t exist...',
-              addSpace: true);
-          _abort(1);
-        }
-
-        await _downloadRush(rushDirPath!);
-
-        _printFooter(rushDirPath);
-      }
+      await _freshInstall();
     } else {
       final rushDir = p.dirname(p.dirname(whichSync('rush')!));
       Logger.log('An old version of Rush was found at: $rushDir\n');
@@ -68,9 +34,49 @@ class Installer {
       if (shouldUpdate) {
         _deleteOldRush(rushDir);
         await _downloadRush(rushDir);
+      } else {
+        _abort(1);
       }
 
       _printFooter(rushDir);
+    }
+  }
+
+  Future<void> _freshInstall() async {
+    if (Platform.isWindows) {
+      Logger.log(
+          'Please select the directory in which you wish to install Rush...');
+      await Future.delayed(Duration(seconds: 3));
+
+      final picker = DirectoryPicker()..hidePinnedPlaces = true;
+      final rushDir = picker.getDirectory();
+
+      if (rushDir == null) {
+        Logger.log('Installation failed; no directory selected...',
+            color: ConsoleColor.red);
+        _abort(1);
+      }
+
+      await _downloadRush(rushDir!.path);
+      _printFooter(rushDir.path);
+    } else {
+      Logger.log(
+          'Please enter the path to the directory you wish to install Rush:');
+      final rushDirPath =
+          stdin.readLineSync(encoding: Encoding.getByName('UTF-8')!);
+
+      if (rushDirPath == null || rushDirPath == '') {
+        Logger.logErr('Invalid directory...', addSpace: true);
+        _abort(1);
+      } else if (!Directory(rushDirPath).existsSync()) {
+        Logger.logErr('Directory $rushDirPath doesn\'t exist...',
+            addSpace: true);
+        _abort(1);
+      }
+
+      await _downloadRush(rushDirPath!);
+
+      _printFooter(rushDirPath);
     }
   }
 
