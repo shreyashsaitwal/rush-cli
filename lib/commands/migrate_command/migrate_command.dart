@@ -127,7 +127,7 @@ class MigrateCommand extends Command {
 
         finalStep.finishOk('Done');
 
-        _printFooter(projectDir.path, Casing.kebabCase(extName));
+        _printFooter(projectDir.path, Casing.kebabCase(extName), extName);
       },
       onError: () {
         Logger.log('Build failed',
@@ -228,7 +228,7 @@ class MigrateCommand extends Command {
   }
 
   /// Prints the footer.
-  void _printFooter(String projectDir, String kebabCasedName) {
+  void _printFooter(String projectDir, String kebabCasedName, String extName) {
     Console()
       ..writeLine()
       ..setForegroundColor(ConsoleColor.green)
@@ -250,6 +250,11 @@ class MigrateCommand extends Command {
       ..write('into ')
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write('../' + kebabCasedName + '/')
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..writeLine(',')
+      ..write('remove all the unsupported annotations (like, @DesignerComponent, @UsesPermissions, etc) from ')
+      ..setForegroundColor(ConsoleColor.brightBlue)
+      ..write(extName + '.java')
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(', and')
       ..write(' ' * 2 + '- run ')
