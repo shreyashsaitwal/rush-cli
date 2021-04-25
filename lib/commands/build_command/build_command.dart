@@ -6,7 +6,7 @@ import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_run/which.dart';
-import 'package:rush_cli/helpers/is_yaml_valid.dart';
+import 'package:rush_cli/helpers/check_yaml.dart';
 import 'package:rush_cli/helpers/utils.dart';
 import 'package:rush_cli/java/javac.dart';
 import 'package:rush_cli/java/jar_runner.dart';
@@ -105,7 +105,7 @@ class BuildCommand extends Command {
         prefix: '• ',
         prefixFG: ConsoleColor.yellow);
 
-    final valStep = BuildStep('Validating project files');
+    final valStep = BuildStep('Checking project files');
     valStep.init();
 
     File rushYml;
@@ -121,7 +121,7 @@ class BuildCommand extends Command {
         valStep
           ..logErr('Metadata file (rush.yml) not found')
           ..finishNotOk('Failed');
-        _printFailMsg();
+        Utils.printFailMsg();
         exit(1);
       }
     }
@@ -135,28 +135,19 @@ class BuildCommand extends Command {
         ..logErr('Metadata file (rush.yml) is invalid')
         ..logErr(e.toString(), addPrefix: false, addSpace: true)
         ..finishNotOk('Failed');
-      _printFailMsg();
+      Utils.printFailMsg();
       exit(1);
     }
 
-    if (!IsYamlValid.check(rushYml, loadedYml)) {
-      valStep
-        ..logErr(
-            'One or more necessary fields are missing in the metadata file (rush.yml)')
-        ..finishNotOk('Failed');
-
-      _printFailMsg();
-      exit(1);
-    } else {
-      valStep.log(
-        'Metadata file (rush.yml)',
-        ConsoleColor.brightWhite,
-        addSpace: true,
-        prefix: 'OK',
-        prefBG: ConsoleColor.brightGreen,
-        prefFG: ConsoleColor.black,
-      );
-    }
+    CheckRushYml.check(rushYml, valStep);
+    valStep.log(
+      'Metadata file (rush.yml) found',
+      ConsoleColor.brightWhite,
+      addSpace: true,
+      prefix: 'OK',
+      prefBG: ConsoleColor.brightGreen,
+      prefFG: ConsoleColor.black,
+    );
 
     final manifestFile = File(p.join(_cd, 'src', 'AndroidManifest.xml'));
     if (!manifestFile.existsSync()) {
@@ -164,11 +155,11 @@ class BuildCommand extends Command {
         ..logErr('AndroidManifest.xml not found')
         ..finishNotOk('Failed');
 
-      _printFailMsg();
+      Utils.printFailMsg();
       exit(1);
     } else {
       valStep.log(
-        'AndroidManifest.xml file',
+        'AndroidManifest.xml file found',
         ConsoleColor.brightWhite,
         addSpace: true,
         prefix: 'OK',
@@ -185,9 +176,8 @@ class BuildCommand extends Command {
     Utils().copyDevDeps(_dataDir, _cd);
     await _updateBoxValues(dataBox, loadedYml);
 
-    var isYmlMod = rushYml
-        .lastModifiedSync()
-        .isAfter(await dataBox.get('rushYmlLastMod'));
+    var isYmlMod =
+        rushYml.lastModifiedSync().isAfter(await dataBox.get('rushYmlLastMod'));
 
     var isManifestMod = manifestFile
         .lastModifiedSync()
@@ -240,7 +230,7 @@ class BuildCommand extends Command {
             await dataBox.get('org'), optimize, argResults!['support-lib']);
       },
       onError: () {
-        _printFailMsg();
+        Utils.printFailMsg();
         exit(1);
       },
     );
@@ -315,7 +305,7 @@ class BuildCommand extends Command {
                   },
                   onError: () {
                     step.finishNotOk('Failed');
-                    _printFailMsg();
+                    Utils.printFailMsg();
                     exit(1);
                   },
                 );
@@ -328,7 +318,7 @@ class BuildCommand extends Command {
                 ..logErr('File not found: ' + jar.path)
                 ..finishNotOk('Failed');
 
-              _printFailMsg();
+              Utils.printFailMsg();
               exit(1);
             }
           },
@@ -336,7 +326,7 @@ class BuildCommand extends Command {
       },
       onError: () {
         step.finishNotOk('Failed');
-        _printFailMsg();
+        Utils.printFailMsg();
         exit(1);
       },
     );
@@ -382,7 +372,7 @@ class BuildCommand extends Command {
             },
             onError: () {
               processStep.finishNotOk('Failed');
-              _printFailMsg();
+              Utils.printFailMsg();
               exit(1);
             },
           );
@@ -392,7 +382,7 @@ class BuildCommand extends Command {
       },
       onError: () {
         processStep.finishNotOk('Failed');
-        _printFailMsg();
+        Utils.printFailMsg();
         exit(1);
       },
     );
@@ -445,7 +435,7 @@ class BuildCommand extends Command {
             },
             onError: () {
               step.finishNotOk('Failed');
-              _printFailMsg();
+              Utils.printFailMsg();
               exit(1);
             },
           );
@@ -456,7 +446,7 @@ class BuildCommand extends Command {
       },
       onError: () {
         step.finishNotOk('Failed');
-        _printFailMsg();
+        Utils.printFailMsg();
         exit(1);
       },
     );
@@ -529,12 +519,5 @@ class BuildCommand extends Command {
 
       await box.put('manifestLastMod', lastMod);
     }
-  }
-
-  void _printFailMsg() {
-    Logger.log('Build failed',
-        color: ConsoleColor.brightWhite,
-        prefix: '\n• ',
-        prefixFG: ConsoleColor.brightRed);
   }
 }

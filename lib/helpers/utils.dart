@@ -94,4 +94,11 @@ class Utils {
 
     file.deleteSync();
   }
+
+  static void printFailMsg() {
+    Logger.log('Build failed',
+        color: ConsoleColor.brightWhite,
+        prefix: '\n• ',
+        prefixFG: ConsoleColor.brightRed);
+  }
 }
