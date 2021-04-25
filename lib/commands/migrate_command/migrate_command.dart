@@ -103,7 +103,7 @@ class MigrateCommand extends Command {
             .basenameWithoutExtension(genFiles['rushYml']!.first.path)
             .split('rush-')
             .last;
-        final package = Helper.getPackage(extName, p.join(_cd, 'src'));
+        final package = Utils.getPackage(extName, p.join(_cd, 'src'));
         final projectDir =
             Directory(p.join(p.dirname(_cd), Casing.kebabCase(extName)))
               ..createSync(recursive: true);

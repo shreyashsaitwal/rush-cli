@@ -6,7 +6,7 @@ import 'package:dart_console/dart_console.dart';
 import 'package:rush_cli/helpers/copy.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-class Helper {
+class Utils {
   /// Copys the dev deps in case they are not present.
   /// This might be needed when the project is cloned from a VCS.
   void copyDevDeps(String scriptPath, String cd) {

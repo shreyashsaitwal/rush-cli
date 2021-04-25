@@ -94,14 +94,6 @@ class BuildCommand extends Command {
   Future<void> run() async {
     PrintArt();
 
-    final scriptPath = whichSync('rush');
-
-    if (scriptPath == p.join(_cd, 'rush')) {
-      Logger.logErr(
-          'Uh, oh! Looks like you\'re using an unsupported terminal.\nPlease try using another terminal.',
-          exitCode: 64);
-    }
-
     if (await which('java') == null) {
       Logger.logErr(
           'Uh, oh! Looks like you\'re don\'t have JDK installed on your system.\nPlease download and install JDK version 1.8 or above.',
@@ -113,42 +105,48 @@ class BuildCommand extends Command {
         prefix: '• ',
         prefixFG: ConsoleColor.yellow);
 
-    Helper().copyDevDeps(scriptPath!, _cd);
-
     final valStep = BuildStep('Validating project files');
     valStep.init();
 
-    File? rushYml;
-    // Check if rush.yml exists and is valid
-    if (File(p.join(_cd, 'rush.yaml')).existsSync()) {
-      rushYml = File(p.join(_cd, 'rush.yaml'));
-    } else if (File(p.join(_cd, 'rush.yml')).existsSync()) {
-      rushYml = File(p.join(_cd, 'rush.yml'));
-    } else {
-      valStep
-        ..logErr('Metadata file (rush.yml) not found')
-        ..finishNotOk('Failed');
-      _failBuild();
+    File rushYml;
+    {
+      final yml = File(p.join(_cd, 'rush.yml'));
+      final yaml = File(p.join(_cd, 'rush.yaml'));
+
+      if (yml.existsSync()) {
+        rushYml = yml;
+      } else if (yaml.existsSync()) {
+        rushYml = yaml;
+      } else {
+        valStep
+          ..logErr('Metadata file (rush.yml) not found')
+          ..finishNotOk('Failed');
+        _printFailMsg();
+        exit(1);
+      }
     }
 
     // Load rush.yml in a Dart understandable way.
-    YamlMap? loadedYml;
+    YamlMap loadedYml;
     try {
-      loadedYml = loadYaml(rushYml!.readAsStringSync());
+      loadedYml = loadYaml(rushYml.readAsStringSync());
     } catch (e) {
       valStep
         ..logErr('Metadata file (rush.yml) is invalid')
         ..logErr(e.toString(), addPrefix: false, addSpace: true)
         ..finishNotOk('Failed');
-      _failBuild();
+      _printFailMsg();
+      exit(1);
     }
 
-    if (!IsYamlValid.check(rushYml, loadedYml!)) {
+    if (!IsYamlValid.check(rushYml, loadedYml)) {
       valStep
         ..logErr(
             'One or more necessary fields are missing in the metadata file (rush.yml)')
         ..finishNotOk('Failed');
-      _failBuild();
+
+      _printFailMsg();
+      exit(1);
     } else {
       valStep.log(
         'Metadata file (rush.yml)',
@@ -165,7 +163,9 @@ class BuildCommand extends Command {
       valStep
         ..logErr('AndroidManifest.xml not found')
         ..finishNotOk('Failed');
-      _failBuild();
+
+      _printFailMsg();
+      exit(1);
     } else {
       valStep.log(
         'AndroidManifest.xml file',
@@ -182,61 +182,38 @@ class BuildCommand extends Command {
     final dataBox = await Hive.openBox('data');
 
     // This is done in case the user deletes the .rush directory.
-    if (!dataBox.containsKey('name')) {
-      await dataBox.put('name', loadedYml['name']! as String);
-    } else if (!dataBox.containsKey('version')) {
-      await dataBox.put('version', 1);
-    } else if (!dataBox.containsKey('rushYmlLastMod')) {
-      await dataBox.put('rushYmlLastMod', rushYml!.lastModifiedSync());
-    } else if (!dataBox.containsKey('srcDirLastMod')) {
-      await dataBox.put('srcDirLastMod', rushYml!.lastModifiedSync());
-    } else if (!dataBox.containsKey('org')) {
-      await dataBox.put(
-          'org', Helper.getPackage(loadedYml['name'], p.join(_cd, 'src')));
-    }
+    Utils().copyDevDeps(_dataDir, _cd);
+    await _updateBoxValues(dataBox, loadedYml);
 
-    var isYmlMod = rushYml!
+    var isYmlMod = rushYml
         .lastModifiedSync()
         .isAfter(await dataBox.get('rushYmlLastMod'));
-    var isSrcDirMod = false;
 
-    Directory(p.join(_cd, 'src')).listSync(recursive: true).forEach((el) {
-      if (el is File) {
-        final mod = el.lastModifiedSync();
-        if (mod.isAfter(dataBox.get('srcDirLastMod'))) {
-          isSrcDirMod = true;
-          dataBox.put('srcDirLastMod', mod);
-        }
-      }
-    });
+    var isManifestMod = manifestFile
+        .lastModifiedSync()
+        .isAfter(await dataBox.get('manifestLastMod'));
 
-    var areFilesModified = isYmlMod || isSrcDirMod;
-
-    if (areFilesModified) {
-      Helper.cleanDir(p.join(_dataDir, 'workspaces', dataBox.get('org')));
-    }
-
-    // Update version number stored in box if it doesn't matches with the
-    // version from rush.yml
-    final extVerYml = loadedYml['version']['number'];
-    final extVerBox = await dataBox.get('version');
-    if (extVerYml != 'auto' && extVerYml != extVerBox) {
-      await dataBox.put('version', extVerYml);
+    if (isYmlMod || isManifestMod) {
+      Utils.cleanDir(p.join(_dataDir, 'workspaces', dataBox.get('org')));
     }
 
     // Increment version number if this is a production build.
-    final isProd = argResults!['release'];
-    if (isProd && extVerYml == 'auto') {
-      var version = extVerBox + 1;
-      await dataBox.put('version', version);
-      Helper.cleanDir(p.join(_dataDir, 'workspaces', dataBox.get('org')));
-      areFilesModified = true;
+    final isRelease = argResults!['release'];
+    if (isRelease) {
+      final extVerYml = loadedYml['version']['number'];
+
+      if (extVerYml == 'auto') {
+        final extVerBox = await dataBox.get('version');
+        await dataBox.put('version', extVerBox + 1);
+      }
+
+      Utils.cleanDir(p.join(_dataDir, 'workspaces', dataBox.get('org')));
     }
 
     final optimize;
     if (argResults!['optimize']) {
       optimize = true;
-    } else if (isProd) {
+    } else if (isRelease) {
       if ((loadedYml['release']?['optimize'] ?? false) &&
           !argResults!['no-optimize']) {
         optimize = true;
@@ -263,7 +240,8 @@ class BuildCommand extends Command {
             await dataBox.get('org'), optimize, argResults!['support-lib']);
       },
       onError: () {
-        _failBuild();
+        _printFailMsg();
+        exit(1);
       },
     );
   }
@@ -337,7 +315,8 @@ class BuildCommand extends Command {
                   },
                   onError: () {
                     step.finishNotOk('Failed');
-                    _failBuild();
+                    _printFailMsg();
+                    exit(1);
                   },
                 );
               } else {
@@ -349,14 +328,16 @@ class BuildCommand extends Command {
                 ..logErr('File not found: ' + jar.path)
                 ..finishNotOk('Failed');
 
-              _failBuild();
+              _printFailMsg();
+              exit(1);
             }
           },
         );
       },
       onError: () {
         step.finishNotOk('Failed');
-        _failBuild();
+        _printFailMsg();
+        exit(1);
       },
     );
   }
@@ -372,7 +353,7 @@ class BuildCommand extends Command {
     // Unjar dependencies
     for (final entity in rawClassesDir.listSync()) {
       if (entity is File && p.extension(entity.path) == '.jar') {
-        Helper.extractJar(entity.path, p.dirname(entity.path));
+        Utils.extractJar(entity.path, p.dirname(entity.path));
       }
     }
 
@@ -401,7 +382,8 @@ class BuildCommand extends Command {
             },
             onError: () {
               processStep.finishNotOk('Failed');
-              _failBuild();
+              _printFailMsg();
+              exit(1);
             },
           );
         } else {
@@ -410,7 +392,8 @@ class BuildCommand extends Command {
       },
       onError: () {
         processStep.finishNotOk('Failed');
-        _failBuild();
+        _printFailMsg();
+        exit(1);
       },
     );
   }
@@ -462,7 +445,8 @@ class BuildCommand extends Command {
             },
             onError: () {
               step.finishNotOk('Failed');
-              _failBuild();
+              _printFailMsg();
+              exit(1);
             },
           );
         } else {
@@ -472,7 +456,8 @@ class BuildCommand extends Command {
       },
       onError: () {
         step.finishNotOk('Failed');
-        _failBuild();
+        _printFailMsg();
+        exit(1);
       },
     );
   }
@@ -506,11 +491,50 @@ class BuildCommand extends Command {
     exit(0);
   }
 
-  void _failBuild() {
+  Future<void> _updateBoxValues(Box box, YamlMap yaml) async {
+    final extName = yaml['name'];
+    if (!box.containsKey('name') || (await box.get('name')) != extName) {
+      await box.put('name', yaml['name']);
+    }
+
+    final extOrg = Utils.getPackage(extName, p.join(_cd, 'src'));
+    if (!box.containsKey('org') || (await box.get('org')) != extOrg) {
+      await box.put('org', extOrg);
+    }
+
+    final extVersion = yaml['version']['number'];
+    if (!box.containsKey('version') ||
+        (await box.get('version')) != extVersion) {
+      await box.put('version', extVersion);
+    }
+
+    if (!box.containsKey('rushYmlLastMod')) {
+      final DateTime lastMod;
+
+      final rushYml = File(p.join(_cd, 'rush.yml'));
+      final rushYaml = File(p.join(_cd, 'rush.yaml'));
+
+      if (rushYml.existsSync()) {
+        lastMod = rushYml.lastModifiedSync();
+      } else {
+        lastMod = rushYaml.lastModifiedSync();
+      }
+
+      await box.put('rushYmlLastMod', lastMod);
+    }
+
+    if (!box.containsKey('manifestLastMod')) {
+      final lastMod =
+          File(p.join(_cd, 'src', 'AndroidManifest.xml')).lastModifiedSync();
+
+      await box.put('manifestLastMod', lastMod);
+    }
+  }
+
+  void _printFailMsg() {
     Logger.log('Build failed',
         color: ConsoleColor.brightWhite,
         prefix: '\n• ',
         prefixFG: ConsoleColor.brightRed);
-    exit(1);
   }
 }

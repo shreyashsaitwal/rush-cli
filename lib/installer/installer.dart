@@ -13,7 +13,7 @@ import 'package:rush_prompt/rush_prompt.dart';
 class Installer {
   final _dataDir = RushDataDir.dataDir()!;
 
-  Future<void> install() async {
+  Future<void> call() async {
     if (!_isJavaInstalled()) {
       Logger.log('JDK not found...', color: ConsoleColor.red);
       Logger.log('Rush needs Java to compile your extension.\n'
