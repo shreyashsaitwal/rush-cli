@@ -44,14 +44,15 @@ class Javac {
         .listen((result) {
           final output = result.output.split('\n');
 
-          output.forEach((element) {
-            if (element.contains('warning: ') &&
-                !element.contains(
-                    'The following options were not recognized by any processor:')) {
-              step.logWarn(element.replaceFirst('warning: ', '').trimRight(),
-                  addSpace: true);
-              warnCount++;
-            }
+          output
+              .where((element) =>
+                  element.contains('warning: ') &&
+                  !element.contains(
+                      'The following options were not recognized by any processor:'))
+              .forEach((element) {
+            step.logWarn(element.replaceFirst('warning: ', '').trimRight(),
+                addSpace: true);
+            warnCount++;
           });
         })
           ..onError((e) {
@@ -93,17 +94,15 @@ class Javac {
   Future<List<String>> _generateBuildArgs(Box box) async {
     final name = await box.get('name');
     final org = await box.get('org');
-    final version = await box.get('version');
+    final version = await box.get('version') as int;
 
     final srcDir = Directory(p.join(_cd, 'src'));
-    final classesDir =
-        Directory(p.join(_dataDir, 'workspaces', org, 'classes'))
-          ..createSync(recursive: true);
+    final classesDir = Directory(p.join(_dataDir, 'workspaces', org, 'classes'))
+      ..createSync(recursive: true);
 
     final devDeps = Directory(p.join(_cd, '.rush', 'dev-deps'));
     final deps = Directory(p.join(_cd, 'deps'));
-    final processor =
-        Directory(p.join(_dataDir, 'tools', 'processor'));
+    final processor = Directory(p.join(_dataDir, 'tools', 'processor'));
 
     final javacArgs = <String>[
       '-Xlint:-options',
@@ -130,8 +129,7 @@ class Javac {
   List<String> _generateMigratorArgs(Directory output) {
     final devDeps = Directory(p.join(_cd, 'lib', 'appinventor'));
     final deps = Directory(p.join(_cd, 'lib', 'deps'));
-    final migrator =
-        File(p.join(_dataDir, 'tools', 'other', 'migrator.jar'));
+    final migrator = File(p.join(_dataDir, 'tools', 'other', 'migrator.jar'));
 
     final classpath = Helper.generateClasspath([devDeps, deps, migrator],
         exclude: ['AnnotationProcessors.jar']);

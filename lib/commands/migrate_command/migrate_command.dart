@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' show File, Directory, exit;
 
 import 'package:dart_console/dart_console.dart';
 import 'package:path/path.dart' as p;
@@ -64,16 +64,15 @@ class MigrateCommand extends Command {
           'rushYml': <File>[],
           'manifest': <File>[],
         };
-        for (final file in outputDir.listSync()) {
-          if (file is File) {
-            final fileName = p.basenameWithoutExtension(file.path);
-            if (fileName.startsWith('rush-')) {
-              genFiles['rushYml']?.add(file);
-            } else if (fileName.startsWith('manifest-')) {
-              genFiles['manifest']?.add(file);
-            }
+
+        outputDir.listSync().whereType<File>().forEach((el) {
+          final fileName = p.basenameWithoutExtension(el.path);
+          if (fileName.startsWith('rush-')) {
+            genFiles['rushYml']?.add(el);
+          } else if (fileName.startsWith('manifest-')) {
+            genFiles['manifest']?.add(el);
           }
-        }
+        });
 
         if (genFiles.entries.any((el) => el.value.isEmpty)) {
           compStep
@@ -252,7 +251,8 @@ class MigrateCommand extends Command {
       ..write('../' + kebabCasedName + '/')
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(',')
-      ..write('remove all the unsupported annotations (like, @DesignerComponent, @UsesPermissions, etc) from ')
+      ..write(
+          'remove all the unsupported annotations (like, @DesignerComponent, @UsesPermissions, etc) from ')
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write(extName + '.java')
       ..setForegroundColor(ConsoleColor.brightWhite)

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' show File, Directory, exit;
 
 import 'package:archive/archive_io.dart';
 import 'package:args/command_runner.dart';
@@ -36,8 +36,7 @@ class BuildCommand extends Command {
           negatable: false,
           help:
               'Optimizes, skrinks and obfuscates extension\'s Java bytecode using ProGuard.')
-      ..addFlag('no-optimize', negatable: false, defaultsTo: false)
-      ..addFlag('extended-output', abbr: 'x', hide: true, defaultsTo: false);
+      ..addFlag('no-optimize', negatable: false, defaultsTo: false);
   }
 
   @override
@@ -94,7 +93,7 @@ class BuildCommand extends Command {
   Future<void> run() async {
     PrintArt();
 
-    if (await which('java') == null) {
+    if (whichSync('javac') == null) {
       Logger.logErr(
           'Uh, oh! Looks like you\'re don\'t have JDK installed on your system.\nPlease download and install JDK version 1.8 or above.',
           exitCode: 64);
@@ -193,7 +192,7 @@ class BuildCommand extends Command {
       final extVerYml = loadedYml['version']['number'];
 
       if (extVerYml == 'auto') {
-        final extVerBox = await dataBox.get('version');
+        final extVerBox = int.tryParse(await dataBox.get('version')) ?? 0;
         await dataBox.put('version', extVerBox + 1);
       }
 
@@ -341,11 +340,13 @@ class BuildCommand extends Command {
         Directory(p.join(_dataDir, 'workspaces', org, 'raw-classes', org));
 
     // Unjar dependencies
-    for (final entity in rawClassesDir.listSync()) {
-      if (entity is File && p.extension(entity.path) == '.jar') {
-        Utils.extractJar(entity.path, p.dirname(entity.path));
-      }
-    }
+    rawClassesDir
+        .listSync()
+        .whereType<File>()
+        .where((el) => p.extension(el.path) == '.jar')
+        .forEach((el) {
+      Utils.extractJar(el.path, p.dirname(el.path));
+    });
 
     // Run the jar command-line tool. It is used to generate a JAR.
     final runner = JarRunner(_cd, _dataDir);
@@ -493,9 +494,15 @@ class BuildCommand extends Command {
     }
 
     final extVersion = yaml['version']['number'];
-    if (!box.containsKey('version') ||
-        (await box.get('version')) != extVersion) {
-      await box.put('version', extVersion);
+    if (!box.containsKey('version')) {
+      if (extVersion != 'auto') {
+        await box.put('version', extVersion as int);
+      } else {
+        await box.put('version', 1);
+      }
+    } else if ((await box.get('version')) != extVersion &&
+        extVersion != 'auto') {
+      await box.put('version', extVersion as int);
     }
 
     if (!box.containsKey('rushYmlLastMod')) {

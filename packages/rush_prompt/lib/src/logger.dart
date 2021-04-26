@@ -54,12 +54,18 @@ class Logger {
     String message, {
     ConsoleColor color = ConsoleColor.brightWhite,
     String prefix = '',
-    ConsoleColor prefixFG = ConsoleColor.brightWhite,
-    ConsoleColor prefixBG = ConsoleColor.black,
+    ConsoleColor? prefixFG,
+    ConsoleColor? prefixBG,
   }) {
-    Console()
-      ..setBackgroundColor(prefixBG)
-      ..setForegroundColor(prefixFG)
+    final console = Console();
+    if (prefixBG != null) {
+      console.setBackgroundColor(prefixBG);
+    }
+    if (prefixFG != null) {
+      console.setForegroundColor(prefixFG);
+    }
+
+    console
       ..write(prefix)
       ..resetColorAttributes()
       ..setForegroundColor(color)

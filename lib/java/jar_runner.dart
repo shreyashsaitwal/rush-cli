@@ -182,13 +182,13 @@ class JarRunner {
     final rawClassesOrgDir = Directory(dwd);
 
     // Add everything that needs to be jarred
-    for (final entity in rawClassesOrgDir.listSync()) {
+    rawClassesOrgDir.listSync().forEach((entity) {
       if (entity is Directory) {
         args.add(p.relative(entity.path, from: dwd));
       } else if (p.extension(entity.path) == '.class') {
         args.add(p.relative(entity.path));
       }
-    }
+    });
 
     return args;
   }

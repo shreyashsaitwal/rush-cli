@@ -16,7 +16,7 @@ class Installer {
   Future<void> call() async {
     if (!_isJavaInstalled()) {
       Logger.log('JDK not found...', color: ConsoleColor.red);
-      Logger.log('Rush needs Java to compile your extension.\n'
+      Logger.log('Rush needs JDK to compile your extensions.\n'
           'Please download and install JDK version 1.8 or above before installing Rush.');
       _abort(1);
     }
@@ -206,7 +206,7 @@ class Installer {
   }
 
   bool _isJavaInstalled() {
-    final whichJava = whichSync('java');
+    final whichJava = whichSync('javac');
     return whichJava == null ? false : true;
   }
 

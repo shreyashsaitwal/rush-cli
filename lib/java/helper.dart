@@ -5,11 +5,13 @@ class Helper {
   static List<String> getSourceFiles(Directory srcDir) {
     final files = <String>[];
 
-    for (final entity in srcDir.listSync(recursive: true)) {
-      if (entity is File && p.extension(entity.path) == '.java') {
-        files.add(entity.path);
-      }
-    }
+    final srcFiles = srcDir
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((el) => p.extension(el.path) == '.java')
+        .map((el) => el.path);
+
+    files.addAll(srcFiles);
 
     return files;
   }
@@ -19,14 +21,13 @@ class Helper {
     final jars = [];
 
     entities.forEach((entity) {
-      if (entity is Directory && !exclude.contains(p.basename(entity.path))) {
-        for (final subEnt in entity.listSync(recursive: true)) {
-          if (subEnt is File && p.extension(subEnt.path) == '.jar' &&
-              !exclude.contains(p.basename(entity.path))) {
-            jars.add(subEnt.path);
-          }
-        }
-      } else if (!exclude.contains(p.basename(entity.path))) {
+      if (entity is Directory) {
+        final iter = entity.listSync(recursive: true).whereType<File>().where(
+            (el) =>
+                p.extension(el.path) == '.jar' &&
+                !exclude.contains(p.basename(el.path)));
+        jars.addAll(iter);
+      } else if (entity is File) {
         jars.add(entity.path);
       }
     });
