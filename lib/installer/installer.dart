@@ -86,11 +86,14 @@ class Installer {
     final devDepsDir = Directory(p.join(rushDir, 'dev-deps'));
 
     binDir.deleteSync(recursive: true);
-    try {
+
+    if (toolsDir.existsSync()) {
       toolsDir.deleteSync(recursive: true);
+    }
+
+    if (devDepsDir.existsSync()) {
       devDepsDir.deleteSync(recursive: true);
-      // ignore: empty_catches
-    } catch (e) {}
+    }
   }
 
   Future<void> _downloadRush(String rushDir) async {
@@ -179,7 +182,9 @@ class Installer {
       rushPath = p.join(rushInstPath, 'rush');
     }
 
-    Console()
+    final console = Console();
+
+    console
       ..writeLine()
       ..setForegroundColor(ConsoleColor.brightGreen)
       ..write('Success! ')
@@ -188,11 +193,30 @@ class Installer {
       ..setForegroundColor(ConsoleColor.cyan)
       ..writeLine(rushPath)
       ..writeLine()
-      ..setForegroundColor(ConsoleColor.brightWhite)
-      ..writeLine(
-          'Now, update your PATH environment variable by adding the following path to it:')
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..writeLine(p.join(rushPath, 'bin'))
+      ..setForegroundColor(ConsoleColor.brightWhite);
+
+    if (Platform.isWindows) {
+      console
+        ..writeLine(
+            'Now, update your PATH environment variable by adding the following path to it:')
+        ..setForegroundColor(ConsoleColor.cyan)
+        ..writeLine(p.join(rushPath, 'bin'));
+    } else {
+      console
+        ..writeLine('Now,')
+        ..writeLine(
+            '  - run the following command to give execution permission to the Rush executable:')
+        ..setForegroundColor(ConsoleColor.cyan)
+        ..writeLine(' ' * 4 + 'chmod +x ' + p.join(rushPath, 'bin', 'rush'))
+        ..setForegroundColor(ConsoleColor.brightWhite)
+        ..writeLine(
+            '  - and then, update your PATH environment variable to include the Rush executable like so:')
+        ..setForegroundColor(ConsoleColor.cyan)
+        ..writeLine(
+            ' ' * 4 + 'export PATH="\$PATH:' + p.join(rushPath, 'bin') + '"');
+    }
+
+    console
       ..resetColorAttributes()
       ..writeLine()
       ..setForegroundColor(ConsoleColor.brightWhite)

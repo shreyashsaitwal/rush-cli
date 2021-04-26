@@ -173,6 +173,7 @@ class BuildCommand extends Command {
 
     // This is done in case the user deletes the .rush directory.
     Utils().copyDevDeps(_dataDir, _cd);
+
     await _updateBoxValues(dataBox, loadedYml);
 
     var isYmlMod =

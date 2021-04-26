@@ -22,11 +22,15 @@ class Helper {
 
     entities.forEach((entity) {
       if (entity is Directory) {
-        final iter = entity.listSync(recursive: true).whereType<File>().where(
-            (el) =>
+        entity
+            .listSync(recursive: true)
+            .whereType<File>()
+            .where((el) =>
                 p.extension(el.path) == '.jar' &&
-                !exclude.contains(p.basename(el.path)));
-        jars.addAll(iter);
+                !exclude.contains(p.basename(el.path)))
+            .forEach((el) {
+          jars.add(el.path);
+        });
       } else if (entity is File) {
         jars.add(entity.path);
       }

@@ -252,11 +252,11 @@ class MigrateCommand extends Command {
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(',')
       ..write(
-          'remove all the unsupported annotations (like, @DesignerComponent, @UsesPermissions, etc) from ')
+          '  - remove all the unsupported annotations (like, @DesignerComponent, @UsesPermissions, etc) from ')
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write(extName + '.java')
       ..setForegroundColor(ConsoleColor.brightWhite)
-      ..writeLine(', and')
+      ..writeLine(', and then')
       ..write(' ' * 2 + '- run ')
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write('rush build ')

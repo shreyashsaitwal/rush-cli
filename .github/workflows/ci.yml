@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, dev ]
   pull_request:
-    branches: [ main, dev ]
+    branches: [ main ]
 
 jobs:
   build-for-linux:
@@ -22,6 +22,7 @@ jobs:
           mkdir build/bin -p
           dart compile exe -o build/bin/rush bin/rush.dart
           dart compile exe -o build/bin/rush-init-linux bin/rush-init.dart
+          chmod +x build/bin/rush-init-linux
 
       - name: Upload Rush executable
         if: ${{ github.ref == 'refs/heads/main' }}
@@ -88,6 +89,7 @@ jobs:
           mkdir -p build/bin
           dart compile exe -o build/bin/rush bin/rush.dart
           dart compile exe -o build/bin/rush-init-mac bin/rush-init.dart
+          chmod +x build/bin/rush-init-mac
 
       - name: Upload Rush executable
         if: ${{ github.ref == 'refs/heads/main' }}
