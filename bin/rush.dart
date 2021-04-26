@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' show Directory, exit;
 
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';

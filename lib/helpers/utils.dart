@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' show File, Directory, exit;
 
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;

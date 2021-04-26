@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' show Platform, Directory, stdin, stdout, exit;
 
 import 'package:dart_console/dart_console.dart';
 import 'package:dio/dio.dart';

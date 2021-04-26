@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' show stdin, exit;
 
 import 'package:dart_console/dart_console.dart';
 import 'package:rush_prompt/src/questions/question.dart';

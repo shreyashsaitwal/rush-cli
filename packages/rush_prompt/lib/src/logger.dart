@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' show exit;
 
 import 'package:dart_console/dart_console.dart';
 

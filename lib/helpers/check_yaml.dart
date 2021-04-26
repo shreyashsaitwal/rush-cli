@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' show File, exit;
 
 import 'package:rush_cli/helpers/utils.dart';
 import 'package:rush_prompt/rush_prompt.dart';
