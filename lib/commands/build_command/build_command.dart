@@ -193,7 +193,7 @@ class BuildCommand extends Command {
       final extVerYml = loadedYml['version']['number'];
 
       if (extVerYml == 'auto') {
-        final extVerBox = int.tryParse(await dataBox.get('version')) ?? 0;
+        final extVerBox = await dataBox.get('version') ?? 0;
         await dataBox.put('version', extVerBox + 1);
       }
 
@@ -506,7 +506,8 @@ class BuildCommand extends Command {
       await box.put('version', extVersion as int);
     }
 
-    if (!box.containsKey('rushYmlLastMod')) {
+    if (!box.containsKey('rushYmlLastMod') ||
+        (await box.get('rushYmlLastMod')) == null) {
       final DateTime lastMod;
 
       final rushYml = File(p.join(_cd, 'rush.yml'));
@@ -521,7 +522,7 @@ class BuildCommand extends Command {
       await box.put('rushYmlLastMod', lastMod);
     }
 
-    if (!box.containsKey('manifestLastMod')) {
+    if (!box.containsKey('manifestLastMod') || (await box.get('manifestLastMod')) == null) {
       final lastMod =
           File(p.join(_cd, 'src', 'AndroidManifest.xml')).lastModifiedSync();
 
