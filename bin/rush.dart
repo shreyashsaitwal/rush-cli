@@ -1,17 +1,18 @@
-import 'dart:io';
+import 'dart:io' show Directory, exit;
 
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
-import 'package:path/path.dart' as p;
-import 'package:process_run/which.dart';
 import 'package:rush_cli/commands/build_command/build_command.dart';
 import 'package:rush_cli/commands/create_command/create_command.dart';
+import 'package:rush_cli/commands/migrate_command/migrate_command.dart';
+import 'package:rush_cli/helpers/app_data_dir.dart';
+import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
-import 'package:yaml/yaml.dart';
-
-final cd = Directory.current.path;
 
 void main(List<String> args) {
+  final _cd = Directory.current.path;
+  final _dataDir = RushDataDir.dataDir()!;
+
   final runner = RushCommandRunner(
       'rush', 'A new and improved way of building App Inventor 2 extensions.');
 
@@ -23,8 +24,9 @@ void main(List<String> args) {
   });
 
   runner
-    ..addCommand(CreateCommand(cd))
-    ..addCommand(BuildCommand(cd))
+    ..addCommand(CreateCommand(_cd, _dataDir))
+    ..addCommand(BuildCommand(_cd, _dataDir))
+    ..addCommand(MigrateCommand(_cd, _dataDir))
     ..run(args).catchError((err) {
       if (err is UsageException) {
         runner.printUsage();
@@ -35,23 +37,16 @@ void main(List<String> args) {
 }
 
 void _printVersion() {
-  final scriptPath = whichSync('rush');
-  final info =
-      loadYaml(File(p.join(p.dirname(scriptPath!), 'build_info')).readAsStringSync());
-
-  final version = info['name'];
-  final builton = info['built_on'];
-
   PrintArt();
   Console()
     ..setForegroundColor(ConsoleColor.brightWhite)
     ..write('Version:   ')
     ..setForegroundColor(ConsoleColor.cyan)
-    ..writeLine(version.toString())
+    ..writeLine(rushVersion)
     ..setForegroundColor(ConsoleColor.brightWhite)
     ..write('Built on:  ')
     ..setForegroundColor(ConsoleColor.cyan)
-    ..writeLine(builton);
+    ..writeLine(rushBuiltOn);
   exit(0);
 }
 
@@ -98,15 +93,20 @@ class RushCommandRunner extends CommandRunner {
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(' Available commands:')
       ..setForegroundColor(ConsoleColor.cyan)
-      ..write('   build')
+      ..write('    build')
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(
-          '          Identifies and builds the extension project in current working directory.')
+          '  Identifies and builds the extension project in current working directory.')
       ..setForegroundColor(ConsoleColor.cyan)
       ..write('   create')
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(
-          '         Scaffolds a new extension project in current working directory.')
+          '  Scaffolds a new extension project in current working directory.')
+      ..setForegroundColor(ConsoleColor.cyan)
+      ..write('  migrate')
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..writeLine(
+          '  Introspects and migrates the extension-template project in CWD to Rush.')
       ..resetColorAttributes();
   }
 }

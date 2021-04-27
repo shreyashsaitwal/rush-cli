@@ -12,19 +12,19 @@ version:
 
 assets:
   icon: icon.png      # Extension icon
-  # other:              # Extension asset(s)
-  #   - my_awesome_asset.anything
+  #other:              # Extension asset(s)
+  #  - my_awesome_asset.anything
 
 authors:
   - $author
 
 # Uncomment the below field if you wish to apply ProGuard while building a release
 # build ('-r') of your extension:
-# release:
-#   optimize: true
+#release:
+#  optimize: true
 
-# deps:         # Dependencies should be first added to the "deps" folder
-#   - my_awesome_library.jar
+#deps:         # Dependencies should be first added to the "deps" folder
+#  - my_awesome_library.jar
 
 ''';
 }
