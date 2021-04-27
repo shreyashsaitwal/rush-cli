@@ -14,17 +14,9 @@ public class $name extends AndroidNonvisibleComponent {
     super(container.\$form());
   }
 
-  @SimpleFunction(description = "Returns the sum of all integers from the given list.")
-  public int SumAllIntegers(YailList intList) {
-    int sum = 0;
-    for (Object i : intList) {
-      if (i instanceof Integer) {
-        sum += (int) i;
-      } else {
-        throw new YailRuntimeError("Invalid value " + i + " in list 'intList' of method 'SumAllIntegers'.", "InvalidValue");
-      }
-    }
-    return sum;
+  @SimpleFunction(description = "Returns the sum of the given two integers.")
+  public int Sum(int a, int b) {
+    return a + b;
   }
 }
 ''';
