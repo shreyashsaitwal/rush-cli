@@ -93,12 +93,6 @@ class BuildCommand extends Command {
   Future<void> run() async {
     PrintArt();
 
-    if (whichSync('javac') == null) {
-      Logger.logErr(
-          'Uh, oh! Looks like you\'re don\'t have JDK installed on your system.\nPlease download and install JDK version 1.8 or above.',
-          exitCode: 64);
-    }
-
     Logger.log('Build initialized\n',
         color: ConsoleColor.brightWhite,
         prefix: '• ',

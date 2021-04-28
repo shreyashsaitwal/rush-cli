@@ -14,13 +14,6 @@ class Installer {
   final _dataDir = RushDataDir.dataDir()!;
 
   Future<void> call() async {
-    if (!_isJavaInstalled()) {
-      Logger.log('JDK not found...', color: ConsoleColor.red);
-      Logger.log('Rush needs JDK to compile your extensions.\n'
-          'Please download and install JDK version 1.8 or above before installing Rush.');
-      _abort(1);
-    }
-
     if (!_isRushInstalled()) {
       await _freshInstall();
     } else {
@@ -227,11 +220,6 @@ class Installer {
       ..resetColorAttributes();
 
     _abort(0);
-  }
-
-  bool _isJavaInstalled() {
-    final whichJava = whichSync('javac');
-    return whichJava == null ? false : true;
   }
 
   bool _isRushInstalled() {
