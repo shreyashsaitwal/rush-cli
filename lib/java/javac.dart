@@ -56,20 +56,25 @@ class Javac {
           });
         })
           ..onError((e) {
-            final errors = e.result.stderr.split('\n');
-            final pattern = RegExp(r'\d+\s(error(s)?|warning(s)?)');
+            if (e.result != null) {
+              final errors = e.result.stderr.split('\n');
+              final pattern = RegExp(r'\d+\s(error(s)?|warning(s)?)');
 
-            errors.forEach((element) {
-              if (element.contains('error: ')) {
-                step.logErr(
-                    'src' + element.split('src').last.toString().trimRight(),
-                    addSpace: true);
-                errCount++;
-              } else if (!pattern.hasMatch(element.trim())) {
-                step.logErr(' ' * 3 + element.toString().trimRight(),
-                    addPrefix: false);
-              }
-            });
+              errors.forEach((element) {
+                if (element.contains('error: ')) {
+                  step.logErr(
+                      'src' + element.split('src').last.toString().trimRight(),
+                      addSpace: true);
+                  errCount++;
+                } else if (!pattern.hasMatch(element.trim())) {
+                  step.logErr(' ' * 3 + element.toString().trimRight(),
+                      addPrefix: false);
+                }
+              });
+            } else {
+              errCount++;
+              step.logErr(e.toString().trimRight(), addSpace: true);
+            }
           })
           ..onDone(() {
             if (warnCount > 0) {

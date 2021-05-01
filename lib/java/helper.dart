@@ -15,7 +15,7 @@ class Helper {
 
     return files;
   }
-
+ 
   static String generateClasspath(List<FileSystemEntity> entities,
       {List<String> exclude = const ['']}) {
     final jars = [];

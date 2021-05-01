@@ -66,33 +66,37 @@ class JarRunner {
             }
           })
           ..onError((e) {
-            final errList = e.result.stderr.split('\n');
-            errList.forEach((err) {
-              if (err.trim() != '' && err.trim() != null) {
-                if (err.startsWith(RegExp(r'\s'))) {
-                  if (type == JarType.proguard) {
-                    step.logWarn(err, addPrefix: false);
+            if (e.result == null) {
+              step.logErr(e.toString().trimRight(), addSpace: true);
+            } else {
+              final errList = e.result.stderr.split('\n');
+              errList.forEach((err) {
+                if (err.trim() != '' && err.trim() != null) {
+                  if (err.startsWith(RegExp(r'\s'))) {
+                    if (type == JarType.proguard) {
+                      step.logWarn(err, addPrefix: false);
+                    } else {
+                      step.logErr(err, addPrefix: false);
+                    }
                   } else {
-                    step.logErr(err, addPrefix: false);
-                  }
-                } else {
-                  final errPattern =
-                      RegExp(r'error:?\s?', caseSensitive: false);
+                    final errPattern =
+                        RegExp(r'error:?\s?', caseSensitive: false);
 
-                  if (err.startsWith(errPattern)) {
-                    err = err.replaceAll(errPattern, '');
-                    step.logErr(err, addSpace: true);
-                  } else if (type == JarType.proguard &&
-                      err.startsWith('Warning: ')) {
-                    err = err.replaceAll('Warning: ', '');
-                    step.logWarn(err, addSpace: true);
-                  } else {
-                    step.logErr(err, addSpace: true);
+                    if (err.startsWith(errPattern)) {
+                      err = err.replaceAll(errPattern, '');
+                      step.logErr(err, addSpace: true);
+                    } else if (type == JarType.proguard &&
+                        err.startsWith('Warning: ')) {
+                      err = err.replaceAll('Warning: ', '');
+                      step.logWarn(err, addSpace: true);
+                    } else {
+                      step.logErr(err, addSpace: true);
+                    }
                   }
                 }
-              }
-            });
-            failed = true;
+              });
+              failed = true;
+            }
           })
           ..onDone(() {
             if (failed) {
