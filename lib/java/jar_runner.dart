@@ -6,7 +6,7 @@ import 'package:rush_cli/helpers/copy.dart';
 import 'package:rush_cli/java/helper.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-enum JarType { processor, d8, d8sup, proguard, jar, jetifier }
+enum JarType { generator, d8, d8sup, proguard, jar, jetifier }
 
 class JarRunner {
   final String _cd;
@@ -26,8 +26,8 @@ class JarRunner {
     var dwd = _cd; // Default working directory
 
     switch (type) {
-      case JarType.processor:
-        args.addAll(_getProcessorArgs(org));
+      case JarType.generator:
+        args.addAll(_getGeneratorArgs(org));
         break;
       case JarType.d8:
         args.addAll(_getD8Args(org, false));
@@ -111,8 +111,8 @@ class JarRunner {
           });
   }
 
-  /// Returns the args required for running the annotation processor.
-  List<String> _getProcessorArgs(String org) {
+  /// Returns the args required for running the extension generator.
+  List<String> _getGeneratorArgs(String org) {
     final args = <String>['java'];
 
     final devDeps = Directory(p.join(_cd, '.rush', 'dev-deps'));

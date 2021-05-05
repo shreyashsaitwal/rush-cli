@@ -251,7 +251,7 @@ class BuildCommand extends Command {
     // Run the rush annotation processor
     final runner = JarRunner(_cd, _dataDir);
     runner.run(
-      JarType.processor,
+      JarType.generator,
       org,
       step,
       onSuccess: () {
