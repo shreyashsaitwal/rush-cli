@@ -55,87 +55,85 @@ class MigrateCommand extends Command {
     final compStep = BuildStep('Introspecting the Java files')..init();
 
     final javac = Javac(_cd, _dataDir);
-    await javac.compile(
-      CompileType.migrate,
-      compStep,
-      output: outputDir,
-      onDone: () {
-        final genFiles = {
-          'rushYml': <File>[],
-          'manifest': <File>[],
-        };
 
-        outputDir.listSync().whereType<File>().forEach((el) {
-          final fileName = p.basenameWithoutExtension(el.path);
-          if (fileName.startsWith('rush-')) {
-            genFiles['rushYml']?.add(el);
-          } else if (fileName.startsWith('manifest-')) {
-            genFiles['manifest']?.add(el);
-          }
-        });
+    try {
+      await javac.compile(CompileType.migrate, compStep, output: outputDir);
+    } catch (e) {
+      compStep.finishNotOk('Failed');
+      Logger.log('Build failed',
+          color: ConsoleColor.brightWhite,
+          prefix: '\n• ',
+          prefixFG: ConsoleColor.brightRed);
+      exit(1);
+    }
 
-        if (genFiles.entries.any((el) => el.value.isEmpty)) {
-          compStep
-            ..logErr('No extension found')
-            ..finishNotOk('Failed');
+    final genFiles = {
+      'rushYml': <File>[],
+      'manifest': <File>[],
+    };
 
-          exit(1);
-        } else if (genFiles.entries.any((el) => el.value.length > 1)) {
-          final extensionNames = genFiles['rushYml']?.map(
-              (e) => p.basenameWithoutExtension(e.path).split('rush-').last);
+    outputDir.listSync().whereType<File>().forEach((el) {
+      final fileName = p.basenameWithoutExtension(el.path);
+      if (fileName.startsWith('rush-')) {
+        genFiles['rushYml']?.add(el);
+      } else if (fileName.startsWith('manifest-')) {
+        genFiles['manifest']?.add(el);
+      }
+    });
 
-          compStep.logErr('More than two extensions found');
-          extensionNames?.forEach((el) {
-            compStep.logErr(' ' * 2 + '- ' + el, addPrefix: false);
-          });
-          compStep
-            ..logErr(
-                'Currently, Rush doesn\'t supports multiple extensions inside one project.',
-                addPrefix: false,
-                addSpace: true)
-            ..finishNotOk('Failed');
+    if (genFiles.entries.any((el) => el.value.isEmpty)) {
+      compStep
+        ..logErr('No extension found')
+        ..finishNotOk('Failed');
 
-          exit(1);
-        }
+      exit(1);
+    } else if (genFiles.entries.any((el) => el.value.length > 1)) {
+      final extensionNames = genFiles['rushYml']
+          ?.map((e) => p.basenameWithoutExtension(e.path).split('rush-').last);
 
-        final extName = p
-            .basenameWithoutExtension(genFiles['rushYml']!.first.path)
-            .split('rush-')
-            .last;
-        final package = Utils.getPackage(extName, p.join(_cd, 'src'));
-        final projectDir =
-            Directory(p.join(p.dirname(_cd), Casing.kebabCase(extName)))
-              ..createSync(recursive: true);
+      compStep.logErr('More than two extensions found');
+      extensionNames?.forEach((el) {
+        compStep.logErr(' ' * 2 + '- ' + el, addPrefix: false);
+      });
+      compStep
+        ..logErr(
+            'Currently, Rush doesn\'t supports multiple extensions inside one project.',
+            addPrefix: false,
+            addSpace: true)
+        ..finishNotOk('Failed');
 
-        final rushYmlDest = p.join(projectDir.path, 'rush.yml');
-        genFiles['rushYml']!.first.copySync(rushYmlDest);
+      exit(1);
+    }
 
-        final srcDir = Directory(p.join(projectDir.path, 'src'))..createSync();
-        genFiles['manifest']!
-            .first
-            .copySync(p.join(srcDir.path, 'AndroidManifest.xml'));
+    final extName = p
+        .basenameWithoutExtension(genFiles['rushYml']!.first.path)
+        .split('rush-')
+        .last;
+    final package = Utils.getPackage(extName, p.join(_cd, 'src'));
+    final projectDir =
+        Directory(p.join(p.dirname(_cd), Casing.kebabCase(extName)))
+          ..createSync(recursive: true);
 
-        outputDir.deleteSync(recursive: true);
+    final rushYmlDest = p.join(projectDir.path, 'rush.yml');
+    genFiles['rushYml']!.first.copySync(rushYmlDest);
 
-        final finalStep = BuildStep('Finalizing the migration')..init();
+    final srcDir = Directory(p.join(projectDir.path, 'src'))..createSync();
+    genFiles['manifest']!
+        .first
+        .copySync(p.join(srcDir.path, 'AndroidManifest.xml'));
 
-        _copySrcFiles(package, projectDir.path, finalStep);
-        _copyAssets(package, projectDir.path, finalStep);
-        _copyDeps(projectDir.path, finalStep);
-        _genNecessaryFiles(extName);
+    outputDir.deleteSync(recursive: true);
 
-        finalStep.finishOk('Done');
+    final finalStep = BuildStep('Finalizing the migration')..init();
 
-        _printFooter(projectDir.path, Casing.kebabCase(extName), extName);
-      },
-      onError: () {
-        Logger.log('Build failed',
-            color: ConsoleColor.brightWhite,
-            prefix: '\n• ',
-            prefixFG: ConsoleColor.brightRed);
-        exit(1);
-      },
-    );
+    _copySrcFiles(package, projectDir.path, finalStep);
+    _copyAssets(package, projectDir.path, finalStep);
+    _copyDeps(projectDir.path, finalStep);
+    _genNecessaryFiles(extName);
+
+    finalStep.finishOk('Done');
+
+    _printFooter(projectDir.path, Casing.kebabCase(extName), extName);
   }
 
   /// Copies all the src files.

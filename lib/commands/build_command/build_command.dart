@@ -211,27 +211,25 @@ class BuildCommand extends Command {
   }
 
   Future<void> _compile(Box dataBox, bool optimize) async {
-    final compStep = BuildStep('Compiling Java files')..init();
+    final step = BuildStep('Compiling Java files')..init();
     final javac = Javac(_cd, _dataDir);
 
-    await javac.compile(
-      CompileType.build,
-      compStep,
-      dataBox: dataBox,
-      onDone: () async {
-        _process(
-            await dataBox.get('org'), optimize, argResults!['support-lib']);
-      },
-      onError: () {
-        Utils.printFailMsg();
-        exit(1);
-      },
-    );
+    try {
+      await javac.compile(CompileType.build, step, dataBox: dataBox);
+    } catch (e) {
+      step.finishNotOk('Failed');
+      Utils.printFailMsg();
+      exit(1);
+    }
+
+    step.finishOk('Done');
+    await _process(
+        await dataBox.get('org'), optimize, argResults!['support-lib']);
   }
 
   /// Further process the extension by generating extension files, adding
   /// libraries and jaring the extension.
-  void _process(String org, bool optimize, bool dejet) {
+  Future<void> _process(String org, bool optimize, bool dejet) async {
     final BuildStep step;
     final rulesPro = File(p.join(_cd, 'src', 'proguard-rules.pro'));
 
@@ -249,87 +247,60 @@ class BuildCommand extends Command {
 
     // Run the rush annotation processor
     final runner = CmdRunner(_cd, _dataDir);
-    runner.run(
-      CmdType.generator,
-      org,
-      step,
-      onSuccess: () {
-        _jarExtension(
-          org,
-          step,
-          optimize,
-          dejet,
-          onSuccess: (String jarPath) async {
-            final jar = File(jarPath);
 
-            if (jar.existsSync()) {
-              final destDir = Directory(
-                  p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'files'))
-                ..createSync(recursive: true);
+    try {
+      await runner.run(CmdType.generator, org, step);
+    } catch (e) {
+      step.finishNotOk('Failed');
+      Utils.printFailMsg();
+      exit(1);
+    }
 
-              jar.copySync(p.join(destDir.path, 'AndroidRuntime.jar'));
+    final rawJar = await _jarExtension(org, step, optimize, dejet);
+    if (rawJar.existsSync()) {
+      final destDir = Directory(
+          p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'files'))
+        ..createSync(recursive: true);
 
-              // De-jetify the extension
-              if (dejet) {
-                _dejetify(
-                  org,
-                  step,
-                  onSuccess: (bool needDejet) {
-                    if (!needDejet) {
-                      // Delete the raw/sup directory so that support version of
-                      // the extension isn't generated.
-                      Directory(
-                              p.join(_dataDir, 'workspaces', org, 'raw', 'sup'))
-                          .deleteSync(recursive: true);
+      rawJar.copySync(p.join(destDir.path, 'AndroidRuntime.jar'));
+    } else {
+      step
+        ..logErr('File not found: ' + rawJar.path)
+        ..finishNotOk('Failed');
 
-                      step
-                        ..logWarn('No references to androidx.* were found.',
-                            addSpace: true)
-                        ..logWarn(
-                            ' ' * 5 +
-                                'You don\'t need to create a support library version of the extension.',
-                            addPrefix: false)
-                        ..finishOk('Done');
-                      _dex(org, false);
-                    } else {
-                      step.finishOk('Done');
-                      _dex(org, true);
-                    }
-                  },
-                  onError: () {
-                    step.finishNotOk('Failed');
-                    Utils.printFailMsg();
-                    exit(1);
-                  },
-                );
-              } else {
-                step.finishOk('Done');
-                _dex(org, false);
-              }
-            } else {
-              step
-                ..logErr('File not found: ' + jar.path)
-                ..finishNotOk('Failed');
+      Utils.printFailMsg();
+      exit(1);
+    }
 
-              Utils.printFailMsg();
-              exit(1);
-            }
-          },
-        );
-      },
-      onError: () {
-        step.finishNotOk('Failed');
-        Utils.printFailMsg();
-        exit(1);
-      },
-    );
+    final needDejet;
+    try {
+      await runner.run(CmdType.jetifier, org, step);
+      needDejet = runner.getShouldDejet;
+    } catch (e) {
+      step.finishNotOk('Failed');
+      Utils.printFailMsg();
+      exit(1);
+    }
+
+    if (!needDejet) {
+      // Delete the raw/sup directory so that support version of
+      // the extension isn't generated.
+      Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'sup'))
+          .deleteSync(recursive: true);
+
+      step.logWarn(
+          'No references to androidx** were found. You don\'t need to pass the `-s` flag for now.',
+          addSpace: true);
+    }
+
+    step.finishOk('Done');
+    await _dex(org, needDejet);
   }
 
   /// JAR the compiled class files and third-party dependencies into a
   /// single JAR.
-  void _jarExtension(
-      String org, BuildStep processStep, bool optimize, bool dejet,
-      {required Function onSuccess}) {
+  Future<File> _jarExtension(
+      String org, BuildStep processStep, bool optimize, bool dejet) async {
     final rawClassesDir =
         Directory(p.join(_dataDir, 'workspaces', org, 'raw-classes', org));
 
@@ -342,109 +313,54 @@ class BuildCommand extends Command {
       Utils.extractJar(el.path, p.dirname(el.path));
     });
 
+    final rawJar = File(rawClassesDir.path + '.jar');
+
     // Run the jar command-line tool. It is used to generate a JAR.
     final runner = CmdRunner(_cd, _dataDir);
-    runner.run(
-      CmdType.jar,
-      org,
-      processStep,
-      onSuccess: () {
-        if (optimize) {
-          // Optimize the extension
-          _optimize(
-            org,
-            processStep,
-            onSuccess: () {
-              // Delete the old non-optimized JAR...
-              final oldJar = File(rawClassesDir.path + '.jar')..deleteSync();
+    try {
+      await runner.run(CmdType.jar, org, processStep);
 
-              // ...and rename the optimized JAR with old JAR's name
-              File(rawClassesDir.path + '_pg.jar')
-                ..copySync(oldJar.path)
-                ..deleteSync(recursive: true);
+      if (optimize) {
+        await runner.run(CmdType.proguard, org, processStep);
 
-              onSuccess(oldJar.path);
-            },
-            onError: () {
-              processStep.finishNotOk('Failed');
-              Utils.printFailMsg();
-              exit(1);
-            },
-          );
-        } else {
-          onSuccess(rawClassesDir.path + '.jar');
-        }
-      },
-      onError: () {
-        processStep.finishNotOk('Failed');
-        Utils.printFailMsg();
-        exit(1);
-      },
-    );
-  }
+        // Delete the old non-optimized JAR...
+        rawJar.deleteSync();
 
-  /// ProGuards the extension.
-  void _optimize(String org, BuildStep processStep,
-      {required Function onSuccess, required Function onError}) {
-    final runner = CmdRunner(_cd, _dataDir);
-    runner.run(
-      CmdType.proguard,
-      org,
-      processStep,
-      onSuccess: onSuccess,
-      onError: onError,
-    );
-  }
+        // ...and rename the optimized JAR with old JAR's name
+        File(rawClassesDir.path + '_pg.jar')
+          ..copySync(rawJar.path)
+          ..deleteSync(recursive: true);
+      }
+    } catch (e) {
+      processStep.finishNotOk('Failed');
+      Utils.printFailMsg();
+      exit(1);
+    }
 
-  void _dejetify(String org, BuildStep processStep,
-      {required Function onSuccess, required Function onError}) {
-    final runner = CmdRunner(_cd, _dataDir);
-    runner.run(
-      CmdType.jetifier,
-      org,
-      processStep,
-      onSuccess: onSuccess,
-      onError: onError,
-    );
+    return rawJar;
   }
 
   /// Convert generated extension JAR file from previous step into DEX
   /// bytecode.
-  void _dex(String org, bool dejet) {
+  Future<void> _dex(String org, bool dejet) async {
     final step = BuildStep('Converting Java bytecode to DEX bytecode')..init();
 
     final runner = CmdRunner(_cd, _dataDir);
-    runner.run(
-      CmdType.d8,
-      org,
-      step,
-      onSuccess: () {
-        if (dejet) {
-          runner.run(
-            CmdType.d8sup,
-            org,
-            step,
-            onSuccess: () {
-              step.finishOk('Done');
-              _assemble(org);
-            },
-            onError: () {
-              step.finishNotOk('Failed');
-              Utils.printFailMsg();
-              exit(1);
-            },
-          );
-        } else {
-          step.finishOk('Done');
-          _assemble(org);
-        }
-      },
-      onError: () {
-        step.finishNotOk('Failed');
-        Utils.printFailMsg();
-        exit(1);
-      },
-    );
+
+    try {
+      await runner.run(CmdType.d8, org, step);
+
+      if (dejet) {
+        await runner.run(CmdType.d8sup, org, step);
+      }
+    } catch (e) {
+      step.finishNotOk('Failed');
+      Utils.printFailMsg();
+      exit(1);
+    }
+
+    step.finishOk('Done');
+    _assemble(org);
   }
 
   /// Finalize the build.
@@ -515,7 +431,8 @@ class BuildCommand extends Command {
       await box.put('rushYmlLastMod', lastMod);
     }
 
-    if (!box.containsKey('manifestLastMod') || (await box.get('manifestLastMod')) == null) {
+    if (!box.containsKey('manifestLastMod') ||
+        (await box.get('manifestLastMod')) == null) {
       final lastMod =
           File(p.join(_cd, 'src', 'AndroidManifest.xml')).lastModifiedSync();
 

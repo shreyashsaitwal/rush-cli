@@ -14,14 +14,16 @@ class CmdRunner {
 
   CmdRunner(this._cd, this._dataDir);
 
+  var _shouldDejet = true;
+  bool get getShouldDejet => _shouldDejet;
+
   /// Runs the specified [cmd], printing the required stdout and the whole
   /// stderr.
   ///
   /// If any error is caught, the [onError] function is invoked.
   ///
   /// If everything goes well, the [onSuccess] function is invoked.
-  void run(CmdType cmd, String org, BuildStep step,
-      {required Function onSuccess, required Function onError}) {
+  Future<void> run(CmdType cmd, String org, BuildStep step) async {
     final args = <String>[];
     var dwd = _cd; // Default working directory
 
@@ -48,67 +50,61 @@ class CmdRunner {
     }
 
     var failed = false;
-    var needDejet = true;
 
-    ProcessRunner(defaultWorkingDirectory: Directory(dwd))
+    final stream = ProcessRunner(defaultWorkingDirectory: Directory(dwd))
         .runProcess(args)
         .asStream()
-        .asBroadcastStream()
-        .listen((_) {})
-          ..onData((data) {
-            if (cmd == CmdType.jetifier) {
-              final pattern =
-                  RegExp(r'WARNING: \[Main\] No references were rewritten.');
+        .asBroadcastStream();
 
-              if (needDejet) {
-                needDejet = !data.stdout.contains(pattern);
-              }
-            }
-          })
-          ..onError((e) {
-            if (e.result == null) {
-              step.logErr(e.toString().trimRight(), addSpace: true);
-            } else {
-              final errList = e.result.stderr.split('\n');
-              errList.forEach((err) {
-                if (err.trim() != '' && err.trim() != null) {
-                  if (err.startsWith(RegExp(r'\s'))) {
-                    if (cmd == CmdType.proguard) {
-                      step.logWarn(err, addPrefix: false);
-                    } else {
-                      step.logErr(err, addPrefix: false);
-                    }
-                  } else {
-                    final errPattern =
-                        RegExp(r'error:?\s?', caseSensitive: false);
+    try {
+      await for (final result in stream) {
+        if (cmd == CmdType.jetifier) {
+          final pattern =
+              RegExp(r'WARNING: \[Main\] No references were rewritten.');
 
-                    if (err.startsWith(errPattern)) {
-                      err = err.replaceAll(errPattern, '');
-                      step.logErr(err, addSpace: true);
-                    } else if (cmd == CmdType.proguard &&
-                        err.startsWith('Warning: ')) {
-                      err = err.replaceAll('Warning: ', '');
-                      step.logWarn(err, addSpace: true);
-                    } else {
-                      step.logErr(err, addSpace: true);
-                    }
-                  }
-                }
-              });
-              failed = true;
-            }
-          })
-          ..onDone(() {
-            if (failed) {
-              onError();
-            } else {
-              if (cmd == CmdType.jetifier) {
-                onSuccess(needDejet);
+          if (_shouldDejet) {
+            _shouldDejet = !result.stdout.contains(pattern);
+          }
+        }
+      }
+    } catch (e) {
+      if (e is ProcessRunnerException) {
+        final errList = e.result!.stderr.split('\n');
+
+        errList.forEach((err) {
+          if (err.trim() != '') {
+            if (err.startsWith(RegExp(r'\s'))) {
+              if (cmd == CmdType.proguard) {
+                step.logWarn(err, addPrefix: false);
               } else {
-                onSuccess();
+                step.logErr(err, addPrefix: false);
+              }
+            } else {
+              final errPattern = RegExp(r'error:?\s?', caseSensitive: false);
+
+              if (err.startsWith(errPattern)) {
+                err = err.replaceAll(errPattern, '');
+                step.logErr(err, addSpace: true);
+              } else if (cmd == CmdType.proguard &&
+                  err.startsWith('Warning: ')) {
+                err = err.replaceAll('Warning: ', '');
+                step.logWarn(err, addSpace: true);
+              } else {
+                step.logErr(err, addSpace: true);
               }
             }
-          });
+          }
+        });
+
+        failed = true;
+      } else {
+        step.logErr(e.toString().trimRight(), addSpace: true);
+      }
+    }
+
+    if (failed) {
+      throw Exception('Failed');
+    }
   }
 
   /// Returns the args required for running the extension generator.

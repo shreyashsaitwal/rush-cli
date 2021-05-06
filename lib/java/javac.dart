@@ -15,10 +15,7 @@ class Javac {
   Javac(this._cd, this._dataDir);
 
   Future<void> compile(CompileType type, BuildStep step,
-      {required Function() onDone,
-      required Function() onError,
-      Box? dataBox,
-      Directory? output}) async {
+      {Box? dataBox, Directory? output}) async {
     final args;
 
     if (type == CompileType.build) {
@@ -37,69 +34,64 @@ class Javac {
     var errCount = 0;
     var warnCount = 0;
 
-    ProcessRunner(defaultWorkingDirectory: Directory(_cd))
+    final stream = ProcessRunner(defaultWorkingDirectory: Directory(_cd))
         .runProcess(['javac', ...args])
         .asStream()
-        .asBroadcastStream()
-        .listen((result) {
-          final output = result.output.split('\n');
+        .asBroadcastStream();
 
-          var previous = '';
-          output
-              .where((element) =>
-                  element.contains('warning: ') &&
-                  !element.contains(
-                      'The following options were not recognized by any processor:'))
-              .forEach((element) {
-            final formatted = element.replaceFirst('warning: ', '').trimRight();
+    try {
+      await for (final result in stream) {
+        final output = result.output.split('\n');
 
-            if (formatted != previous) {
-              step.logWarn(formatted, addSpace: true);
-              warnCount++;
-            }
+        var previous = '';
+        output
+            .where((element) =>
+                element.contains('warning: ') &&
+                !element.contains(
+                    'The following options were not recognized by any processor:'))
+            .forEach((element) {
+          final formatted = element.replaceFirst('warning: ', '').trimRight();
 
-            previous = formatted;
-          });
-        })
-          ..onError((e) {
-            if (e.result != null) {
-              final errors = e.result.stderr.split('\n');
-              final pattern = RegExp(r'\d+\s(error(s)?|warning(s)?)');
+          if (formatted != previous) {
+            step.logWarn(formatted, addSpace: true);
+            warnCount++;
+          }
 
-              errors.forEach((element) {
-                if (element.contains('error: ')) {
-                  step.logErr(
-                      'src' + element.split('src').last.toString().trimRight(),
-                      addSpace: true);
-                  errCount++;
-                } else if (!pattern.hasMatch(element.trim())) {
-                  step.logErr(' ' * 3 + element.toString().trimRight(),
-                      addPrefix: false);
-                }
-              });
-            } else {
-              errCount++;
-              step.logErr(e.toString().trimRight(), addSpace: true);
-            }
-          })
-          ..onDone(() {
-            if (warnCount > 0) {
-              step.logWarn(
-                  'Total warning(s): ' + warnCount.toString().trimRight(),
-                  addSpace: true,
-                  addPrefix: false);
-            }
-            if (errCount > 0) {
-              step
-                ..logErr('Total error(s): ' + errCount.toString().trimRight(),
-                    addPrefix: false)
-                ..finishNotOk('Failed');
-              onError();
-            } else {
-              step.finishOk('Done');
-              onDone();
-            }
-          });
+          previous = formatted;
+        });
+      }
+    } catch (e) {
+      if (e is ProcessRunnerException) {
+        final errors = e.result!.stderr.split('\n');
+        final pattern = RegExp(r'\d+\s(error(s)?|warning(s)?)');
+
+        errors.forEach((element) {
+          if (element.contains('error: ')) {
+            step.logErr(
+                'src' + element.split('src').last.toString().trimRight(),
+                addSpace: true);
+            errCount++;
+          } else if (!pattern.hasMatch(element.trim())) {
+            step.logErr(' ' * 3 + element.toString().trimRight(),
+                addPrefix: false);
+          }
+        });
+      } else {
+        errCount++;
+        step.logErr(e.toString().trimRight(), addSpace: true);
+      }
+    }
+
+    if (warnCount > 0) {
+      step.logWarn('Total warning(s): ' + warnCount.toString().trimRight(),
+          addSpace: true, addPrefix: false);
+    }
+    if (errCount > 0) {
+      step.logErr('Total error(s): ' + errCount.toString().trimRight(),
+          addPrefix: false);
+
+      throw Exception('Failed');
+    }
   }
 
   Future<List<String>> _generateBuildArgs(Box box) async {
