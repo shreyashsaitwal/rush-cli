@@ -6,43 +6,43 @@ import 'package:rush_cli/helpers/copy.dart';
 import 'package:rush_cli/java/helper.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-enum JarType { generator, d8, d8sup, proguard, jar, jetifier }
+enum CmdType { generator, d8, d8sup, proguard, jar, jetifier }
 
-class JarRunner {
+class CmdRunner {
   final String _cd;
   final String _dataDir;
 
-  JarRunner(this._cd, this._dataDir);
+  CmdRunner(this._cd, this._dataDir);
 
-  /// Runs the specified [type] of JAR, printing the required stdout and the whole
+  /// Runs the specified [cmd], printing the required stdout and the whole
   /// stderr.
   ///
   /// If any error is caught, the [onError] function is invoked.
   ///
   /// If everything goes well, the [onSuccess] function is invoked.
-  void run(JarType type, String org, BuildStep step,
+  void run(CmdType cmd, String org, BuildStep step,
       {required Function onSuccess, required Function onError}) {
     final args = <String>[];
     var dwd = _cd; // Default working directory
 
-    switch (type) {
-      case JarType.generator:
+    switch (cmd) {
+      case CmdType.generator:
         args.addAll(_getGeneratorArgs(org));
         break;
-      case JarType.d8:
+      case CmdType.d8:
         args.addAll(_getD8Args(org, false));
         break;
-      case JarType.d8sup:
+      case CmdType.d8sup:
         args.addAll(_getD8Args(org, true));
         break;
-      case JarType.jar:
+      case CmdType.jar:
         dwd = p.join(_dataDir, 'workspaces', org, 'raw-classes', org);
         args.addAll(_getJarArgs(org, dwd));
         break;
-      case JarType.proguard:
+      case CmdType.proguard:
         args.addAll(_getPgArgs(org));
         break;
-      case JarType.jetifier:
+      case CmdType.jetifier:
         args.addAll(_getJetifierArgs(org));
         break;
     }
@@ -56,7 +56,7 @@ class JarRunner {
         .asBroadcastStream()
         .listen((_) {})
           ..onData((data) {
-            if (type == JarType.jetifier) {
+            if (cmd == CmdType.jetifier) {
               final pattern =
                   RegExp(r'WARNING: \[Main\] No references were rewritten.');
 
@@ -73,7 +73,7 @@ class JarRunner {
               errList.forEach((err) {
                 if (err.trim() != '' && err.trim() != null) {
                   if (err.startsWith(RegExp(r'\s'))) {
-                    if (type == JarType.proguard) {
+                    if (cmd == CmdType.proguard) {
                       step.logWarn(err, addPrefix: false);
                     } else {
                       step.logErr(err, addPrefix: false);
@@ -85,7 +85,7 @@ class JarRunner {
                     if (err.startsWith(errPattern)) {
                       err = err.replaceAll(errPattern, '');
                       step.logErr(err, addSpace: true);
-                    } else if (type == JarType.proguard &&
+                    } else if (cmd == CmdType.proguard &&
                         err.startsWith('Warning: ')) {
                       err = err.replaceAll('Warning: ', '');
                       step.logWarn(err, addSpace: true);
@@ -102,7 +102,7 @@ class JarRunner {
             if (failed) {
               onError();
             } else {
-              if (type == JarType.jetifier) {
+              if (cmd == CmdType.jetifier) {
                 onSuccess(needDejet);
               } else {
                 onSuccess();

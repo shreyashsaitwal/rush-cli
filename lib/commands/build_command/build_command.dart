@@ -5,11 +5,10 @@ import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:process_run/which.dart';
 import 'package:rush_cli/helpers/check_yaml.dart';
 import 'package:rush_cli/helpers/utils.dart';
 import 'package:rush_cli/java/javac.dart';
-import 'package:rush_cli/java/jar_runner.dart';
+import 'package:rush_cli/java/cmd_runner.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
 import 'package:yaml/yaml.dart';
@@ -249,9 +248,9 @@ class BuildCommand extends Command {
     }
 
     // Run the rush annotation processor
-    final runner = JarRunner(_cd, _dataDir);
+    final runner = CmdRunner(_cd, _dataDir);
     runner.run(
-      JarType.generator,
+      CmdType.generator,
       org,
       step,
       onSuccess: () {
@@ -344,9 +343,9 @@ class BuildCommand extends Command {
     });
 
     // Run the jar command-line tool. It is used to generate a JAR.
-    final runner = JarRunner(_cd, _dataDir);
+    final runner = CmdRunner(_cd, _dataDir);
     runner.run(
-      JarType.jar,
+      CmdType.jar,
       org,
       processStep,
       onSuccess: () {
@@ -387,9 +386,9 @@ class BuildCommand extends Command {
   /// ProGuards the extension.
   void _optimize(String org, BuildStep processStep,
       {required Function onSuccess, required Function onError}) {
-    final runner = JarRunner(_cd, _dataDir);
+    final runner = CmdRunner(_cd, _dataDir);
     runner.run(
-      JarType.proguard,
+      CmdType.proguard,
       org,
       processStep,
       onSuccess: onSuccess,
@@ -399,9 +398,9 @@ class BuildCommand extends Command {
 
   void _dejetify(String org, BuildStep processStep,
       {required Function onSuccess, required Function onError}) {
-    final runner = JarRunner(_cd, _dataDir);
+    final runner = CmdRunner(_cd, _dataDir);
     runner.run(
-      JarType.jetifier,
+      CmdType.jetifier,
       org,
       processStep,
       onSuccess: onSuccess,
@@ -414,15 +413,15 @@ class BuildCommand extends Command {
   void _dex(String org, bool dejet) {
     final step = BuildStep('Converting Java bytecode to DEX bytecode')..init();
 
-    final runner = JarRunner(_cd, _dataDir);
+    final runner = CmdRunner(_cd, _dataDir);
     runner.run(
-      JarType.d8,
+      CmdType.d8,
       org,
       step,
       onSuccess: () {
         if (dejet) {
           runner.run(
-            JarType.d8sup,
+            CmdType.d8sup,
             org,
             step,
             onSuccess: () {
