@@ -109,7 +109,7 @@ class MigrateCommand extends Command {
         .basenameWithoutExtension(genFiles['rushYml']!.first.path)
         .split('rush-')
         .last;
-    final package = Utils.getPackage(extName, p.join(_cd, 'src'));
+    final org = Utils.getPackage(extName, p.join(_cd, 'src'));
     final projectDir =
         Directory(p.join(p.dirname(_cd), Casing.kebabCase(extName)))
           ..createSync(recursive: true);
@@ -126,10 +126,10 @@ class MigrateCommand extends Command {
 
     final finalStep = BuildStep('Finalizing the migration')..init();
 
-    _copySrcFiles(package, projectDir.path, finalStep);
-    _copyAssets(package, projectDir.path, finalStep);
+    _copySrcFiles(org, projectDir.path, finalStep);
+    _copyAssets(org, projectDir.path, finalStep);
     _copyDeps(projectDir.path, finalStep);
-    _genNecessaryFiles(extName);
+    _genNecessaryFiles(org, extName);
 
     finalStep.finishOk('Done');
 
@@ -200,11 +200,11 @@ class MigrateCommand extends Command {
   }
 
   /// Generates files like readme, proguard-rules.pro, etc.
-  void _genNecessaryFiles(String extName) {
+  void _genNecessaryFiles(String org, String extName) {
     final kebabCasedName = Casing.kebabCase(extName);
     final projectDir = p.join(p.dirname(_cd), kebabCasedName);
 
-    _writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'), getPgRules());
+    _writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'), getPgRules(org, extName));
     _writeFile(p.join(projectDir, 'README.md'), getReadme(extName));
     _writeFile(p.join(projectDir, '.gitignore'), getDotGitignore());
 

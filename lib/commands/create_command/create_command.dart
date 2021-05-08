@@ -97,7 +97,7 @@ class CreateCommand extends Command {
 
       _writeFile(p.join(projectDir, 'src', 'AndroidManifest.xml'),
           getManifestXml(orgName));
-      _writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'), getPgRules());
+      _writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'), getPgRules(orgName, pascalCasedName));
 
       _writeFile(p.join(projectDir, 'rush.yml'),
           getRushYaml(pascalCasedName, versionName, authorName));

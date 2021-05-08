@@ -1,15 +1,21 @@
-String getPgRules() {
+String getPgRules(String org, String name) {
   return '''
--dontpreverify
--repackageclasses ''
+# Add any ProGuard configurations specific to this
+# extension here.
+
+-keep public class $org.$name {
+    public *;
+ }
+-keeppackagenames gnu.kawa.*, gnu.expr.*
+
+-optimizationpasses 4
 -allowaccessmodification
--optimizations !code/simplification/arithmetic
+-mergeinterfacesaggressively
 
--dontnote **
--keeppackagenames gnu**
+-flattenpackagehierarchy
+-repackageclasses
 
--keep public class * {
-    public protected *;
-}
+-dontpreverify
+
 ''';
 }
