@@ -7,7 +7,7 @@ import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/helpers/check_yaml.dart';
 import 'package:rush_cli/helpers/utils.dart';
-import 'package:rush_cli/java/javac.dart';
+import 'package:rush_cli/java/compiler.dart';
 import 'package:rush_cli/java/cmd_runner.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
@@ -212,11 +212,27 @@ class BuildCommand extends Command {
 
   Future<void> _compile(Box dataBox, bool optimize) async {
     final step = BuildStep('Compiling Java files')..init();
-    final javac = Javac(_cd, _dataDir);
+    final compiler = Compiler(_cd, _dataDir);
+
+    final srcFiles = Directory(p.join(_cd, 'src'))
+        .listSync(recursive: true)
+        .whereType<File>();
+
+    final hasJavaFiles =
+        srcFiles.any((file) => p.extension(file.path) == '.java');
+    final hasKtFiles = srcFiles.any((file) => p.extension(file.path) == '.kt');
 
     try {
-      await javac.compile(CompileType.build, step, dataBox: dataBox);
+      if (hasKtFiles) {
+        await compiler.compile(CompileType.buildKt, step, dataBox: dataBox);
+        await compiler.compile(CompileType.kapt, step, dataBox: dataBox);
+      }
+
+      if (hasJavaFiles) {
+        await compiler.compile(CompileType.buildJ, step, dataBox: dataBox);
+      }
     } catch (e) {
+      print(e);
       step.finishNotOk('Failed');
       Utils.printFailMsg();
       exit(1);

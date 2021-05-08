@@ -31,7 +31,8 @@ class Utils {
       try {
         dir.deleteSync(recursive: true);
       } catch (e) {
-        Logger.logErr('Something went wrong while invalidating build caches.\n${e.toString()}',
+        Logger.logErr(
+            'Something went wrong while invalidating build caches.\n${e.toString()}',
             exitCode: 1);
       }
     }
@@ -39,33 +40,21 @@ class Utils {
 
   // Returns the package name in com.example form
   static String getPackage(String extName, String srcDirPath) {
-    final srcDir = Directory(srcDirPath);
-    var path = '';
+    final mainSrcFile = Directory(srcDirPath)
+        .listSync(recursive: true)
+        .whereType<File>()
+        .singleWhere(
+            (file) => p.basenameWithoutExtension(file.path) == extName);
 
-    for (final file in srcDir.listSync(recursive: true)) {
-      if (file is File && p.basename(file.path) == '$extName.java') {
-        path = file.path;
-        break;
-      }
-    }
+    final path = p.relative(mainSrcFile.path, from: srcDirPath);
 
-    final struct = p.split(path.split(srcDirPath).last);
-    struct.removeAt(0);
+    final org = path
+        .split(p.separator)
+        .join('.')
+        .split('.' + p.basename(mainSrcFile.path))
+        .first;
 
-    var package = '';
-    var isFirst = true;
-    for (final dirName in struct) {
-      if (!dirName.endsWith('.java')) {
-        if (isFirst) {
-          package += dirName;
-          isFirst = false;
-        } else {
-          package += '.' + dirName;
-        }
-      }
-    }
-
-    return package;
+    return org;
   }
 
   /// Extracts JAR file from [filePath] and saves the content to [saveTo].

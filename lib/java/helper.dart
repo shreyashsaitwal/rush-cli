@@ -15,7 +15,7 @@ class Helper {
 
     return files;
   }
- 
+
   static String generateClasspath(List<FileSystemEntity> entities,
       {List<String> exclude = const ['']}) {
     final jars = [];
@@ -29,10 +29,10 @@ class Helper {
                 p.extension(el.path) == '.jar' &&
                 !exclude.contains(p.basename(el.path)))
             .forEach((el) {
-          jars.add(el.path);
+          jars.add(p.relative(el.path));
         });
       } else if (entity is File) {
-        jars.add(entity.path);
+        jars.add(p.relative(entity.path));
       }
     });
 

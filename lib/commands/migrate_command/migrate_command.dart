@@ -6,7 +6,7 @@ import 'package:args/command_runner.dart';
 import 'package:rush_cli/helpers/copy.dart';
 import 'package:rush_cli/helpers/utils.dart';
 import 'package:rush_cli/helpers/casing.dart';
-import 'package:rush_cli/java/javac.dart';
+import 'package:rush_cli/java/compiler.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
 import 'package:rush_cli/templates/iml_template.dart';
 import 'package:rush_cli/templates/libs_xml.dart';
@@ -54,7 +54,7 @@ class MigrateCommand extends Command {
 
     final compStep = BuildStep('Introspecting the Java files')..init();
 
-    final javac = Javac(_cd, _dataDir);
+    final javac = Compiler(_cd, _dataDir);
 
     try {
       await javac.compile(CompileType.migrate, compStep, output: outputDir);
