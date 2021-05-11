@@ -233,14 +233,8 @@ class CmdRunner {
     final androidRuntimeSup =
         File(p.join(rawOrgDirSup.path, 'files', 'AndroidRuntime.jar'));
 
-    final exe;
-    if (Platform.isWindows) {
-      exe = p.join(_dataDir, 'tools', 'jetifier-standalone', 'bin',
-          'jetifier-standalone.bat');
-    } else {
-      exe = p.join(_dataDir, 'tools', 'jetifier-standalone', 'bin',
-          'jetifier-standalone');
-    }
+    final exe = p.join(_dataDir, 'tools', 'jetifier-standalone', 'bin',
+          'jetifier-standalone' + (Platform.isWindows ? '.bat' : ''));
 
     final args = <String>[exe];
     args

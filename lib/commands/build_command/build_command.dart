@@ -301,25 +301,27 @@ class BuildCommand extends Command {
       exit(1);
     }
 
-    final needDejet;
-    try {
-      await runner.run(CmdType.jetifier, org, step);
-      needDejet = runner.getShouldDejet;
-    } catch (e) {
-      step.finishNotOk('Failed');
-      Utils.printFailMsg();
-      exit(1);
-    }
+    var needDejet = dejet;
+    if (dejet) {
+      try {
+        await runner.run(CmdType.jetifier, org, step);
+        needDejet = runner.getShouldDejet;
+      } catch (e) {
+        step.finishNotOk('Failed');
+        Utils.printFailMsg();
+        exit(1);
+      }
 
-    if (!needDejet && dejet) {
-      // Delete the raw/sup directory so that support version of
-      // the extension isn't generated.
-      Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'sup'))
-          .deleteSync(recursive: true);
+      if (!needDejet && dejet) {
+        // Delete the raw/sup directory so that support version of
+        // the extension isn't generated.
+        Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'sup'))
+            .deleteSync(recursive: true);
 
-      step.logWarn(
-          'No references to androidx** were found. You don\'t need to pass the `-s` flag for now.',
-          addSpace: true);
+        step.logWarn(
+            'No references to androidx** were found. You don\'t need to pass the `-s` flag for now.',
+            addSpace: true);
+      }
     }
 
     step.finishOk('Done');
