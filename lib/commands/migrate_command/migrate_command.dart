@@ -8,11 +8,8 @@ import 'package:rush_cli/helpers/utils.dart';
 import 'package:rush_cli/helpers/casing.dart';
 import 'package:rush_cli/java/compiler.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
-import 'package:rush_cli/templates/iml_template.dart';
-import 'package:rush_cli/templates/libs_xml.dart';
-import 'package:rush_cli/templates/misc_xml.dart';
-import 'package:rush_cli/templates/modules_xml.dart';
-import 'package:rush_cli/templates/readme_template.dart';
+import 'package:rush_cli/templates/intellij_files.dart';
+import 'package:rush_cli/templates/readme.dart';
 import 'package:rush_cli/templates/rules_pro.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
@@ -52,7 +49,7 @@ class MigrateCommand extends Command {
     final dir = Directory(p.join(_dataDir, 'cache'))..createSync();
     final outputDir = Directory(dir.path).createTempSync();
 
-    final compStep = BuildStep('Introspecting the Java files')..init();
+    final compStep = BuildStep('Introspecting the source files')..init();
 
     final javac = Compiler(_cd, _dataDir);
 
@@ -211,7 +208,7 @@ class MigrateCommand extends Command {
     // IntelliJ IDEA files
     _writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
     _writeFile(
-        p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'), getLibsXml());
+        p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'), getDevDepsXml());
     _writeFile(p.join(projectDir, '.idea', 'modules.xml'),
         getModulesXml(kebabCasedName));
     _writeFile(p.join(projectDir, '$kebabCasedName.iml'), getIml());

@@ -8,17 +8,14 @@ import 'package:rush_cli/helpers/copy.dart';
 import 'package:rush_cli/templates/rules_pro.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
-import 'package:rush_cli/templates/iml_template.dart';
-import 'package:rush_cli/templates/libs_xml.dart';
-import 'package:rush_cli/templates/misc_xml.dart';
-import 'package:rush_cli/templates/modules_xml.dart';
+import 'package:rush_cli/templates/intellij_files.dart';
 import 'package:rush_cli/helpers/casing.dart';
 import 'package:rush_cli/commands/create_command/questions.dart';
 import 'package:rush_cli/templates/android_manifest.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
-import 'package:rush_cli/templates/readme_template.dart';
-import 'package:rush_cli/templates/rush_yaml_template.dart';
-import 'package:rush_cli/templates/extension_template.dart';
+import 'package:rush_cli/templates/readme.dart';
+import 'package:rush_cli/templates/rush_yml.dart';
+import 'package:rush_cli/templates/extension_source.dart';
 
 class CreateCommand extends Command {
   final String _cd;
@@ -69,6 +66,7 @@ class CreateCommand extends Command {
     final answers = RushPrompt(questions: Questions.questions).askAll();
     final authorName = answers[1][1].toString().trim();
     final versionName = answers[2][1].toString().trim();
+    final lang = answers[3][1].toString().trim();
     var orgName = answers[0][1].toString().trim();
 
     final camelCasedName = Casing.camelCase(name);
@@ -88,19 +86,30 @@ class CreateCommand extends Command {
     // Creates the required files for the extension.
     try {
       final extPath = p.joinAll([projectDir, 'src', ...orgName.split('.')]);
-      _writeFile(
-          p.join(extPath, '$pascalCasedName.java'),
-          getExtensionTemp(
-            pascalCasedName,
-            orgName,
-          ));
+
+      if (lang == 'Java') {
+        _writeFile(
+            p.join(extPath, '$pascalCasedName.java'),
+            getExtensionTempJava(
+              pascalCasedName,
+              orgName,
+            ));
+      } else {
+        _writeFile(
+            p.join(extPath, '$pascalCasedName.kt'),
+            getExtensionTempKt(
+              pascalCasedName,
+              orgName,
+            ));
+      }
 
       _writeFile(p.join(projectDir, 'src', 'AndroidManifest.xml'),
           getManifestXml(orgName));
-      _writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'), getPgRules(orgName, pascalCasedName));
+      _writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'),
+          getPgRules(orgName, pascalCasedName));
 
       _writeFile(p.join(projectDir, 'rush.yml'),
-          getRushYaml(pascalCasedName, versionName, authorName));
+          getRushYaml(pascalCasedName, versionName, authorName, lang == 'Kotlin'));
 
       _writeFile(p.join(projectDir, 'README.md'), getReadme(pascalCasedName));
       _writeFile(p.join(projectDir, '.gitignore'), getDotGitignore());
@@ -109,8 +118,12 @@ class CreateCommand extends Command {
 
       // IntelliJ IDEA files
       _writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
+
       _writeFile(p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
-          getLibsXml());
+          getDevDepsXml());
+      _writeFile(p.join(projectDir, '.idea', 'libraries', 'deps.xml'),
+          getDepsXml());
+
       _writeFile(p.join(projectDir, '.idea', 'modules.xml'),
           getModulesXml(kebabCasedName));
       _writeFile(p.join(projectDir, '$kebabCasedName.iml'), getIml());

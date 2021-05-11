@@ -22,7 +22,7 @@ class MultipleChoiceQuestion extends Question {
     _options = options;
 
     _hint = hint ??
-        '(Use arrow keys to navigate to the correct option & enter to select it.)';
+        '(Use arrow keys to navigate & press enter to select)';
   }
 
   void _renderList(int activeIndex) {

@@ -1,4 +1,4 @@
-import 'dart:io' show File, Directory, exit;
+import 'dart:io' show Directory, File, exit;
 
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
@@ -9,31 +9,36 @@ import 'package:rush_prompt/rush_prompt.dart';
 class Utils {
   /// Copys the dev deps in case they are not present.
   /// This might be needed when the project is cloned from a VCS.
-  void copyDevDeps(String scriptPath, String cd) {
+  static void copyDevDeps(String scriptPath, String cd) {
     final devDepsDir = Directory(p.join(cd, '.rush', 'dev-deps'))
       ..createSync(recursive: true);
     final devDepsCache =
         Directory(p.join(scriptPath.split('bin').first, 'dev-deps'));
 
-    if (devDepsDir.listSync().isEmpty) {
-      Logger.log('Getting things ready...',
-          color: ConsoleColor.brightWhite,
-          prefix: '\n•',
-          prefixFG: ConsoleColor.yellow);
+    if (devDepsDir.listSync().isEmpty ||
+        devDepsDir.listSync().length < devDepsCache.listSync().length) {
       Copy.copyDir(devDepsCache, devDepsDir);
     }
   }
 
-  /// Deletes directory located at [path] recursively.
-  static void cleanDir(String path) {
-    final dir = Directory(path);
+  /// Cleans workspace dir for the given [org].
+  static void cleanWorkspaceDir(String dataDir, String org) {
+    final dir = Directory(p.join(dataDir, 'workspaces', org));
+
     if (dir.existsSync()) {
       try {
         dir.deleteSync(recursive: true);
       } catch (e) {
-        Logger.logErr(
-            'Something went wrong while invalidating build caches.\n${e.toString()}',
-            exitCode: 1);
+        // This is done because for some reasons the [deleteSync] method
+        // won't be able to delete the contents of the dir and would
+        // throw a "path not found" exception. I've tried almost everything
+        // trying to fix this but nothing seems to work. This is most
+        // probably a bug in Dart SDK as [deleteSync] used to work just
+        // fine earlier.
+        dir
+            .listSync(recursive: true)
+            .whereType<File>()
+            .forEach((file) => file.deleteSync());
       }
     }
   }

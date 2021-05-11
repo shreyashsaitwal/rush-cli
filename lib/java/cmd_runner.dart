@@ -157,9 +157,9 @@ class CmdRunner {
     args
       ..addAll(['-cp', d8.path])
       ..add('com.android.tools.r8.D8')
+      ..addAll(['--lib', p.join(_cd, '.rush', 'dev-deps', 'android.jar')])
       ..addAll([
         '--release',
-        '--no-desugaring',
         '--output',
         p.join(rawPath, 'classes.jar'),
         p.join(rawPath, 'files', 'AndroidRuntime.jar'),

@@ -101,21 +101,19 @@ class BuildCommand extends Command {
     valStep.init();
 
     File rushYml;
-    {
-      final yml = File(p.join(_cd, 'rush.yml'));
-      final yaml = File(p.join(_cd, 'rush.yaml'));
+    final yml = File(p.join(_cd, 'rush.yml'));
+    final yaml = File(p.join(_cd, 'rush.yaml'));
 
-      if (yml.existsSync()) {
-        rushYml = yml;
-      } else if (yaml.existsSync()) {
-        rushYml = yaml;
-      } else {
-        valStep
-          ..logErr('Metadata file (rush.yml) not found')
-          ..finishNotOk('Failed');
-        Utils.printFailMsg();
-        exit(1);
-      }
+    if (yml.existsSync()) {
+      rushYml = yml;
+    } else if (yaml.existsSync()) {
+      rushYml = yaml;
+    } else {
+      valStep
+        ..logErr('Metadata file (rush.yml) not found')
+        ..finishNotOk('Failed');
+      Utils.printFailMsg();
+      exit(1);
     }
 
     // Load rush.yml in a Dart understandable way.
@@ -165,9 +163,9 @@ class BuildCommand extends Command {
     final dataBox = await Hive.openBox('data');
 
     // This is done in case the user deletes the .rush directory.
-    Utils().copyDevDeps(_dataDir, _cd);
+    Utils.copyDevDeps(_dataDir, _cd);
 
-    await _updateBoxValues(dataBox, loadedYml);
+    await _ensureBoxValues(dataBox, loadedYml);
 
     var isYmlMod =
         rushYml.lastModifiedSync().isAfter(await dataBox.get('rushYmlLastMod'));
@@ -177,7 +175,12 @@ class BuildCommand extends Command {
         .isAfter(await dataBox.get('manifestLastMod'));
 
     if (isYmlMod || isManifestMod) {
-      Utils.cleanDir(p.join(_dataDir, 'workspaces', dataBox.get('org')));
+      Utils.cleanWorkspaceDir(_dataDir, await dataBox.get('org'));
+
+      await Future.wait([
+        dataBox.put('rushYmlLastMod', rushYml.lastModifiedSync()),
+        dataBox.put('manifestLastMod', manifestFile.lastModifiedSync())
+      ]);
     }
 
     // Increment version number if this is a production build.
@@ -190,7 +193,7 @@ class BuildCommand extends Command {
         await dataBox.put('version', extVerBox + 1);
       }
 
-      Utils.cleanDir(p.join(_dataDir, 'workspaces', dataBox.get('org')));
+      Utils.cleanWorkspaceDir(_dataDir, await dataBox.get('org'));
     }
 
     final optimize;
@@ -207,11 +210,13 @@ class BuildCommand extends Command {
       optimize = false;
     }
 
-    await _compile(dataBox, optimize);
+    await _compile(
+        dataBox, optimize, (loadedYml['kotlin']?['enable'] ?? false) as bool);
   }
 
-  Future<void> _compile(Box dataBox, bool optimize) async {
-    final step = BuildStep('Compiling Java files')..init();
+  /// Compiles extension's source files
+  Future<void> _compile(Box dataBox, bool optimize, bool enableKt) async {
+    final step = BuildStep('Compiling source files')..init();
     final compiler = Compiler(_cd, _dataDir);
 
     final srcFiles = Directory(p.join(_cd, 'src'))
@@ -224,15 +229,23 @@ class BuildCommand extends Command {
 
     try {
       if (hasKtFiles) {
-        await compiler.compile(CompileType.buildKt, step, dataBox: dataBox);
-        await compiler.compile(CompileType.kapt, step, dataBox: dataBox);
+        if (!enableKt) {
+          step
+            ..logErr('Kotlin files detected. Please enable Kotlin in rush.yml.')
+            ..finishNotOk('Failed');
+          exit(1);
+        }
+
+        await Future.wait([
+          compiler.compile(CompileType.buildKt, step, dataBox: dataBox),
+          compiler.compile(CompileType.kapt, step, dataBox: dataBox)
+        ]);
       }
 
       if (hasJavaFiles) {
         await compiler.compile(CompileType.buildJ, step, dataBox: dataBox);
       }
     } catch (e) {
-      print(e);
       step.finishNotOk('Failed');
       Utils.printFailMsg();
       exit(1);
@@ -250,7 +263,7 @@ class BuildCommand extends Command {
     final rulesPro = File(p.join(_cd, 'src', 'proguard-rules.pro'));
 
     if (optimize && rulesPro.existsSync()) {
-      step = BuildStep('Optimizing the extension')..init();
+      step = BuildStep('Processing and optimizing the extension')..init();
     } else {
       step = BuildStep('Processing the extension')..init();
       if (!rulesPro.existsSync() && optimize) {
@@ -298,7 +311,7 @@ class BuildCommand extends Command {
       exit(1);
     }
 
-    if (!needDejet) {
+    if (!needDejet && dejet) {
       // Delete the raw/sup directory so that support version of
       // the extension isn't generated.
       Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'sup'))
@@ -359,7 +372,7 @@ class BuildCommand extends Command {
   /// Convert generated extension JAR file from previous step into DEX
   /// bytecode.
   Future<void> _dex(String org, bool dejet) async {
-    final step = BuildStep('Converting Java bytecode to DEX bytecode')..init();
+    final step = BuildStep('Generating DEX bytecode')..init();
 
     final runner = CmdRunner(_cd, _dataDir);
 
@@ -408,7 +421,8 @@ class BuildCommand extends Command {
     exit(0);
   }
 
-  Future<void> _updateBoxValues(Box box, YamlMap yaml) async {
+  /// Ensures that the required data exists in the data box.
+  Future<void> _ensureBoxValues(Box box, YamlMap yaml) async {
     final extName = yaml['name'];
     if (!box.containsKey('name') || (await box.get('name')) != extName) {
       await box.put('name', yaml['name']);

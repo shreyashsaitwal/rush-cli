@@ -118,6 +118,8 @@ class Compiler {
     }
   }
 
+  /// Returns the command line args required for compiling Java
+  /// sources.
   Future<List<String>> _getJavacArgs(Box box) async {
     final name = await box.get('name');
     final org = await box.get('org');
@@ -139,9 +141,10 @@ class Compiler {
       '-Aversion=$version',
       '-Aoutput=${classesDir.path}',
     ];
-    final classpath = Helper.generateClasspath([devDeps, deps, processor]);
+    final classpath = Helper.generateClasspath([devDeps, deps, processor],
+        classesDir: classesDir);
 
-    final srcFiles = Helper.getSourceFiles(srcDir);
+    final srcFiles = Helper.getJavaSourceFiles(srcDir);
 
     final args = <String>[];
     args
@@ -154,6 +157,8 @@ class Compiler {
     return args;
   }
 
+  /// Returns command line args required for running the extension
+  /// migrator which basically is a annotation processor.
   List<String> _getMigratorArgs(Directory output) {
     final devDeps = Directory(p.join(_cd, 'lib', 'appinventor'));
     final deps = Directory(p.join(_cd, 'lib', 'deps'));
@@ -166,8 +171,7 @@ class Compiler {
       '-AoutputDir=${output.path}',
     ];
 
-    final srcFiles = Helper.getSourceFiles(Directory(p.join(_cd, 'src')));
-
+    final srcFiles = Helper.getJavaSourceFiles(Directory(p.join(_cd, 'src')));
     final classesDir = Directory(p.join(output.path, 'classes'))..createSync();
 
     final args = <String>[];
@@ -181,6 +185,7 @@ class Compiler {
     return args;
   }
 
+  /// Returns commmand line args required for compiling Kotlin sources.
   List<String> _getKtcArgs(String org) {
     final kotlinc = p.join(_dataDir, 'tools', 'kotlinc', 'bin',
         'kotlinc' + (Platform.isWindows ? '.bat' : ''));
@@ -204,6 +209,9 @@ class Compiler {
     return [kotlinc, '@${argFile.path}'];
   }
 
+  /// Returns command line args required for running the Kapt
+  /// compiler plugin. Kapt is required for processing annotations
+  /// in Kotlin sources and needs to be invoked separately.
   Future<List<String>> _getKaptArgs(
       String name, String org, int version) async {
     final kotlincDir = p.join(_dataDir, 'tools', 'kotlinc');
@@ -213,7 +221,7 @@ class Compiler {
     final apDir = Directory(p.join(_dataDir, 'tools', 'processor'));
 
     final classpath = Helper.generateClasspath([devDeps, deps, apDir],
-        exclude: ['processor-v186a.jar']);
+        exclude: ['processor.jar']);
 
     final srcDir = p.join(_cd, 'src');
 
@@ -221,7 +229,7 @@ class Compiler {
     final toolsJar =
         p.join(p.dirname(p.dirname(whichJavac!)), 'lib', 'tools.jar');
 
-    final prefix = 'plugin:org.jetbrains.kotlin.kapt3:';
+    final prefix = '-P "plugin:org.jetbrains.kotlin.kapt3:';
     final kaptDir = Directory(p.join(_dataDir, 'workspaces', org, 'kapt'))
       ..createSync(recursive: true);
 
@@ -233,16 +241,12 @@ class Compiler {
       ..add('-Xplugin="$toolsJar"')
       ..add(
           '-Xplugin="${p.join(kotlincDir, 'lib', 'kotlin-annotation-processing.jar')}"')
-      ..add('-P "' + prefix + 'sources=' + kaptDir.path + '"')
-      ..add('-P "' + prefix + 'classes=' + kaptDir.path + '"')
-      ..add('-P "' + prefix + 'stubs=' + kaptDir.path + '"')
-      ..add('-P "' + prefix + 'aptMode=stubsAndApt' + '"')
-      ..add('-P "' +
-          prefix +
-          'apclasspath=' +
-          p.join(apDir.path, 'processor-v186a.jar') +
-          '"')
-      ..add('-P "' + prefix + 'apoptions=' + apOpts + '"')
+      ..add(prefix + 'sources=' + kaptDir.path + '"')
+      ..add(prefix + 'classes=' + kaptDir.path + '"')
+      ..add(prefix + 'stubs=' + kaptDir.path + '"')
+      ..add(prefix + 'aptMode=stubsAndApt' + '"')
+      ..add(prefix + 'apclasspath=' + p.join(apDir.path, 'processor.jar') + '"')
+      ..add(prefix + 'apoptions=' + apOpts + '"')
       ..add(srcDir);
 
     final argFile = _writeArgFile('kapt.rsh', org, args);
@@ -253,6 +257,9 @@ class Compiler {
     ];
   }
 
+  /// Returns base64 encoded options required by the Rush annotation processor.
+  /// This is only needed when running Kapt, as it doesn't support passing
+  /// options to the annotation processor in textual form.
   Future<String> _getEncodedApOpts(String org, String name, int version) async {
     final opts = [
       'root=${_cd.replaceAll('\\', '/')}',
@@ -262,10 +269,14 @@ class Compiler {
       'output=${p.join(_dataDir, 'workspaces', org, 'classes')}'
     ].join(';');
 
-    final encoder = p.join(_dataDir, 'tools', 'other', 'encoder-1.0.jar');
+    final processorJar =
+        p.join(_dataDir, 'tools', 'processor', 'processor.jar');
 
-    final res =
-        await ProcessRunner().runProcess(['java', '-jar', encoder, opts]);
+    // The encoding is done by Java. This is because I was unable to implement
+    // the function for encoding the options in Dart. This class is a part of
+    // processor module in rush annotation processor repo.
+    final res = await ProcessRunner().runProcess(
+        ['java', '-cp', processorJar, 'io.shreyash.rush.OptsEncoder', opts]);
 
     if (res.stderr.isEmpty) {
       return res.stdout.trim();
@@ -276,6 +287,13 @@ class Compiler {
     }
   }
 
+  /// Writes an argfile which holds the arguments required for running kotlinc
+  /// and Kapt.
+  ///
+  /// This is done because kotlinc showed different behavior on different shells
+  /// on Windows. Directly passing args to the process runner never worked, but
+  /// if the same args were executed from CMD, it would work. Although won't
+  /// work on Git Bash and PowerShell.
   File _writeArgFile(String fileName, String org, List<String> args) {
     final file = File(p.join(_dataDir, 'workspaces', org, fileName))
       ..createSync(recursive: true);
