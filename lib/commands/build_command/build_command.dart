@@ -5,7 +5,7 @@ import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:process_run/which.dart';
+import 'package:rush_cli/generator/generator.dart';
 import 'package:rush_cli/helpers/check_yaml.dart';
 import 'package:rush_cli/helpers/utils.dart';
 import 'package:rush_cli/java/javac.dart';
@@ -248,80 +248,69 @@ class BuildCommand extends Command {
       }
     }
 
-    // Run the rush annotation processor
-    final runner = JarRunner(_cd, _dataDir);
-    runner.run(
-      JarType.processor,
+    // Generate the extension files
+    final generator = Generator(_cd, _dataDir);
+    generator.generate(org);
+
+    _jarExtension(
       org,
       step,
-      onSuccess: () {
-        _jarExtension(
-          org,
-          step,
-          optimize,
-          dejet,
-          onSuccess: (String jarPath) async {
-            final jar = File(jarPath);
+      optimize,
+      dejet,
+      onSuccess: (String jarPath) async {
+        final jar = File(jarPath);
 
-            if (jar.existsSync()) {
-              final destDir = Directory(
-                  p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'files'))
-                ..createSync(recursive: true);
+        if (jar.existsSync()) {
+          final destDir = Directory(
+              p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'files'))
+            ..createSync(recursive: true);
 
-              jar.copySync(p.join(destDir.path, 'AndroidRuntime.jar'));
+          jar.copySync(p.join(destDir.path, 'AndroidRuntime.jar'));
 
-              // De-jetify the extension
-              if (dejet) {
-                _dejetify(
-                  org,
-                  step,
-                  onSuccess: (bool needDejet) {
-                    if (!needDejet) {
-                      // Delete the raw/sup directory so that support version of
-                      // the extension isn't generated.
-                      Directory(
-                              p.join(_dataDir, 'workspaces', org, 'raw', 'sup'))
-                          .deleteSync(recursive: true);
+          // De-jetify the extension
+          if (dejet) {
+            _dejetify(
+              org,
+              step,
+              onSuccess: (bool needDejet) {
+                if (!needDejet) {
+                  // Delete the raw/sup directory so that support version of
+                  // the extension isn't generated.
+                  Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'sup'))
+                      .deleteSync(recursive: true);
 
-                      step
-                        ..logWarn('No references to androidx.* were found.',
-                            addSpace: true)
-                        ..logWarn(
-                            ' ' * 5 +
-                                'You don\'t need to create a support library version of the extension.',
-                            addPrefix: false)
-                        ..finishOk('Done');
-                      _dex(org, false);
-                    } else {
-                      step.finishOk('Done');
-                      _dex(org, true);
-                    }
-                  },
-                  onError: () {
-                    step.finishNotOk('Failed');
-                    Utils.printFailMsg();
-                    exit(1);
-                  },
-                );
-              } else {
-                step.finishOk('Done');
-                _dex(org, false);
-              }
-            } else {
-              step
-                ..logErr('File not found: ' + jar.path)
-                ..finishNotOk('Failed');
+                  step
+                    ..logWarn('No references to androidx.* were found.',
+                        addSpace: true)
+                    ..logWarn(
+                        ' ' * 5 +
+                            'You don\'t need to create a support library version of the extension.',
+                        addPrefix: false)
+                    ..finishOk('Done');
+                  _dex(org, false);
+                } else {
+                  step.finishOk('Done');
+                  _dex(org, true);
+                }
+              },
+              onError: () {
+                step.finishNotOk('Failed');
+                Utils.printFailMsg();
+                exit(1);
+              },
+            );
+          } else {
+            step.finishOk('Done');
+            _dex(org, false);
+          }
+        } else {
+          step
+            ..logErr('File not found: ' + jar.path)
+            ..finishNotOk('Failed');
 
-              Utils.printFailMsg();
-              exit(1);
-            }
-          },
-        );
-      },
-      onError: () {
-        step.finishNotOk('Failed');
-        Utils.printFailMsg();
-        exit(1);
+          Utils.printFailMsg();
+          exit(1);
+        }
       },
     );
   }
@@ -333,15 +322,6 @@ class BuildCommand extends Command {
       {required Function onSuccess}) {
     final rawClassesDir =
         Directory(p.join(_dataDir, 'workspaces', org, 'raw-classes', org));
-
-    // Unjar dependencies
-    rawClassesDir
-        .listSync()
-        .whereType<File>()
-        .where((el) => p.extension(el.path) == '.jar')
-        .forEach((el) {
-      Utils.extractJar(el.path, p.dirname(el.path));
-    });
 
     // Run the jar command-line tool. It is used to generate a JAR.
     final runner = JarRunner(_cd, _dataDir);
@@ -516,7 +496,8 @@ class BuildCommand extends Command {
       await box.put('rushYmlLastMod', lastMod);
     }
 
-    if (!box.containsKey('manifestLastMod') || (await box.get('manifestLastMod')) == null) {
+    if (!box.containsKey('manifestLastMod') ||
+        (await box.get('manifestLastMod')) == null) {
       final lastMod =
           File(p.join(_cd, 'src', 'AndroidManifest.xml')).lastModifiedSync();
 

@@ -31,7 +31,8 @@ class Utils {
       try {
         dir.deleteSync(recursive: true);
       } catch (e) {
-        Logger.logErr('Something went wrong while invalidating build caches.\n${e.toString()}',
+        Logger.logErr(
+            'Something went wrong while invalidating build caches.\n${e.toString()}',
             exitCode: 1);
       }
     }
