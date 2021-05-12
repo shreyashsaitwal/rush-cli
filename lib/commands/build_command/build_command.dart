@@ -182,6 +182,11 @@ class BuildCommand extends Command {
 
     if (isYmlMod || isManifestMod) {
       Utils.cleanDir(p.join(_dataDir, 'workspaces', dataBox.get('org')));
+
+      await Future.wait([
+        dataBox.put('rushYmlLastMod', rushYml.lastModifiedSync()),
+        dataBox.put('manifestLastMod', manifestFile.lastModifiedSync())
+      ]);
     }
 
     // Increment version number if this is a production build.
@@ -312,7 +317,8 @@ class BuildCommand extends Command {
             ..logErr('File not found: ' + jar.path)
             ..finishNotOk('Failed');
 
-          Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
+          Utils.printFailMsg(
+              Utils.getTimeDifference(startTime, DateTime.now()));
           exit(1);
         }
       },
@@ -456,7 +462,8 @@ class BuildCommand extends Command {
 
     step.finishOk('Done');
 
-    Logger.log('Build successful in ${Utils.getTimeDifference(startTime, DateTime.now())}',
+    Logger.log(
+        'Build successful in ${Utils.getTimeDifference(startTime, DateTime.now())}',
         color: ConsoleColor.brightWhite,
         prefix: '\n• ',
         prefixFG: ConsoleColor.brightGreen);
