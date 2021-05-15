@@ -62,8 +62,8 @@ class Javac {
           });
         })
           ..onError((e) {
-            if (e.result != null) {
-              final errors = e.result.stderr.split('\n');
+            if (e is ProcessRunnerException) {
+              final errors = e.result!.stderr.split('\n');
               final pattern = RegExp(r'\d+\s(error(s)?|warning(s)?)');
 
               errors.forEach((element) {
