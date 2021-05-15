@@ -19,7 +19,7 @@ class ProgressBar {
     var progressWidth =
         ' ' * (totalWidth * (currentProgress / totalProgress!)).ceil();
     _console
-      ..hideCursor()
+      // ..hideCursor()
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..write('$_title  ')
       ..setBackgroundColor(ConsoleColor.brightBlue)

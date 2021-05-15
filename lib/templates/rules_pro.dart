@@ -1,12 +1,10 @@
 String getPgRules() {
   return '''
--dontpreverify
--repackageclasses ''
+-optimizationpasses 4
 -allowaccessmodification
--optimizations !code/simplification/arithmetic
+-mergeinterfacesaggressively
 
--dontnote **
--keeppackagenames gnu**
+-keeppackagenames gnu.kawa.*, gnu.expr.*
 
 -keep public class * {
     public protected *;

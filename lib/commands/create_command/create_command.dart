@@ -111,8 +111,8 @@ class CreateCommand extends Command {
       _writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
       _writeFile(p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
           getDevDepsXml());
-      _writeFile(p.join(projectDir, '.idea', 'libraries', 'deps.xml'),
-          getDepsXml());
+      _writeFile(
+          p.join(projectDir, '.idea', 'libraries', 'deps.xml'), getDepsXml());
       _writeFile(p.join(projectDir, '.idea', 'modules.xml'),
           getModulesXml(kebabCasedName));
       _writeFile(p.join(projectDir, '$kebabCasedName.iml'), getIml());

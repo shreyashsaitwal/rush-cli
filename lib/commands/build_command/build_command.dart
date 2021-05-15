@@ -463,7 +463,7 @@ class BuildCommand extends Command {
     step.finishOk('Done');
 
     Logger.log(
-        'Build successful in ${Utils.getTimeDifference(startTime, DateTime.now())}',
+        'Build successful ${Utils.getTimeDifference(startTime, DateTime.now())}',
         color: ConsoleColor.brightWhite,
         prefix: '\n• ',
         prefixFG: ConsoleColor.brightGreen);

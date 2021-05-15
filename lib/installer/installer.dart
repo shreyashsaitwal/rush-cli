@@ -1,181 +1,62 @@
-import 'dart:convert';
-import 'dart:io' show Platform, Directory, stdin, stdout, exit;
+import 'dart:io' show Platform, stdin, stdout, exit;
 
 import 'package:dart_console/dart_console.dart';
 import 'package:dio/dio.dart';
-import 'package:filepicker_windows/filepicker_windows.dart';
 import 'package:path/path.dart' as p;
-import 'package:process_run/shell.dart';
+import 'package:process_run/which.dart';
 import 'package:rush_cli/helpers/app_data_dir.dart';
-import 'package:rush_cli/installer/model/download_data.dart';
+import 'package:rush_cli/installer/model/bin_data.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 class Installer {
   final _dataDir = RushDataDir.dataDir()!;
 
-  Future<void> call() async {
-    if (!_isRushInstalled()) {
-      await _freshInstall();
-    } else {
-      final rushDir = p.dirname(p.dirname(whichSync('rush')!));
-      Logger.log('An old version of Rush was found at: $rushDir\n');
-      final shouldUpdate = BoolQuestion(
-              id: 'up',
-              question: 'Would you like to update it with the latest version?')
-          .ask()[1];
+  Future<void> downloadBinaries(String exePath) async {
+    const endpoint = 'https://get-rush.herokuapp.com';
 
-      if (shouldUpdate) {
-        _deleteOldRush(rushDir);
-        await _downloadRush(rushDir);
-      } else {
-        _abort(1);
-      }
+    Logger.log('\nFetching data...\n');
 
-      _printFooter(rushDir);
-    }
-  }
+    final dio = Dio();
+    final response = await dio.get(endpoint + '/api/v1/dl/' + _getOs());
 
-  Future<void> _freshInstall() async {
-    if (Platform.isWindows) {
-      Logger.log(
-          'Please select the directory in which you wish to install Rush...');
-      await Future.delayed(Duration(seconds: 3));
+    final json = response.data as List;
+    final binData = <BinData>[];
 
-      final picker = DirectoryPicker()..hidePinnedPlaces = true;
-      final rushDir = picker.getDirectory();
+    var totalSize = 0;
 
-      if (rushDir == null) {
-        Logger.log('Installation failed; no directory selected...',
-            color: ConsoleColor.red);
-        _abort(1);
-      }
-
-      await _downloadRush(rushDir!.path);
-      _printFooter(rushDir.path);
-    } else {
-      Logger.log(
-          'Please enter the path to the directory you wish to install Rush:');
-      final rushDirPath =
-          stdin.readLineSync(encoding: Encoding.getByName('UTF-8')!);
-
-      if (rushDirPath == null || rushDirPath == '') {
-        Logger.logErr('Invalid directory...', addSpace: true);
-        _abort(1);
-      } else if (!Directory(rushDirPath).existsSync()) {
-        Logger.logErr('Directory $rushDirPath doesn\'t exist...',
-            addSpace: true);
-        _abort(1);
-      }
-
-      await _downloadRush(rushDirPath!);
-
-      _printFooter(rushDirPath);
-    }
-  }
-
-  void _deleteOldRush(String rushDir) {
-    final binDir = Directory(p.join(rushDir, 'bin'));
-    final toolsDir = Directory(p.join(rushDir, 'tools'));
-    final devDepsDir = Directory(p.join(rushDir, 'dev-deps'));
-
-    binDir.deleteSync(recursive: true);
-
-    if (toolsDir.existsSync()) {
-      toolsDir.deleteSync(recursive: true);
-    }
-
-    if (devDepsDir.existsSync()) {
-      devDepsDir.deleteSync(recursive: true);
-    }
-  }
-
-  Future<void> _downloadRush(String rushDir) async {
-    final rushBin;
-    if (p.basename(rushDir) == 'rush') {
-      rushBin = Directory(p.join(rushDir, 'bin'));
-    } else {
-      rushBin = Directory(p.join(rushDir, 'rush', 'bin'));
-    }
-
-    final devDepsDir = Directory(p.join(_dataDir, 'dev-deps'));
-    final processorDir = Directory(p.join(_dataDir, 'tools', 'processor'));
-
-    final jetifierBinDir =
-        Directory(p.join(_dataDir, 'tools', 'jetifier-standalone', 'bin'));
-    final jetifierLibDir =
-        Directory(p.join(_dataDir, 'tools', 'jetifier-standalone', 'lib'));
-
-    final otherDir = Directory(p.join(_dataDir, 'tools', 'other'));
-
-    try {
-      rushBin.createSync(recursive: true);
-      devDepsDir.createSync(recursive: true);
-      processorDir.createSync(recursive: true);
-      jetifierBinDir.createSync(recursive: true);
-      jetifierLibDir.createSync(recursive: true);
-      otherDir.createSync(recursive: true);
-    } catch (e) {
-      Logger.logErr(e.toString());
-    }
-
-    final downloadData = await _fetch();
-    final futures = <Future>[];
-
-    downloadData.data.forEach((el) async {
-      if (el.name == 'rush' || el.name == 'rush.exe') {
-        futures.add(_download(rushBin, el.url, el.name));
-      } else if (el.path.startsWith('dev-deps')) {
-        futures.add(_download(devDepsDir, el.url, el.name));
-      } else if (el.path.startsWith('tools/processor')) {
-        futures.add(_download(processorDir, el.url, el.name));
-      } else if (el.path.startsWith('tools/jetifier-standalone/bin')) {
-        futures.add(_download(jetifierBinDir, el.url, el.name));
-      } else if (el.path.startsWith('tools/jetifier-standalone/lib')) {
-        futures.add(_download(jetifierLibDir, el.url, el.name));
-      } else {
-        futures.add(_download(otherDir, el.url, el.name));
-      }
+    json.forEach((el) {
+      final data = BinData.fromJson(el);
+      totalSize += data.size;
+      binData.add(data);
     });
 
-    await Future.wait(futures);
+    final pb = ProgressBar('Downloading binaries (${totalSize ~/ 1e+6} MB)...');
+    pb.totalProgress = binData.length;
+    pb.update(0);
+
+    var count = 0;
+    for (final data in binData) {
+      await _download(data, exePath);
+      count++;
+      pb.update(count);
+    }
   }
 
-  Future<void> _download(Directory dir, String url, String name) async {
-    Logger.log('Downloading $name...');
-    await Dio().download(url, p.join(dir.path, name), deleteOnError: true);
-  }
-
-  Future<DownloadData> _fetch() async {
-    final os;
-    if (Platform.isWindows) {
-      os = 'win';
-    } else if (Platform.isMacOS) {
-      os = 'mac';
+  Future<void> _download(BinData data, String exePath) async {
+    final savePath;
+    if (data.path.startsWith('exe')) {
+      savePath = exePath;
     } else {
-      os = 'linux';
+      savePath = p.join(_dataDir, data.path);
     }
-
-    final endpoint = 'https://rush-api.shreyashsaitwal.repl.co/download/$os';
-    final dio = Dio();
-
-    try {
-      final response = await dio.get(endpoint);
-      return DownloadData.fromJson(response.data);
-    } catch (e) {
-      Logger.logErr(e.toString());
-      exit(1);
-    }
+    
+    await Dio().download(data.download, savePath);
   }
 
-  void _printFooter(String rushInstPath) {
-    final rushPath;
-    if (rushInstPath.endsWith('rush')) {
-      rushPath = rushInstPath;
-    } else {
-      rushPath = p.join(rushInstPath, 'rush');
-    }
-
+  void printFooter(String exePath, [bool printAdditional = true]) {
     final console = Console();
+
+    final rushDir = p.dirname(p.dirname(exePath));
 
     console
       ..writeLine()
@@ -184,29 +65,33 @@ class Installer {
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..write('Installed Rush in directory: ')
       ..setForegroundColor(ConsoleColor.cyan)
-      ..writeLine(rushPath)
+      ..writeLine(rushDir)
       ..writeLine()
       ..setForegroundColor(ConsoleColor.brightWhite);
+
+    if (!printAdditional) {
+      return;
+    }
 
     if (Platform.isWindows) {
       console
         ..writeLine(
             'Now, update your PATH environment variable by adding the following path to it:')
         ..setForegroundColor(ConsoleColor.cyan)
-        ..writeLine(p.join(rushPath, 'bin'));
+        ..writeLine(p.join(rushDir, 'bin'));
     } else {
       console
         ..writeLine('Now,')
         ..writeLine(
             '  - run the following command to give execution permission to the Rush executable:')
         ..setForegroundColor(ConsoleColor.cyan)
-        ..writeLine(' ' * 4 + 'chmod +x ' + p.join(rushPath, 'bin', 'rush'))
+        ..writeLine(' ' * 4 + 'chmod +x ' + p.join(rushDir, 'bin', 'rush'))
         ..setForegroundColor(ConsoleColor.brightWhite)
         ..writeLine(
             '  - and then, update your PATH environment variable to include the Rush executable like so:')
         ..setForegroundColor(ConsoleColor.cyan)
         ..writeLine(
-            ' ' * 4 + 'export PATH="\$PATH:' + p.join(rushPath, 'bin') + '"');
+            ' ' * 4 + 'export PATH="\$PATH:' + p.join(rushDir, 'bin') + '"');
     }
 
     console
@@ -218,18 +103,36 @@ class Installer {
       ..writeLine(
           'https://github.com/ShreyashSaitwal/rush-cli/wiki/Installation')
       ..resetColorAttributes();
-
-    _abort(0);
   }
 
-  bool _isRushInstalled() {
-    final whichRush = whichSync('rush');
-    return whichRush == null ? false : true;
+  String _getOs() {
+    final os = Platform.operatingSystem;
+
+    switch (os) {
+      case 'windows':
+        return 'win';
+      case 'macos':
+        return 'mac';
+      default:
+        return 'linux';
+    }
   }
 
-  void _abort(int exitCode) {
-    stdout.write('\nPress any key to continue... ');
-    stdin.readLineSync();
+  String? getRushDir() {
+    final whichRush = whichSync('rush') ?? '';
+
+    if (whichRush != '') {
+      return p.dirname(p.dirname(whichRush));
+    }
+
+    return null;
+  }
+
+  void abort(int exitCode) {
+    if (Platform.isWindows) {
+      stdout.write('\nPress any key to continue... ');
+      stdin.readLineSync();
+    }
     exit(exitCode);
   }
 }

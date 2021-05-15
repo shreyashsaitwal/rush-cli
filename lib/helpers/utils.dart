@@ -97,7 +97,7 @@ class Utils {
   }
 
   static void printFailMsg(String timeDiff) {
-    Logger.log('Build failed in $timeDiff',
+    Logger.log('Build failed $timeDiff',
         color: ConsoleColor.brightWhite,
         prefix: '\n• ',
         prefixFG: ConsoleColor.brightRed);
@@ -111,12 +111,11 @@ class Utils {
     final millis = diff % 1000;
 
     var res = '';
-
     if (seconds > 0) {
-      res += '$seconds s ';
+      res += '${seconds}s ';
     }
-    res += '$millis ms';
+    res += '${millis}ms';
 
-    return res;
+    return '[$res]';
   }
 }
