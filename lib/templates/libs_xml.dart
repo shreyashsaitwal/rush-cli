@@ -16,7 +16,7 @@ String getDepsXml() {
 String getDevDepsXml() {
   return '''
 <component name="libraryTable">
-  <library name="deps">
+  <library name="dev-deps">
     <CLASSES>
       <root url="file://\$PROJECT_DIR\$/.rush/dev-deps" />
     </CLASSES>

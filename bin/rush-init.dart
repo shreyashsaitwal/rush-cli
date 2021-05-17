@@ -1,6 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' show Directory, Platform, stdin;
 
+import 'package:args/args.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:filepicker_windows/filepicker_windows.dart';
 import 'package:path/path.dart' as p;
@@ -10,26 +11,26 @@ import 'package:rush_prompt/rush_prompt.dart';
 Future<void> main(List<String> args) async {
   PrintArt();
 
-  final installer = Installer();
+  final parser = ArgParser()
+    ..addFlag('force', abbr: 'f', defaultsTo: false, hide: true);
+  final res = parser.parse(args);
+
+  final installer = Installer(res['force']);
   var rushDir = installer.getRushDir();
 
   if (rushDir != null) {
-    Logger.log('An old version of Rush was found at: $rushDir\n');
+    final exePath =
+        p.join(rushDir, 'bin', 'rush' + (Platform.isWindows ? '.exe' : ''));
 
-    final shouldUpdate = BoolQuestion(
-            id: 'up',
-            question: 'Would you like to update it with the latest version?')
-        .ask()[1];
+    Logger.log(
+        'Rush is already installed on this computer, attempting to upgrade it...\n');
+    Logger.log('Fetching data...\n');
 
-    if (shouldUpdate) {
-      final exePath =
-          p.join(rushDir, 'bin', 'rush' + (Platform.isWindows ? '.exe' : ''));
+    await installer.downloadFiles(exePath);
 
-      await installer.downloadBinaries(exePath);
-      installer.printFooter(exePath, false);
-    }
-
-    installer.abort(1);
+    installer
+      ..printFooter(exePath, false)
+      ..abort(1);
   }
 
   if (Platform.isWindows) {
@@ -70,7 +71,8 @@ Future<void> main(List<String> args) async {
         rushDir, 'rush', 'bin', 'rush' + (Platform.isWindows ? '.exe' : ''));
   }
 
-  await installer.downloadBinaries(exePath);
+  Logger.log('\nFetching data...\n');
+  await installer.downloadFiles(exePath);
 
   installer
     ..printFooter(exePath)

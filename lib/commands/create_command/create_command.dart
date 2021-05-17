@@ -133,7 +133,7 @@ class CreateCommand extends Command {
         .copySync(p.join(projectDir, 'assets', 'icon.png'));
 
     Hive.init(p.join(projectDir, '.rush'));
-    var box = await Hive.openBox('data');
+    final box = await Hive.openBox('data');
     await box.putAll({
       'name': pascalCasedName,
       'version': 1,

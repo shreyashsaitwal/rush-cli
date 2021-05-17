@@ -92,8 +92,6 @@ class Utils {
         }
       }
     }
-
-    file.deleteSync();
   }
 
   static void printFailMsg(String timeDiff) {

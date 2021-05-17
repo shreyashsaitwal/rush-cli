@@ -10,6 +10,7 @@ String getIml() {
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="dev-deps" level="project" />
+    <orderEntry type="library" name="deps" level="project" />
   </component>
 </module>
 ''';
