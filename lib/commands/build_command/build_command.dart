@@ -5,7 +5,7 @@ import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:process_run/which.dart';
+import 'package:rush_cli/generator/generator.dart';
 import 'package:rush_cli/helpers/check_yaml.dart';
 import 'package:rush_cli/helpers/utils.dart';
 import 'package:rush_cli/java/javac.dart';
@@ -17,6 +17,8 @@ import 'package:yaml/yaml.dart';
 class BuildCommand extends Command {
   final String _cd;
   final String _dataDir;
+
+  late final startTime;
 
   BuildCommand(this._cd, this._dataDir) {
     argParser
@@ -92,6 +94,7 @@ class BuildCommand extends Command {
   @override
   Future<void> run() async {
     PrintArt();
+    startTime = DateTime.now();
 
     Logger.log('Build initialized\n',
         color: ConsoleColor.brightWhite,
@@ -114,7 +117,7 @@ class BuildCommand extends Command {
         valStep
           ..logErr('Metadata file (rush.yml) not found')
           ..finishNotOk('Failed');
-        Utils.printFailMsg();
+        Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
         exit(1);
       }
     }
@@ -128,11 +131,11 @@ class BuildCommand extends Command {
         ..logErr('Metadata file (rush.yml) is invalid')
         ..logErr(e.toString(), addPrefix: false, addSpace: true)
         ..finishNotOk('Failed');
-      Utils.printFailMsg();
+      Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
       exit(1);
     }
 
-    CheckRushYml.check(rushYml, valStep);
+    CheckRushYml.check(rushYml, valStep, startTime);
     valStep.log(
       'Metadata file (rush.yml) found',
       ConsoleColor.brightWhite,
@@ -148,7 +151,7 @@ class BuildCommand extends Command {
         ..logErr('AndroidManifest.xml not found')
         ..finishNotOk('Failed');
 
-      Utils.printFailMsg();
+      Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
       exit(1);
     } else {
       valStep.log(
@@ -179,6 +182,11 @@ class BuildCommand extends Command {
 
     if (isYmlMod || isManifestMod) {
       Utils.cleanDir(p.join(_dataDir, 'workspaces', dataBox.get('org')));
+
+      await Future.wait([
+        dataBox.put('rushYmlLastMod', rushYml.lastModifiedSync()),
+        dataBox.put('manifestLastMod', manifestFile.lastModifiedSync())
+      ]);
     }
 
     // Increment version number if this is a production build.
@@ -224,7 +232,7 @@ class BuildCommand extends Command {
             await dataBox.get('org'), optimize, argResults!['support-lib']);
       },
       onError: () {
-        Utils.printFailMsg();
+        Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
         exit(1);
       },
     );
@@ -248,80 +256,71 @@ class BuildCommand extends Command {
       }
     }
 
-    // Run the rush annotation processor
-    final runner = JarRunner(_cd, _dataDir);
-    runner.run(
-      JarType.processor,
+    // Generate the extension files
+    final generator = Generator(_cd, _dataDir);
+    generator.generate(org);
+
+    _jarExtension(
       org,
       step,
-      onSuccess: () {
-        _jarExtension(
-          org,
-          step,
-          optimize,
-          dejet,
-          onSuccess: (String jarPath) async {
-            final jar = File(jarPath);
+      optimize,
+      dejet,
+      onSuccess: (String jarPath) async {
+        final jar = File(jarPath);
 
-            if (jar.existsSync()) {
-              final destDir = Directory(
-                  p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'files'))
-                ..createSync(recursive: true);
+        if (jar.existsSync()) {
+          final destDir = Directory(
+              p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'files'))
+            ..createSync(recursive: true);
 
-              jar.copySync(p.join(destDir.path, 'AndroidRuntime.jar'));
+          jar.copySync(p.join(destDir.path, 'AndroidRuntime.jar'));
 
-              // De-jetify the extension
-              if (dejet) {
-                _dejetify(
-                  org,
-                  step,
-                  onSuccess: (bool needDejet) {
-                    if (!needDejet) {
-                      // Delete the raw/sup directory so that support version of
-                      // the extension isn't generated.
-                      Directory(
-                              p.join(_dataDir, 'workspaces', org, 'raw', 'sup'))
-                          .deleteSync(recursive: true);
+          // De-jetify the extension
+          if (dejet) {
+            _dejetify(
+              org,
+              step,
+              onSuccess: (bool needDejet) {
+                if (!needDejet) {
+                  // Delete the raw/sup directory so that support version of
+                  // the extension isn't generated.
+                  Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'sup'))
+                      .deleteSync(recursive: true);
 
-                      step
-                        ..logWarn('No references to androidx.* were found.',
-                            addSpace: true)
-                        ..logWarn(
-                            ' ' * 5 +
-                                'You don\'t need to create a support library version of the extension.',
-                            addPrefix: false)
-                        ..finishOk('Done');
-                      _dex(org, false);
-                    } else {
-                      step.finishOk('Done');
-                      _dex(org, true);
-                    }
-                  },
-                  onError: () {
-                    step.finishNotOk('Failed');
-                    Utils.printFailMsg();
-                    exit(1);
-                  },
-                );
-              } else {
-                step.finishOk('Done');
-                _dex(org, false);
-              }
-            } else {
-              step
-                ..logErr('File not found: ' + jar.path)
-                ..finishNotOk('Failed');
+                  step
+                    ..logWarn('No references to androidx.* were found.',
+                        addSpace: true)
+                    ..logWarn(
+                        ' ' * 5 +
+                            'You don\'t need to create a support library version of the extension.',
+                        addPrefix: false)
+                    ..finishOk('Done');
+                  _dex(org, false);
+                } else {
+                  step.finishOk('Done');
+                  _dex(org, true);
+                }
+              },
+              onError: () {
+                step.finishNotOk('Failed');
+                Utils.printFailMsg(
+                    Utils.getTimeDifference(startTime, DateTime.now()));
+                exit(1);
+              },
+            );
+          } else {
+            step.finishOk('Done');
+            _dex(org, false);
+          }
+        } else {
+          step
+            ..logErr('File not found: ' + jar.path)
+            ..finishNotOk('Failed');
 
-              Utils.printFailMsg();
-              exit(1);
-            }
-          },
-        );
-      },
-      onError: () {
-        step.finishNotOk('Failed');
-        Utils.printFailMsg();
-        exit(1);
+          Utils.printFailMsg(
+              Utils.getTimeDifference(startTime, DateTime.now()));
+          exit(1);
+        }
       },
     );
   }
@@ -333,15 +332,6 @@ class BuildCommand extends Command {
       {required Function onSuccess}) {
     final rawClassesDir =
         Directory(p.join(_dataDir, 'workspaces', org, 'raw-classes', org));
-
-    // Unjar dependencies
-    rawClassesDir
-        .listSync()
-        .whereType<File>()
-        .where((el) => p.extension(el.path) == '.jar')
-        .forEach((el) {
-      Utils.extractJar(el.path, p.dirname(el.path));
-    });
 
     // Run the jar command-line tool. It is used to generate a JAR.
     final runner = JarRunner(_cd, _dataDir);
@@ -368,7 +358,8 @@ class BuildCommand extends Command {
             },
             onError: () {
               processStep.finishNotOk('Failed');
-              Utils.printFailMsg();
+              Utils.printFailMsg(
+                  Utils.getTimeDifference(startTime, DateTime.now()));
               exit(1);
             },
           );
@@ -378,7 +369,7 @@ class BuildCommand extends Command {
       },
       onError: () {
         processStep.finishNotOk('Failed');
-        Utils.printFailMsg();
+        Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
         exit(1);
       },
     );
@@ -431,7 +422,8 @@ class BuildCommand extends Command {
             },
             onError: () {
               step.finishNotOk('Failed');
-              Utils.printFailMsg();
+              Utils.printFailMsg(
+                  Utils.getTimeDifference(startTime, DateTime.now()));
               exit(1);
             },
           );
@@ -442,7 +434,7 @@ class BuildCommand extends Command {
       },
       onError: () {
         step.finishNotOk('Failed');
-        Utils.printFailMsg();
+        Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
         exit(1);
       },
     );
@@ -470,7 +462,8 @@ class BuildCommand extends Command {
 
     step.finishOk('Done');
 
-    Logger.log('Build successful',
+    Logger.log(
+        'Build successful ${Utils.getTimeDifference(startTime, DateTime.now())}',
         color: ConsoleColor.brightWhite,
         prefix: '\n• ',
         prefixFG: ConsoleColor.brightGreen);
@@ -516,7 +509,8 @@ class BuildCommand extends Command {
       await box.put('rushYmlLastMod', lastMod);
     }
 
-    if (!box.containsKey('manifestLastMod') || (await box.get('manifestLastMod')) == null) {
+    if (!box.containsKey('manifestLastMod') ||
+        (await box.get('manifestLastMod')) == null) {
       final lastMod =
           File(p.join(_cd, 'src', 'AndroidManifest.xml')).lastModifiedSync();
 

@@ -1,181 +1,132 @@
-import 'dart:convert';
-import 'dart:io' show Platform, Directory, stdin, stdout, exit;
+import 'dart:io' show Directory, File, Platform, Process, exit, stdin, stdout;
 
 import 'package:dart_console/dart_console.dart';
 import 'package:dio/dio.dart';
-import 'package:filepicker_windows/filepicker_windows.dart';
+import 'package:github/github.dart' show Authentication, GitHub, GitHubFile, RepositorySlug;
+import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:process_run/shell.dart';
+import 'package:process_run/which.dart';
 import 'package:rush_cli/helpers/app_data_dir.dart';
-import 'package:rush_cli/installer/model/download_data.dart';
+import 'package:rush_cli/installer/env.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 class Installer {
+  final bool force;
   final _dataDir = RushDataDir.dataDir()!;
 
-  Future<void> call() async {
-    if (!_isRushInstalled()) {
-      await _freshInstall();
-    } else {
-      final rushDir = p.dirname(p.dirname(whichSync('rush')!));
-      Logger.log('An old version of Rush was found at: $rushDir\n');
-      final shouldUpdate = BoolQuestion(
-              id: 'up',
-              question: 'Would you like to update it with the latest version?')
-          .ask()[1];
+  var totalSize = 0;
 
-      if (shouldUpdate) {
-        _deleteOldRush(rushDir);
-        await _downloadRush(rushDir);
-      } else {
-        _abort(1);
-      }
+  Installer(this.force) {
+    final boxDir = Directory(p.join(_dataDir, '.installer'));
+    if (force) {
+      boxDir.deleteSync(recursive: true);
+    }
 
-      _printFooter(rushDir);
+    Hive.init(boxDir.path);
+  }
+
+  Future<void> downloadFiles(String exePath) async {
+    final box = await Hive.openBox('init.data');
+
+    final filesToDownload = await _getFiles('', box);
+
+    if (totalSize <= 0) {
+      Logger.log('You have the latest version of Rush installed!');
+      abort(0);
+    }
+
+    final pb = ProgressBar('Downloading files... (${totalSize ~/ 1e+6} MB)',
+        filesToDownload.length);
+
+    for (final file in filesToDownload) {
+      await _download(file, exePath, box);
+      pb.increment();
     }
   }
 
-  Future<void> _freshInstall() async {
-    if (Platform.isWindows) {
-      Logger.log(
-          'Please select the directory in which you wish to install Rush...');
-      await Future.delayed(Duration(seconds: 3));
-
-      final picker = DirectoryPicker()..hidePinnedPlaces = true;
-      final rushDir = picker.getDirectory();
-
-      if (rushDir == null) {
-        Logger.log('Installation failed; no directory selected...',
-            color: ConsoleColor.red);
-        _abort(1);
-      }
-
-      await _downloadRush(rushDir!.path);
-      _printFooter(rushDir.path);
+  Future<void> _download(GitHubFile file, String exePath, Box box) async {
+    final savePath;
+    if (file.name! == 'rush' || file.name == 'rush.exe') {
+      savePath = exePath;
     } else {
-      Logger.log(
-          'Please enter the path to the directory you wish to install Rush:');
-      final rushDirPath =
-          stdin.readLineSync(encoding: Encoding.getByName('UTF-8')!);
-
-      if (rushDirPath == null || rushDirPath == '') {
-        Logger.logErr('Invalid directory...', addSpace: true);
-        _abort(1);
-      } else if (!Directory(rushDirPath).existsSync()) {
-        Logger.logErr('Directory $rushDirPath doesn\'t exist...',
-            addSpace: true);
-        _abort(1);
-      }
-
-      await _downloadRush(rushDirPath!);
-
-      _printFooter(rushDirPath);
+      savePath = p.join(_dataDir, file.path);
     }
-  }
-
-  void _deleteOldRush(String rushDir) {
-    final binDir = Directory(p.join(rushDir, 'bin'));
-    final toolsDir = Directory(p.join(rushDir, 'tools'));
-    final devDepsDir = Directory(p.join(rushDir, 'dev-deps'));
-
-    binDir.deleteSync(recursive: true);
-
-    if (toolsDir.existsSync()) {
-      toolsDir.deleteSync(recursive: true);
-    }
-
-    if (devDepsDir.existsSync()) {
-      devDepsDir.deleteSync(recursive: true);
-    }
-  }
-
-  Future<void> _downloadRush(String rushDir) async {
-    final rushBin;
-    if (p.basename(rushDir) == 'rush') {
-      rushBin = Directory(p.join(rushDir, 'bin'));
-    } else {
-      rushBin = Directory(p.join(rushDir, 'rush', 'bin'));
-    }
-
-    final devDepsDir = Directory(p.join(_dataDir, 'dev-deps'));
-    final processorDir = Directory(p.join(_dataDir, 'tools', 'processor'));
-
-    final jetifierBinDir =
-        Directory(p.join(_dataDir, 'tools', 'jetifier-standalone', 'bin'));
-    final jetifierLibDir =
-        Directory(p.join(_dataDir, 'tools', 'jetifier-standalone', 'lib'));
-
-    final otherDir = Directory(p.join(_dataDir, 'tools', 'other'));
 
     try {
-      rushBin.createSync(recursive: true);
-      devDepsDir.createSync(recursive: true);
-      processorDir.createSync(recursive: true);
-      jetifierBinDir.createSync(recursive: true);
-      jetifierLibDir.createSync(recursive: true);
-      otherDir.createSync(recursive: true);
+      await Dio().download(file.downloadUrl!, savePath);
     } catch (e) {
-      Logger.logErr(e.toString());
+      Logger.logErr(e.toString(), addPrefix: false);
+      abort(1);
     }
 
-    final downloadData = await _fetch();
-    final futures = <Future>[];
+    if (!Platform.isWindows && file.path!.startsWith('exe')) {
+      Process.runSync('chmod', ['+x', savePath]);
+    }
 
-    downloadData.data.forEach((el) async {
-      if (el.name == 'rush' || el.name == 'rush.exe') {
-        futures.add(_download(rushBin, el.url, el.name));
-      } else if (el.path.startsWith('dev-deps')) {
-        futures.add(_download(devDepsDir, el.url, el.name));
-      } else if (el.path.startsWith('tools/processor')) {
-        futures.add(_download(processorDir, el.url, el.name));
-      } else if (el.path.startsWith('tools/jetifier-standalone/bin')) {
-        futures.add(_download(jetifierBinDir, el.url, el.name));
-      } else if (el.path.startsWith('tools/jetifier-standalone/lib')) {
-        futures.add(_download(jetifierLibDir, el.url, el.name));
-      } else {
-        futures.add(_download(otherDir, el.url, el.name));
+    // Once the file is downloaded add it's sha and path to the box so next
+    // time it doesn't get downloaded if it's not updated or deleted.
+    await box
+        .put(file.name, <String, String>{'sha': file.sha!, 'path': savePath});
+  }
+
+  Future<List<GitHubFile>> _getFiles(String path, Box box) async {
+    final gh = GitHub(auth: Authentication.withToken(GH_PAT));
+    final contents = <GitHubFile>[];
+
+    final res = await gh.repositories
+        .getContents(RepositorySlug('shreyashsaitwal', 'rush-pack'), path);
+
+    for (final entity in res.tree!) {
+      final nonOsPaths = _getNonOsPaths();
+
+      if (entity.type == 'dir') {
+        contents.addAll(await _getFiles(entity.path!, box));
+      } else if (!nonOsPaths.contains(entity.path)) {
+        final boxedEntity = await box.get(entity.name) ??
+            <String, String>{'sha': '', 'path': ''};
+
+        final boxedSha = boxedEntity['sha'] ?? '';
+        final boxedPath = boxedEntity['path'] ?? '';
+
+        if (boxedSha != entity.sha || !File(boxedPath).existsSync()) {
+          contents.add(entity);
+          totalSize += entity.size!;
+        }
       }
-    });
-
-    await Future.wait(futures);
-  }
-
-  Future<void> _download(Directory dir, String url, String name) async {
-    Logger.log('Downloading $name...');
-    await Dio().download(url, p.join(dir.path, name), deleteOnError: true);
-  }
-
-  Future<DownloadData> _fetch() async {
-    final os;
-    if (Platform.isWindows) {
-      os = 'win';
-    } else if (Platform.isMacOS) {
-      os = 'mac';
-    } else {
-      os = 'linux';
     }
 
-    final endpoint = 'https://rush-api.shreyashsaitwal.repl.co/download/$os';
-    final dio = Dio();
-
-    try {
-      final response = await dio.get(endpoint);
-      return DownloadData.fromJson(response.data);
-    } catch (e) {
-      Logger.logErr(e.toString());
-      exit(1);
-    }
+    return contents;
   }
 
-  void _printFooter(String rushInstPath) {
-    final rushPath;
-    if (rushInstPath.endsWith('rush')) {
-      rushPath = rushInstPath;
-    } else {
-      rushPath = p.join(rushInstPath, 'rush');
+  List<String> _getNonOsPaths() {
+    final os = Platform.operatingSystem;
+    final res = <String>[
+      'exe/win/rush.exe',
+      'exe/mac/rush',
+      'exe/linux/rush',
+    ];
+
+    switch (os.toLowerCase()) {
+      case 'windows':
+        res.removeAt(0);
+        break;
+
+      case 'macos':
+        res.removeAt(1);
+        break;
+
+      case 'linux':
+        res.removeAt(2);
+        break;
     }
 
+    return res;
+  }
+
+  void printFooter(String exePath, [bool printAdditional = true]) {
     final console = Console();
+
+    final rushDir = Directory(p.dirname(p.dirname(exePath))).path;
 
     console
       ..writeLine()
@@ -184,29 +135,27 @@ class Installer {
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..write('Installed Rush in directory: ')
       ..setForegroundColor(ConsoleColor.cyan)
-      ..writeLine(rushPath)
+      ..writeLine(rushDir)
       ..writeLine()
       ..setForegroundColor(ConsoleColor.brightWhite);
+
+    if (!printAdditional) {
+      return;
+    }
 
     if (Platform.isWindows) {
       console
         ..writeLine(
             'Now, update your PATH environment variable by adding the following path to it:')
         ..setForegroundColor(ConsoleColor.cyan)
-        ..writeLine(p.join(rushPath, 'bin'));
+        ..writeLine(p.join(rushDir, 'bin'));
     } else {
       console
-        ..writeLine('Now,')
         ..writeLine(
-            '  - run the following command to give execution permission to the Rush executable:')
-        ..setForegroundColor(ConsoleColor.cyan)
-        ..writeLine(' ' * 4 + 'chmod +x ' + p.join(rushPath, 'bin', 'rush'))
-        ..setForegroundColor(ConsoleColor.brightWhite)
-        ..writeLine(
-            '  - and then, update your PATH environment variable to include the Rush executable like so:')
+            'Now, update your PATH environment variable to include the Rush executable like so:')
         ..setForegroundColor(ConsoleColor.cyan)
         ..writeLine(
-            ' ' * 4 + 'export PATH="\$PATH:' + p.join(rushPath, 'bin') + '"');
+            ' ' * 2 + 'export PATH="\$PATH:' + p.join(rushDir, 'bin') + '"');
     }
 
     console
@@ -218,18 +167,23 @@ class Installer {
       ..writeLine(
           'https://github.com/ShreyashSaitwal/rush-cli/wiki/Installation')
       ..resetColorAttributes();
-
-    _abort(0);
   }
 
-  bool _isRushInstalled() {
-    final whichRush = whichSync('rush');
-    return whichRush == null ? false : true;
+  String? getRushDir() {
+    final whichRush = whichSync('rush') ?? '';
+
+    if (whichRush != '') {
+      return p.dirname(p.dirname(whichRush));
+    }
+
+    return null;
   }
 
-  void _abort(int exitCode) {
-    stdout.write('\nPress any key to continue... ');
-    stdin.readLineSync();
+  void abort(int exitCode) {
+    if (Platform.isWindows) {
+      stdout.write('\nPress any key to continue... ');
+      stdin.readLineSync();
+    }
     exit(exitCode);
   }
 }

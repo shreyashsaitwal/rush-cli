@@ -44,20 +44,26 @@ class Javac {
         .listen((result) {
           final output = result.output.split('\n');
 
+          var previous = '';
           output
               .where((element) =>
                   element.contains('warning: ') &&
                   !element.contains(
                       'The following options were not recognized by any processor:'))
               .forEach((element) {
-            step.logWarn(element.replaceFirst('warning: ', '').trimRight(),
-                addSpace: true);
-            warnCount++;
+            final formatted = element.replaceFirst('warning: ', '').trimRight();
+
+            if (formatted != previous) {
+              step.logWarn(formatted, addSpace: true);
+              warnCount++;
+            }
+
+            previous = formatted;
           });
         })
           ..onError((e) {
-            if (e.result != null) {
-              final errors = e.result.stderr.split('\n');
+            if (e is ProcessRunnerException) {
+              final errors = e.result!.stderr.split('\n');
               final pattern = RegExp(r'\d+\s(error(s)?|warning(s)?)');
 
               errors.forEach((element) {

@@ -6,7 +6,7 @@ import 'package:rush_cli/helpers/copy.dart';
 import 'package:rush_cli/java/helper.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-enum JarType { processor, d8, d8sup, proguard, jar, jetifier }
+enum JarType { d8, d8sup, proguard, jar, jetifier }
 
 class JarRunner {
   final String _cd;
@@ -26,9 +26,6 @@ class JarRunner {
     var dwd = _cd; // Default working directory
 
     switch (type) {
-      case JarType.processor:
-        args.addAll(_getProcessorArgs(org));
-        break;
       case JarType.d8:
         args.addAll(_getD8Args(org, false));
         break;
@@ -109,42 +106,6 @@ class JarRunner {
               }
             }
           });
-  }
-
-  /// Returns the args required for running the annotation processor.
-  List<String> _getProcessorArgs(String org) {
-    final args = <String>['java'];
-
-    final devDeps = Directory(p.join(_cd, '.rush', 'dev-deps'));
-    final processor = Directory(p.join(_dataDir, 'tools', 'processor'));
-
-    final classpath = Helper.generateClasspath([devDeps, processor]);
-
-    final classesDir =
-        Directory(p.join(_dataDir, 'workspaces', org, 'classes'));
-    final rawClassesDir =
-        Directory(p.join(_dataDir, 'workspaces', org, 'raw-classes'))
-          ..createSync(recursive: true);
-    final rawDirX = Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'x'))
-      ..createSync(recursive: true);
-
-    final deps = p.join(_cd, 'deps');
-
-    args
-      ..addAll(['-cp', classpath])
-      ..add('io.shreyash.rush.ExtensionGenerator')
-      ..addAll([
-        p.join(classesDir.path, 'simple_components.json'),
-        p.join(classesDir.path, 'simple_components_build_info.json'),
-        rawDirX.path,
-        classesDir.path,
-        deps,
-        rawClassesDir.path,
-        'false',
-        _cd,
-      ]);
-
-    return args;
   }
 
   /// Returns the args required for running D8.

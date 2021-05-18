@@ -20,8 +20,7 @@ jobs:
       - name: Build executables
         run: |
           mkdir build/bin -p
-          dart compile exe -o build/bin/rush bin/rush.dart
-          dart compile exe -o build/bin/rush-init-linux bin/rush-init.dart
+          dart scripts/build.dart -t ${{ secrets.GH_PAT }}
           chmod +x build/bin/rush-init-linux
 
       - name: Upload Rush executable
@@ -54,8 +53,7 @@ jobs:
       - name: Build executables
         run: |
           mkdir build\bin
-          dart compile exe -o build/bin/rush.exe bin/rush.dart
-          dart compile exe -o build/bin/rush-init-win64.exe bin/rush-init.dart
+          dart scripts/build.dart -t ${{ secrets.GH_PAT }}
 
       - name: Upload Rush executable
         if: ${{ github.ref == 'refs/heads/main' }}
@@ -87,8 +85,7 @@ jobs:
       - name: Build executables
         run: |
           mkdir -p build/bin
-          dart compile exe -o build/bin/rush bin/rush.dart
-          dart compile exe -o build/bin/rush-init-mac bin/rush-init.dart
+          dart scripts/build.dart -t ${{ secrets.GH_PAT }}
           chmod +x build/bin/rush-init-mac
 
       - name: Upload Rush executable

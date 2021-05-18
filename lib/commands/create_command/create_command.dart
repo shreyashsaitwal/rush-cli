@@ -110,7 +110,9 @@ class CreateCommand extends Command {
       // IntelliJ IDEA files
       _writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
       _writeFile(p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
-          getLibsXml());
+          getDevDepsXml());
+      _writeFile(
+          p.join(projectDir, '.idea', 'libraries', 'deps.xml'), getDepsXml());
       _writeFile(p.join(projectDir, '.idea', 'modules.xml'),
           getModulesXml(kebabCasedName));
       _writeFile(p.join(projectDir, '$kebabCasedName.iml'), getIml());
@@ -131,7 +133,7 @@ class CreateCommand extends Command {
         .copySync(p.join(projectDir, 'assets', 'icon.png'));
 
     Hive.init(p.join(projectDir, '.rush'));
-    var box = await Hive.openBox('data');
+    final box = await Hive.openBox('data');
     await box.putAll({
       'name': pascalCasedName,
       'version': 1,
