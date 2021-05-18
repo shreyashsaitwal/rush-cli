@@ -14,7 +14,18 @@ void main(List<String> args) {
 
   envDart.writeAsStringSync('const GH_PAT = \'$gh_pat\';');
 
-  final process = Process.runSync('dart', [
+  final rushExe = Process.runSync('dart', [
+    'compile',
+    'exe',
+    '-o',
+    p.join(cd, 'build', 'bin', 'rush' + (Platform.isWindows ? '.exe' : '')),
+    p.join(cd, 'bin', 'rush.dart')
+  ]);
+
+  print(rushExe.stdout.toString().trim());
+  print(rushExe.stderr.toString().trim());
+
+  var rushInit = Process.runSync('dart', [
     'compile',
     'exe',
     '-o',
@@ -22,10 +33,8 @@ void main(List<String> args) {
     p.join(cd, 'bin', 'rush-init.dart')
   ]);
 
-  print(process.stdout ?? '');
-  print(process.stderr ?? '');
-
-  envDart.deleteSync();
+  print(rushInit.stdout.toString().trim());
+  print(rushInit.stderr.toString().trim());
 }
 
 String _getOsString() {
