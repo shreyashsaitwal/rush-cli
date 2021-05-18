@@ -6,7 +6,7 @@ import 'package:yaml/yaml.dart';
 
 /// Mixin to check if the rush.yaml file is valid.
 class CheckRushYml {
-  static void check(File rushYml, BuildStep step) {
+  static void check(File rushYml, BuildStep step, DateTime startTime) {
     final YamlMap yaml = loadYaml(rushYml.readAsStringSync());
     var isInvalid = false;
 
@@ -37,7 +37,7 @@ class CheckRushYml {
     }
 
     if (isInvalid) {
-      Utils.printFailMsg();
+      Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
       exit(1);
     }
   }

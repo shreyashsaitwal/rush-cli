@@ -207,6 +207,8 @@ class MigrateCommand extends Command {
 
     // IntelliJ IDEA files
     _writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
+    _writeFile(p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
+        getDevDepsXml());
     _writeFile(
         p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'), getDevDepsXml());
     _writeFile(p.join(projectDir, '.idea', 'modules.xml'),

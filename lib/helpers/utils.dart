@@ -35,10 +35,13 @@ class Utils {
         // trying to fix this but nothing seems to work. This is most
         // probably a bug in Dart SDK as [deleteSync] used to work just
         // fine earlier.
-        dir
-            .listSync(recursive: true)
-            .whereType<File>()
-            .forEach((file) => file.deleteSync());
+        // dir
+        //     .listSync(recursive: true)
+        //     .whereType<File>()
+        //     .forEach((file) => file.deleteSync());
+        Logger.logErr(
+            'Something went wrong while invalidating build caches.\n${e.toString()}',
+            exitCode: 1);
       }
     }
   }
@@ -85,14 +88,28 @@ class Utils {
         }
       }
     }
-
-    file.deleteSync();
   }
 
-  static void printFailMsg() {
-    Logger.log('Build failed',
+  static void printFailMsg(String timeDiff) {
+    Logger.log('Build failed $timeDiff',
         color: ConsoleColor.brightWhite,
         prefix: '\n• ',
         prefixFG: ConsoleColor.brightRed);
+  }
+
+  /// Gets time difference between the given two DateTimes.
+  static String getTimeDifference(DateTime timeOne, DateTime timeTwo) {
+    final diff = timeTwo.difference(timeOne).inMilliseconds;
+
+    final seconds = diff ~/ 1000;
+    final millis = diff % 1000;
+
+    var res = '';
+    if (seconds > 0) {
+      res += '${seconds}s ';
+    }
+    res += '${millis}ms';
+
+    return '[$res]';
   }
 }

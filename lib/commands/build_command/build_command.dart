@@ -5,6 +5,7 @@ import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/generator/generator.dart';
 import 'package:rush_cli/helpers/check_yaml.dart';
 import 'package:rush_cli/helpers/utils.dart';
 import 'package:rush_cli/java/compiler.dart';
@@ -16,6 +17,8 @@ import 'package:yaml/yaml.dart';
 class BuildCommand extends Command {
   final String _cd;
   final String _dataDir;
+
+  late final startTime;
 
   BuildCommand(this._cd, this._dataDir) {
     argParser
@@ -91,6 +94,7 @@ class BuildCommand extends Command {
   @override
   Future<void> run() async {
     PrintArt();
+    startTime = DateTime.now();
 
     Logger.log('Build initialized\n',
         color: ConsoleColor.brightWhite,
@@ -112,7 +116,7 @@ class BuildCommand extends Command {
       valStep
         ..logErr('Metadata file (rush.yml) not found')
         ..finishNotOk('Failed');
-      Utils.printFailMsg();
+      Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
       exit(1);
     }
 
@@ -125,11 +129,11 @@ class BuildCommand extends Command {
         ..logErr('Metadata file (rush.yml) is invalid')
         ..logErr(e.toString(), addPrefix: false, addSpace: true)
         ..finishNotOk('Failed');
-      Utils.printFailMsg();
+      Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
       exit(1);
     }
 
-    CheckRushYml.check(rushYml, valStep);
+    CheckRushYml.check(rushYml, valStep, startTime);
     valStep.log(
       'Metadata file (rush.yml) found',
       ConsoleColor.brightWhite,
@@ -145,7 +149,7 @@ class BuildCommand extends Command {
         ..logErr('AndroidManifest.xml not found')
         ..finishNotOk('Failed');
 
-      Utils.printFailMsg();
+      Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
       exit(1);
     } else {
       valStep.log(
@@ -247,7 +251,7 @@ class BuildCommand extends Command {
       }
     } catch (e) {
       step.finishNotOk('Failed');
-      Utils.printFailMsg();
+      Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
       exit(1);
     }
 
@@ -274,16 +278,12 @@ class BuildCommand extends Command {
       }
     }
 
+    // Generate the extension files
+    final generator = Generator(_cd, _dataDir);
+    generator.generate(org);
+
     // Run the rush annotation processor
     final runner = CmdRunner(_cd, _dataDir);
-
-    try {
-      await runner.run(CmdType.generator, org, step);
-    } catch (e) {
-      step.finishNotOk('Failed');
-      Utils.printFailMsg();
-      exit(1);
-    }
 
     final rawJar = await _jarExtension(org, step, optimize, dejet);
     if (rawJar.existsSync()) {
@@ -297,7 +297,7 @@ class BuildCommand extends Command {
         ..logErr('File not found: ' + rawJar.path)
         ..finishNotOk('Failed');
 
-      Utils.printFailMsg();
+      Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
       exit(1);
     }
 
@@ -308,7 +308,7 @@ class BuildCommand extends Command {
         needDejet = runner.getShouldDejet;
       } catch (e) {
         step.finishNotOk('Failed');
-        Utils.printFailMsg();
+        Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
         exit(1);
       }
 
@@ -335,15 +335,6 @@ class BuildCommand extends Command {
     final rawClassesDir =
         Directory(p.join(_dataDir, 'workspaces', org, 'raw-classes', org));
 
-    // Unjar dependencies
-    rawClassesDir
-        .listSync()
-        .whereType<File>()
-        .where((el) => p.extension(el.path) == '.jar')
-        .forEach((el) {
-      Utils.extractJar(el.path, p.dirname(el.path));
-    });
-
     final rawJar = File(rawClassesDir.path + '.jar');
 
     // Run the jar command-line tool. It is used to generate a JAR.
@@ -364,7 +355,7 @@ class BuildCommand extends Command {
       }
     } catch (e) {
       processStep.finishNotOk('Failed');
-      Utils.printFailMsg();
+      Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
       exit(1);
     }
 
@@ -386,7 +377,7 @@ class BuildCommand extends Command {
       }
     } catch (e) {
       step.finishNotOk('Failed');
-      Utils.printFailMsg();
+      Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
       exit(1);
     }
 
@@ -416,7 +407,8 @@ class BuildCommand extends Command {
 
     step.finishOk('Done');
 
-    Logger.log('Build successful',
+    Logger.log(
+        'Build successful ${Utils.getTimeDifference(startTime, DateTime.now())}',
         color: ConsoleColor.brightWhite,
         prefix: '\n• ',
         prefixFG: ConsoleColor.brightGreen);

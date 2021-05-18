@@ -13,7 +13,6 @@ String getPgRules(String org, String name) {
 -mergeinterfacesaggressively
 
 -flattenpackagehierarchy
--repackageclasses
 
 -dontpreverify
 
