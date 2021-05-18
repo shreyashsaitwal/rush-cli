@@ -106,12 +106,12 @@ class Installer {
       'exe/linux/rush',
     ];
 
-    switch (os) {
+    switch (os.toLowerCase()) {
       case 'windows':
         res.removeAt(0);
         break;
 
-      case 'mac':
+      case 'macos':
         res.removeAt(1);
         break;
 
