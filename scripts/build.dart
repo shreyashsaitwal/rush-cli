@@ -12,7 +12,7 @@ void main(List<String> args) {
   final cd = Directory.current.path;
   final envDart = File(p.join(cd, 'lib', 'installer', 'env.dart'));
 
-  envDart.writeAsStringSync('const GH_PAT = \'$gh_pat\';');
+  envDart.writeAsStringSync('// Auto-generated. Do not modify.\n\nconst GH_PAT = \'$gh_pat\';');
 
   final rushExe = Process.runSync('dart', [
     'compile',
