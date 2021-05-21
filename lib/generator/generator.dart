@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/helpers/copy.dart';
 import 'package:rush_cli/helpers/utils.dart';
+import 'package:rush_cli/version.dart';
 import 'package:yaml/yaml.dart';
 
 class Generator {
@@ -26,7 +26,6 @@ class Generator {
     }
 
     _generateRawFiles(org);
-    _copyClassesToRawClasses(org);
     _copyAssets(yml, org);
     _copyLicense(org);
     _copyDeps(yml, org);
@@ -38,35 +37,27 @@ class Generator {
         Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'x', org))
           ..createSync(recursive: true);
 
-    // Copy the simple_components.json file as "components.json" in
-    // the raw directory.
-    final simpleCompJson = File(p.join(
-        _dataDir, 'workspaces', org, 'classes', 'simple_components.json'));
+    final filesDirPath = p.join(_dataDir, 'workspaces', org, 'files');
+
+    // Copy the components.json file to the raw dir.
+    final simpleCompJson = File(p.join(filesDirPath, 'components.json'));
     simpleCompJson.copySync(p.join(rawDirX.path, 'components.json'));
 
-    // Copy the simple_components_build_info.json file as "component_build_infos.json"
-    // in the raw directory.
-    final buildInfoJson = File(p.join(_dataDir, 'workspaces', org, 'classes',
-        'simple_components_build_info.json'));
+    // Copy the component_build_infos.json file to the raw dir.
+    final buildInfoJson =
+        File(p.join(filesDirPath, 'component_build_infos.json'));
 
-    final filesDir = Directory(p.join(rawDirX.path, 'files'))
+    final rawFilesDir = Directory(p.join(rawDirX.path, 'files'))
       ..createSync(recursive: true);
 
-    buildInfoJson.copySync(p.join(filesDir.path, 'component_build_infos.json'));
+    buildInfoJson
+        .copySync(p.join(rawFilesDir.path, 'component_build_infos.json'));
 
     // Write the extension.properties file
-    File(p.join(rawDirX.path, 'extension.properties'))
-        .writeAsStringSync('type=external\n');
-  }
-
-  void _copyClassesToRawClasses(String org) {
-    final classesDir =
-        Directory(p.join(_dataDir, 'workspaces', org, 'classes'));
-    final rawClassesDir =
-        Directory(p.join(_dataDir, 'workspaces', org, 'raw-classes', org))
-          ..createSync(recursive: true);
-
-    Copy.copyDir(classesDir, rawClassesDir);
+    File(p.join(rawDirX.path, 'extension.properties')).writeAsStringSync('''
+type=external
+rush-version=$rushVersion
+''');
   }
 
   /// Copies extension's assets to the raw dircetory.
@@ -102,12 +93,12 @@ class Generator {
     }
   }
 
-  /// Unjars extension dependencies into the raw-classes dir.
+  /// Unjars extension dependencies into the classes dir.
   void _copyDeps(YamlMap rushYml, String org) {
     final libs = rushYml['deps'] ?? [];
 
-    final rawClassesDir =
-        Directory(p.join(_dataDir, 'workspaces', org, 'raw-classes', org))
+    final classesDir =
+        Directory(p.join(_dataDir, 'workspaces', org, 'classes'))
           ..createSync(recursive: true);
 
     if (libs.isNotEmpty) {
@@ -115,18 +106,19 @@ class Generator {
 
       libs.forEach((el) {
         final lib = p.join(depsDirPath, el);
-        Utils.extractJar(lib, rawClassesDir.path);
+        Utils.extractJar(lib, classesDir.path);
       });
     }
 
     final kotlinEnabled = rushYml['kotlin']?['enable'] ?? false;
 
-    // If Kotlin is enabled, add Kotlin Std. library to raw classes dir.
+    // If Kotlin is enabled, unjar Kotlin std. lib as well.
+    // This step won't be needed once MIT merges the Kotlin support PR.
     if (kotlinEnabled) {
       final kotlinStdLib =
           File(p.join(_cd, '.rush', 'dev-deps', 'kotlin-stdlib.jar'));
 
-      Utils.extractJar(kotlinStdLib.path, rawClassesDir.path);
+      Utils.extractJar(kotlinStdLib.path, classesDir.path);
     }
   }
 

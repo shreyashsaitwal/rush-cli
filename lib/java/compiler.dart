@@ -127,7 +127,11 @@ class Compiler {
     final version = await box.get('version') as int;
 
     final srcDir = Directory(p.join(_cd, 'src'));
+
     final classesDir = Directory(p.join(_dataDir, 'workspaces', org, 'classes'))
+      ..createSync(recursive: true);
+
+    final filesDir = Directory(p.join(_dataDir, 'workspaces', org, 'files'))
       ..createSync(recursive: true);
 
     final devDeps = Directory(p.join(_cd, '.rush', 'dev-deps'));
@@ -140,7 +144,7 @@ class Compiler {
       '-AextName=$name',
       '-Aorg=$org',
       '-Aversion=$version',
-      '-Aoutput=${classesDir.path}',
+      '-Aoutput=${filesDir.path}',
     ];
     final classpath = Helper.generateClasspath([devDeps, deps, processor],
         classesDir: classesDir);
@@ -262,12 +266,14 @@ class Compiler {
   /// This is only needed when running Kapt, as it doesn't support passing
   /// options to the annotation processor in textual form.
   Future<String> _getEncodedApOpts(String org, String name, int version) async {
+    final filesDir = Directory(p.join(_dataDir, 'workspaces', org, 'files'))..createSync(recursive: true);
+
     final opts = [
       'root=${_cd.replaceAll('\\', '/')}',
       'extName=$name',
       'org=$org',
       'version=$version',
-      'output=${p.join(_dataDir, 'workspaces', org, 'classes')}'
+      'output=${filesDir.path}'
     ].join(';');
 
     final processorJar =
@@ -296,7 +302,7 @@ class Compiler {
   /// if the same args were executed from CMD, it would work. Although won't
   /// work on Git Bash and PowerShell.
   File _writeArgFile(String fileName, String org, List<String> args) {
-    final file = File(p.join(_dataDir, 'workspaces', org, fileName))
+    final file = File(p.join(_dataDir, 'workspaces', org, 'files', fileName))
       ..createSync(recursive: true);
 
     var contents = '';

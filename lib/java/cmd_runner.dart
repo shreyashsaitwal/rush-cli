@@ -6,7 +6,7 @@ import 'package:rush_cli/helpers/copy.dart';
 import 'package:rush_cli/java/helper.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-enum CmdType { generator, d8, d8sup, proguard, jar, jetifier }
+enum CmdType { d8, d8sup, proguard, jar, jetifier }
 
 class CmdRunner {
   final String _cd;
@@ -28,9 +28,6 @@ class CmdRunner {
     var dwd = _cd; // Default working directory
 
     switch (cmd) {
-      case CmdType.generator:
-        args.addAll(_getGeneratorArgs(org));
-        break;
       case CmdType.d8:
         args.addAll(_getD8Args(org, false));
         break;
@@ -38,7 +35,7 @@ class CmdRunner {
         args.addAll(_getD8Args(org, true));
         break;
       case CmdType.jar:
-        dwd = p.join(_dataDir, 'workspaces', org, 'raw-classes', org);
+        dwd = p.join(_dataDir, 'workspaces', org, 'classes');
         args.addAll(_getJarArgs(org, dwd));
         break;
       case CmdType.proguard:
@@ -107,47 +104,12 @@ class CmdRunner {
     }
   }
 
-  /// Returns the args required for running the extension generator.
-  List<String> _getGeneratorArgs(String org) {
-    final args = <String>['java'];
-
-    final devDeps = Directory(p.join(_cd, '.rush', 'dev-deps'));
-    final processor = Directory(p.join(_dataDir, 'tools', 'processor'));
-
-    final classpath = Helper.generateClasspath([devDeps, processor]);
-
-    final classesDir =
-        Directory(p.join(_dataDir, 'workspaces', org, 'classes'));
-    final rawClassesDir =
-        Directory(p.join(_dataDir, 'workspaces', org, 'raw-classes'))
-          ..createSync(recursive: true);
-    final rawDirX = Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'x'))
-      ..createSync(recursive: true);
-
-    final deps = p.join(_cd, 'deps');
-
-    args
-      ..addAll(['-cp', classpath])
-      ..add('io.shreyash.rush.ExtensionGenerator')
-      ..addAll([
-        p.join(classesDir.path, 'simple_components.json'),
-        p.join(classesDir.path, 'simple_components_build_info.json'),
-        rawDirX.path,
-        classesDir.path,
-        deps,
-        rawClassesDir.path,
-        'false',
-        _cd,
-      ]);
-
-    return args;
-  }
-
   /// Returns the args required for running D8.
   List<String> _getD8Args(String org, bool isSup) {
     final args = <String>['java'];
 
     final d8 = File(p.join(_dataDir, 'tools', 'other', 'd8.jar'));
+
     final rawOrgDirX =
         Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'x', org));
     final rawOrgDirSup =
@@ -177,12 +139,12 @@ class CmdRunner {
       jar = 'jar';
     }
 
-    final args = <String>[jar, 'cf', '../$org.jar'];
+    final args = <String>[jar, 'cf', 'art.jar'];
 
-    final rawClassesOrgDir = Directory(dwd);
+    final classesDir = Directory(dwd);
 
     // Add everything that needs to be jarred
-    rawClassesOrgDir.listSync().forEach((entity) {
+    classesDir.listSync().forEach((entity) {
       if (entity is Directory) {
         args.add(p.relative(entity.path, from: dwd));
       } else if (p.extension(entity.path) == '.class') {
@@ -203,10 +165,11 @@ class CmdRunner {
 
     final libraryJars = Helper.generateClasspath([devDeps, deps]);
 
-    final rawClasses =
-        Directory(p.join(_dataDir, 'workspaces', org, 'raw-classes'));
-    final injar = File(p.join(rawClasses.path, '$org.jar'));
-    final outjar = File(p.join(rawClasses.path, '${org}_pg.jar'));
+    final classesDir =
+        Directory(p.join(_dataDir, 'workspaces', org, 'classes'));
+
+    final injar = File(p.join(classesDir.path, 'art.jar'));
+    final outjar = File(p.join(classesDir.path, 'art_opt.jar'));
 
     final pgRules = File(p.join(_cd, 'src', 'proguard-rules.pro'));
 

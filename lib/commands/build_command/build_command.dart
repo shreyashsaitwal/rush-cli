@@ -286,17 +286,17 @@ class BuildCommand extends Command {
 
     // Create a JAR containing the contents of extension's dependencies and
     // compiled source files
-    final rawJar = await _jarExtension(org, step, optimize, dejet);
+    final extJar = await _jarExtension(org, step, optimize, dejet);
 
-    if (rawJar.existsSync()) {
+    if (extJar.existsSync()) {
       final destDir = Directory(
           p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'files'))
         ..createSync(recursive: true);
 
-      rawJar.copySync(p.join(destDir.path, 'AndroidRuntime.jar'));
+      extJar.copySync(p.join(destDir.path, 'AndroidRuntime.jar'));
     } else {
       step
-        ..logErr('File not found: ' + rawJar.path)
+        ..logErr('File not found: ' + extJar.path)
         ..finishNotOk('Failed');
 
       Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
@@ -321,7 +321,7 @@ class BuildCommand extends Command {
             .deleteSync(recursive: true);
 
         step.logWarn(
-            'No references to androidx** were found. You don\'t need to pass the `-s` flag for now.',
+            'No references to AndroidX packages were found. You don\'t need to pass the `-s` flag for now.',
             addSpace: true);
       }
     }
@@ -334,25 +334,27 @@ class BuildCommand extends Command {
   /// single JAR.
   Future<File> _jarExtension(
       String org, BuildStep processStep, bool optimize, bool dejet) async {
-    final rawClassesDir =
-        Directory(p.join(_dataDir, 'workspaces', org, 'raw-classes', org));
+    final classesDir =
+        Directory(p.join(_dataDir, 'workspaces', org, 'classes'));
 
-    final rawJar = File(rawClassesDir.path + '.jar');
+    final extJar =
+        File(p.join(classesDir.path, 'art.jar')); // ART -> Android Runtime
 
     // Run the jar command-line tool. It is used to generate a JAR.
     final runner = CmdRunner(_cd, _dataDir);
     try {
       await runner.run(CmdType.jar, org, processStep);
 
+      // Run ProGuard if the extension is supposed to be optimized/
       if (optimize) {
         await runner.run(CmdType.proguard, org, processStep);
 
         // Delete the old non-optimized JAR...
-        rawJar.deleteSync();
+        extJar.deleteSync();
 
         // ...and rename the optimized JAR with old JAR's name
-        File(rawClassesDir.path + '_pg.jar')
-          ..copySync(rawJar.path)
+        File(p.join(classesDir.path, 'art_opt.jar'))
+          ..copySync(extJar.path)
           ..deleteSync(recursive: true);
       }
     } catch (e) {
@@ -361,7 +363,7 @@ class BuildCommand extends Command {
       exit(1);
     }
 
-    return rawJar;
+    return extJar;
   }
 
   /// Convert generated extension JAR file from previous step into DEX
