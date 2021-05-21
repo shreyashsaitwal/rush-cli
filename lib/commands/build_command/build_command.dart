@@ -282,10 +282,12 @@ class BuildCommand extends Command {
     final generator = Generator(_cd, _dataDir);
     generator.generate(org);
 
-    // Run the rush annotation processor
     final runner = CmdRunner(_cd, _dataDir);
 
+    // Create a JAR containing the contents of extension's dependencies and
+    // compiled source files
     final rawJar = await _jarExtension(org, step, optimize, dejet);
+
     if (rawJar.existsSync()) {
       final destDir = Directory(
           p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'files'))
@@ -370,10 +372,13 @@ class BuildCommand extends Command {
     final runner = CmdRunner(_cd, _dataDir);
 
     try {
-      await runner.run(CmdType.d8, org, step);
-
       if (dejet) {
-        await runner.run(CmdType.d8sup, org, step);
+        await Future.wait([
+          runner.run(CmdType.d8, org, step),
+          runner.run(CmdType.d8sup, org, step),
+        ]);
+      } else {
+        await runner.run(CmdType.d8, org, step);
       }
     } catch (e) {
       step.finishNotOk('Failed');

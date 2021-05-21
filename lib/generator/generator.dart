@@ -106,16 +106,27 @@ class Generator {
   void _copyDeps(YamlMap rushYml, String org) {
     final libs = rushYml['deps'] ?? [];
 
+    final rawClassesDir =
+        Directory(p.join(_dataDir, 'workspaces', org, 'raw-classes', org))
+          ..createSync(recursive: true);
+
     if (libs.isNotEmpty) {
       final depsDirPath = p.join(_cd, 'deps');
-      final rawClassesDir =
-          Directory(p.join(_dataDir, 'workspaces', org, 'raw-classes', org))
-            ..createSync(recursive: true);
 
       libs.forEach((el) {
         final lib = p.join(depsDirPath, el);
         Utils.extractJar(lib, rawClassesDir.path);
       });
+    }
+
+    final kotlinEnabled = rushYml['kotlin']?['enable'] ?? false;
+
+    // If Kotlin is enabled, add Kotlin Std. library to raw classes dir.
+    if (kotlinEnabled) {
+      final kotlinStdLib =
+          File(p.join(_cd, '.rush', 'dev-deps', 'kotlin-stdlib.jar'));
+
+      Utils.extractJar(kotlinStdLib.path, rawClassesDir.path);
     }
   }
 

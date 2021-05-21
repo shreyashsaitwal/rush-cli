@@ -110,6 +110,7 @@ class Compiler {
       step.logWarn('Total warning(s): ' + warnCount.toString().trimRight(),
           addSpace: true, addPrefix: false);
     }
+
     if (errCount > 0) {
       step.logErr('Total error(s): ' + errCount.toString().trimRight(),
           addPrefix: false);
