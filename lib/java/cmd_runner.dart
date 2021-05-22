@@ -6,7 +6,7 @@ import 'package:rush_cli/helpers/copy.dart';
 import 'package:rush_cli/java/helper.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-enum CmdType { d8, d8sup, proguard, jar, jetifier }
+enum CmdType { d8, d8sup, proguard, jetifier }
 
 class CmdRunner {
   final String _cd;
@@ -34,10 +34,10 @@ class CmdRunner {
       case CmdType.d8sup:
         args.addAll(_getD8Args(org, true));
         break;
-      case CmdType.jar:
-        dwd = p.join(_dataDir, 'workspaces', org, 'classes');
-        args.addAll(_getJarArgs(org, dwd));
-        break;
+      // case CmdType.jar:
+      //   dwd = p.join(_dataDir, 'workspaces', org, 'classes');
+      //   args.addAll(_getJarArgs(org, dwd));
+      //   break;
       case CmdType.proguard:
         args.addAll(_getPgArgs(org));
         break;
@@ -126,31 +126,6 @@ class CmdRunner {
         p.join(rawPath, 'classes.jar'),
         p.join(rawPath, 'files', 'AndroidRuntime.jar'),
       ]);
-
-    return args;
-  }
-
-  /// Returns the args required for running the jar tool, which is used create a JAR.
-  List<String> _getJarArgs(String org, String dwd) {
-    final jar;
-    if (Platform.isWindows) {
-      jar = 'jar.exe';
-    } else {
-      jar = 'jar';
-    }
-
-    final args = <String>[jar, 'cf', 'art.jar'];
-
-    final classesDir = Directory(dwd);
-
-    // Add everything that needs to be jarred
-    classesDir.listSync().forEach((entity) {
-      if (entity is Directory) {
-        args.add(p.relative(entity.path, from: dwd));
-      } else if (p.extension(entity.path) == '.class') {
-        args.add(p.relative(entity.path));
-      }
-    });
 
     return args;
   }

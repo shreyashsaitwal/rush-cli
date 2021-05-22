@@ -126,7 +126,7 @@ class CreateCommand extends Command {
 
       _writeFile(p.join(projectDir, '.idea', 'modules.xml'),
           getModulesXml(kebabCasedName));
-      _writeFile(p.join(projectDir, '$kebabCasedName.iml'), getIml());
+      _writeFile(p.join(projectDir, '.idea', '$kebabCasedName.iml'), getIml());
     } catch (e) {
       Logger.logErr(e.toString(), exitCode: 1);
     }

@@ -340,12 +340,23 @@ class BuildCommand extends Command {
     final extJar =
         File(p.join(classesDir.path, 'art.jar')); // ART -> Android Runtime
 
-    // Run the jar command-line tool. It is used to generate a JAR.
+    final zipEncoder = ZipFileEncoder()..open(extJar.path);
+
+    for (final entity in classesDir.listSync()) {
+      if (entity is File) {
+        if (p.extension(entity.path) != '.jar') {
+          zipEncoder.addFile(entity);
+        }
+      } else if (entity is Directory) {
+        zipEncoder.addDirectory(entity);
+      }
+    }
+
+    zipEncoder.close();
+
     final runner = CmdRunner(_cd, _dataDir);
     try {
-      await runner.run(CmdType.jar, org, processStep);
-
-      // Run ProGuard if the extension is supposed to be optimized/
+      // Run ProGuard if the extension is supposed to be optimized
       if (optimize) {
         await runner.run(CmdType.proguard, org, processStep);
 
