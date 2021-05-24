@@ -1,37 +1,39 @@
 import 'dart:io' show File, Directory, exit;
 
+import 'package:path/path.dart' as p;
 import 'package:archive/archive_io.dart';
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
-import 'package:path/path.dart' as p;
-import 'package:rush_cli/generator/generator.dart';
-import 'package:rush_cli/helpers/check_yaml.dart';
-import 'package:rush_cli/helpers/utils.dart';
-import 'package:rush_cli/java/compiler.dart';
-import 'package:rush_cli/java/cmd_runner.dart';
+import 'package:rush_cli/commands/build_command/helpers/generator.dart';
+import 'package:rush_cli/commands/build_command/helpers/executor.dart';
+import 'package:rush_cli/commands/build_command/rush_yaml_models/rush_yaml.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
 import 'package:yaml/yaml.dart';
+
+import 'helpers/build_utils.dart';
+import 'helpers/compiler.dart';
 
 class BuildCommand extends Command {
   final String _cd;
   final String _dataDir;
 
-  late final startTime;
+  late final _startTime;
 
   BuildCommand(this._cd, this._dataDir) {
     argParser
       ..addFlag('release',
           abbr: 'r',
           defaultsTo: false,
-          help:
-              'Marks this build as a release build, and hence, increments the version number of the extension by 1.')
+          help: 'Marks this build as a release build.')
       ..addFlag('support-lib',
           abbr: 's',
           defaultsTo: false,
           help:
-              'Generates two flavors of extensions, one that uses AndroidX libraries, and other that uses support libraries. The later is supposed to be used with builders that haven\'t yet migrated to AndroidX.')
+              'Generates two flavors of extensions, one that uses AndroidX libraries, and other that '
+              'uses support libraries. The later is supposed to be used with builders that haven\'t '
+              'yet migrated to AndroidX.')
       ..addFlag('optimize',
           abbr: 'o',
           defaultsTo: false,
@@ -74,18 +76,19 @@ class BuildCommand extends Command {
       ..setForegroundColor(ConsoleColor.yellow)
       ..write('   -r, --release')
       ..setForegroundColor(ConsoleColor.brightWhite)
-      ..writeLine(' ' * 9 +
-          'Marks this build as a release build, which results in the version number being incremented by one.')
+      ..writeLine(' ' * 9 + 'Marks this build as a release build.')
       ..setForegroundColor(ConsoleColor.yellow)
       ..write('   -s, --support-lib')
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(' ' * 5 +
-          'Generates two flavors of extensions, one that uses AndroidX libraries, and other that uses support libraries.')
+          'Generates two flavors of extensions, one that uses AndroidX libraries, and other that '
+              'uses support libraries.')
       ..setForegroundColor(ConsoleColor.yellow)
       ..write('   -o, --[no-]optimize')
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(' ' * 3 +
-          'Optimize, obfuscates and shrinks your code with a set of ProGuard rules defined in proguard-rules.pro rules file.')
+          'Optimize, obfuscates and shrinks your code with a set of ProGuard rules defined in '
+              'proguard-rules.pro rules file.')
       ..resetColorAttributes()
       ..writeLine();
   }
@@ -94,7 +97,7 @@ class BuildCommand extends Command {
   @override
   Future<void> run() async {
     PrintArt();
-    startTime = DateTime.now();
+    _startTime = DateTime.now();
 
     Logger.log('Build initialized\n',
         color: ConsoleColor.brightWhite,
@@ -104,36 +107,30 @@ class BuildCommand extends Command {
     final valStep = BuildStep('Checking project files');
     valStep.init();
 
-    File rushYml;
-    final yml = File(p.join(_cd, 'rush.yml'));
-    final yaml = File(p.join(_cd, 'rush.yaml'));
-
-    if (yml.existsSync()) {
-      rushYml = yml;
-    } else if (yaml.existsSync()) {
-      rushYml = yaml;
-    } else {
-      valStep
-        ..logErr('Metadata file (rush.yml) not found')
-        ..finishNotOk('Failed');
-      Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
-      exit(1);
+    File rushYmlFile;
+    try {
+      rushYmlFile = BuildUtils.getRushYaml(_cd);
+    } catch (e) {
+      BuildUtils.printFailMsg(
+          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
+      exit(2);
     }
 
-    // Load rush.yml in a Dart understandable way.
-    YamlMap loadedYml;
+    final rushYaml =
+        RushYaml.fromYaml(loadYaml(rushYmlFile.readAsStringSync()));
+
     try {
-      loadedYml = loadYaml(rushYml.readAsStringSync());
+      BuildUtils.checkRushYaml(rushYaml, valStep);
     } catch (e) {
       valStep
-        ..logErr('Metadata file (rush.yml) is invalid')
-        ..logErr(e.toString(), addPrefix: false, addSpace: true)
-        ..finishNotOk('Failed');
-      Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
-      exit(1);
+        ..logErr('Metadata file (rush.yml) not found')
+        ..finishNotOk();
+
+      BuildUtils.printFailMsg(
+          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
+      exit(2);
     }
 
-    CheckRushYml.check(rushYml, valStep, startTime);
     valStep.log(
       'Metadata file (rush.yml) found',
       ConsoleColor.brightWhite,
@@ -147,9 +144,10 @@ class BuildCommand extends Command {
     if (!manifestFile.existsSync()) {
       valStep
         ..logErr('AndroidManifest.xml not found')
-        ..finishNotOk('Failed');
+        ..finishNotOk();
 
-      Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
+      BuildUtils.printFailMsg(
+          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
       exit(1);
     } else {
       valStep.log(
@@ -161,61 +159,38 @@ class BuildCommand extends Command {
         prefFG: ConsoleColor.black,
       );
     }
-    valStep.finishOk('Done');
+
+    valStep.finishOk();
 
     Hive.init(p.join(_cd, '.rush'));
     final dataBox = await Hive.openBox('data');
 
     // This is done in case the user deletes the .rush directory.
-    Utils.copyDevDeps(_dataDir, _cd);
+    BuildUtils.copyDevDeps(_dataDir, _cd);
 
-    await _ensureBoxValues(dataBox, loadedYml);
+    await BuildUtils.ensureBoxValues(_cd, dataBox, rushYaml);
 
-    var isYmlMod =
-        rushYml.lastModifiedSync().isAfter(await dataBox.get('rushYmlLastMod'));
-
-    var isManifestMod = manifestFile
-        .lastModifiedSync()
-        .isAfter(await dataBox.get('manifestLastMod'));
-
-    if (isYmlMod || isManifestMod) {
-      Utils.cleanWorkspaceDir(_dataDir, await dataBox.get('org'));
-
-      await Future.wait([
-        dataBox.put('rushYmlLastMod', rushYml.lastModifiedSync()),
-        dataBox.put('manifestLastMod', manifestFile.lastModifiedSync())
-      ]);
+    if (await BuildUtils.areInfoFilesModified(_cd, dataBox)) {
+      BuildUtils.cleanWorkspaceDir(_dataDir, await dataBox.get('org'));
     }
 
     // Increment version number if this is a production build.
     final isRelease = argResults!['release'];
     if (isRelease) {
-      final extVerYml = loadedYml['version']['number'];
+      final extVerYml = rushYaml.version!.number;
 
       if (extVerYml == 'auto') {
         final extVerBox = await dataBox.get('version') ?? 0;
         await dataBox.put('version', extVerBox + 1);
       }
 
-      Utils.cleanWorkspaceDir(_dataDir, await dataBox.get('org'));
+      BuildUtils.cleanWorkspaceDir(_dataDir, await dataBox.get('org'));
     }
 
-    final optimize;
-    if (argResults!['optimize']) {
-      optimize = true;
-    } else if (isRelease) {
-      if ((loadedYml['release']?['optimize'] ?? false) &&
-          !argResults!['no-optimize']) {
-        optimize = true;
-      } else {
-        optimize = false;
-      }
-    } else {
-      optimize = false;
-    }
+    final optimize = BuildUtils.needsOptimization(
+        isRelease, argResults!['optimize'], rushYaml);
 
-    await _compile(
-        dataBox, optimize, (loadedYml['kotlin']?['enable'] ?? false) as bool);
+    await _compile(dataBox, optimize, rushYaml.kotlin?.enable as bool);
   }
 
   /// Compiles extension's source files
@@ -236,33 +211,31 @@ class BuildCommand extends Command {
         if (!enableKt) {
           step
             ..logErr('Kotlin files detected. Please enable Kotlin in rush.yml.')
-            ..finishNotOk('Failed');
+            ..finishNotOk();
           exit(1);
         }
 
-        await Future.wait([
-          compiler.compile(CompileType.buildKt, step, dataBox: dataBox),
-          compiler.compile(CompileType.kapt, step, dataBox: dataBox)
-        ]);
+        await compiler.compileKt(dataBox, step);
       }
 
       if (hasJavaFiles) {
-        await compiler.compile(CompileType.buildJ, step, dataBox: dataBox);
+        await compiler.compileJava(dataBox, step);
       }
     } catch (e) {
-      step.finishNotOk('Failed');
-      Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
+      step.finishNotOk();
+      BuildUtils.printFailMsg(
+          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
       exit(1);
     }
 
-    step.finishOk('Done');
+    step.finishOk();
     await _process(
         await dataBox.get('org'), optimize, argResults!['support-lib']);
   }
 
   /// Further process the extension by generating extension files, adding
   /// libraries and jaring the extension.
-  Future<void> _process(String org, bool optimize, bool dejet) async {
+  Future<void> _process(String org, bool optimize, bool deJet) async {
     final BuildStep step;
     final rulesPro = File(p.join(_cd, 'src', 'proguard-rules.pro'));
 
@@ -282,11 +255,11 @@ class BuildCommand extends Command {
     final generator = Generator(_cd, _dataDir);
     generator.generate(org);
 
-    final runner = CmdRunner(_cd, _dataDir);
+    final executor = Executor(_cd, _dataDir);
 
     // Create a JAR containing the contents of extension's dependencies and
     // compiled source files
-    final extJar = await _jarExtension(org, step, optimize, dejet);
+    final extJar = await _jarExtension(org, step, optimize);
 
     if (extJar.existsSync()) {
       final destDir = Directory(
@@ -297,24 +270,27 @@ class BuildCommand extends Command {
     } else {
       step
         ..logErr('File not found: ' + extJar.path)
-        ..finishNotOk('Failed');
+        ..finishNotOk();
 
-      Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
+      BuildUtils.printFailMsg(
+          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
       exit(1);
     }
 
-    var needDejet = dejet;
-    if (dejet) {
+    var needDeJet = deJet;
+    if (deJet) {
       try {
-        await runner.run(CmdType.jetifier, org, step);
-        needDejet = runner.getShouldDejet;
+        needDeJet = await executor.execJetifier(org, step);
       } catch (e) {
-        step.finishNotOk('Failed');
-        Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
+        step.finishNotOk();
+
+        BuildUtils.printFailMsg(
+            BuildUtils.getTimeDifference(_startTime, DateTime.now()));
+
         exit(1);
       }
 
-      if (!needDejet && dejet) {
+      if (!needDeJet && deJet) {
         // Delete the raw/sup directory so that support version of
         // the extension isn't generated.
         Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'sup'))
@@ -326,14 +302,14 @@ class BuildCommand extends Command {
       }
     }
 
-    step.finishOk('Done');
-    await _dex(org, needDejet);
+    step.finishOk();
+    await _dex(org, needDeJet);
   }
 
   /// JAR the compiled class files and third-party dependencies into a
   /// single JAR.
   Future<File> _jarExtension(
-      String org, BuildStep processStep, bool optimize, bool dejet) async {
+      String org, BuildStep processStep, bool optimize) async {
     final classesDir =
         Directory(p.join(_dataDir, 'workspaces', org, 'classes'));
 
@@ -354,11 +330,11 @@ class BuildCommand extends Command {
 
     zipEncoder.close();
 
-    final runner = CmdRunner(_cd, _dataDir);
+    final executor = Executor(_cd, _dataDir);
     try {
       // Run ProGuard if the extension is supposed to be optimized
       if (optimize) {
-        await runner.run(CmdType.proguard, org, processStep);
+        await executor.execProGuard(org, processStep);
 
         // Delete the old non-optimized JAR...
         extJar.deleteSync();
@@ -369,8 +345,9 @@ class BuildCommand extends Command {
           ..deleteSync(recursive: true);
       }
     } catch (e) {
-      processStep.finishNotOk('Failed');
-      Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
+      processStep.finishNotOk();
+      BuildUtils.printFailMsg(
+          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
       exit(1);
     }
 
@@ -379,27 +356,28 @@ class BuildCommand extends Command {
 
   /// Convert generated extension JAR file from previous step into DEX
   /// bytecode.
-  Future<void> _dex(String org, bool dejet) async {
+  Future<void> _dex(String org, bool deJet) async {
     final step = BuildStep('Generating DEX bytecode')..init();
 
-    final runner = CmdRunner(_cd, _dataDir);
+    final executor = Executor(_cd, _dataDir);
 
     try {
-      if (dejet) {
+      if (deJet) {
         await Future.wait([
-          runner.run(CmdType.d8, org, step),
-          runner.run(CmdType.d8sup, org, step),
+          executor.execD8(org, step, true),
+          executor.execD8(org, step, false),
         ]);
       } else {
-        await runner.run(CmdType.d8, org, step);
+        await executor.execD8(org, step, false);
       }
     } catch (e) {
-      step.finishNotOk('Failed');
-      Utils.printFailMsg(Utils.getTimeDifference(startTime, DateTime.now()));
+      step.finishNotOk();
+      BuildUtils.printFailMsg(
+          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
       exit(1);
     }
 
-    step.finishOk('Done');
+    step.finishOk();
     _assemble(org);
   }
 
@@ -423,62 +401,13 @@ class BuildCommand extends Command {
           filename: p.join(outputDir.path, '$org.support.aix'));
     }
 
-    step.finishOk('Done');
+    step.finishOk();
 
     Logger.log(
-        'Build successful ${Utils.getTimeDifference(startTime, DateTime.now())}',
+        'Build successful ${BuildUtils.getTimeDifference(_startTime, DateTime.now())}',
         color: ConsoleColor.brightWhite,
         prefix: '\n• ',
         prefixFG: ConsoleColor.brightGreen);
     exit(0);
-  }
-
-  /// Ensures that the required data exists in the data box.
-  Future<void> _ensureBoxValues(Box box, YamlMap yaml) async {
-    final extName = yaml['name'];
-    if (!box.containsKey('name') || (await box.get('name')) != extName) {
-      await box.put('name', yaml['name']);
-    }
-
-    final extOrg = Utils.getPackage(extName, p.join(_cd, 'src'));
-    if (!box.containsKey('org') || (await box.get('org')) != extOrg) {
-      await box.put('org', extOrg);
-    }
-
-    final extVersion = yaml['version']['number'];
-    if (!box.containsKey('version')) {
-      if (extVersion != 'auto') {
-        await box.put('version', extVersion as int);
-      } else {
-        await box.put('version', 1);
-      }
-    } else if ((await box.get('version')) != extVersion &&
-        extVersion != 'auto') {
-      await box.put('version', extVersion as int);
-    }
-
-    if (!box.containsKey('rushYmlLastMod') ||
-        (await box.get('rushYmlLastMod')) == null) {
-      final DateTime lastMod;
-
-      final rushYml = File(p.join(_cd, 'rush.yml'));
-      final rushYaml = File(p.join(_cd, 'rush.yaml'));
-
-      if (rushYml.existsSync()) {
-        lastMod = rushYml.lastModifiedSync();
-      } else {
-        lastMod = rushYaml.lastModifiedSync();
-      }
-
-      await box.put('rushYmlLastMod', lastMod);
-    }
-
-    if (!box.containsKey('manifestLastMod') ||
-        (await box.get('manifestLastMod')) == null) {
-      final lastMod =
-          File(p.join(_cd, 'src', 'AndroidManifest.xml')).lastModifiedSync();
-
-      await box.put('manifestLastMod', lastMod);
-    }
   }
 }

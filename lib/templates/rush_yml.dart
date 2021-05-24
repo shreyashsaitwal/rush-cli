@@ -1,4 +1,4 @@
-String getRushYaml(
+String getRushYamlTemp(
     String name, String versionName, String author, bool enableKt) {
   return '''
 # For a detailed info on this file and supported fields, check

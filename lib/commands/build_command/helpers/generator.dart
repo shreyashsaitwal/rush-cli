@@ -1,9 +1,10 @@
-import 'dart:io';
+import 'dart:io' show Directory, File;
 
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/helpers/utils.dart';
 import 'package:rush_cli/version.dart';
 import 'package:yaml/yaml.dart';
+
+import 'build_utils.dart';
 
 class Generator {
   final String _cd;
@@ -31,7 +32,7 @@ class Generator {
     _copyDeps(yml, org);
   }
 
-  /// Generates the components info and build files and the properties file.
+  /// Generates the components info, build, and the properties file.
   void _generateRawFiles(String org) {
     final rawDirX =
         Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'x', org))
@@ -97,16 +98,15 @@ rush-version=$rushVersion
   void _copyDeps(YamlMap rushYml, String org) {
     final libs = rushYml['deps'] ?? [];
 
-    final classesDir =
-        Directory(p.join(_dataDir, 'workspaces', org, 'classes'))
-          ..createSync(recursive: true);
+    final classesDir = Directory(p.join(_dataDir, 'workspaces', org, 'classes'))
+      ..createSync(recursive: true);
 
     if (libs.isNotEmpty) {
       final depsDirPath = p.join(_cd, 'deps');
 
       libs.forEach((el) {
         final lib = p.join(depsDirPath, el);
-        Utils.extractJar(lib, classesDir.path);
+        BuildUtils.extractJar(lib, classesDir.path);
       });
     }
 
@@ -118,7 +118,7 @@ rush-version=$rushVersion
       final kotlinStdLib =
           File(p.join(_cd, '.rush', 'dev-deps', 'kotlin-stdlib.jar'));
 
-      Utils.extractJar(kotlinStdLib.path, classesDir.path);
+      BuildUtils.extractJar(kotlinStdLib.path, classesDir.path);
     }
   }
 

@@ -1,12 +1,12 @@
 import 'dart:io' show File, Directory, exit;
 
-import 'package:dart_console/dart_console.dart';
 import 'package:path/path.dart' as p;
+import 'package:dart_console/dart_console.dart';
 import 'package:args/command_runner.dart';
-import 'package:rush_cli/helpers/copy.dart';
-import 'package:rush_cli/helpers/utils.dart';
+import 'package:process_runner/process_runner.dart';
+import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/helpers/casing.dart';
-import 'package:rush_cli/java/compiler.dart';
+import 'package:rush_cli/helpers/process_streamer.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
 import 'package:rush_cli/templates/intellij_files.dart';
 import 'package:rush_cli/templates/readme.dart';
@@ -21,7 +21,7 @@ class MigrateCommand extends Command {
 
   @override
   String get description =>
-      'Introspects and migrates the extension-template project in CWD to Rush.';
+      'Introspects and migrates the extension-template project in the current directory to Rush.';
 
   @override
   String get name => 'migrate';
@@ -51,12 +51,11 @@ class MigrateCommand extends Command {
 
     final compStep = BuildStep('Introspecting the source files')..init();
 
-    final javac = Compiler(_cd, _dataDir);
-
     try {
-      await javac.compile(CompileType.migrate, compStep, output: outputDir);
+      await _compileJava(outputDir, compStep);
     } catch (e) {
-      compStep.finishNotOk('Failed');
+      compStep.finishNotOk();
+
       Logger.log('Build failed',
           color: ConsoleColor.brightWhite,
           prefix: '\n• ',
@@ -81,7 +80,7 @@ class MigrateCommand extends Command {
     if (genFiles.entries.any((el) => el.value.isEmpty)) {
       compStep
         ..logErr('No extension found')
-        ..finishNotOk('Failed');
+        ..finishNotOk();
 
       exit(1);
     } else if (genFiles.entries.any((el) => el.value.length > 1)) {
@@ -97,7 +96,7 @@ class MigrateCommand extends Command {
             'Currently, Rush doesn\'t supports multiple extensions inside one project.',
             addPrefix: false,
             addSpace: true)
-        ..finishNotOk('Failed');
+        ..finishNotOk();
 
       exit(1);
     }
@@ -106,7 +105,8 @@ class MigrateCommand extends Command {
         .basenameWithoutExtension(genFiles['rushYml']!.first.path)
         .split('rush-')
         .last;
-    final org = Utils.getPackage(extName, p.join(_cd, 'src'));
+    final org = CmdUtils.getPackage(extName, p.join(_cd, 'src'));
+
     final projectDir =
         Directory(p.join(p.dirname(_cd), Casing.kebabCase(extName)))
           ..createSync(recursive: true);
@@ -120,6 +120,7 @@ class MigrateCommand extends Command {
         .copySync(p.join(srcDir.path, 'AndroidManifest.xml'));
 
     outputDir.deleteSync(recursive: true);
+    compStep.finishOk();
 
     final finalStep = BuildStep('Finalizing the migration')..init();
 
@@ -128,7 +129,7 @@ class MigrateCommand extends Command {
     _copyDeps(projectDir.path, finalStep);
     _genNecessaryFiles(org, extName);
 
-    finalStep.finishOk('Done');
+    finalStep.finishOk();
 
     _printFooter(projectDir.path, Casing.kebabCase(extName), extName);
   }
@@ -138,14 +139,16 @@ class MigrateCommand extends Command {
   /// aiwebres directory.
   void _copySrcFiles(String package, String projectDirPath, BuildStep step) {
     final baseDir = Directory(p.joinAll([_cd, 'src', ...package.split('.')]));
+
     final dest =
         Directory(p.joinAll([projectDirPath, 'src', ...package.split('.')]))
           ..createSync(recursive: true);
 
-    Copy.copyDir(baseDir, dest, ignore: [
+    CmdUtils.copyDir(baseDir, dest, ignore: [
       Directory(p.join(baseDir.path, 'assets')),
       Directory(p.join(baseDir.path, 'aiwebres')),
     ]);
+
     step.log('Copied source files', ConsoleColor.cyan,
         prefix: 'OK',
         prefBG: ConsoleColor.brightGreen,
@@ -162,13 +165,14 @@ class MigrateCommand extends Command {
       ..createSync();
 
     if (assetsDir.existsSync() && assetsDir.listSync().isNotEmpty) {
-      Copy.copyDir(assetsDir, assetsDest);
+      CmdUtils.copyDir(assetsDir, assetsDest);
     }
 
     final aiwebres = Directory(p.join(baseDir.path, 'aiwebres'));
     if (aiwebres.existsSync() && aiwebres.listSync().isNotEmpty) {
-      Copy.copyDir(aiwebres, assetsDest);
+      CmdUtils.copyDir(aiwebres, assetsDest);
     }
+
     step.log('Copied assets', ConsoleColor.cyan,
         prefix: 'OK',
         prefBG: ConsoleColor.brightGreen,
@@ -180,16 +184,19 @@ class MigrateCommand extends Command {
     final devDeps = Directory(p.join(_dataDir, 'dev-deps'));
     final devDepsDest = Directory(p.join(projectDir, '.rush', 'dev-deps'))
       ..createSync(recursive: true);
-    Copy.copyDir(devDeps, devDepsDest);
+
+    CmdUtils.copyDir(devDeps, devDepsDest);
 
     final deps = Directory(p.join(_cd, 'lib', 'deps'));
     final depsDest = Directory(p.join(projectDir, 'deps'))..createSync();
+
     if (deps.existsSync() && deps.listSync().isNotEmpty) {
-      Copy.copyDir(deps, depsDest);
+      CmdUtils.copyDir(deps, depsDest);
     } else {
       _writeFile(p.join(depsDest.path, '.placeholder'),
           'This directory stores your extension\'s depenedencies.');
     }
+
     step.log('Copied dependencies', ConsoleColor.cyan,
         prefix: 'OK',
         prefBG: ConsoleColor.brightGreen,
@@ -201,7 +208,8 @@ class MigrateCommand extends Command {
     final kebabCasedName = Casing.kebabCase(extName);
     final projectDir = p.join(p.dirname(_cd), kebabCasedName);
 
-    _writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'), getPgRules(org, extName));
+    _writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'),
+        getPgRules(org, extName));
     _writeFile(p.join(projectDir, 'README.md'), getReadme(extName));
     _writeFile(p.join(projectDir, '.gitignore'), getDotGitignore());
 
@@ -209,11 +217,84 @@ class MigrateCommand extends Command {
     _writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
     _writeFile(p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
         getDevDepsXml());
-    _writeFile(
-        p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'), getDevDepsXml());
+    _writeFile(p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
+        getDevDepsXml());
     _writeFile(p.join(projectDir, '.idea', 'modules.xml'),
         getModulesXml(kebabCasedName));
     _writeFile(p.join(projectDir, '$kebabCasedName.iml'), getIml());
+  }
+
+  Future<void> _compileJava(Directory output, BuildStep step) async {
+    final args = () {
+      final devDeps = Directory(p.join(_cd, 'lib', 'appinventor'));
+      final deps = Directory(p.join(_cd, 'lib', 'deps'));
+      final migrator = File(p.join(_dataDir, 'tools', 'other', 'migrator.jar'));
+
+      final classpath = CmdUtils.generateClasspath([devDeps, deps, migrator],
+          exclude: ['AnnotationProcessors.jar']);
+      final javacArgs = <String>[
+        '-Xlint:-options',
+        '-AoutputDir=${output.path}',
+      ];
+
+      final srcFiles =
+          CmdUtils.getJavaSourceFiles(Directory(p.join(_cd, 'src')));
+      final classesDir = Directory(p.join(output.path, 'classes'))
+        ..createSync();
+
+      final args = <String>[];
+      args
+        ..add('javac')
+        ..addAll(['-d', classesDir.path])
+        ..addAll(['-cp', classpath])
+        ..addAll([...javacArgs])
+        ..addAll([...srcFiles]);
+
+      return args;
+    };
+
+    final stream = ProcessStreamer.stream(args());
+
+    try {
+      // ignore: unused_local_variable
+      await for (final result in stream) {}
+    } on ProcessRunnerException catch (e) {
+      final stderr = e.result?.stderr.split('\n') ?? [];
+
+      final errPattern = RegExp(r'\s*error:\s?');
+
+      final excludePatterns = [
+        RegExp('The following options were not recognized'),
+        RegExp(r'\d+\s*warnings?:?\s?'),
+        RegExp(r'\d+\s*errors?\s?'),
+      ];
+
+      var gotErr = true;
+
+      stderr.where((line) => line.trim().isNotEmpty).forEach((line) {
+        if (line.startsWith(_cd)) {
+          line = line.replaceFirst(p.join(_cd, 'src'), 'src');
+        }
+
+        if (line.contains(errPattern)) {
+          line = line.replaceFirst(
+              errPattern, line.startsWith(errPattern) ? '' : ' ');
+          gotErr = true;
+
+          step.logErr(line, addSpace: true);
+        } else if (excludePatterns.any((el) => el.hasMatch(line))) {
+          gotErr = false;
+        } else {
+          if (gotErr) {
+            step.logErr(' ' * 4 + line, addPrefix: false);
+          } else {
+            step.logWarn(' ' * 5 + line, addPrefix: false);
+          }
+        }
+      });
+
+      rethrow;
+    }
   }
 
   /// Creates a file in [path] and writes [content] inside it.
@@ -234,7 +315,7 @@ class MigrateCommand extends Command {
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(
           'Migrated the extension-template project in the current directory to Rush.')
-      ..write('  Generated Rush project can be found here: ')
+      ..write('  The generated Rush extension project can be found here: ')
       ..setForegroundColor(ConsoleColor.cyan)
       ..writeLine(projectDir)
       ..writeLine()

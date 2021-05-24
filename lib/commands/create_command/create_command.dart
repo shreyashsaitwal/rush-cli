@@ -4,7 +4,7 @@ import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/helpers/copy.dart';
+import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/templates/rules_pro.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
@@ -108,8 +108,10 @@ class CreateCommand extends Command {
       _writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'),
           getPgRules(orgName, pascalCasedName));
 
-      _writeFile(p.join(projectDir, 'rush.yml'),
-          getRushYaml(pascalCasedName, versionName, authorName, lang == 'Kotlin'));
+      _writeFile(
+          p.join(projectDir, 'rush.yml'),
+          getRushYamlTemp(
+              pascalCasedName, versionName, authorName, lang == 'Kotlin'));
 
       _writeFile(p.join(projectDir, 'README.md'), getReadme(pascalCasedName));
       _writeFile(p.join(projectDir, '.gitignore'), getDotGitignore());
@@ -121,8 +123,8 @@ class CreateCommand extends Command {
 
       _writeFile(p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
           getDevDepsXml());
-      _writeFile(p.join(projectDir, '.idea', 'libraries', 'deps.xml'),
-          getDepsXml());
+      _writeFile(
+          p.join(projectDir, '.idea', 'libraries', 'deps.xml'), getDepsXml());
 
       _writeFile(p.join(projectDir, '.idea', 'modules.xml'),
           getModulesXml(kebabCasedName));
@@ -160,7 +162,7 @@ class CreateCommand extends Command {
         color: ConsoleColor.brightWhite,
         prefix: '\n• ',
         prefixFG: ConsoleColor.yellow);
-    Copy.copyDir(Directory(devDepsDir),
+    CmdUtils.copyDir(Directory(devDepsDir),
         Directory(p.join(projectDir, '.rush', 'dev-deps')));
 
     Console()

@@ -1,7 +1,7 @@
 import 'package:dart_console/dart_console.dart';
 
 class BuildStep {
-  final console = Console();
+  final _console = Console();
 
   final String _title;
 
@@ -9,7 +9,7 @@ class BuildStep {
 
   /// Initializes this step.
   void init() {
-    console
+    _console
       ..setForegroundColor(ConsoleColor.brightBlack)
       ..write('┌ ')
       ..resetColorAttributes()
@@ -21,18 +21,18 @@ class BuildStep {
   /// Logs the given [msg] as a warning to this step's stdout.
   void logErr(String msg, {bool addPrefix = true, bool addSpace = false}) {
     if (addSpace) {
-      console
+      _console
         ..setForegroundColor(ConsoleColor.brightBlack)
         ..writeErrorLine('│ ')
         ..resetColorAttributes();
     }
-    console
+    _console
       ..setForegroundColor(ConsoleColor.brightBlack)
       ..write('│ ')
       ..resetColorAttributes();
 
     if (addPrefix) {
-      console
+      _console
         ..setBackgroundColor(ConsoleColor.red)
         ..setForegroundColor(ConsoleColor.brightWhite)
         ..write('ERR')
@@ -40,7 +40,7 @@ class BuildStep {
         ..write(' ');
     }
 
-    console
+    _console
       ..setForegroundColor(ConsoleColor.red)
       ..writeErrorLine(msg)
       ..resetColorAttributes();
@@ -49,18 +49,18 @@ class BuildStep {
   /// Logs the given [msg] as a warning to this step's stdout.
   void logWarn(String msg, {bool addPrefix = true, bool addSpace = false}) {
     if (addSpace) {
-      console
+      _console
         ..setForegroundColor(ConsoleColor.brightBlack)
         ..writeLine('│ ')
         ..resetColorAttributes();
     }
-    console
+    _console
       ..setForegroundColor(ConsoleColor.brightBlack)
       ..write('│ ')
       ..resetColorAttributes();
 
     if (addPrefix) {
-      console
+      _console
         ..setBackgroundColor(ConsoleColor.yellow)
         ..setForegroundColor(ConsoleColor.black)
         ..write('WARN')
@@ -68,7 +68,7 @@ class BuildStep {
         ..write(' ');
     }
 
-    console
+    _console
       ..setForegroundColor(ConsoleColor.yellow)
       ..writeErrorLine(msg)
       ..resetColorAttributes();
@@ -81,19 +81,18 @@ class BuildStep {
       ConsoleColor prefFG = ConsoleColor.white,
       ConsoleColor prefBG = ConsoleColor.black}) {
     if (addSpace) {
-      console
+      _console
         ..setForegroundColor(ConsoleColor.brightBlack)
         ..writeLine('│ ')
         ..resetColorAttributes();
     }
-    console
+    _console
       ..setForegroundColor(ConsoleColor.brightBlack)
       ..write('│ ')
       ..resetColorAttributes();
 
     if (prefix != '' && prefBG != ConsoleColor.black) {
-      console
-        ..write(' ')
+      _console
         ..setBackgroundColor(prefBG)
         ..setForegroundColor(prefFG)
         ..write(prefix)
@@ -103,7 +102,7 @@ class BuildStep {
         ..writeLine(msg)
         ..resetColorAttributes();
     } else {
-      console
+      _console
         ..setForegroundColor(clr)
         ..writeLine(' ' + msg)
         ..resetColorAttributes();
@@ -111,24 +110,24 @@ class BuildStep {
   }
 
   /// Finishes this step.
-  void finishOk(String msg) {
-    console
+  void finishOk({String? msg}) {
+    _console
       ..setForegroundColor(ConsoleColor.brightBlack)
       ..write('└ ')
       ..resetColorAttributes()
       ..setForegroundColor(ConsoleColor.green)
-      ..writeLine(msg)
+      ..writeLine(msg ?? 'Done')
       ..resetColorAttributes();
   }
 
   /// Finishes this step.
-  void finishNotOk(String msg) {
-    console
+  void finishNotOk({String? msg}) {
+    _console
       ..setForegroundColor(ConsoleColor.brightBlack)
       ..write('└ ')
       ..resetColorAttributes()
       ..setForegroundColor(ConsoleColor.red)
-      ..writeLine(msg)
+      ..writeLine(msg ?? 'Failed')
       ..resetColorAttributes();
   }
 }

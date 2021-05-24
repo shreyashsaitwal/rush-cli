@@ -4,15 +4,27 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
 void main(List<String> args) {
-  final parser = ArgParser()..addOption('token', abbr: 't');
+  final parser = ArgParser()
+    ..addOption('token', abbr: 't')
+    ..addOption('version', abbr: 'v');
   final res = parser.parse(args);
 
   final gh_pat = res['token'];
+  final version = res['version'];
 
   final cd = Directory.current.path;
-  final envDart = File(p.join(cd, 'lib', 'installer', 'env.dart'));
 
-  envDart.writeAsStringSync('// Auto-generated. Do not modify.\n\nconst GH_PAT = \'$gh_pat\';');
+  final versionDart = File(p.join(cd, 'lib', 'version.dart'));
+  versionDart.writeAsStringSync('''
+// Auto-generated. Do not modify.
+const String rushVersion = \'$version\';
+const String rushBuiltOn = \'${DateTime.now().toUtc()}\';
+''');
+
+  final envDart = File(p.join(cd, 'lib', 'env.dart'));
+
+  envDart.writeAsStringSync(
+      '// Auto-generated. Do not modify.\nconst GH_PAT = \'$gh_pat\';');
 
   final rushExe = Process.runSync('dart', [
     'compile',

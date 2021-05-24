@@ -54,6 +54,7 @@ class Casing {
 
     var isFirst = true;
     var gotSpace = false;
+
     for (final char in input.split('')) {
       if (gotSpace) {
         gotSpace = false;

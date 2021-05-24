@@ -2,12 +2,13 @@ import 'dart:io' show Directory, File, Platform, Process, exit, stdin, stdout;
 
 import 'package:dart_console/dart_console.dart';
 import 'package:dio/dio.dart';
-import 'package:github/github.dart' show Authentication, GitHub, GitHubFile, RepositorySlug;
+import 'package:github/github.dart'
+    show Authentication, GitHub, GitHubFile, RepositorySlug;
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_run/which.dart';
 import 'package:rush_cli/helpers/app_data_dir.dart';
-import 'package:rush_cli/installer/env.dart';
+import 'package:rush_cli/env.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 class Installer {
