@@ -5,6 +5,7 @@ import 'package:dart_console/dart_console.dart';
 import 'package:rush_cli/commands/build_command/build_command.dart';
 import 'package:rush_cli/commands/create_command/create_command.dart';
 import 'package:rush_cli/commands/migrate_command/migrate_command.dart';
+import 'package:rush_cli/commands/upgrade_command/upgrade_command.dart';
 import 'package:rush_cli/helpers/app_data_dir.dart';
 import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
@@ -27,6 +28,7 @@ void main(List<String> args) {
     ..addCommand(CreateCommand(_cd, _dataDir))
     ..addCommand(BuildCommand(_cd, _dataDir))
     ..addCommand(MigrateCommand(_cd, _dataDir))
+    ..addCommand(UpgradeCommand())
     ..run(args).catchError((err) {
       if (err is UsageException) {
         runner.printUsage();
@@ -107,6 +109,11 @@ class RushCommandRunner extends CommandRunner {
       ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(
           '  Introspects and migrates the extension-template project in CWD to Rush.')
+      ..setForegroundColor(ConsoleColor.cyan)
+      ..write('  upgrade')
+      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..writeLine(
+          '  Upgrades Rush and all it\'s components to the latest available version.')
       ..resetColorAttributes();
   }
 }

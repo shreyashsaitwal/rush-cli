@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
+import 'package:process_runner/process_runner.dart';
 
 void main(List<String> args) {
   final parser = ArgParser()
@@ -26,27 +27,34 @@ const String rushBuiltOn = \'${DateTime.now().toUtc()}\';
   envDart.writeAsStringSync(
       '// Auto-generated. Do not modify.\nconst GH_PAT = \'$gh_pat\';');
 
-  final rushExe = Process.runSync('dart', [
+  ProcessRunner().runProcess([
+    'dart',
     'compile',
     'exe',
     '-o',
     p.join(cd, 'build', 'bin', 'rush' + (Platform.isWindows ? '.exe' : '')),
     p.join(cd, 'bin', 'rush.dart')
-  ]);
+  ], printOutput: true);
 
-  print(rushExe.stdout.toString().trim());
-  print(rushExe.stderr.toString().trim());
+  if (Platform.isWindows) {
+    ProcessRunner().runProcess([
+      'dart',
+      'compile',
+      'exe',
+      '-o',
+      p.join(cd, 'build', 'bin', 'swap.exe'),
+      p.join(cd, 'bin', 'swap.dart')
+    ], printOutput: true);
+  }
 
-  var rushInit = Process.runSync('dart', [
+  ProcessRunner().runProcess([
+    'dart',
     'compile',
     'exe',
     '-o',
     p.join(cd, 'build', 'bin', 'rush-init-${_getOsString()}'),
     p.join(cd, 'bin', 'rush-init.dart')
-  ]);
-
-  print(rushInit.stdout.toString().trim());
-  print(rushInit.stderr.toString().trim());
+  ], printOutput: true);
 }
 
 String _getOsString() {

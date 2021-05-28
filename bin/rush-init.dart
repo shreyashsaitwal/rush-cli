@@ -26,7 +26,14 @@ Future<void> main(List<String> args) async {
         'Rush is already installed on this computer, attempting to upgrade it...\n');
     Logger.log('Fetching data...\n');
 
-    await installer.downloadFiles(exePath);
+    final filesToDownload = await installer.fetchRequiredFiles('');
+
+    final pb = ProgressBar(
+        'Downloading... (${installer.totatSize ~/ 1.049e+6} MiB)',
+        filesToDownload.length);
+
+    await installer.downloadAllFiles(p.dirname(exePath), filesToDownload,
+        pb: pb);
 
     installer
       ..printFooter(exePath, false)
@@ -72,7 +79,13 @@ Future<void> main(List<String> args) async {
   }
 
   Logger.log('\nFetching data...\n');
-  await installer.downloadFiles(exePath);
+
+  final filesToDownload = await installer.fetchRequiredFiles('');
+
+  final pb = ProgressBar('Downloading... (${installer.totatSize ~/ 1.049e+6} MiB)',
+      filesToDownload.length);
+
+  await installer.downloadAllFiles(p.dirname(exePath), filesToDownload, pb: pb);
 
   installer
     ..printFooter(exePath)

@@ -3,7 +3,7 @@ import 'dart:io' show Directory, File, Platform, Process, exit, stdin, stdout;
 import 'package:dart_console/dart_console.dart';
 import 'package:dio/dio.dart';
 import 'package:github/github.dart'
-    show Authentication, GitHub, GitHubFile, RepositorySlug;
+    show Authentication, GitHub, GitHubFile, Release, RepositorySlug;
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_run/which.dart';
@@ -12,43 +12,81 @@ import 'package:rush_cli/env.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 class Installer {
-  final bool force;
+  final bool _force;
   final _dataDir = RushDataDir.dataDir()!;
 
-  var totalSize = 0;
+  var _totalSize = 0;
+  int get totatSize => _totalSize;
 
-  Installer(this.force) {
+  Installer(this._force) {
     final boxDir = Directory(p.join(_dataDir, '.installer'));
-    if (force) {
+    if (_force) {
       boxDir.deleteSync(recursive: true);
     }
 
     Hive.init(boxDir.path);
   }
 
-  Future<void> downloadFiles(String exePath) async {
+  Future<List<GitHubFile>> fetchRequiredFiles(String path) async {
+    final gh = GitHub(auth: Authentication.withToken(GH_PAT));
+    final contents = <GitHubFile>[];
+
+    final res = await gh.repositories
+        .getContents(RepositorySlug('shreyashsaitwal', 'rush-pack'), path);
+
     final box = await Hive.openBox('init.data');
 
-    final filesToDownload = await _getFiles('', box);
+    for (final entity in res.tree!) {
+      final nonOsPaths = _getNonOsPaths();
 
-    if (totalSize <= 0) {
-      Logger.log('You have the latest version of Rush installed!');
-      abort(0);
+      if (entity.type == 'dir') {
+        contents.addAll(await fetchRequiredFiles(entity.path!));
+      } else if (!nonOsPaths.contains(entity.path)) {
+        final boxedEntity = await box.get(entity.name) ??
+            <String, String>{'sha': '', 'path': ''};
+
+        final boxedSha = boxedEntity['sha'] ?? '';
+        final boxedPath = boxedEntity['path'] ?? '';
+
+        if (boxedSha != entity.sha || !File(boxedPath).existsSync()) {
+          contents.add(entity);
+          _totalSize += entity.size!;
+        }
+      }
     }
 
-    final pb = ProgressBar('Downloading files... (${totalSize ~/ 1e+6} MB)',
-        filesToDownload.length);
+    return contents;
+  }
 
-    for (final file in filesToDownload) {
-      await _download(file, exePath, box);
-      pb.increment();
+  Future<void> downloadAllFiles(String binDir, List<GitHubFile> files,
+      {ProgressBar? pb, bool isUpgrade = false}) async {
+    final box = await Hive.openBox('init.data');
+
+    for (final file in files) {
+      await _download(file, binDir, box, isUpgrade);
+      pb?.increment();
     }
   }
 
-  Future<void> _download(GitHubFile file, String exePath, Box box) async {
+  Future<Release> getLatestRelease() async {
+    final gh = GitHub(auth: Authentication.withToken(GH_PAT));
+
+    final release = await gh.repositories
+        .getLatestRelease(RepositorySlug('shreyashsaitwal', 'rush-pack'));
+
+    return release;
+  }
+
+  Future<void> _download(
+      GitHubFile file, String binDir, Box box, bool isUpgrade) async {
     final savePath;
-    if (file.name! == 'rush' || file.name == 'rush.exe') {
-      savePath = exePath;
+
+    if (file.path!.startsWith('exe')) {
+      if (isUpgrade && RegExp(r'rush(.exe)?').hasMatch(file.name!)) {
+        savePath = p.join(binDir, file.name! + '.new');
+      } else {
+        savePath = p.join(binDir, file.name);
+      }
     } else {
       savePath = p.join(_dataDir, file.path);
     }
@@ -66,37 +104,7 @@ class Installer {
 
     // Once the file is downloaded add it's sha and path to the box so next
     // time it doesn't get downloaded if it's not updated or deleted.
-    await box
-        .put(file.name, <String, String>{'sha': file.sha!, 'path': savePath});
-  }
-
-  Future<List<GitHubFile>> _getFiles(String path, Box box) async {
-    final gh = GitHub(auth: Authentication.withToken(GH_PAT));
-    final contents = <GitHubFile>[];
-
-    final res = await gh.repositories
-        .getContents(RepositorySlug('shreyashsaitwal', 'rush-pack'), path);
-
-    for (final entity in res.tree!) {
-      final nonOsPaths = _getNonOsPaths();
-
-      if (entity.type == 'dir') {
-        contents.addAll(await _getFiles(entity.path!, box));
-      } else if (!nonOsPaths.contains(entity.path)) {
-        final boxedEntity = await box.get(entity.name) ??
-            <String, String>{'sha': '', 'path': ''};
-
-        final boxedSha = boxedEntity['sha'] ?? '';
-        final boxedPath = boxedEntity['path'] ?? '';
-
-        if (boxedSha != entity.sha || !File(boxedPath).existsSync()) {
-          contents.add(entity);
-          totalSize += entity.size!;
-        }
-      }
-    }
-
-    return contents;
+    await box.put(file.name, {'sha': file.sha!, 'path': savePath});
   }
 
   List<String> _getNonOsPaths() {
