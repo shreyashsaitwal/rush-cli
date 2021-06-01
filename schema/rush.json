@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/schema/rush.json",
+  "title": "Rush metadata file",
+  "description": "This YAML file holds all of the extension's metadata, such as it's name, description, version related information, etc.",
+  "type": "object",
+  "required": ["name", "description", "version"],
+  "properties": {
+		"name": {
+			"title": "Extension name",
+			"description": "The user facing name of the extension. This MUST match with the Java class name of the extension.",
+			"type": "string"
+		},
+		"description": {
+			"title": "Extension description",
+			"description": "A brief description of your extension.",
+			"type": "string"
+		},
+		"version": {
+			"title": "Extension version info",
+			"type": "object",
+			"properties": {
+				"number": {
+					"title": "Extension's version number",
+					"description": "An integer representing the current version of the extension. Use `auto` if you want to auto-increment the value with every release build.",
+					"oneOf": [
+						{
+							"type": "integer",
+							"exclusiveMinimun": 0
+						},
+						{
+							"type": "string",
+							"enum": ["auto"]
+						}
+					]
+				},
+				"name": {
+					"description": "The name of the current version of the extension.",
+					"type": "string"
+				},
+				"required": ["number"]
+			}
+		},
+		"assets": {
+			"title": "Extension assets",
+			"type": "object",
+			"properties": {
+				"icon": {
+					"description": "The extension's icon. Can be a local image stored in assets directory or a remote URL. For best results, use an image that is 16×16px.",
+					"type": "string"
+				},
+				"other": {
+					"description": "A list of all the assets required by this extension (excluding icon image). This could be of anything -- images, text files, archives, etc.",
+					"type": "array"
+				}
+			}
+		},
+		"deps": {
+			"title": "Extension dependencies",
+			"description": "JAR dependencies of the extension. Only add the JARs that are needed during runtime here. Compile-time dependencies are not required to be added; they should only be present in the `deps` directory.",
+			"type": "array"
+		},
+		"release": {
+			"title": "release",
+			"type": "object",
+			"properties": {
+				"optimize": {
+					"title": "Optimize release build",
+					"description": "Indicates whether to optimize the extension while creating a release build or not. You can mark a build as a release build by passing the `--release` flag (abbr: `-r`).",
+					"type": "boolean"
+				},
+				"required": ["optimize"]
+			}
+		},
+		"kotlin": {
+			"title": "Kotlin",
+			"type": "object",
+			"properties": {
+				"enable": {
+					"title": "Enable Kotlin support",
+					"description": "Indicates whether to enable Kotlin language support or not for the extension.",
+					"type": "boolean"
+				},
+				"required": ["enable"]
+			}
+		},
+		"license_url": {
+      "deprecated": true,
+			"title": "Extension license URL",
+			"description": "The license agreement for the end-users of the extension. This should be a remote URL.",
+			"type": "string"
+		},
+		"license": {
+			"title": "Extension license",
+			"description": "The license agreement for the end-users of the extension. This could be a remote URL or a relative path to a local text document.",
+			"type": "string"
+		},
+		"min_sdk": {
+			"title": "Extension's minimum Android SDK",
+			"description": "The minimum version number of the Android SDK the extension needs in order to function properly. This MUST be greater than or equal to `7`.",
+			"type": "integer",
+			"minimum": 7
+		},
+		"homepage": {
+			"title": "Extension's homepage",
+			"description": "The remote URL of the extension's homepage. This could be a link to the GitHub repository, community post, or the website of the extension.",
+			"type": "string"
+		},
+		"authors": {
+			"title": "Extension authors",
+			"description": "A list of all the authors of the extension.",
+			"type": "array",
+			"minItems": 1
+		}
+	}
+}

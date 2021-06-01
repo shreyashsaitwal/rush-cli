@@ -3,7 +3,7 @@ import 'dart:io' show Directory, File, exit;
 import 'package:path/path.dart' as p;
 import 'package:hive/hive.dart';
 import 'package:archive/archive.dart';
-import 'package:rush_cli/commands/build_command/rush_yaml_models/rush_yaml.dart';
+import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 import 'package:dart_console/dart_console.dart' show ConsoleColor;
@@ -134,7 +134,7 @@ class BuildUtils {
   /// Ensures that the required data exists in the data box.
   static Future<void> ensureBoxValues(String cd, Box box, RushYaml yaml) async {
     // Check extension's name
-    final extName = yaml.name!;
+    final extName = yaml.name;
     if (!box.containsKey('name') || (await box.get('name')) != extName) {
       await box.put('name', yaml.name);
     }
@@ -146,16 +146,21 @@ class BuildUtils {
     }
 
     // Check extension's version number
-    final extVersion = yaml.version!.number;
+    final extVersion = yaml.version.number;
+
+    if (extVersion is! int && extVersion.toString().trim() != 'auto') {
+      throw Exception(
+          'Unsupported value for key "number" in field "version": $extVersion.\nValue MUST be either a positive integer or `auto`.');
+    }
+
     if (!box.containsKey('version')) {
-      if (extVersion != 'auto') {
-        await box.put('version', extVersion as int);
+      if (extVersion is int) {
+        await box.put('version', extVersion);
       } else {
         await box.put('version', 1);
       }
-    } else if ((await box.get('version')) != extVersion &&
-        extVersion != 'auto') {
-      await box.put('version', extVersion as int);
+    } else if ((await box.get('version')) != extVersion && extVersion is int) {
+      await box.put('version', extVersion);
     }
 
     // Check rush.yml's last modified time
@@ -197,22 +202,5 @@ class BuildUtils {
     } else {
       throw Exception('rush.yml not found');
     }
-  }
-
-  /// Checks if the required fields are present in rush.yml
-  static void checkRushYaml(RushYaml yaml, BuildStep step) {
-    if (yaml.name == null) {
-      step.logErr('rush.yml: Field \'name\' can\'t be empty.', addSpace: true);
-    }
-    if (yaml.description == null) {
-      step.logErr('rush.yml: Field \'description\' can\'t be empty.',
-          addSpace: true);
-    }
-    if (yaml.version?.number == null) {
-      step.logErr('rush.yml: Field \'version.number\' can\'t be empty.',
-          addSpace: true);
-    }
-
-    throw Exception();
   }
 }

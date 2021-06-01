@@ -232,6 +232,7 @@ class MigrateCommand extends Command {
 
       final classpath = CmdUtils.generateClasspath([devDeps, deps, migrator],
           exclude: ['AnnotationProcessors.jar']);
+
       final javacArgs = <String>[
         '-Xlint:-options',
         '-AoutputDir=${output.path}',

@@ -1,5 +1,6 @@
 import 'dart:io' show File, Directory, exit;
 
+import 'package:checked_yaml/checked_yaml.dart';
 import 'package:path/path.dart' as p;
 import 'package:archive/archive_io.dart';
 import 'package:args/command_runner.dart';
@@ -7,10 +8,9 @@ import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:rush_cli/commands/build_command/helpers/generator.dart';
 import 'package:rush_cli/commands/build_command/helpers/executor.dart';
-import 'package:rush_cli/commands/build_command/rush_yaml_models/rush_yaml.dart';
+import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
-import 'package:yaml/yaml.dart';
 
 import 'helpers/build_utils.dart';
 import 'helpers/compiler.dart';
@@ -104,41 +104,7 @@ class BuildCommand extends Command {
         prefix: '• ',
         prefixFG: ConsoleColor.yellow);
 
-    final valStep = BuildStep('Checking project files');
-    valStep.init();
-
-    File rushYmlFile;
-    try {
-      rushYmlFile = BuildUtils.getRushYaml(_cd);
-    } catch (e) {
-      BuildUtils.printFailMsg(
-          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
-      exit(2);
-    }
-
-    final rushYaml =
-        RushYaml.fromYaml(loadYaml(rushYmlFile.readAsStringSync()));
-
-    try {
-      BuildUtils.checkRushYaml(rushYaml, valStep);
-    } catch (e) {
-      valStep
-        ..logErr('Metadata file (rush.yml) not found')
-        ..finishNotOk();
-
-      BuildUtils.printFailMsg(
-          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
-      exit(2);
-    }
-
-    valStep.log(
-      'Metadata file (rush.yml) found',
-      ConsoleColor.brightWhite,
-      addSpace: true,
-      prefix: 'OK',
-      prefBG: ConsoleColor.brightGreen,
-      prefFG: ConsoleColor.black,
-    );
+    final valStep = BuildStep('Checking project files')..init();
 
     final manifestFile = File(p.join(_cd, 'src', 'AndroidManifest.xml'));
     if (!manifestFile.existsSync()) {
@@ -149,18 +115,29 @@ class BuildCommand extends Command {
       BuildUtils.printFailMsg(
           BuildUtils.getTimeDifference(_startTime, DateTime.now()));
       exit(1);
-    } else {
-      valStep.log(
-        'AndroidManifest.xml file found',
-        ConsoleColor.brightWhite,
-        addSpace: true,
-        prefix: 'OK',
-        prefBG: ConsoleColor.brightGreen,
-        prefFG: ConsoleColor.black,
-      );
     }
 
-    valStep.finishOk();
+    valStep.log(
+      'AndroidManifest.xml file found',
+      ConsoleColor.brightWhite,
+      addSpace: true,
+      prefix: 'OK',
+      prefBG: ConsoleColor.brightGreen,
+      prefFG: ConsoleColor.black,
+    );
+
+    File yamlFile;
+    try {
+      yamlFile = BuildUtils.getRushYaml(_cd);
+    } catch (_) {
+      valStep
+        ..logErr('Metadata file (rush.yml) not found')
+        ..finishNotOk();
+
+      BuildUtils.printFailMsg(
+          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
+      exit(2);
+    }
 
     Hive.init(p.join(_cd, '.rush'));
     final dataBox = await Hive.openBox('data');
@@ -168,7 +145,58 @@ class BuildCommand extends Command {
     // This is done in case the user deletes the .rush directory.
     BuildUtils.copyDevDeps(_dataDir, _cd);
 
-    await BuildUtils.ensureBoxValues(_cd, dataBox, rushYaml);
+    final RushYaml rushYaml;
+    try {
+      rushYaml = checkedYamlDecode(
+        yamlFile.readAsStringSync(),
+        (json) => RushYaml.fromJson(json!),
+        sourceUrl: Uri.tryParse(
+            'https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/schema/rush.json'),
+      );
+
+      await BuildUtils.ensureBoxValues(_cd, dataBox, rushYaml);
+    } on ParsedYamlException catch (e) {
+      valStep.logErr(
+          'The following error occurred while validating metadata file (rush.yml):',
+          addSpace: true);
+
+      e.message.split('\n').forEach((element) {
+        valStep.logErr(' ' * 4 + element, addPrefix: false);
+      });
+
+      valStep.finishNotOk();
+      BuildUtils.printFailMsg(
+          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
+      exit(2);
+    } catch (e) {
+      valStep.logErr(
+          'The following error occurred while validating metadata file (rush.yml):',
+          addSpace: true);
+
+      if (e.toString().contains('\n')) {
+        e.toString().split('\n').forEach((element) {
+          valStep.logErr(' ' * 4 + element, addPrefix: false);
+        });
+      } else {
+        valStep.logErr(' ' * 4 + e.toString(), addPrefix: false);
+      }
+
+      valStep.finishNotOk();
+      BuildUtils.printFailMsg(
+          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
+      exit(2);
+    }
+
+    valStep
+      ..log(
+        'Metadata file (rush.yml) found',
+        ConsoleColor.brightWhite,
+        addSpace: true,
+        prefix: 'OK',
+        prefBG: ConsoleColor.brightGreen,
+        prefFG: ConsoleColor.black,
+      )
+      ..finishOk();
 
     if (await BuildUtils.areInfoFilesModified(_cd, dataBox)) {
       BuildUtils.cleanWorkspaceDir(_dataDir, await dataBox.get('org'));
@@ -177,7 +205,7 @@ class BuildCommand extends Command {
     // Increment version number if this is a production build.
     final isRelease = argResults!['release'];
     if (isRelease) {
-      final extVerYml = rushYaml.version!.number;
+      final extVerYml = rushYaml.version.number;
 
       if (extVerYml == 'auto') {
         final extVerBox = await dataBox.get('version') ?? 0;
@@ -190,7 +218,7 @@ class BuildCommand extends Command {
     final optimize = BuildUtils.needsOptimization(
         isRelease, argResults!['optimize'], rushYaml);
 
-    await _compile(dataBox, optimize, rushYaml.kotlin?.enable as bool);
+    await _compile(dataBox, optimize, rushYaml.kotlin?.enable ?? false);
   }
 
   /// Compiles extension's source files
