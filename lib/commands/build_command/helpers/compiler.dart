@@ -16,8 +16,12 @@ class Compiler {
 
   /// Compiles the Java files for this extension project.
   Future<void> compileJava(Box dataBox, BuildStep step) async {
-    final args = await _getJavacArgs(await dataBox.get('name'),
-        await dataBox.get('org'), await dataBox.get('version'));
+    final instance = DateTime.now();
+
+    final org = await dataBox.get('org');
+    final version = await dataBox.get('version') as int;
+
+    final args = await _getJavacArgs(await dataBox.get('name'), org, version);
 
     final stream = ProcessStreamer.stream(args);
 
@@ -25,6 +29,40 @@ class Compiler {
       await _printResultToConsole(stream, step);
     } catch (e) {
       rethrow;
+    }
+
+    await _generateInfoFilesIfNoBlocks(org, version, instance, step);
+  }
+
+  /// Generates info files if no block annotations are declared.
+  Future<void> _generateInfoFilesIfNoBlocks(
+      String org, int version, DateTime instance, BuildStep step) async {
+    final filesDir = p.join(_dataDir, 'workspaces', org, 'files');
+    final componentsJson = File(p.join(filesDir, 'components.json'));
+
+    if (!componentsJson.existsSync() ||
+        componentsJson.lastModifiedSync().isBefore(instance)) {
+      final args = <String>[
+        'java',
+        '-cp',
+        CmdUtils.generateClasspath(
+            [Directory(p.join(_dataDir, 'tools', 'processor'))]),
+        'io.shreyash.rush.util.InfoFilesGenerator',
+        _cd,
+        version.toString(),
+        org,
+        filesDir,
+      ];
+
+      final stream = ProcessStreamer.stream(args);
+
+      try {
+        await _printResultToConsole(stream, step);
+      } catch (e) {
+        rethrow;
+      }
+
+      step.logWarn('No declaration block annotations found', addSpace: true);
     }
   }
 
