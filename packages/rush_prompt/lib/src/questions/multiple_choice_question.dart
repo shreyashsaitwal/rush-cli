@@ -30,10 +30,12 @@ class MultipleChoiceQuestion extends Question {
       if (activeIndex == _options.indexOf(option)) {
         console
           ..setForegroundColor(ConsoleColor.cyan)
-          ..writeLine('› $option')
+          ..writeLine(' ' * 2 + '› $option')
           ..resetColorAttributes();
       } else {
-        console.writeLine('  $option');
+        console
+        ..setForegroundColor(ConsoleColor.brightWhite)
+        ..writeLine(' ' * 4 + '$option');
       }
     });
   }
