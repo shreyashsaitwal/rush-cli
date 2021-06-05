@@ -1,5 +1,8 @@
-#!/bin/bash
+#!/bin/sh
 
+# Exit immediately if:
+# 1. any commands exit with non-zero exit status and,
+# 2. if any undefined var is referrenced.
 set -eu
 
 # This is the version name of this version of Rush
@@ -31,16 +34,13 @@ function writeEnvDart() {
 }
 writeEnvDart
 
-function compileExes() {
-  if [ "$OS" = "Windows_NT" ]; then
-    # Compile swap.exe
-    dart compile exe -o build/bin/swap.exe bin/swap.dart
-    ext=".exe"
-  else
-    ext=""
-  fi
+if [ "$OS" = "Windows_NT" ]; then
+  # Compile swap.exe (needed only for Windows)
+  dart compile exe -o build/bin/swap.exe bin/swap.dart
+  ext=".exe"
+else
+  ext=""
+fi
 
-  # Compile Rush executable
-  dart compile exe -o build/bin/rush$ext bin/rush.dart
-}
-compileExes
+# Compile Rush executable
+dart compile exe -o build/bin/rush$ext bin/rush.dart
