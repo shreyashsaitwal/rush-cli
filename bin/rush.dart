@@ -28,7 +28,7 @@ void main(List<String> args) {
     ..addCommand(CreateCommand(_cd, _dataDir))
     ..addCommand(BuildCommand(_cd, _dataDir))
     ..addCommand(MigrateCommand(_cd, _dataDir))
-    ..addCommand(UpgradeCommand())
+    ..addCommand(UpgradeCommand(_dataDir))
     ..run(args).catchError((err) {
       if (err is UsageException) {
         runner.printUsage();

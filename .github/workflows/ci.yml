@@ -30,16 +30,6 @@ jobs:
           name: rush-linux
           path: build/bin/rush
 
-      - name: Upload rush-init (linux) to release
-        if: ${{ github.ref == 'refs/heads/main' }}
-        uses: softprops/action-gh-release@v1
-        with:
-          draft: true
-          tag_name: draft
-          files: build/bin/rush-init-linux
-        env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   build-for-win64:
     runs-on: windows-latest
 
@@ -61,16 +51,6 @@ jobs:
         with:
           name: rush-win64
           path: build/bin/rush.exe
-
-      - name: Upload rush-init.exe (win64) to release
-        if: ${{ github.ref == 'refs/heads/main' }}
-        uses: softprops/action-gh-release@v1
-        with:
-          draft: true
-          tag_name: draft
-          files: build/bin/rush-init-win64.exe
-        env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-for-mac:
     runs-on: macos-latest
@@ -94,13 +74,3 @@ jobs:
         with:
           name: rush-mac
           path: build/bin/rush
-
-      - name: Upload rush-init (mac) to release
-        if: ${{ github.ref == 'refs/heads/main' }}
-        uses: softprops/action-gh-release@v1
-        with:
-          draft: true
-          tag_name: draft
-          files: build/bin/rush-init-mac
-        env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

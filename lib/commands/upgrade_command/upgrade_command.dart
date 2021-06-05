@@ -3,13 +3,20 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:github/github.dart';
+import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_runner/process_runner.dart';
-import 'package:rush_cli/installer/installer.dart';
+import 'package:rush_cli/commands/upgrade_command/helpers/upgrade_utils.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 class UpgradeCommand extends Command {
-  UpgradeCommand();
+  final String _dataDir;
+
+  UpgradeCommand(this._dataDir) {
+    final dir = Directory(p.join(_dataDir, '.installer'))
+      ..createSync(recursive: true);
+    Hive.init(dir.path);
+  }
 
   @override
   String get description =>
@@ -26,26 +33,55 @@ class UpgradeCommand extends Command {
         prefix: '•',
         prefixFG: ConsoleColor.brightYellow);
 
-    final installer = Installer(false);
+    final box = await Hive.openBox('data.init');
+    final binDir = p.dirname(Platform.resolvedExecutable);
 
-    final files = await installer.fetchRequiredFiles('');
+    final contents = await UpgradeUtils.fetchContents(box, binDir, '');
 
-    if (files.isEmpty) {
+    if (contents.isEmpty) {
       Logger.log('You already have the latest version of Rush installed.',
           color: ConsoleColor.green);
       exit(0);
     }
 
-    final pb =
-        ProgressBar('Downloading... (${_getSize(files)} MiB)', files.length);
+    final pb = ProgressBar(
+        'Downloading... (${UpgradeUtils.getSize(contents)} MiB)',
+        contents.length);
 
-    final binDir = p.dirname(Platform.resolvedExecutable);
+    await UpgradeUtils.downloadContents(contents, box,
+        binDirPath: binDir, dataDirPath: _dataDir, pb: pb);
 
-    await installer.downloadAllFiles(binDir, files, pb: pb, isUpgrade: true);
-
-    _printFooter(await installer.getLatestRelease());
+    _printFooter(await UpgradeUtils.getLatestRelease());
 
     await _swapExe(binDir);
+  }
+
+  /// Swaps the old Rush executable with the new one
+  Future<void> _swapExe(String binDir) async {
+    final newExeExists = Directory(binDir)
+        .listSync()
+        .any((element) => p.extension(element.path) == '.new');
+
+    if (newExeExists) {
+      final oldExe =
+          p.join(binDir, 'rush' + (Platform.isWindows ? '.exe' : ''));
+
+      // Windows doesn't allows modifying any EXE while its running.
+      // Therefore, we spawn a new process, detached from this one,
+      // and run swap.exe which swaps the old exe with the new one.
+      if (Platform.isWindows) {
+        final args = <String>[];
+        args
+          ..add(p.join(binDir, 'swap.exe'))
+          ..addAll(['-o', oldExe]);
+
+        await ProcessRunner()
+            .runProcess(args, startMode: ProcessStartMode.detached);
+      } else {
+        File(oldExe).deleteSync();
+        File(oldExe + '.new').renameSync(oldExe);
+      }
+    }
   }
 
   void _printFooter(Release release) {
@@ -81,45 +117,5 @@ class UpgradeCommand extends Command {
       ..setForegroundColor(ConsoleColor.blue)
       ..writeLine(release.htmlUrl)
       ..resetColorAttributes();
-  }
-
-  /// Swaps the old Rush executable with the new one
-  Future<void> _swapExe(String binDir) async {
-    final newExeExists = Directory(binDir)
-        .listSync()
-        .any((element) => p.extension(element.path) == '.new');
-
-    if (newExeExists) {
-      final oldExe =
-          p.join(binDir, 'rush' + (Platform.isWindows ? '.exe' : ''));
-
-      // Windows doesn't allows modifying any EXE while its running.
-      // Therefore, we spawn a new process, detached from this one,
-      // and run swap.exe which swaps the old exe with the new one.
-      if (Platform.isWindows) {
-        final args = <String>[];
-        args
-          ..add(p.join(binDir, 'swap.exe'))
-          ..addAll(['-o', oldExe]);
-
-        await ProcessRunner()
-            .runProcess(args, startMode: ProcessStartMode.detached);
-      } else {
-        File(oldExe).deleteSync();
-        File(oldExe + '.new').renameSync(oldExe);
-      }
-    }
-  }
-
-  /// Returns the combined size of files which are to be downloaded.
-  /// Unit used to mebibyte (MiB).
-  int _getSize(List<GitHubFile> files) {
-    var res = 0;
-
-    files.forEach((element) {
-      res += element.size!;
-    });
-
-    return res ~/ 1.049e+6;
   }
 }
