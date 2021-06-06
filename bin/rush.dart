@@ -48,7 +48,8 @@ void _printVersion() {
     ..setForegroundColor(ConsoleColor.brightWhite)
     ..write('Built on:  ')
     ..setForegroundColor(ConsoleColor.cyan)
-    ..writeLine(rushBuiltOn);
+    ..writeLine(rushBuiltOn)
+    ..resetColorAttributes();
   exit(0);
 }
 

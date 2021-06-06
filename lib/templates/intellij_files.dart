@@ -63,7 +63,7 @@ String getModulesXml(String name) {
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://\$PROJECT_DIR\$/$name.iml" filepath="\$PROJECT_DIR\$/$name.iml" />
+      <module fileurl="file://\$PROJECT_DIR\$/.idea/$name.iml" filepath="\$PROJECT_DIR\$/.idea/$name.iml" />
     </modules>
   </component>
 </project>

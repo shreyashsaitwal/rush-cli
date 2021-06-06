@@ -34,6 +34,31 @@ class Compiler {
     await _generateInfoFilesIfNoBlocks(org, version, instance, step);
   }
 
+  /// Compiles the Kotlin files for this extension project.
+  Future<void> compileKt(Box dataBox, BuildStep step) async {
+    final instance = DateTime.now();
+
+    final org = await dataBox.get('org');
+
+    final ktcArgs = _getKtcArgs(org);
+    final kaptArgs = await _getKaptArgs(dataBox);
+
+    final streamKtc = ProcessStreamer.stream(ktcArgs);
+    final streamKapt = ProcessStreamer.stream(kaptArgs);
+
+    try {
+      await Future.wait([
+        _printResultToConsole(streamKtc, step, forKt: true),
+        _printResultToConsole(streamKapt, step, forKt: true),
+      ]);
+    } catch (e) {
+      rethrow;
+    }
+
+    await _generateInfoFilesIfNoBlocks(
+        org, await dataBox.get('version'), instance, step);
+  }
+
   /// Generates info files if no block annotations are declared.
   Future<void> _generateInfoFilesIfNoBlocks(
       String org, int version, DateTime instance, BuildStep step) async {
@@ -103,24 +128,6 @@ class Compiler {
       ..addAll([...CmdUtils.getJavaSourceFiles(srcDir)]);
 
     return args;
-  }
-
-  /// Compiles the Kotlin files for this extension project.
-  Future<void> compileKt(Box dataBox, BuildStep step) async {
-    final ktcArgs = _getKtcArgs(await dataBox.get('org'));
-    final kaptArgs = await _getKaptArgs(dataBox);
-
-    final streamKtc = ProcessStreamer.stream(ktcArgs);
-    final streamKapt = ProcessStreamer.stream(kaptArgs);
-
-    try {
-      await Future.wait([
-        _printResultToConsole(streamKtc, step, forKt: true),
-        _printResultToConsole(streamKapt, step, forKt: true),
-      ]);
-    } catch (e) {
-      rethrow;
-    }
   }
 
   /// Returns commmand line args required for compiling Kotlin sources.

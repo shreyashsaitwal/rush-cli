@@ -346,6 +346,18 @@ class BuildCommand extends Command {
 
     final zipEncoder = ZipFileEncoder()..open(extJar.path);
 
+    classesDir.listSync(recursive: true)
+      ..whereType<File>()
+          .where((el) => p.extension(el.path) == '.kotlin_module')
+          .forEach((el) {
+        el.deleteSync();
+      })
+      ..whereType<Directory>()
+          .where((el) => el.path.endsWith(p.join('META-INF', 'versions')))
+          .forEach((el) {
+        el.deleteSync(recursive: true);
+      });
+
     for (final entity in classesDir.listSync()) {
       if (entity is File) {
         if (p.extension(entity.path) != '.jar') {
