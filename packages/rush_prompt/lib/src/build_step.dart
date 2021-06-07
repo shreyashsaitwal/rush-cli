@@ -78,35 +78,34 @@ class BuildStep {
   void log(String msg, ConsoleColor clr,
       {bool addSpace = false,
       String prefix = '',
-      ConsoleColor prefFG = ConsoleColor.white,
-      ConsoleColor prefBG = ConsoleColor.black}) {
+      ConsoleColor? prefixFG,
+      ConsoleColor? prefixBG}) {
     if (addSpace) {
       _console
         ..setForegroundColor(ConsoleColor.brightBlack)
         ..writeLine('│ ')
         ..resetColorAttributes();
     }
+
     _console
       ..setForegroundColor(ConsoleColor.brightBlack)
       ..write('│ ')
       ..resetColorAttributes();
 
-    if (prefix != '' && prefBG != ConsoleColor.black) {
-      _console
-        ..setBackgroundColor(prefBG)
-        ..setForegroundColor(prefFG)
-        ..write(prefix)
-        ..resetColorAttributes()
-        ..write(' ')
-        ..setForegroundColor(clr)
-        ..writeLine(msg)
-        ..resetColorAttributes();
-    } else {
-      _console
-        ..setForegroundColor(clr)
-        ..writeLine(' ' + msg)
-        ..resetColorAttributes();
+    if (prefixBG != null) {
+      _console.setBackgroundColor(prefixBG);
     }
+    if (prefixFG != null) {
+      _console.setForegroundColor(prefixFG);
+    }
+
+    _console
+      ..write(prefix)
+      ..resetColorAttributes()
+      ..write(' ')
+      ..setForegroundColor(clr)
+      ..writeLine(msg)
+      ..resetColorAttributes();
   }
 
   /// Finishes this step.

@@ -151,8 +151,8 @@ class MigrateCommand extends Command {
 
     step.log('Copied source files', ConsoleColor.cyan,
         prefix: 'OK',
-        prefBG: ConsoleColor.brightGreen,
-        prefFG: ConsoleColor.black);
+        prefixBG: ConsoleColor.brightGreen,
+        prefixFG: ConsoleColor.black);
   }
 
   /// Copies extension assets and icon.
@@ -175,8 +175,8 @@ class MigrateCommand extends Command {
 
     step.log('Copied assets', ConsoleColor.cyan,
         prefix: 'OK',
-        prefBG: ConsoleColor.brightGreen,
-        prefFG: ConsoleColor.black);
+        prefixBG: ConsoleColor.brightGreen,
+        prefixFG: ConsoleColor.black);
   }
 
   /// Copies all necessary deps.
@@ -199,8 +199,8 @@ class MigrateCommand extends Command {
 
     step.log('Copied dependencies', ConsoleColor.cyan,
         prefix: 'OK',
-        prefBG: ConsoleColor.brightGreen,
-        prefFG: ConsoleColor.black);
+        prefixBG: ConsoleColor.brightGreen,
+        prefixFG: ConsoleColor.black);
   }
 
   /// Generates files like readme, proguard-rules.pro, etc.

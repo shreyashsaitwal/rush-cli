@@ -1,8 +1,9 @@
 import 'dart:io' show Directory, File;
 
+import 'package:checked_yaml/checked_yaml.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
 import 'package:rush_cli/version.dart';
-import 'package:yaml/yaml.dart';
 
 import 'build_utils.dart';
 
@@ -13,67 +14,64 @@ class Generator {
   Generator(this._cd, this._dataDir);
 
   /// Generates required extension files.
-  void generate(String org) {
-    final rushYml = File(p.join(_cd, 'rush.yml'));
-    final rushYaml = File(p.join(_cd, 'rush.yaml'));
+  Future<void> generate(String org) async {
+    final rushYaml = checkedYamlDecode(
+      await BuildUtils.getRushYaml(_cd).readAsString(),
+      (json) => RushYaml.fromJson(json!),
+      sourceUrl: Uri.tryParse(
+          'https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/schema/rush.json'),
+    );
 
-    final YamlMap yml;
-    if (rushYml.existsSync()) {
-      yml = loadYaml(rushYml.readAsStringSync());
-    } else {
-      // No need to check if this file exist. If it didn't
-      // build command would have already thrown an error.
-      yml = loadYaml(rushYaml.readAsStringSync());
-    }
-
-    _generateRawFiles(org);
-    _copyAssets(yml, org);
-    _copyLicense(org);
-    _copyDeps(yml, org);
+    await Future.wait([
+      _generateRawFiles(org),
+      _copyAssets(rushYaml, org),
+      _copyLicense(org),
+      _copyDeps(rushYaml, org),
+    ]);
   }
 
   /// Generates the components info, build, and the properties file.
-  void _generateRawFiles(String org) {
+  Future<void> _generateRawFiles(String org) async {
     final rawDirX =
-        Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'x', org))
-          ..createSync(recursive: true);
+        Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'x', org));
+    await rawDirX.create(recursive: true);
 
     final filesDirPath = p.join(_dataDir, 'workspaces', org, 'files');
 
     // Copy the components.json file to the raw dir.
     final simpleCompJson = File(p.join(filesDirPath, 'components.json'));
-    simpleCompJson.copySync(p.join(rawDirX.path, 'components.json'));
+    await simpleCompJson.copy(p.join(rawDirX.path, 'components.json'));
 
     // Copy the component_build_infos.json file to the raw dir.
     final buildInfoJson =
         File(p.join(filesDirPath, 'component_build_infos.json'));
 
-    final rawFilesDir = Directory(p.join(rawDirX.path, 'files'))
-      ..createSync(recursive: true);
+    final rawFilesDir = Directory(p.join(rawDirX.path, 'files'));
+    await rawFilesDir.create(recursive: true);
 
-    buildInfoJson
-        .copySync(p.join(rawFilesDir.path, 'component_build_infos.json'));
+    await buildInfoJson
+        .copy(p.join(rawFilesDir.path, 'component_build_infos.json'));
 
     // Write the extension.properties file
-    File(p.join(rawDirX.path, 'extension.properties')).writeAsStringSync('''
+    await File(p.join(rawDirX.path, 'extension.properties')).writeAsString('''
 type=external
 rush-version=$rushVersion
 ''');
   }
 
   /// Copies extension's assets to the raw dircetory.
-  void _copyAssets(YamlMap rushYml, String org) {
-    final assets = rushYml['assets']['other'] ?? [];
+  Future<void> _copyAssets(RushYaml rushYml, String org) async {
+    final assets = rushYml.assets.other ?? [];
 
     if (assets.isNotEmpty) {
       final assetsDir = p.join(_cd, 'assets');
       final assetsDestDirX = Directory(
-          p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'assets'))
-        ..createSync(recursive: true);
+          p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'assets'));
+      await assetsDestDirX.create(recursive: true);
 
-      assets.forEach((el) {
+      assets.forEach((el) async {
         final asset = File(p.join(assetsDir, el));
-        asset.copySync(p.join(assetsDestDirX.path, el));
+        await asset.copy(p.join(assetsDestDirX.path, el));
       });
     }
 
@@ -82,24 +80,25 @@ rush-version=$rushVersion
         r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_\+.~#?&\/\/=]*)',
         dotAll: true);
 
-    final iconName = rushYml['assets']['icon'] ?? '';
+    final iconName = rushYml.assets.icon;
 
     if (!urlPattern.hasMatch(iconName) && iconName != '') {
       final icon = File(p.join(_cd, 'assets', iconName));
       final iconDestDir = Directory(
-          p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'aiwebres'))
-        ..createSync(recursive: true);
+          p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'aiwebres'));
 
-      icon.copySync(p.join(iconDestDir.path, iconName));
+      await iconDestDir.create(recursive: true);
+      await icon.copy(p.join(iconDestDir.path, iconName));
     }
   }
 
   /// Unjars extension dependencies into the classes dir.
-  void _copyDeps(YamlMap rushYml, String org) {
-    final libs = rushYml['deps'] ?? [];
+  Future<void> _copyDeps(RushYaml rushYml, String org) async {
+    final libs = rushYml.deps ?? [];
 
-    final classesDir = Directory(p.join(_dataDir, 'workspaces', org, 'classes'))
-      ..createSync(recursive: true);
+    final classesDir =
+        Directory(p.join(_dataDir, 'workspaces', org, 'classes'));
+    await classesDir.create(recursive: true);
 
     if (libs.isNotEmpty) {
       final depsDirPath = p.join(_cd, 'deps');
@@ -110,7 +109,7 @@ rush-version=$rushVersion
       });
     }
 
-    final kotlinEnabled = rushYml['kotlin']?['enable'] ?? false;
+    final kotlinEnabled = rushYml.kotlin?.enable ?? false;
 
     // If Kotlin is enabled, unjar Kotlin std. lib as well.
     // This step won't be needed once MIT merges the Kotlin support PR.
@@ -123,18 +122,18 @@ rush-version=$rushVersion
   }
 
   /// Copies LICENSE file if there's any.
-  void _copyLicense(String org) {
+  Future<void> _copyLicense(String org) async {
     final license = File(p.join(_cd, 'LICENSE'));
     final licenseTxt = File(p.join(_cd, 'LICENSE.txt'));
 
     final dest = Directory(
-        p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'aiwebres'))
-      ..createSync(recursive: true);
+        p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'aiwebres'));
+    await dest.create(recursive: true);
 
-    if (license.existsSync()) {
-      license.copySync(p.join(dest.path, 'LICENSE'));
-    } else if (licenseTxt.existsSync()) {
-      licenseTxt.copy(p.join(dest.path, 'LICENSE'));
+    if (await license.exists()) {
+      await license.copy(p.join(dest.path, 'LICENSE'));
+    } else if (await licenseTxt.exists()) {
+      await licenseTxt.copy(p.join(dest.path, 'LICENSE'));
     }
   }
 }

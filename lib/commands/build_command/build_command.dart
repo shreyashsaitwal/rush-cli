@@ -122,8 +122,8 @@ class BuildCommand extends Command {
       ConsoleColor.brightWhite,
       addSpace: true,
       prefix: 'OK',
-      prefBG: ConsoleColor.brightGreen,
-      prefFG: ConsoleColor.black,
+      prefixBG: ConsoleColor.brightGreen,
+      prefixFG: ConsoleColor.black,
     );
 
     File yamlFile;
@@ -193,8 +193,8 @@ class BuildCommand extends Command {
         ConsoleColor.brightWhite,
         addSpace: true,
         prefix: 'OK',
-        prefBG: ConsoleColor.brightGreen,
-        prefFG: ConsoleColor.black,
+        prefixBG: ConsoleColor.brightGreen,
+        prefixFG: ConsoleColor.black,
       )
       ..finishOk();
 
@@ -281,7 +281,7 @@ class BuildCommand extends Command {
 
     // Generate the extension files
     final generator = Generator(_cd, _dataDir);
-    generator.generate(org);
+    await generator.generate(org);
 
     final executor = Executor(_cd, _dataDir);
 
@@ -342,7 +342,7 @@ class BuildCommand extends Command {
         Directory(p.join(_dataDir, 'workspaces', org, 'classes'));
 
     final extJar =
-        File(p.join(classesDir.path, 'art.jar')); // ART -> Android Runtime
+        File(p.join(classesDir.path, 'ART.jar')); // ART == Android Runtime
 
     final zipEncoder = ZipFileEncoder()..open(extJar.path);
 
@@ -360,7 +360,7 @@ class BuildCommand extends Command {
 
     for (final entity in classesDir.listSync()) {
       if (entity is File) {
-        if (p.extension(entity.path) != '.jar') {
+        if (p.extension(entity.path) == '.class') {
           zipEncoder.addFile(entity);
         }
       } else if (entity is Directory) {
@@ -371,7 +371,17 @@ class BuildCommand extends Command {
     zipEncoder.close();
 
     final executor = Executor(_cd, _dataDir);
+
     try {
+      processStep.log('Desugaring', ConsoleColor.brightWhite,
+          addSpace: true,
+          prefix: 'INFO',
+          prefixBG: ConsoleColor.cyan,
+          prefixFG: ConsoleColor.black);
+
+      // Desugar the JAR
+      await executor.execDesugar(org, processStep);
+
       // Run ProGuard if the extension is supposed to be optimized
       if (optimize) {
         await executor.execProGuard(org, processStep);
@@ -404,11 +414,11 @@ class BuildCommand extends Command {
     try {
       if (deJet) {
         await Future.wait([
-          executor.execD8(org, step, true),
-          executor.execD8(org, step, false),
+          executor.execD8(org, step, deJet: true),
+          executor.execD8(org, step),
         ]);
       } else {
-        await executor.execD8(org, step, false);
+        await executor.execD8(org, step);
       }
     } catch (e) {
       step.finishNotOk();

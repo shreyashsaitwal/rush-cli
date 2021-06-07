@@ -1,4 +1,4 @@
-import 'dart:io' show Directory, File, FileSystemEntity, Platform;
+import 'dart:io' show Directory, File, Platform;
 
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/helpers/cmd_utils.dart';
@@ -16,7 +16,7 @@ class Executor {
   Executor(this._cd, this._dataDir);
 
   /// Executes the D8 tool which is required for dexing the extension.
-  Future<void> execD8(String org, BuildStep step, bool deJet) async {
+  Future<void> execD8(String org, BuildStep step,{bool deJet = false}) async {
     final args = () {
       final d8 = File(p.join(_dataDir, 'tools', 'other', 'd8.jar'));
 
@@ -65,12 +65,12 @@ class Executor {
       final devDeps = Directory(p.join(_cd, '.rush', 'dev-deps'));
       final deps = Directory(p.join(_cd, 'deps'));
 
-      final libraryJars = _generateClasspath([devDeps, deps]);
+      final libraryJars = CmdUtils.generateClasspath([devDeps, deps]);
 
       final classesDir =
           Directory(p.join(_dataDir, 'workspaces', org, 'classes'));
 
-      final injar = File(p.join(classesDir.path, 'art.jar'));
+      final injar = File(p.join(classesDir.path, 'ART.jar'));
       final outjar = File(p.join(classesDir.path, 'art_opt.jar'));
 
       final pgRules = File(p.join(_cd, 'src', 'proguard-rules.pro'));
@@ -148,6 +148,62 @@ class Executor {
     return isDeJetNeeded;
   }
 
+  Future<void> execDesugar(String org, BuildStep step) async {
+    final desugarJar = p.join(_dataDir, 'tools', 'other', 'desugar.jar');
+
+    final inputJar =
+        File(p.join(_dataDir, 'workspaces', org, 'classes', 'ART.jar'));
+    final outputJar =
+        File(p.join(_dataDir, 'workspaces', org, 'classes', 'ART.jar.des'));
+
+    final rtJar = p.join(_dataDir, 'tools', 'other', 'rt.jar');
+
+    final fileContents = <String>[]
+      // ignore: prefer_inlined_adds
+      ..add('--emit_dependency_metadata_as_needed')
+      ..addAll(['--bootclasspath_entry', rtJar])
+      ..addAll(['--input', inputJar.path])
+      ..addAll(['--output', outputJar.path]);
+
+    final devDeps = Directory(p.join(_cd, '.rush', 'dev-deps'));
+    final deps = Directory(p.join(_cd, 'deps'));
+    final classpath =
+        CmdUtils.generateClasspath([devDeps, deps], relative: false);
+
+    classpath.split(CmdUtils.getSeparator()).forEach((el) {
+      fileContents.addAll(['--classpath_entry', '\'' + el + '\'']);
+    });
+
+    final argsFile =
+        File(p.join(_dataDir, 'workspaces', org, 'files', 'desugar.rsh'))
+          ..createSync();
+
+    var lines = '';
+    fileContents.forEach((el) {
+      lines += el + '\n';
+    });
+    argsFile.writeAsStringSync(lines);
+
+    final args = <String>['java'];
+    args
+      ..addAll(['-cp', desugarJar])
+      ..add('com.google.devtools.build.android.desugar.Desugar')
+      ..add('@${argsFile.path}');
+
+    final process = ProcessStreamer.stream(args);
+
+    try {
+      // ignore: unused_local_variable
+      await for (final res in process) {}
+    } on ProcessRunnerException catch (e) {
+      _prettyPrintErrors(e.result!.stderr.split('\n'), step);
+      rethrow;
+    }
+
+    inputJar.deleteSync();
+    outputJar.renameSync(inputJar.path);
+  }
+
   /// Analyzes [errList] and prints it accordingly to stdout/stderr in
   /// different colors.
   void _prettyPrintErrors(List<String> errList, BuildStep step) {
@@ -178,8 +234,8 @@ class Executor {
           ConsoleColor.cyan,
           addSpace: true,
           prefix: 'NOTE',
-          prefBG: ConsoleColor.cyan,
-          prefFG: ConsoleColor.black,
+          prefixBG: ConsoleColor.cyan,
+          prefixFG: ConsoleColor.black,
         );
       } else {
         switch (previouslyItWas) {
@@ -209,41 +265,5 @@ class Executor {
         }
       }
     }
-  }
-
-  /// Returns a `;` or `:` separated string of dependencies.
-  static String _generateClasspath(List<FileSystemEntity> entities,
-      {List<String> exclude = const [''], Directory? classesDir}) {
-    final jars = [];
-
-    entities.forEach((entity) {
-      if (entity is Directory) {
-        entity
-            .listSync(recursive: true)
-            .whereType<File>()
-            .where((el) =>
-                p.extension(el.path) == '.jar' &&
-                !exclude.contains(p.basename(el.path)))
-            .forEach((el) {
-          jars.add(p.relative(el.path));
-        });
-      } else if (entity is File) {
-        jars.add(p.relative(entity.path));
-      }
-    });
-
-    if (classesDir != null) {
-      jars.add(classesDir.path);
-    }
-
-    return jars.join(_getSeparator());
-  }
-
-  /// Returns `;` if building on Windows, otherwise `:`.
-  static String _getSeparator() {
-    if (Platform.isWindows) {
-      return ';';
-    }
-    return ':';
   }
 }

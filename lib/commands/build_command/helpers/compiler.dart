@@ -1,8 +1,8 @@
 import 'dart:io' show Directory, File, Platform, exit;
 
+import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:process_run/shell.dart';
 import 'package:process_runner/process_runner.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
@@ -169,9 +169,7 @@ class Compiler {
       'processor.jar'
     ]);
 
-    final whichJavac = whichSync('javac') ?? whichSync('jar');
-    final toolsJar =
-        p.join(p.dirname(p.dirname(whichJavac!)), 'lib', 'tools.jar');
+    final toolsJar = p.join(_dataDir, 'tools', 'other', 'tools.jar');
 
     final org = await box.get('org');
 
@@ -213,34 +211,32 @@ class Compiler {
   Future<void> _printResultToConsole(
       Stream<ProcessRunnerResult> stream, BuildStep step,
       {bool forKt = false}) async {
-    final warnPattern = RegExp(r'(\s*warning:\s?)+');
-    final errPattern = RegExp(r'(\s*error:\s?)+');
+    final warnPattern = RegExp(r'(\s*warning:\s?)+', caseSensitive: false);
+    final errPattern = RegExp(r'(\s*error:\s?)+', caseSensitive: false);
+    final notePattern = RegExp(r'(\s*note:\s?)+', caseSensitive: false);
 
     // These patterns are either useless or don't make sense in Rush's
     // context. For example, the error and warning count printed by
     // javac is not necessary to print as Rush itself keeps track of
     // them.
     final excludePatterns = [
-      RegExp('The following options were not recognized'),
+      RegExp(r'The\sfollowing\soptions\swere\snot\srecognized'),
       RegExp(r'\d+\s*warnings?\s?'),
       RegExp(r'\d+\s*errors?\s?'),
+      RegExp(r'.*Recompile\swith.*for\sdetails', dotAll: true)
     ];
 
     try {
       await for (final result in stream) {
         final stdout = result.output.split('\n');
 
-        var skip = false;
+        var skipThis = false;
 
         stdout
             .where((line) =>
                 line.trim().isNotEmpty &&
                 !excludePatterns.any((el) => el.hasMatch(line)))
             .forEach((line) {
-          if (line.startsWith(_cd)) {
-            line = line.replaceFirst(p.join(_cd, 'src'), 'src');
-          }
-
           // When compiling Kotlin, the Kotlin compiler and the annotation
           // processing plugin, kapt, are run in parallel to reduce the
           // overall compilation time. Because of this if there are errors,
@@ -252,15 +248,40 @@ class Compiler {
           // something new to print we check if that was already printed or
           // not.
 
+          // Here, we aren't checking for errPattern because if any error
+          // occurred this block won't run; the catch block will.
+
           if (forKt && alreadyPrinted.contains(line)) {
-            skip = true;
+            skipThis = true;
           } else if (line.contains(warnPattern)) {
             line = line.replaceFirst(
                 warnPattern, line.startsWith(warnPattern) ? '' : ' ');
 
-            skip = false;
+            if (line.startsWith(_cd)) {
+              line = line.replaceFirst(p.join(_cd, 'src'), 'src');
+            }
+
+            skipThis = false;
             step.logWarn(line, addSpace: true);
-          } else if (!skip) {
+          } else if (line.contains(notePattern)) {
+            line = line.replaceFirst(
+                notePattern, line.startsWith(notePattern) ? '' : ' ');
+
+            if (line.startsWith(_cd)) {
+              line = line.replaceFirst(p.join(_cd, 'src'), 'src');
+            }
+
+            skipThis = false;
+            step.log(line, ConsoleColor.brightWhite,
+                addSpace: true,
+                prefix: 'NOTE',
+                prefixBG: ConsoleColor.cyan,
+                prefixFG: ConsoleColor.black);
+          } else if (!skipThis) {
+            if (line.startsWith(_cd)) {
+              line = line.replaceFirst(p.join(_cd, 'src'), 'src');
+            }
+
             step.logWarn(' ' * 5 + line, addPrefix: false);
           }
         });
@@ -269,7 +290,7 @@ class Compiler {
       final stderr = e.result?.stderr.split('\n') ?? [];
 
       var gotErr = true;
-      var skip = false;
+      var skipThis = false;
 
       stderr
           .where((line) =>
@@ -281,26 +302,37 @@ class Compiler {
         }
 
         if (forKt && alreadyPrinted.contains(line)) {
-          skip = true;
+          skipThis = true;
         } else if (line.contains(errPattern)) {
           final msg = line.replaceFirst(
               errPattern, line.startsWith(errPattern) ? '' : ' ');
-
-          gotErr = true;
-          skip = false;
+          step.logErr(msg, addSpace: true);
 
           alreadyPrinted.add(line);
-          step.logErr(msg, addSpace: true);
+          gotErr = true;
+          skipThis = false;
         } else if (line.contains(warnPattern)) {
           final msg = line.replaceFirst(
               warnPattern, line.startsWith(warnPattern) ? '' : ' ');
-
-          gotErr = false;
-          skip = false;
+          step.logWarn(msg, addSpace: true);
 
           alreadyPrinted.add(line);
-          step.logWarn(msg, addSpace: true);
-        } else if (!skip) {
+          gotErr = false;
+          skipThis = false;
+        } else if (line.contains(notePattern)) {
+          final msg = line.replaceFirst(
+              notePattern, line.startsWith(notePattern) ? '' : ' ');
+
+          step.log(msg, ConsoleColor.brightWhite,
+              addSpace: true,
+              prefix: 'NOTE',
+              prefixBG: ConsoleColor.cyan,
+              prefixFG: ConsoleColor.black);
+
+          alreadyPrinted.add(line);
+          gotErr = false;
+          skipThis = false;
+        } else if (!skipThis) {
           if (gotErr) {
             step.logErr(' ' * 4 + line, addPrefix: false);
           } else {

@@ -44,7 +44,9 @@ class CmdUtils {
 
   /// Returns a ";" or ":" separated string of dependencies.
   static String generateClasspath(List<FileSystemEntity> entities,
-      {List<String> exclude = const [''], Directory? classesDir}) {
+      {List<String> exclude = const [''],
+      Directory? classesDir,
+      bool relative = true}) {
     final jars = [];
 
     entities.forEach((entity) {
@@ -56,10 +58,18 @@ class CmdUtils {
                 p.extension(el.path) == '.jar' &&
                 !exclude.contains(p.basename(el.path)))
             .forEach((el) {
-          jars.add(p.relative(el.path));
+          if (relative) {
+            jars.add(p.relative(el.path));
+          } else {
+            jars.add(el.path);
+          }
         });
       } else if (entity is File) {
-        jars.add(p.relative(entity.path));
+        if (relative) {
+          jars.add(p.relative(entity.path));
+        } else {
+          jars.add(entity.path);
+        }
       }
     });
 
@@ -67,7 +77,7 @@ class CmdUtils {
       jars.add(classesDir.path);
     }
 
-    return jars.join(_getSeparator());
+    return jars.join(getSeparator());
   }
 
   /// Returns a list of paths that represent Java sources files.
@@ -85,7 +95,7 @@ class CmdUtils {
     return files;
   }
 
-  static String _getSeparator() {
+  static String getSeparator() {
     if (Platform.isWindows) {
       return ';';
     }
