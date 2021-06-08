@@ -1,3 +1,3 @@
-// Auto-generated. Do not modify.
-const String rushVersion = '1.2.0';
-const String rushBuiltOn = '2021-05-27 17:05:30.741627Z';
+// Auto-generated; DO NOT modify
+const rushVersion = '1.2.0';
+const rushBuiltOn = '2021-06-08 21:47:35';

@@ -8,26 +8,24 @@ String getRushYamlTemp(
 name: $name           # Caution: DO NOT change the name.
 description: Extension component for $name. Created using Rush.
 
-authors:
-  - $author
-
 version:
   number: auto        # Auto increments version number when built with '-r' ('--release') flag.
   name: $versionName
+
+authors:
+  - $author
 ${enableKt ? _getKtField() : ''}
 assets:
   icon: icon.png      # Extension icon
-  #other:              # Extension asset(s)
-  #  - my_awesome_asset.anything
+  # other:              # Extension asset(s)
+  #   - my_awesome_asset.anything
 
-# Uncomment the below field if you wish to apply ProGuard while building a release
-# build ('-r') of your extension:
-#release:
-#  optimize: true
+release:
+  optimize: true
 
-#deps:                 # Dependencies declared here should be present in the "deps" directory.
-#  - my_awesome_library.jar
-
+# Dependencies declared here should be present in the "deps" directory.
+# deps:
+#   - my_awesome_library.jar
 ''';
 }
 

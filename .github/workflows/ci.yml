@@ -2,75 +2,98 @@ name: CI
 
 on:
   push:
-    branches: [ main, dev ]
+    branches: [main, dev]
   pull_request:
-    branches: [ main ]
+    branches: [main, dev]
 
 jobs:
-  build-for-linux:
+  build:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: windows-latest
+            os_short: win
+          - os: macos-latest
+            os_short: macos
+          - os: ubuntu-latest
+            os_short: linux
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Get deps
+        run: dart pub get
+
+      - name: Build the executable
+        shell: bash
+        run: |
+          chmod +x ./scripts/build.sh
+          ./scripts/build.sh -ci -v 1.2.0 -t ${{ secrets.GH_PAT }}
+
+      - name: Get jq
+        run: sudo apt-get install jq
+
+      - name: Upload exe to rush-pack repo
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push'}}
+        shell: bash
+        run: |
+          chmod +x ./scripts/upload_exe.sh
+          ./scripts/upload_exe.sh ${{ secrets.GH_PAT }}
+
+  release:
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push'}}
+
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: windows-latest
+            os_short: win
+          - os: macos-latest
+            os_short: macos
+          - os: ubuntu-latest
+            os_short: linux
+
     runs-on: ubuntu-latest
+    needs: [build]
+
+    env:
+      BASE_DIR: build/${{ matrix.os_short }}
 
     steps:
       - uses: actions/checkout@v2
-      - uses: dart-lang/setup-dart@v1
 
-      - name: Get deps
-        run: dart pub get
-
-      - name: Build executables
+      - name: Download rush-pack repo
         run: |
-          mkdir build/bin -p
-          dart scripts/build.dart -t ${{ secrets.GH_PAT }}
-          chmod +x build/bin/rush-init-linux
+          mkdir build
+          curl -# -L -o build/pack.zip https://github.com/shreyashsaitwal/rush-pack/archive/refs/heads/main.zip
+          unzip -o build/pack.zip -d build
+          rm build/pack.zip
 
-      - name: Upload Rush executable
-        if: ${{ github.ref == 'refs/heads/main' }}
-        uses: actions/upload-artifact@v2
-        with:
-          name: rush-linux
-          path: build/bin/rush
-
-  build-for-win64:
-    runs-on: windows-latest
-
-    steps:
-      - uses: actions/checkout@v2
-      - uses: dart-lang/setup-dart@v1
-
-      - name: Get deps
-        run: dart pub get
-
-      - name: Build executables
+      - name: Add files to base directory
+        env:
+          PACK_DIR: build/rush-pack-main
         run: |
-          mkdir build\bin
-          dart scripts/build.dart -t ${{ secrets.GH_PAT }}
+          mkdir -p $BASE_DIR/exe
+          cp -R $PACK_DIR/exe/${{ matrix.os_short }} $BASE_DIR/exe
+          cp -R $PACK_DIR/dev-deps $BASE_DIR
+          cp -R $PACK_DIR/tools $BASE_DIR
+          cp -R $PACK_DIR/.installer $BASE_DIR
 
-      - name: Upload Rush executable
-        if: ${{ github.ref == 'refs/heads/main' }}
-        uses: actions/upload-artifact@v2
-        with:
-          name: rush-win64
-          path: build/bin/rush.exe
-
-  build-for-mac:
-    runs-on: macos-latest
-
-    steps:
-      - uses: actions/checkout@v2
-      - uses: dart-lang/setup-dart@v1
-
-      - name: Get deps
-        run: dart pub get
-
-      - name: Build executables
+      - name: Create ZIP
         run: |
-          mkdir -p build/bin
-          dart scripts/build.dart -t ${{ secrets.GH_PAT }}
-          chmod +x build/bin/rush-init-mac
+          cd $BASE_DIR
+          zip -r rush-${{ matrix.os_short }}.zip *
 
-      - name: Upload Rush executable
-        if: ${{ github.ref == 'refs/heads/main' }}
-        uses: actions/upload-artifact@v2
+      - name: Release
+        uses: softprops/action-gh-release@v1
         with:
-          name: rush-mac
-          path: build/bin/rush
+          draft: true
+          tag_name: draft
+          files: ${{ env.BASE_DIR }}/rush-${{ matrix.os_short }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

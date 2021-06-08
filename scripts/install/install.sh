@@ -1,9 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 
-# Exit immediately if:
-# 1. any command exits with non-zero exit status and,
-# 2. if any undefined var is referrenced.
-set -eu
+# Exit immediately if any command exits with non-zero exit status.
+set -e
 
 if ! command -v unzip &> /dev/null; then
 	echo "err: unzip is required to install Rush. Please install it and try again."
@@ -33,7 +31,7 @@ else
   esac
 fi
 
-zipUrl="https://github.com/shreyashsaitwal/rush-pack/releases/latest/download/rush-$target.zip"
+zipUrl="https://github.com/shreyashsaitwal/rush-cli/releases/latest/download/rush-$target.zip"
 
 # Download and unzip rush-$target.zip
 curl --location --progress-bar -o "$binDir/rush-$target.zip" "$zipUrl"
@@ -68,7 +66,7 @@ chmod +x "$binDir/rush"
 rm -r "$binDir/exe/"
 
 # Move all the directories that were unzipped
-mv $(ls -d $binDir/*/) $binDir/.installer  $dataDir
+mv $(ls -d $binDir/*/) $binDir/.installer $dataDir
 
 echo "Success! Installed Rush at $binDir/rush"
 if command -v rush &> /dev/null; then

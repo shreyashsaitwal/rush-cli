@@ -6,15 +6,13 @@ String getPgRules(String org, String name) {
 -keep public class $org.$name {
     public *;
  }
--keeppackagenames gnu.kawa.*, gnu.expr.*
+-keeppackagenames gnu.kawa**, gnu.expr**
 
 -optimizationpasses 4
 -allowaccessmodification
 -mergeinterfacesaggressively
 
 -flattenpackagehierarchy
-
 -dontpreverify
-
 ''';
 }

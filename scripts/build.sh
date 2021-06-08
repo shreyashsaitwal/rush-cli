@@ -1,15 +1,21 @@
-#!/bin/sh
+#!/bin/bash
 
-# Exit immediately if:
-# 1. any commands exit with non-zero exit status and,
-# 2. if any undefined var is referrenced.
-set -eu
+# Exit immediately if any commands exit with non-zero exit status.
+set -e
 
-# This is the version name of this version of Rush
-version=$1
-
-# This is the GitHub Personal Access token
-token=$2
+while (( "$#" )); do
+  case "$1" in
+    "-t" | "--token")
+      token="$2"
+      shift 2 ;;
+    "-v" | "--version")
+      version="$2"
+      shift 2 ;;
+    *)
+      echo "error: Unknown argument: $1"
+      exit 1 ;;
+  esac
+done
 
 # Write version.dart file
 function writeVersionDart() {
@@ -44,3 +50,4 @@ fi
 
 # Compile Rush executable
 dart compile exe -o build/bin/rush$ext bin/rush.dart
+chmod +x build/bin/rush
