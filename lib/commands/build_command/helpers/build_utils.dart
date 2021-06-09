@@ -1,5 +1,6 @@
 import 'dart:io' show Directory, File, exit;
 
+import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 import 'package:hive/hive.dart';
 import 'package:archive/archive.dart';
@@ -88,15 +89,17 @@ class BuildUtils {
 
   /// Returns `true` if the current extension needs to be optimized.
   static bool needsOptimization(
-      bool isRelease, bool optimizeArg, RushYaml yaml) {
-    if (optimizeArg) {
+      bool isRelease, ArgResults args, RushYaml yaml) {
+    if (args['no-optimize']) {
+      return false;
+    } 
+
+    if (args['optimize']) {
       return true;
     }
 
-    if (isRelease) {
-      if ((yaml.release?.optimize ?? false) && !optimizeArg) {
-        return true;
-      }
+    if (isRelease && (yaml.release?.optimize ?? false)) {
+      return true;
     }
 
     return false;

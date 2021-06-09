@@ -216,7 +216,7 @@ class BuildCommand extends Command {
     }
 
     final optimize = BuildUtils.needsOptimization(
-        isRelease, argResults!['optimize'], rushYaml);
+        isRelease, argResults!, rushYaml);
 
     await _compile(dataBox, optimize, rushYaml.kotlin?.enable ?? false);
   }
