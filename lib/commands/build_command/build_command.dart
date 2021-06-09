@@ -215,8 +215,8 @@ class BuildCommand extends Command {
       BuildUtils.cleanWorkspaceDir(_dataDir, await dataBox.get('org'));
     }
 
-    final optimize = BuildUtils.needsOptimization(
-        isRelease, argResults!, rushYaml);
+    final optimize =
+        BuildUtils.needsOptimization(isRelease, argResults!, rushYaml);
 
     await _compile(dataBox, optimize, rushYaml.kotlin?.enable ?? false);
   }
@@ -281,7 +281,7 @@ class BuildCommand extends Command {
 
     // Generate the extension files
     final generator = Generator(_cd, _dataDir);
-    await generator.generate(org);
+    await generator.generate(org, step);
 
     final executor = Executor(_cd, _dataDir);
 
@@ -443,12 +443,22 @@ class BuildCommand extends Command {
       ..createSync(recursive: true);
 
     final zipEncoder = ZipFileEncoder();
-    zipEncoder.zipDirectory(rawDirX,
-        filename: p.join(outputDir.path, '$org.aix'));
 
-    if (rawDirSup.existsSync()) {
-      zipEncoder.zipDirectory(rawDirSup,
-          filename: p.join(outputDir.path, '$org.support.aix'));
+    try {
+      zipEncoder.zipDirectory(rawDirX,
+          filename: p.join(outputDir.path, '$org.aix'));
+
+      if (rawDirSup.existsSync()) {
+        zipEncoder.zipDirectory(rawDirSup,
+            filename: p.join(outputDir.path, '$org.support.aix'));
+      }
+    } catch (e) {
+      step
+        ..logErr('Something went wrong while trying to pack the extension.',
+            addSpace: true)
+        ..logErr(e.toString(), addPrefix: false)
+        ..finishNotOk();
+      exit(1);
     }
 
     step.finishOk();

@@ -39,25 +39,31 @@ class BuildUtils {
   }
 
   /// Extracts JAR file from [filePath] and saves the content to [saveTo].
-  static void extractJar(String filePath, String saveTo) {
+  static void extractJar(String filePath, String saveTo, BuildStep step) {
     final file = File(filePath);
     if (!file.existsSync()) {
-      print('[${file.path}] doesn\'t exist. Aborting...');
+      step
+        ..logErr('Unable to find required library \'${p.basename(file.path)}\'',
+            addSpace: true)
+        ..finishNotOk();
       exit(1);
     }
 
     final bytes = file.readAsBytesSync();
     final jar = ZipDecoder().decodeBytes(bytes).files;
 
-    for (var i = 0; i < jar.length; i++) {
-      if (jar[i].isFile) {
-        final data = jar[i].content;
+    for (final entity in jar) {
+      if (entity.isFile) {
+        final data = entity.content;
         try {
-          File(p.join(saveTo, jar[i].name))
+          File(p.join(saveTo, entity.name))
             ..createSync(recursive: true)
             ..writeAsBytesSync(data);
         } catch (e) {
-          print(e.toString());
+          step
+            ..logErr(e.toString())
+            ..finishNotOk();
+          exit(1);
         }
       }
     }
@@ -92,7 +98,7 @@ class BuildUtils {
       bool isRelease, ArgResults args, RushYaml yaml) {
     if (args['no-optimize']) {
       return false;
-    } 
+    }
 
     if (args['optimize']) {
       return true;

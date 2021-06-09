@@ -4,6 +4,7 @@ import 'package:checked_yaml/checked_yaml.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
 import 'package:rush_cli/version.dart';
+import 'package:rush_prompt/rush_prompt.dart';
 
 import 'build_utils.dart';
 
@@ -14,7 +15,7 @@ class Generator {
   Generator(this._cd, this._dataDir);
 
   /// Generates required extension files.
-  Future<void> generate(String org) async {
+  Future<void> generate(String org, BuildStep step) async {
     final rushYaml = checkedYamlDecode(
       await BuildUtils.getRushYaml(_cd).readAsString(),
       (json) => RushYaml.fromJson(json!),
@@ -26,7 +27,7 @@ class Generator {
       _generateRawFiles(org),
       _copyAssets(rushYaml, org),
       _copyLicense(org),
-      _copyDeps(rushYaml, org),
+      _copyDeps(rushYaml, org, step),
     ]);
   }
 
@@ -93,7 +94,7 @@ rush-version=$rushVersion
   }
 
   /// Unjars extension dependencies into the classes dir.
-  Future<void> _copyDeps(RushYaml rushYml, String org) async {
+  Future<void> _copyDeps(RushYaml rushYml, String org, BuildStep step) async {
     final libs = rushYml.deps ?? [];
 
     final classesDir =
@@ -105,7 +106,7 @@ rush-version=$rushVersion
 
       libs.forEach((el) {
         final lib = p.join(depsDirPath, el);
-        BuildUtils.extractJar(lib, classesDir.path);
+        BuildUtils.extractJar(lib, classesDir.path, step);
       });
     }
 
@@ -117,7 +118,7 @@ rush-version=$rushVersion
       final kotlinStdLib =
           File(p.join(_cd, '.rush', 'dev-deps', 'kotlin-stdlib.jar'));
 
-      BuildUtils.extractJar(kotlinStdLib.path, classesDir.path);
+      BuildUtils.extractJar(kotlinStdLib.path, classesDir.path, step);
     }
   }
 
