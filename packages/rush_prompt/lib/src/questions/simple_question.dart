@@ -22,7 +22,7 @@ class SimpleQuestion extends Question {
     console
       ..setForegroundColor(ConsoleColor.green)
       ..write('? ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..write('$_question ');
 
     if (_default != null) {

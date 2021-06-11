@@ -33,7 +33,7 @@ class MigrateCommand extends Command {
     Console()
       ..setForegroundColor(ConsoleColor.cyan)
       ..write(' migrate: ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..writeLine(description)
       ..writeLine()
       ..writeLine(' Usage: ')
@@ -56,8 +56,7 @@ class MigrateCommand extends Command {
     } catch (e) {
       compStep.finishNotOk();
 
-      Logger.log('Build failed',
-          color: ConsoleColor.brightWhite,
+      Logger.logCustom('Build failed',
           prefix: '\n• ',
           prefixFG: ConsoleColor.brightRed);
       exit(1);
@@ -79,7 +78,7 @@ class MigrateCommand extends Command {
 
     if (genFiles.entries.any((el) => el.value.isEmpty)) {
       compStep
-        ..logErr('No extension found')
+        ..log(LogType.erro, 'No extension found')
         ..finishNotOk();
 
       exit(1);
@@ -87,15 +86,13 @@ class MigrateCommand extends Command {
       final extensionNames = genFiles['rushYml']
           ?.map((e) => p.basenameWithoutExtension(e.path).split('rush-').last);
 
-      compStep.logErr('More than two extensions found');
+      compStep.log(LogType.erro, 'More than two extensions found');
       extensionNames?.forEach((el) {
-        compStep.logErr(' ' * 2 + '- ' + el, addPrefix: false);
+        compStep.log(LogType.erro, ' ' * 2 + '- ' + el, addPrefix: false);
       });
       compStep
-        ..logErr(
-            'Currently, Rush doesn\'t supports multiple extensions inside one project.',
-            addPrefix: false,
-            addSpace: true)
+        ..log(LogType.erro,
+            'Currently, Rush doesn\'t supports multiple extensions inside one project.')
         ..finishNotOk();
 
       exit(1);
@@ -149,10 +146,7 @@ class MigrateCommand extends Command {
       Directory(p.join(baseDir.path, 'aiwebres')),
     ]);
 
-    step.log('Copied source files', ConsoleColor.cyan,
-        prefix: 'OK',
-        prefixBG: ConsoleColor.brightGreen,
-        prefixFG: ConsoleColor.black);
+    step.log(LogType.info, 'Copied source files');
   }
 
   /// Copies extension assets and icon.
@@ -173,10 +167,7 @@ class MigrateCommand extends Command {
       CmdUtils.copyDir(aiwebres, assetsDest);
     }
 
-    step.log('Copied assets', ConsoleColor.cyan,
-        prefix: 'OK',
-        prefixBG: ConsoleColor.brightGreen,
-        prefixFG: ConsoleColor.black);
+    step.log(LogType.info, 'Copied assets');
   }
 
   /// Copies all necessary deps.
@@ -197,10 +188,7 @@ class MigrateCommand extends Command {
           'This directory stores your extension\'s depenedencies.');
     }
 
-    step.log('Copied dependencies', ConsoleColor.cyan,
-        prefix: 'OK',
-        prefixBG: ConsoleColor.brightGreen,
-        prefixFG: ConsoleColor.black);
+    step.log(LogType.info, 'Copied dependencies');
   }
 
   /// Generates files like readme, proguard-rules.pro, etc.
@@ -282,14 +270,14 @@ class MigrateCommand extends Command {
               errPattern, line.startsWith(errPattern) ? '' : ' ');
           gotErr = true;
 
-          step.logErr(line, addSpace: true);
+          step.log(LogType.erro, line);
         } else if (excludePatterns.any((el) => el.hasMatch(line))) {
           gotErr = false;
         } else {
           if (gotErr) {
-            step.logErr(' ' * 4 + line, addPrefix: false);
+            step.log(LogType.erro, ' ' * 7 + line, addPrefix: false);
           } else {
-            step.logWarn(' ' * 5 + line, addPrefix: false);
+            step.log(LogType.warn, ' ' * 7 + line, addPrefix: false);
           }
         }
       });
@@ -313,34 +301,33 @@ class MigrateCommand extends Command {
       ..write('• ')
       ..setForegroundColor(ConsoleColor.brightGreen)
       ..write('Success! ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..writeLine(
           'Migrated the extension-template project in the current directory to Rush.')
       ..write('  The generated Rush extension project can be found here: ')
       ..setForegroundColor(ConsoleColor.cyan)
       ..writeLine(projectDir)
       ..writeLine()
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..write('Next up, \n' + ' ' * 2 + '-')
       ..setForegroundColor(ConsoleColor.yellow)
       ..write(' cd ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..write('into ')
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write('../' + kebabCasedName + '/')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..writeLine(',')
       ..write(
           '  - remove all the unsupported annotations (like, @DesignerComponent, @UsesPermissions, etc) from ')
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write(extName + '.java')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..writeLine(', and then')
       ..write(' ' * 2 + '- run ')
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write('rush build ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
-      ..writeLine('to compile your extension.')
-      ..resetColorAttributes();
+      ..resetColorAttributes()
+      ..writeLine('to compile your extension.');
   }
 }

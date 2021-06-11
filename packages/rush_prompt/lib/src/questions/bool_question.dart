@@ -22,7 +22,7 @@ class BoolQuestion extends Question {
     console
       ..setForegroundColor(ConsoleColor.green)
       ..write('? ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..write('$_question $suffix ')
       ..setForegroundColor(ConsoleColor.cyan);
 

@@ -58,7 +58,6 @@ class BuildCommand extends Command {
     console
       ..setForegroundColor(ConsoleColor.cyan)
       ..write(' build: ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(description)
       ..writeLine()
       ..writeLine(' Usage: ')
@@ -71,21 +70,20 @@ class BuildCommand extends Command {
 
     // Print available flags
     console
-      ..setForegroundColor(ConsoleColor.brightWhite)
       ..writeLine(' Available flags:')
       ..setForegroundColor(ConsoleColor.yellow)
       ..write('   -r, --release')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..writeLine(' ' * 9 + 'Marks this build as a release build.')
       ..setForegroundColor(ConsoleColor.yellow)
       ..write('   -s, --support-lib')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..writeLine(' ' * 5 +
           'Generates two flavors of extensions, one that uses AndroidX libraries, and other that '
               'uses support libraries.')
       ..setForegroundColor(ConsoleColor.yellow)
       ..write('   -o, --[no-]optimize')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..writeLine(' ' * 3 +
           'Optimize, obfuscates and shrinks your code with a set of ProGuard rules defined in '
               'proguard-rules.pro rules file.')
@@ -99,17 +97,15 @@ class BuildCommand extends Command {
     PrintArt();
     _startTime = DateTime.now();
 
-    Logger.log('Build initialized\n',
-        color: ConsoleColor.brightWhite,
-        prefix: '• ',
-        prefixFG: ConsoleColor.yellow);
+    Logger.logCustom('Build initialized\n',
+        prefix: '• ', prefixFG: ConsoleColor.yellow);
 
     final valStep = BuildStep('Checking project files')..init();
 
     final manifestFile = File(p.join(_cd, 'src', 'AndroidManifest.xml'));
     if (!manifestFile.existsSync()) {
       valStep
-        ..logErr('AndroidManifest.xml not found')
+        ..log(LogType.erro, 'AndroidManifest.xml not found')
         ..finishNotOk();
 
       BuildUtils.printFailMsg(
@@ -117,21 +113,14 @@ class BuildCommand extends Command {
       exit(1);
     }
 
-    valStep.log(
-      'AndroidManifest.xml file found',
-      ConsoleColor.brightWhite,
-      addSpace: true,
-      prefix: 'OK',
-      prefixBG: ConsoleColor.brightGreen,
-      prefixFG: ConsoleColor.black,
-    );
+    valStep.log(LogType.info, 'AndroidManifest.xml file found');
 
     File yamlFile;
     try {
       yamlFile = BuildUtils.getRushYaml(_cd);
     } catch (_) {
       valStep
-        ..logErr('Metadata file (rush.yml) not found')
+        ..log(LogType.erro, 'Metadata file (rush.yml) not found')
         ..finishNotOk();
 
       BuildUtils.printFailMsg(
@@ -156,12 +145,11 @@ class BuildCommand extends Command {
 
       await BuildUtils.ensureBoxValues(_cd, dataBox, rushYaml);
     } on ParsedYamlException catch (e) {
-      valStep.logErr(
-          'The following error occurred while validating metadata file (rush.yml):',
-          addSpace: true);
+      valStep.log(LogType.erro,
+          'The following error occurred while validating metadata file (rush.yml):');
 
       e.message.split('\n').forEach((element) {
-        valStep.logErr(' ' * 4 + element, addPrefix: false);
+        valStep.log(LogType.erro, ' ' * 7 + element, addPrefix: false);
       });
 
       valStep.finishNotOk();
@@ -169,16 +157,15 @@ class BuildCommand extends Command {
           BuildUtils.getTimeDifference(_startTime, DateTime.now()));
       exit(2);
     } catch (e) {
-      valStep.logErr(
-          'The following error occurred while validating metadata file (rush.yml):',
-          addSpace: true);
+      valStep.log(LogType.erro,
+          'The following error occurred while validating metadata file (rush.yml):');
 
       if (e.toString().contains('\n')) {
         e.toString().split('\n').forEach((element) {
-          valStep.logErr(' ' * 4 + element, addPrefix: false);
+          valStep.log(LogType.erro, ' ' * 7 + element, addPrefix: false);
         });
       } else {
-        valStep.logErr(' ' * 4 + e.toString(), addPrefix: false);
+        valStep.log(LogType.erro, ' ' * 7 + e.toString(), addPrefix: false);
       }
 
       valStep.finishNotOk();
@@ -188,14 +175,7 @@ class BuildCommand extends Command {
     }
 
     valStep
-      ..log(
-        'Metadata file (rush.yml) found',
-        ConsoleColor.brightWhite,
-        addSpace: true,
-        prefix: 'OK',
-        prefixBG: ConsoleColor.brightGreen,
-        prefixFG: ConsoleColor.black,
-      )
+      ..log(LogType.info, 'Metadata file (rush.yml) found')
       ..finishOk();
 
     if (await BuildUtils.areInfoFilesModified(_cd, dataBox)) {
@@ -230,15 +210,23 @@ class BuildCommand extends Command {
         .listSync(recursive: true)
         .whereType<File>();
 
-    final hasJavaFiles =
-        srcFiles.any((file) => p.extension(file.path) == '.java');
-    final hasKtFiles = srcFiles.any((file) => p.extension(file.path) == '.kt');
+    final javaFiles = srcFiles
+        .whereType<File>()
+        .where((file) => p.extension(file.path) == '.java');
+    final ktFiles = srcFiles
+        .whereType<File>()
+        .where((file) => p.extension(file.path) == '.kt');
+
+    final count = javaFiles.length + ktFiles.length;
+    step.log(
+        LogType.info, 'Picked $count source file' + (count > 1 ? 's' : ''));
 
     try {
-      if (hasKtFiles) {
+      if (ktFiles.isNotEmpty) {
         if (!enableKt) {
           step
-            ..logErr('Kotlin files detected. Please enable Kotlin in rush.yml.')
+            ..log(LogType.erro,
+                'Kotlin files detected. Please enable Kotlin in rush.yml.')
             ..finishNotOk();
           exit(1);
         }
@@ -246,7 +234,7 @@ class BuildCommand extends Command {
         await compiler.compileKt(dataBox, step);
       }
 
-      if (hasJavaFiles) {
+      if (javaFiles.isNotEmpty) {
         await compiler.compileJava(dataBox, step);
       }
     } catch (e) {
@@ -267,20 +255,17 @@ class BuildCommand extends Command {
     final BuildStep step;
     final rulesPro = File(p.join(_cd, 'src', 'proguard-rules.pro'));
 
-    if (optimize && rulesPro.existsSync()) {
-      step = BuildStep('Processing and optimizing the extension')..init();
-    } else {
-      step = BuildStep('Processing the extension')..init();
-      if (!rulesPro.existsSync() && optimize) {
-        step.logWarn(
-            'Unable to find \'proguard-rules.pro\' in \'src\' directory.',
-            addSpace: true);
-        optimize = false;
-      }
+    step = BuildStep('Processing the extension')..init();
+    if (!rulesPro.existsSync() && optimize) {
+      step.log(LogType.warn,
+          'Unable to find \'proguard-rules.pro\' in \'src\' directory.');
+      optimize = false;
     }
 
     // Generate the extension files
     final generator = Generator(_cd, _dataDir);
+
+    step.log(LogType.info, 'Generating extension descriptors');
     await generator.generate(org, step);
 
     final executor = Executor(_cd, _dataDir);
@@ -297,7 +282,7 @@ class BuildCommand extends Command {
       extJar.copySync(p.join(destDir.path, 'AndroidRuntime.jar'));
     } else {
       step
-        ..logErr('File not found: ' + extJar.path)
+        ..log(LogType.erro, 'File not found: ' + extJar.path)
         ..finishNotOk();
 
       BuildUtils.printFailMsg(
@@ -307,6 +292,8 @@ class BuildCommand extends Command {
 
     var needDeJet = deJet;
     if (deJet) {
+      step.log(LogType.info, 'De-jetifing the extension');
+
       try {
         needDeJet = await executor.execJetifier(org, step);
       } catch (e) {
@@ -324,14 +311,16 @@ class BuildCommand extends Command {
         Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'sup'))
             .deleteSync(recursive: true);
 
-        step.logWarn(
-            'No references to AndroidX packages were found. You don\'t need to pass the `-s` flag for now.',
-            addSpace: true);
+        step.log(LogType.warn,
+            'No references to AndroidX packages were found. You don\'t need to pass the `-s` flag for now.');
       }
     }
 
+    step.log(LogType.info, 'Dexing the extension');
+    await _dex(org, needDeJet, step);
+
     step.finishOk();
-    await _dex(org, needDeJet);
+    _assemble(org);
   }
 
   /// JAR the compiled class files and third-party dependencies into a
@@ -373,17 +362,13 @@ class BuildCommand extends Command {
     final executor = Executor(_cd, _dataDir);
 
     try {
-      processStep.log('Desugaring', ConsoleColor.brightWhite,
-          addSpace: true,
-          prefix: 'INFO',
-          prefixBG: ConsoleColor.cyan,
-          prefixFG: ConsoleColor.black);
-
+      processStep.log(LogType.info, 'Desugaring Java 8 language features');
       // Desugar the JAR
       await executor.execDesugar(org, processStep);
 
       // Run ProGuard if the extension is supposed to be optimized
       if (optimize) {
+        processStep.log(LogType.info, 'Optimizing the extension');
         await executor.execProGuard(org, processStep);
 
         // Delete the old non-optimized JAR...
@@ -406,29 +391,24 @@ class BuildCommand extends Command {
 
   /// Convert generated extension JAR file from previous step into DEX
   /// bytecode.
-  Future<void> _dex(String org, bool deJet) async {
-    final step = BuildStep('Generating DEX bytecode')..init();
-
+  Future<void> _dex(String org, bool deJet, BuildStep processStep) async {
     final executor = Executor(_cd, _dataDir);
 
     try {
       if (deJet) {
         await Future.wait([
-          executor.execD8(org, step, deJet: true),
-          executor.execD8(org, step),
+          executor.execD8(org, processStep, deJet: true),
+          executor.execD8(org, processStep),
         ]);
       } else {
-        await executor.execD8(org, step);
+        await executor.execD8(org, processStep);
       }
     } catch (e) {
-      step.finishNotOk();
+      processStep.finishNotOk();
       BuildUtils.printFailMsg(
           BuildUtils.getTimeDifference(_startTime, DateTime.now()));
       exit(1);
     }
-
-    step.finishOk();
-    _assemble(org);
   }
 
   /// Finalize the build.
@@ -445,27 +425,39 @@ class BuildCommand extends Command {
     final zipEncoder = ZipFileEncoder();
 
     try {
+      step.log(LogType.info, 'Packing $org.aix');
       zipEncoder.zipDirectory(rawDirX,
           filename: p.join(outputDir.path, '$org.aix'));
 
       if (rawDirSup.existsSync()) {
+        step.log(LogType.info, 'Packing $org.support.aix');
         zipEncoder.zipDirectory(rawDirSup,
             filename: p.join(outputDir.path, '$org.support.aix'));
       }
     } catch (e) {
       step
-        ..logErr('Something went wrong while trying to pack the extension.',
-            addSpace: true)
-        ..logErr(e.toString(), addPrefix: false)
+        ..log(LogType.erro,
+            'Something went wrong while trying to pack the extension.')
+        ..log(LogType.erro, e.toString(), addPrefix: false)
         ..finishNotOk();
       exit(1);
     }
 
     step.finishOk();
 
-    Logger.log(
-        'Build successful ${BuildUtils.getTimeDifference(_startTime, DateTime.now())}',
-        color: ConsoleColor.brightWhite,
+    final store = ErrWarnStore();
+    var warn = '';
+
+    if (store.getWarnings > 0) {
+      warn += '[\u001b[33m'; // yellow
+      warn += store.getWarnings > 1
+          ? '${store.getWarnings} warnings'
+          : '${store.getWarnings} warning';
+      warn += '\u001b[0m]'; // reset
+    }
+
+    Logger.logCustom(
+        'Build successful ${BuildUtils.getTimeDifference(_startTime, DateTime.now())} $warn',
         prefix: '\n• ',
         prefixFG: ConsoleColor.brightGreen);
     exit(0);

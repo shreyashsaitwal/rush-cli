@@ -67,7 +67,7 @@ class UpgradeUtils {
       try {
         await Dio().download(content.downloadUrl!, savePath);
       } catch (e) {
-        Logger.logErr(e.toString(), addSpace: true);
+        Logger.log(LogType.erro, e.toString());
         if (Platform.isWindows) {
           stdout.write('\nPress any key to continue... ');
           stdin.readLineSync();

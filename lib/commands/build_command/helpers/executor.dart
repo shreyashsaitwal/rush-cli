@@ -4,7 +4,6 @@ import 'package:path/path.dart' as p;
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
 import 'package:rush_prompt/rush_prompt.dart';
-import 'package:dart_console/dart_console.dart' show ConsoleColor;
 import 'package:process_runner/process_runner.dart' show ProcessRunnerException;
 
 enum ExeType { d8, d8ForSup, proguard, jetifier }
@@ -16,7 +15,7 @@ class Executor {
   Executor(this._cd, this._dataDir);
 
   /// Executes the D8 tool which is required for dexing the extension.
-  Future<void> execD8(String org, BuildStep step,{bool deJet = false}) async {
+  Future<void> execD8(String org, BuildStep step, {bool deJet = false}) async {
     final args = () {
       final d8 = File(p.join(_dataDir, 'tools', 'other', 'd8.jar'));
 
@@ -154,7 +153,7 @@ class Executor {
     final inputJar =
         File(p.join(_dataDir, 'workspaces', org, 'classes', 'ART.jar'));
     final outputJar =
-        File(p.join(_dataDir, 'workspaces', org, 'classes', 'ART.jar.des'));
+        File(p.join(_dataDir, 'workspaces', org, 'classes', 'ART.jar.dsgr'));
 
     final rtJar = p.join(_dataDir, 'tools', 'other', 'rt.jar');
 
@@ -209,60 +208,35 @@ class Executor {
   void _prettyPrintErrors(List<String> errList, BuildStep step) {
     final errPattern = RegExp(r'\s*error:?\s?', caseSensitive: false);
     final warnPattern = RegExp(r'\s*warning:?\s?', caseSensitive: false);
-    final noteInfoPattern =
-        RegExp(r'\s*(note|info):?\s?', caseSensitive: false);
+    final infoPattern = RegExp(r'\s*info:?\s?', caseSensitive: false);
+    final notePattern = RegExp(r'\s*note:?\s?', caseSensitive: false);
 
-    var previouslyItWas = 'err';
+    var prevLogType = LogType.erro;
 
     for (final err in errList) {
       if (err.startsWith(errPattern)) {
         final msg = err.replaceFirst(errPattern, '').trim();
-        previouslyItWas = 'err';
+        prevLogType = LogType.erro;
 
-        step.logErr(msg, addSpace: true);
+        step.log(LogType.erro, msg);
       } else if (err.startsWith(warnPattern)) {
         final msg = err.replaceFirst(warnPattern, '').trim();
-        previouslyItWas = 'warn';
+        prevLogType = LogType.warn;
 
-        step.logWarn(msg, addSpace: true);
-      } else if (err.startsWith(noteInfoPattern)) {
-        final msg = err.replaceFirst(noteInfoPattern, '').trim();
-        previouslyItWas = 'note';
+        step.log(LogType.warn, msg);
+      } else if (err.startsWith(infoPattern)) {
+        final msg = err.replaceFirst(infoPattern, '').trim();
+        prevLogType = LogType.info;
 
-        step.log(
-          msg,
-          ConsoleColor.cyan,
-          addSpace: true,
-          prefix: 'NOTE',
-          prefixBG: ConsoleColor.cyan,
-          prefixFG: ConsoleColor.black,
-        );
+        step.log(LogType.info, msg);
+      } else if (err.startsWith(notePattern)) {
+        final msg = err.replaceFirst(notePattern, '').trim();
+        prevLogType = LogType.note;
+
+        step.log(LogType.note, msg);
       } else {
-        switch (previouslyItWas) {
-          case 'err':
-            final msg = err.replaceFirst(errPattern, '').trim();
-            previouslyItWas = 'err';
-
-            step.logErr(' ' * 4 + msg, addPrefix: false);
-            break;
-
-          case 'warn':
-            final msg = err.replaceFirst(warnPattern, '').trim();
-            previouslyItWas = 'warn';
-
-            step.logWarn(' ' * 5 + msg, addPrefix: false);
-            break;
-
-          default:
-            final msg = err.replaceFirst(noteInfoPattern, '').trim();
-            previouslyItWas = 'note';
-
-            step.log(
-              ' ' * 5 + msg,
-              ConsoleColor.cyan,
-            );
-            break;
-        }
+        final msg = err.replaceFirst(errPattern, '').trim();
+        step.log(prevLogType, ' ' * 7 + msg, addPrefix: false);
       }
     }
   }

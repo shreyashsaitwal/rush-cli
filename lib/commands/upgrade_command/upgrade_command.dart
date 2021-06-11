@@ -28,10 +28,7 @@ class UpgradeCommand extends Command {
   @override
   Future<void> run() async {
     PrintArt();
-    Logger.log('Fetching data\n',
-        color: ConsoleColor.cyan,
-        prefix: '•',
-        prefixFG: ConsoleColor.brightYellow);
+    Logger.log(LogType.info, 'Fetching data\n');
 
     final box = await Hive.openBox('data.init');
     final binDir = p.dirname(Platform.resolvedExecutable);
@@ -39,8 +36,7 @@ class UpgradeCommand extends Command {
     final contents = await UpgradeUtils.fetchContents(box, binDir, '');
 
     if (contents.isEmpty) {
-      Logger.log('You already have the latest version of Rush installed.',
-          color: ConsoleColor.green);
+      Logger.log(LogType.info, 'You already have the latest version of Rush installed.');
       exit(0);
     }
 
@@ -90,7 +86,7 @@ class UpgradeCommand extends Command {
     console
       ..setForegroundColor(ConsoleColor.green)
       ..write('Success! ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..writeLine('Rush has been upgraded to ${release.tagName}')
       ..resetColorAttributes();
 
@@ -98,7 +94,7 @@ class UpgradeCommand extends Command {
       ..writeLine()
       ..setForegroundColor(ConsoleColor.blue)
       ..writeLine('Changelog')
-      ..setForegroundColor(ConsoleColor.brightWhite);
+      ..resetColorAttributes();
 
     final body = release.body!.split('\n');
 

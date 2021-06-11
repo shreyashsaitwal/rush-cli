@@ -31,9 +31,9 @@ class BuildUtils {
       try {
         dir.deleteSync(recursive: true);
       } catch (e) {
-        Logger.logErr(
-            'Something went wrong while invalidating build caches.\n${e.toString()}',
-            exitCode: 1);
+        Logger.log(LogType.erro,
+            'Something went wrong while invalidating build caches.\n${e.toString()}');
+        exit(1);
       }
     }
   }
@@ -43,8 +43,8 @@ class BuildUtils {
     final file = File(filePath);
     if (!file.existsSync()) {
       step
-        ..logErr('Unable to find required library \'${p.basename(file.path)}\'',
-            addSpace: true)
+        ..log(LogType.erro,
+            'Unable to find required library \'${p.basename(file.path)}\'')
         ..finishNotOk();
       exit(1);
     }
@@ -61,7 +61,7 @@ class BuildUtils {
             ..writeAsBytesSync(data);
         } catch (e) {
           step
-            ..logErr(e.toString())
+            ..log(LogType.erro, e.toString())
             ..finishNotOk();
           exit(1);
         }
@@ -87,10 +87,32 @@ class BuildUtils {
 
   /// Prints "• Build Failed" to the console
   static void printFailMsg(String timeDiff) {
-    Logger.log('Build failed $timeDiff',
-        color: ConsoleColor.brightWhite,
-        prefix: '\n• ',
-        prefixFG: ConsoleColor.brightRed);
+    final store = ErrWarnStore();
+
+    var errWarn = '[';
+
+    if (store.getErrors > 0) {
+      errWarn += '\u001b[31m'; // red
+      errWarn += store.getErrors > 1
+          ? '${store.getErrors} errors'
+          : '${store.getErrors} error';
+      errWarn += '\u001b[0m'; // reset
+
+      if (store.getWarnings > 0) {
+        errWarn += ';';
+      }
+    } else if (store.getWarnings > 0) {
+      errWarn += '\u001b[33m'; // yellow
+      errWarn += store.getWarnings > 1
+          ? '${store.getWarnings} warnings'
+          : '${store.getWarnings} warning';
+      errWarn += '\u001b[0m'; // reset
+    }
+
+    errWarn = errWarn.length == 1 ? '' : '$errWarn]';
+
+    Logger.logCustom('Build failed $errWarn $timeDiff',
+        prefix: '\n• ', prefixFG: ConsoleColor.red);
   }
 
   /// Returns `true` if the current extension needs to be optimized.

@@ -1,6 +1,5 @@
 import 'dart:io' show Directory, File, Platform, exit;
 
-import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_runner/process_runner.dart';
@@ -87,7 +86,7 @@ class Compiler {
         rethrow;
       }
 
-      step.logWarn('No declaration block annotations found', addSpace: true);
+      step.log(LogType.warn, 'No declaration of any block annotation found');
     }
   }
 
@@ -237,6 +236,7 @@ class Compiler {
                 line.trim().isNotEmpty &&
                 !excludePatterns.any((el) => el.hasMatch(line)))
             .forEach((line) {
+
           // When compiling Kotlin, the Kotlin compiler and the annotation
           // processing plugin, kapt, are run in parallel to reduce the
           // overall compilation time. Because of this if there are errors,
@@ -262,7 +262,7 @@ class Compiler {
             }
 
             skipThis = false;
-            step.logWarn(line, addSpace: true);
+            step.log(LogType.warn, line);
           } else if (line.contains(notePattern)) {
             line = line.replaceFirst(
                 notePattern, line.startsWith(notePattern) ? '' : ' ');
@@ -272,17 +272,13 @@ class Compiler {
             }
 
             skipThis = false;
-            step.log(line, ConsoleColor.brightWhite,
-                addSpace: true,
-                prefix: 'NOTE',
-                prefixBG: ConsoleColor.cyan,
-                prefixFG: ConsoleColor.black);
+            step.log(LogType.note, line);
           } else if (!skipThis) {
             if (line.startsWith(_cd)) {
               line = line.replaceFirst(p.join(_cd, 'src'), 'src');
             }
 
-            step.logWarn(' ' * 5 + line, addPrefix: false);
+            step.log(LogType.warn, ' ' * 7 + line, addPrefix: false);
           }
         });
       }
@@ -306,7 +302,7 @@ class Compiler {
         } else if (line.contains(errPattern)) {
           final msg = line.replaceFirst(
               errPattern, line.startsWith(errPattern) ? '' : ' ');
-          step.logErr(msg, addSpace: true);
+          step.log(LogType.erro, msg);
 
           alreadyPrinted.add(line);
           gotErr = true;
@@ -314,7 +310,7 @@ class Compiler {
         } else if (line.contains(warnPattern)) {
           final msg = line.replaceFirst(
               warnPattern, line.startsWith(warnPattern) ? '' : ' ');
-          step.logWarn(msg, addSpace: true);
+          step.log(LogType.warn, msg);
 
           alreadyPrinted.add(line);
           gotErr = false;
@@ -322,28 +318,23 @@ class Compiler {
         } else if (line.contains(notePattern)) {
           final msg = line.replaceFirst(
               notePattern, line.startsWith(notePattern) ? '' : ' ');
-
-          step.log(msg, ConsoleColor.brightWhite,
-              addSpace: true,
-              prefix: 'NOTE',
-              prefixBG: ConsoleColor.cyan,
-              prefixFG: ConsoleColor.black);
+          step.log(LogType.note, msg);
 
           alreadyPrinted.add(line);
           gotErr = false;
           skipThis = false;
         } else if (!skipThis) {
           if (gotErr) {
-            step.logErr(' ' * 4 + line, addPrefix: false);
+            step.log(LogType.erro, ' ' * 7 + line, addPrefix: false);
           } else {
-            step.logWarn(' ' * 5 + line, addPrefix: false);
+            step.log(LogType.warn, ' ' * 7 + line, addPrefix: false);
           }
         }
       });
 
       rethrow;
     } catch (e) {
-      step.logErr(e.toString().trim());
+      step.log(LogType.erro, e.toString().trim());
       rethrow;
     }
   }
@@ -388,8 +379,8 @@ class Compiler {
 
       return res.stdout.trim();
     } else {
-      Logger.logErr('Something went wrong...', addSpace: true);
-      Logger.logErr(res.stderr, addPrefix: false);
+      Logger.log(LogType.erro, 'Something went wrong...');
+      Logger.log(LogType.erro, res.stderr, addPrefix: false);
       exit(1);
     }
   }

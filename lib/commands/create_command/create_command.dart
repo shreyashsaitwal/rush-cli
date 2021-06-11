@@ -38,7 +38,7 @@ class CreateCommand extends Command {
     Console()
       ..setForegroundColor(ConsoleColor.cyan)
       ..write(' create: ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..writeLine(description)
       ..writeLine()
       ..writeLine(' Usage: ')
@@ -130,7 +130,8 @@ class CreateCommand extends Command {
           getModulesXml(kebabCasedName));
       _writeFile(p.join(projectDir, '.idea', '$kebabCasedName.iml'), getIml());
     } catch (e) {
-      Logger.logErr(e.toString(), exitCode: 1);
+      Logger.log(LogType.erro, e.toString());
+      exit(1);
     }
 
     try {
@@ -138,7 +139,8 @@ class CreateCommand extends Command {
       Directory(p.join(projectDir, '.rush', 'dev-deps'))
           .createSync(recursive: true);
     } catch (e) {
-      Logger.logErr(e.toString(), exitCode: 1);
+      Logger.log(LogType.erro, e.toString());
+      exit(1);
     }
 
     // Copy icon
@@ -158,10 +160,8 @@ class CreateCommand extends Command {
     // Copy dev-deps.
     final devDepsDir = p.join(_dataDir, 'dev-deps');
 
-    Logger.log('Getting things ready...',
-        color: ConsoleColor.brightWhite,
-        prefix: '\n• ',
-        prefixFG: ConsoleColor.yellow);
+    Logger.logCustom('Getting things ready...',
+        prefix: '\n• ', prefixFG: ConsoleColor.yellow);
     CmdUtils.copyDir(Directory(devDepsDir),
         Directory(p.join(projectDir, '.rush', 'dev-deps')));
 
@@ -170,27 +170,26 @@ class CreateCommand extends Command {
       ..write('• ')
       ..setForegroundColor(ConsoleColor.brightGreen)
       ..write('Success! ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..write('Generated a new AI2 extension project in: ')
       ..setForegroundColor(ConsoleColor.cyan)
       ..writeLine(projectDir)
       ..writeLine()
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..write('Next up, \n' + ' ' * 2 + '-')
       ..setForegroundColor(ConsoleColor.yellow)
       ..write(' cd ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..write('into ')
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write(kebabCasedName + '/')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..writeLine(', and')
       ..write(' ' * 2 + '- run ')
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write('rush build ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
-      ..writeLine('to compile your extension.')
-      ..resetColorAttributes();
+      ..resetColorAttributes()
+      ..writeLine('to compile your extension.');
   }
 
   /// Creates a file in [path] and writes [content] inside it.
