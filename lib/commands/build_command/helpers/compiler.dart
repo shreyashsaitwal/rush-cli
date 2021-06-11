@@ -3,6 +3,7 @@ import 'dart:io' show Directory, File, Platform, exit;
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_runner/process_runner.dart';
+import 'package:rush_cli/commands/build_command/helpers/compute.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
 import 'package:rush_prompt/rush_prompt.dart';
@@ -22,13 +23,12 @@ class Compiler {
 
     final args = await _getJavacArgs(await dataBox.get('name'), org, version);
 
-    final stream = ProcessStreamer.stream(args);
-
-    try {
-      await _printResultToConsole(stream, step);
-    } catch (e) {
-      rethrow;
-    }
+    await compute(_streamOutput, <String, dynamic>{
+      'cd': _cd,
+      'args': args,
+      'step': step,
+      'forKt': false,
+    });
 
     await _generateInfoFilesIfNoBlocks(org, version, instance, step);
   }
@@ -42,17 +42,20 @@ class Compiler {
     final ktcArgs = _getKtcArgs(org);
     final kaptArgs = await _getKaptArgs(dataBox);
 
-    final streamKtc = ProcessStreamer.stream(ktcArgs);
-    final streamKapt = ProcessStreamer.stream(kaptArgs);
-
-    try {
-      await Future.wait([
-        _printResultToConsole(streamKtc, step, forKt: true),
-        _printResultToConsole(streamKapt, step, forKt: true),
-      ]);
-    } catch (e) {
-      rethrow;
-    }
+    await Future.wait([
+      compute(_streamOutput, <String, dynamic>{
+        'cd': _cd,
+        'args': ktcArgs,
+        'step': step,
+        'forKt': false,
+      }),
+      compute(_streamOutput, <String, dynamic>{
+        'cd': _cd,
+        'args': kaptArgs,
+        'step': step,
+        'forKt': false,
+      }),
+    ]);
 
     await _generateInfoFilesIfNoBlocks(
         org, await dataBox.get('version'), instance, step);
@@ -78,13 +81,12 @@ class Compiler {
         filesDir,
       ];
 
-      final stream = ProcessStreamer.stream(args);
-
-      try {
-        await _printResultToConsole(stream, step);
-      } catch (e) {
-        rethrow;
-      }
+      await compute(_streamOutput, <String, dynamic>{
+        'cd': _cd,
+        'args': args,
+        'step': step,
+        'forKt': false,
+      });
 
       step.log(LogType.warn, 'No declaration of any block annotation found');
     }
@@ -202,14 +204,16 @@ class Compiler {
 
   /// This list keeps a track of the errors/warnings/etc. that have
   /// been printed already while Kotlin compilation.
-  final alreadyPrinted = <String>[];
+  static final _alreadyPrinted = <String>[];
 
-  /// Starts listening to the events emitted by [stream] and prints them
-  /// to the console in a colorful way. For example, errors get printed
-  /// in red whereas warnings in yellow.
-  Future<void> _printResultToConsole(
-      Stream<ProcessRunnerResult> stream, BuildStep step,
-      {bool forKt = false}) async {
+  /// Starts a new process from [argMap] and prints the output to the
+  /// console.
+  static Future<void> _streamOutput(Map<String, dynamic> argMap) async {
+    String cd = argMap['cd'];
+    List<String> args = argMap['args'];
+    BuildStep step = argMap['step'];
+    bool forKt = argMap['forKt'] ?? false;
+
     final warnPattern = RegExp(r'(\s*warning:\s?)+', caseSensitive: false);
     final errPattern = RegExp(r'(\s*error:\s?)+', caseSensitive: false);
     final notePattern = RegExp(r'(\s*note:\s?)+', caseSensitive: false);
@@ -225,6 +229,8 @@ class Compiler {
       RegExp(r'.*Recompile\swith.*for\sdetails', dotAll: true)
     ];
 
+    final stream = ProcessStreamer.stream(args);
+
     try {
       await for (final result in stream) {
         final stdout = result.output.split('\n');
@@ -236,7 +242,6 @@ class Compiler {
                 line.trim().isNotEmpty &&
                 !excludePatterns.any((el) => el.hasMatch(line)))
             .forEach((line) {
-
           // When compiling Kotlin, the Kotlin compiler and the annotation
           // processing plugin, kapt, are run in parallel to reduce the
           // overall compilation time. Because of this if there are errors,
@@ -251,14 +256,14 @@ class Compiler {
           // Here, we aren't checking for errPattern because if any error
           // occurred this block won't run; the catch block will.
 
-          if (forKt && alreadyPrinted.contains(line)) {
+          if (forKt && _alreadyPrinted.contains(line)) {
             skipThis = true;
           } else if (line.contains(warnPattern)) {
             line = line.replaceFirst(
                 warnPattern, line.startsWith(warnPattern) ? '' : ' ');
 
-            if (line.startsWith(_cd)) {
-              line = line.replaceFirst(p.join(_cd, 'src'), 'src');
+            if (line.startsWith(cd)) {
+              line = line.replaceFirst(p.join(cd, 'src'), 'src');
             }
 
             skipThis = false;
@@ -267,15 +272,15 @@ class Compiler {
             line = line.replaceFirst(
                 notePattern, line.startsWith(notePattern) ? '' : ' ');
 
-            if (line.startsWith(_cd)) {
-              line = line.replaceFirst(p.join(_cd, 'src'), 'src');
+            if (line.startsWith(cd)) {
+              line = line.replaceFirst(p.join(cd, 'src'), 'src');
             }
 
             skipThis = false;
             step.log(LogType.note, line);
           } else if (!skipThis) {
-            if (line.startsWith(_cd)) {
-              line = line.replaceFirst(p.join(_cd, 'src'), 'src');
+            if (line.startsWith(cd)) {
+              line = line.replaceFirst(p.join(cd, 'src'), 'src');
             }
 
             step.log(LogType.warn, ' ' * 7 + line, addPrefix: false);
@@ -293,18 +298,18 @@ class Compiler {
               line.trim().isNotEmpty &&
               !excludePatterns.any((el) => el.hasMatch(line)))
           .forEach((line) {
-        if (line.startsWith(_cd)) {
-          line = line.replaceFirst(p.join(_cd, 'src'), 'src');
+        if (line.startsWith(cd)) {
+          line = line.replaceFirst(p.join(cd, 'src'), 'src');
         }
 
-        if (forKt && alreadyPrinted.contains(line)) {
+        if (forKt && _alreadyPrinted.contains(line)) {
           skipThis = true;
         } else if (line.contains(errPattern)) {
           final msg = line.replaceFirst(
               errPattern, line.startsWith(errPattern) ? '' : ' ');
           step.log(LogType.erro, msg);
 
-          alreadyPrinted.add(line);
+          _alreadyPrinted.add(line);
           gotErr = true;
           skipThis = false;
         } else if (line.contains(warnPattern)) {
@@ -312,7 +317,7 @@ class Compiler {
               warnPattern, line.startsWith(warnPattern) ? '' : ' ');
           step.log(LogType.warn, msg);
 
-          alreadyPrinted.add(line);
+          _alreadyPrinted.add(line);
           gotErr = false;
           skipThis = false;
         } else if (line.contains(notePattern)) {
@@ -320,7 +325,7 @@ class Compiler {
               notePattern, line.startsWith(notePattern) ? '' : ' ');
           step.log(LogType.note, msg);
 
-          alreadyPrinted.add(line);
+          _alreadyPrinted.add(line);
           gotErr = false;
           skipThis = false;
         } else if (!skipThis) {
