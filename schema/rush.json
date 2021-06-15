@@ -4,7 +4,7 @@
   "title": "Rush metadata file",
   "description": "This YAML file holds all of the extension's metadata, such as it's name, description, version related information, etc.",
   "type": "object",
-  "required": ["name", "description", "version"],
+  "required": ["name", "description", "version", "assets"],
   "properties": {
 		"name": {
 			"title": "Extension name",
@@ -52,7 +52,8 @@
 				"other": {
 					"description": "A list of all the assets required by this extension (excluding icon image). This could be of anything -- images, text files, archives, etc.",
 					"type": "array"
-				}
+				},
+				"required": ["icon"]
 			}
 		},
 		"deps": {
@@ -61,6 +62,7 @@
 			"type": "array"
 		},
 		"release": {
+			"deprecated": true,
 			"title": "release",
 			"type": "object",
 			"properties": {
@@ -72,22 +74,57 @@
 				"required": ["optimize"]
 			}
 		},
-		"kotlin": {
-			"title": "Kotlin",
+		"build": {
+			"title": "Build",
 			"type": "object",
 			"properties": {
-				"enable": {
-					"title": "Enable Kotlin support",
-					"description": "Indicates whether to enable Kotlin language support or not for the extension.",
-					"type": "boolean"
+				"kotlin": {
+					"title": "Kotlin",
+					"type": "object",
+					"properties": {
+						"enable": {
+							"title": "Enable Kotlin support",
+							"description": "Indicates whether to enable Kotlin language support or not for the extension.",
+							"type": "boolean"
+						},
+						"required": ["enable"]
+					}
 				},
-				"required": ["enable"]
+				"desugar": {
+					"title": "Desugar",
+					"type": "object",
+					"properties": {
+						"enable": {
+							"title": "Enable desugaring",
+							"description": "Indicates whether to enable desugaring of Java 8 language features. You MUST set it to true if you wish to use Java 8 language features, such as lambda expressions.",
+							"type": "boolean"
+						},
+						"desugar_deps": {
+							"title": "Desugar dependencies",
+							"description": "If set to true, Rush will try to desugar the dependencies of the extension as well.",
+							"type": "boolean"
+						},
+						"required": ["enable"]
+					}
+				},
+				"release": {
+					"title": "release",
+					"type": "object",
+					"properties": {
+						"optimize": {
+							"title": "Optimize release build",
+							"description": "Indicates whether to optimize the extension while creating a release build or not. You can mark a build as a release build by passing the `--release` flag (abbr: `-r`).",
+							"type": "boolean"
+						},
+						"required": ["optimize"]
+					}
+				}
 			}
 		},
 		"license_url": {
-      "deprecated": true,
-			"title": "Extension license URL",
-			"description": "The license agreement for the end-users of the extension. This should be a remote URL.",
+			"deprecated": true,
+			"title": "Extension license",
+			"description": "A remote URL to the license agreement for the end-users of the extension.",
 			"type": "string"
 		},
 		"license": {

@@ -14,14 +14,24 @@ version:
 
 authors:
   - $author
-${enableKt ? _getKtField() : ''}
-assets:
-  icon: icon.png      # Extension icon
-  # other:              # Extension asset(s)
-  #   - my_awesome_asset.anything
 
-release:
-  optimize: true
+build:
+  # If enabled, you will be able to use Java 8 language features in your extension.
+  desugar:
+    enable: true
+    desugar_deps: false
+${enableKt ? _getKtField() : ''}
+  # Optimizes your extension on every release build.
+  release:
+    optimize: true
+
+assets:
+  # Extension icon
+  icon: icon.png
+
+  # Extension asset(s)
+  # other:
+  #   - my_awesome_asset.anything
 
 # Dependencies declared here should be present in the "deps" directory.
 # deps:
@@ -32,7 +42,7 @@ release:
 String _getKtField() {
   return '''
 
-kotlin:
-  enable: true
+  kotlin:
+    enable: true
 ''';
 }

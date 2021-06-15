@@ -8,10 +8,10 @@ part 'release.g.dart';
   disallowUnrecognizedKeys: true,
 )
 class Release {
-  @JsonKey(defaultValue: false)
+  @JsonKey(required: true)
   final bool optimize;
 
-  Release({this.optimize = false});
+  Release({required this.optimize});
 
   factory Release.fromJson(Map json) => _$ReleaseFromJson(json);
 

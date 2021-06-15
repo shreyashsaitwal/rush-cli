@@ -8,9 +8,10 @@ part of 'release.dart';
 
 Release _$ReleaseFromJson(Map json) {
   return $checkedNew('Release', json, () {
-    $checkKeys(json, allowedKeys: const ['optimize']);
+    $checkKeys(json,
+        allowedKeys: const ['optimize'], requiredKeys: const ['optimize']);
     final val = Release(
-      optimize: $checkedConvert(json, 'optimize', (v) => v as bool?) ?? false,
+      optimize: $checkedConvert(json, 'optimize', (v) => v as bool),
     );
     return val;
   });

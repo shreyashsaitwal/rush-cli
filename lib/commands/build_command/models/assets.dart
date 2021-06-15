@@ -10,6 +10,8 @@ part 'assets.g.dart';
 class Assets {
   @JsonKey(required: true)
   final String icon;
+
+  @JsonKey(includeIfNull: false)
   final List<String>? other;
 
   Assets({required this.icon, this.other});

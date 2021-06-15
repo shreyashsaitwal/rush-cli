@@ -14,9 +14,10 @@ RushYaml _$RushYamlFromJson(Map json) {
       'version',
       'assets',
       'release',
-      'kotlin',
+      'build',
       'deps',
       'authors',
+      'license_url',
       'license',
       'min_sdk',
       'homepage'
@@ -34,8 +35,8 @@ RushYaml _$RushYamlFromJson(Map json) {
       assets: $checkedConvert(json, 'assets', (v) => Assets.fromJson(v as Map)),
       release: $checkedConvert(json, 'release',
           (v) => v == null ? null : Release.fromJson(v as Map)),
-      kotlin: $checkedConvert(
-          json, 'kotlin', (v) => v == null ? null : Kotlin.fromJson(v as Map)),
+      build: $checkedConvert(
+          json, 'build', (v) => v == null ? null : Build.fromJson(v as Map)),
       authors: $checkedConvert(json, 'authors',
           (v) => (v as List<dynamic>?)?.map((e) => e as String).toList()),
       deps: $checkedConvert(json, 'deps',
@@ -44,6 +45,7 @@ RushYaml _$RushYamlFromJson(Map json) {
       min_sdk: $checkedConvert(json, 'min_sdk', (v) => v as int?),
       homepage: $checkedConvert(json, 'homepage', (v) => v as String?),
     );
+    $checkedConvert(json, 'license_url', (v) => val.license_url = v as String?);
     return val;
   });
 }
@@ -63,9 +65,10 @@ Map<String, dynamic> _$RushYamlToJson(RushYaml instance) {
   }
 
   writeNotNull('release', instance.release);
-  writeNotNull('kotlin', instance.kotlin);
+  writeNotNull('build', instance.build);
   writeNotNull('deps', instance.deps);
   writeNotNull('authors', instance.authors);
+  writeNotNull('license_url', instance.license_url);
   writeNotNull('license', instance.license);
   writeNotNull('min_sdk', instance.min_sdk);
   writeNotNull('homepage', instance.homepage);
