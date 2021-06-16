@@ -7,11 +7,11 @@ import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build_command/helpers/build_utils.dart';
-import 'package:rush_cli/commands/build_command/helpers/compiler.dart';
-import 'package:rush_cli/commands/build_command/helpers/desugarer.dart';
-import 'package:rush_cli/commands/build_command/helpers/executor.dart';
-import 'package:rush_cli/commands/build_command/helpers/generator.dart';
 import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
+import 'package:rush_cli/commands/build_command/tools/compiler.dart';
+import 'package:rush_cli/commands/build_command/tools/desugarer.dart';
+import 'package:rush_cli/commands/build_command/tools/executor.dart';
+import 'package:rush_cli/commands/build_command/tools/generator.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 class BuildCommand extends Command {

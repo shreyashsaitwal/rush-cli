@@ -16,7 +16,7 @@ class Generator {
   /// Generates required extension files.
   Future<void> generate(String org, BuildStep step, RushYaml yaml) async {
     await Future.wait([
-      _generateRawFiles(org),
+      _generateInfoFiles(org),
       _copyAssets(yaml, org, step),
       _copyLicense(org),
       _copyRequiredClasses(yaml, org, step),
@@ -24,7 +24,7 @@ class Generator {
   }
 
   /// Generates the components info, build, and the properties file.
-  Future<void> _generateRawFiles(String org) async {
+  Future<void> _generateInfoFiles(String org) async {
     final rawDirX =
         Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'x', org));
     await rawDirX.create(recursive: true);
