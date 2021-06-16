@@ -36,7 +36,6 @@ class Compiler {
   /// Compiles the Kotlin files for this extension project.
   Future<void> compileKt(Box dataBox, BuildStep step) async {
     final instance = DateTime.now();
-
     final org = await dataBox.get('org');
 
     final ktcArgs = _getKtcArgs(org);

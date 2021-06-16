@@ -19,18 +19,18 @@ class Logger {
     if (addPrefix) {
       switch (type) {
         case LogType.erro:
-          printPrefix(ConsoleColor.red, '[erro]');
+          printPrefix(ConsoleColor.red, 'erro');
           _errWarnStore.incErrors();
           break;
         case LogType.warn:
-          printPrefix(ConsoleColor.yellow, '[warn]');
+          printPrefix(ConsoleColor.yellow, 'warn');
           _errWarnStore.incWarnings();
           break;
         case LogType.note:
-          printPrefix(ConsoleColor.blue, '[note]');
+          printPrefix(ConsoleColor.blue, 'note');
           break;
         default:
-          printPrefix(ConsoleColor.cyan, '[info]');
+          printPrefix(ConsoleColor.cyan, 'info');
           break;
       }
     }

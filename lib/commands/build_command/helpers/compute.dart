@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:developer';
-
 import 'dart:isolate';
 
 import 'package:meta/meta.dart';
@@ -9,9 +8,11 @@ Future<R> compute<Q, R>(ComputeCallback<Q, R> callback, Q message,
     {String? debugLabel}) async {
   final flow = Flow.begin();
   Timeline.startSync('$debugLabel: start', flow: flow);
+
   final resultPort = ReceivePort();
   final exitPort = ReceivePort();
   final errorPort = ReceivePort();
+
   Timeline.finishSync();
   final isolate = await Isolate.spawn<_IsolateConfiguration<Q, FutureOr<R>>>(
     _spawn,
@@ -26,6 +27,7 @@ Future<R> compute<Q, R>(ComputeCallback<Q, R> callback, Q message,
     onExit: exitPort.sendPort,
     onError: errorPort.sendPort,
   );
+
   final result = Completer<R>();
   errorPort.listen((dynamic errorData) {
     assert(errorData is List<dynamic>);
@@ -38,16 +40,19 @@ Future<R> compute<Q, R>(ComputeCallback<Q, R> callback, Q message,
       result.completeError(exception, stack);
     }
   });
+
   exitPort.listen((dynamic exitData) {
     if (!result.isCompleted) {
       result
           .completeError(Exception('Isolate exited without result or error.'));
     }
   });
+
   resultPort.listen((dynamic resultData) {
     assert(resultData == null || resultData is R);
     if (!result.isCompleted) result.complete(resultData as R);
   });
+
   await result.future;
   Timeline.startSync('$debugLabel: end', flow: Flow.end(flow.id));
   resultPort.close();
@@ -55,24 +60,6 @@ Future<R> compute<Q, R>(ComputeCallback<Q, R> callback, Q message,
   isolate.kill();
   Timeline.finishSync();
   return result.future;
-}
-
-@immutable
-class _IsolateConfiguration<Q, R> {
-  const _IsolateConfiguration(
-    this.callback,
-    this.message,
-    this.resultPort,
-    this.debugLabel,
-    this.flowId,
-  );
-  final ComputeCallback<Q, R> callback;
-  final Q message;
-  final SendPort resultPort;
-  final String debugLabel;
-  final int flowId;
-
-  FutureOr<R> apply() => callback(message);
 }
 
 Future<void> _spawn<Q, R>(
@@ -85,6 +72,7 @@ Future<void> _spawn<Q, R>(
     },
     flow: Flow.step(configuration.flowId),
   );
+
   Timeline.timeSync(
     '${configuration.debugLabel}: returning result',
     () {
@@ -95,3 +83,21 @@ Future<void> _spawn<Q, R>(
 }
 
 typedef ComputeCallback<Q, R> = FutureOr<R> Function(Q message);
+
+@immutable
+class _IsolateConfiguration<Q, R> {
+  final ComputeCallback<Q, R> callback;
+  final Q message;
+  final SendPort resultPort;
+  final String debugLabel;
+  final int flowId;
+  const _IsolateConfiguration(
+    this.callback,
+    this.message,
+    this.resultPort,
+    this.debugLabel,
+    this.flowId,
+  );
+
+  FutureOr<R> apply() => callback(message);
+}

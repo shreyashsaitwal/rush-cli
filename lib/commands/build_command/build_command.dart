@@ -1,19 +1,18 @@
 import 'dart:io' show File, Directory, exit;
 
-import 'package:checked_yaml/checked_yaml.dart';
-import 'package:path/path.dart' as p;
 import 'package:archive/archive_io.dart';
 import 'package:args/command_runner.dart';
+import 'package:checked_yaml/checked_yaml.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
-import 'package:rush_cli/commands/build_command/helpers/generator.dart';
+import 'package:path/path.dart' as p;
+import 'package:rush_cli/commands/build_command/helpers/build_utils.dart';
+import 'package:rush_cli/commands/build_command/helpers/compiler.dart';
+import 'package:rush_cli/commands/build_command/helpers/desugarer.dart';
 import 'package:rush_cli/commands/build_command/helpers/executor.dart';
+import 'package:rush_cli/commands/build_command/helpers/generator.dart';
 import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
-
 import 'package:rush_prompt/rush_prompt.dart';
-
-import 'helpers/build_utils.dart';
-import 'helpers/compiler.dart';
 
 class BuildCommand extends Command {
   final String _cd;
@@ -138,7 +137,7 @@ class BuildCommand extends Command {
     try {
       rushYaml = checkedYamlDecode(
         yamlFile.readAsStringSync(),
-        (json) => RushYaml.fromJson(json!),
+        (json) => RushYaml.fromJson(json!, valStep),
         sourceUrl: Uri.tryParse(
             'https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/schema/rush.json'),
       );
@@ -198,12 +197,14 @@ class BuildCommand extends Command {
     final optimize =
         BuildUtils.needsOptimization(isRelease, argResults!, rushYaml);
 
-    await _compile(dataBox, optimize, rushYaml.kotlin?.enable ?? false);
+    await _compile(
+        dataBox, optimize, rushYaml.build?.kotlin?.enable ?? false, rushYaml);
   }
 
   /// Compiles extension's source files
-  Future<void> _compile(Box dataBox, bool optimize, bool enableKt) async {
-    final step = BuildStep('Compiling source files')..init();
+  Future<void> _compile(
+      Box dataBox, bool optimize, bool enableKt, RushYaml rushYaml) async {
+    final compileStep = BuildStep('Compiling source files')..init();
     final compiler = Compiler(_cd, _dataDir);
 
     final srcFiles = Directory(p.join(_cd, 'src'))
@@ -218,71 +219,82 @@ class BuildCommand extends Command {
         .where((file) => p.extension(file.path) == '.kt');
 
     final count = javaFiles.length + ktFiles.length;
-    step.log(
+    compileStep.log(
         LogType.info, 'Picked $count source file' + (count > 1 ? 's' : ''));
 
     try {
       if (ktFiles.isNotEmpty) {
         if (!enableKt) {
-          step
+          compileStep
             ..log(LogType.erro,
                 'Kotlin files detected. Please enable Kotlin in rush.yml.')
             ..finishNotOk();
           exit(1);
         }
 
-        await compiler.compileKt(dataBox, step);
+        await compiler.compileKt(dataBox, compileStep);
       }
 
       if (javaFiles.isNotEmpty) {
-        await compiler.compileJava(dataBox, step);
+        await compiler.compileJava(dataBox, compileStep);
       }
     } catch (e) {
-      step.finishNotOk();
+      compileStep.finishNotOk();
       BuildUtils.printFailMsg(
           BuildUtils.getTimeDifference(_startTime, DateTime.now()));
       exit(1);
     }
 
-    step.finishOk();
-    await _process(
-        await dataBox.get('org'), optimize, argResults!['support-lib']);
+    compileStep.finishOk();
+    await _process(await dataBox.get('org'), optimize,
+        argResults!['support-lib'], rushYaml);
   }
 
   /// Further process the extension by generating extension files, adding
   /// libraries and jaring the extension.
-  Future<void> _process(String org, bool optimize, bool deJet) async {
-    final BuildStep step;
+  Future<void> _process(
+      String org, bool optimize, bool deJet, RushYaml rushYaml) async {
+    final BuildStep processStep;
     final rulesPro = File(p.join(_cd, 'src', 'proguard-rules.pro'));
 
-    step = BuildStep('Processing the extension')..init();
+    processStep = BuildStep('Processing the extension')..init();
     if (!rulesPro.existsSync() && optimize) {
-      step.log(LogType.warn,
+      processStep.log(LogType.warn,
           'Unable to find \'proguard-rules.pro\' in \'src\' directory.');
       optimize = false;
     }
 
-    // Generate the extension files
-    final generator = Generator(_cd, _dataDir);
+    if (rushYaml.build?.desugar?.enable ?? false) {
+      processStep.log(LogType.info, 'Desugaring Java 8 langauge features');
+      final desugarer = Desugarer(_cd, _dataDir);
+      await desugarer.run(org, rushYaml, processStep);
+    }
 
-    step.log(LogType.info, 'Generating extension descriptors');
-    await generator.generate(org, step);
+    // Generate the extension files
+    if (rushYaml.deps?.isEmpty ?? true) {
+      processStep.log(LogType.info, 'Linking extension assets');
+    } else {
+      processStep.log(
+          LogType.info, 'Linking extension assets and dependencies');
+    }
+    await Generator(_cd, _dataDir).generate(org, processStep, rushYaml);
 
     final executor = Executor(_cd, _dataDir);
 
     // Create a JAR containing the contents of extension's dependencies and
     // compiled source files
-    final extJar = await _jarExtension(org, step, optimize);
+    final artJar = await _generateArtJar(org, processStep, optimize);
 
-    if (extJar.existsSync()) {
+    // Copy ART to raw dir
+    if (artJar.existsSync()) {
       final destDir = Directory(
           p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'files'))
         ..createSync(recursive: true);
 
-      extJar.copySync(p.join(destDir.path, 'AndroidRuntime.jar'));
+      artJar.copySync(p.join(destDir.path, 'AndroidRuntime.jar'));
     } else {
-      step
-        ..log(LogType.erro, 'File not found: ' + extJar.path)
+      processStep
+        ..log(LogType.erro, 'File not found: ' + artJar.path)
         ..finishNotOk();
 
       BuildUtils.printFailMsg(
@@ -292,12 +304,12 @@ class BuildCommand extends Command {
 
     var needDeJet = deJet;
     if (deJet) {
-      step.log(LogType.info, 'De-jetifing the extension');
+      processStep.log(LogType.info, 'De-jetifing the extension');
 
       try {
-        needDeJet = await executor.execJetifier(org, step);
+        needDeJet = await executor.execDeJetifier(org, processStep);
       } catch (e) {
-        step.finishNotOk();
+        processStep.finishNotOk();
 
         BuildUtils.printFailMsg(
             BuildUtils.getTimeDifference(_startTime, DateTime.now()));
@@ -311,31 +323,37 @@ class BuildCommand extends Command {
         Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'sup'))
             .deleteSync(recursive: true);
 
-        step.log(LogType.warn,
+        processStep.log(LogType.warn,
             'No references to AndroidX packages were found. You don\'t need to pass the `-s` flag for now.');
       }
     }
 
-    step.log(LogType.info, 'Dexing the extension');
-    await _dex(org, needDeJet, step);
+    processStep.log(LogType.info, 'Dexing the extension');
+    try {
+      await _dex(org, needDeJet, processStep);
+    } catch (e) {
+      processStep.finishNotOk();
+      BuildUtils.printFailMsg(
+          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
+      exit(1);
+    }
 
-    step.finishOk();
+    processStep.finishOk();
     _assemble(org);
   }
 
   /// JAR the compiled class files and third-party dependencies into a
   /// single JAR.
-  Future<File> _jarExtension(
+  Future<File> _generateArtJar(
       String org, BuildStep processStep, bool optimize) async {
-    final classesDir =
-        Directory(p.join(_dataDir, 'workspaces', org, 'classes'));
+    final artDir = Directory(p.join(_dataDir, 'workspaces', org, 'art'));
 
-    final extJar =
-        File(p.join(classesDir.path, 'ART.jar')); // ART == Android Runtime
+    final artJar =
+        File(p.join(artDir.path, 'ART.jar')); // ART == Android Runtime
 
-    final zipEncoder = ZipFileEncoder()..open(extJar.path);
+    final zipEncoder = ZipFileEncoder()..open(artJar.path);
 
-    classesDir.listSync(recursive: true)
+    artDir.listSync(recursive: true)
       ..whereType<File>()
           .where((el) => p.extension(el.path) == '.kotlin_module')
           .forEach((el) {
@@ -347,37 +365,18 @@ class BuildCommand extends Command {
         el.deleteSync(recursive: true);
       });
 
-    for (final entity in classesDir.listSync()) {
-      if (entity is File) {
-        if (p.extension(entity.path) == '.class') {
-          zipEncoder.addFile(entity);
-        }
+    for (final entity in artDir.listSync()) {
+      if (entity is File && p.extension(entity.path) == '.class') {
+        zipEncoder.addFile(entity);
       } else if (entity is Directory) {
         zipEncoder.addDirectory(entity);
       }
     }
-
     zipEncoder.close();
 
-    final executor = Executor(_cd, _dataDir);
-
     try {
-      processStep.log(LogType.info, 'Desugaring Java 8 language features');
-      // Desugar the JAR
-      await executor.execDesugar(org, processStep);
-
-      // Run ProGuard if the extension is supposed to be optimized
       if (optimize) {
-        processStep.log(LogType.info, 'Optimizing the extension');
-        await executor.execProGuard(org, processStep);
-
-        // Delete the old non-optimized JAR...
-        extJar.deleteSync();
-
-        // ...and rename the optimized JAR with old JAR's name
-        File(p.join(classesDir.path, 'art_opt.jar'))
-          ..copySync(extJar.path)
-          ..deleteSync(recursive: true);
+        await _optimizeArt(artJar, org, processStep);
       }
     } catch (e) {
       processStep.finishNotOk();
@@ -386,7 +385,23 @@ class BuildCommand extends Command {
       exit(1);
     }
 
-    return extJar;
+    return artJar;
+  }
+
+  Future<void> _optimizeArt(
+      File artJar, String org, BuildStep processStep) async {
+    final executor = Executor(_cd, _dataDir);
+
+    processStep.log(LogType.info, 'Optimizing the extension');
+    await executor.execProGuard(org, processStep);
+
+    // Delete the old non-optimized JAR...
+    artJar.deleteSync();
+
+    // ...and rename the optimized JAR with old JAR's name
+    File(p.join(p.dirname(artJar.path), 'ART.opt.jar'))
+      ..copySync(artJar.path)
+      ..deleteSync(recursive: true);
   }
 
   /// Convert generated extension JAR file from previous step into DEX
@@ -394,26 +409,19 @@ class BuildCommand extends Command {
   Future<void> _dex(String org, bool deJet, BuildStep processStep) async {
     final executor = Executor(_cd, _dataDir);
 
-    try {
-      if (deJet) {
-        await Future.wait([
-          executor.execD8(org, processStep, deJet: true),
-          executor.execD8(org, processStep),
-        ]);
-      } else {
-        await executor.execD8(org, processStep);
-      }
-    } catch (e) {
-      processStep.finishNotOk();
-      BuildUtils.printFailMsg(
-          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
-      exit(1);
+    if (deJet) {
+      await Future.wait([
+        executor.execD8(org, processStep, deJet: true),
+        executor.execD8(org, processStep),
+      ]);
+    } else {
+      await executor.execD8(org, processStep);
     }
   }
 
   /// Finalize the build.
   void _assemble(String org) {
-    final step = BuildStep('Finalizing the build')..init();
+    final assembleStep = BuildStep('Finalizing the build')..init();
 
     final rawDirX = Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'x'));
     final rawDirSup =
@@ -425,17 +433,17 @@ class BuildCommand extends Command {
     final zipEncoder = ZipFileEncoder();
 
     try {
-      step.log(LogType.info, 'Packing $org.aix');
+      assembleStep.log(LogType.info, 'Packing $org.aix');
       zipEncoder.zipDirectory(rawDirX,
           filename: p.join(outputDir.path, '$org.aix'));
 
       if (rawDirSup.existsSync()) {
-        step.log(LogType.info, 'Packing $org.support.aix');
+        assembleStep.log(LogType.info, 'Packing $org.support.aix');
         zipEncoder.zipDirectory(rawDirSup,
             filename: p.join(outputDir.path, '$org.support.aix'));
       }
     } catch (e) {
-      step
+      assembleStep
         ..log(LogType.erro,
             'Something went wrong while trying to pack the extension.')
         ..log(LogType.erro, e.toString(), addPrefix: false)
@@ -443,7 +451,7 @@ class BuildCommand extends Command {
       exit(1);
     }
 
-    step.finishOk();
+    assembleStep.finishOk();
 
     final store = ErrWarnStore();
     var warn = '';

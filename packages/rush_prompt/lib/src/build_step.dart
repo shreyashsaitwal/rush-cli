@@ -1,6 +1,5 @@
 import 'package:dart_console/dart_console.dart';
 import 'package:rush_prompt/rush_prompt.dart';
-import 'package:rush_prompt/src/err_warn_store.dart';
 
 class BuildStep {
   final _console = Console();
@@ -44,9 +43,8 @@ class BuildStep {
     _console
       ..setForegroundColor(ConsoleColor.brightBlack)
       ..write('└ ')
-      ..resetColorAttributes()
       ..setForegroundColor(ConsoleColor.green)
-      ..writeLine(msg ?? 'Done')
+      ..writeLine(msg ?? 'done')
       ..resetColorAttributes();
   }
 
@@ -55,9 +53,8 @@ class BuildStep {
     _console
       ..setForegroundColor(ConsoleColor.brightBlack)
       ..write('└ ')
-      ..resetColorAttributes()
       ..setForegroundColor(ConsoleColor.red)
-      ..writeLine(msg ?? 'Failed')
+      ..writeLine(msg ?? 'failed')
       ..resetColorAttributes();
   }
 }

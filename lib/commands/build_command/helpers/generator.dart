@@ -1,12 +1,11 @@
-import 'dart:io' show Directory, File;
+import 'dart:io' show Directory, File, exit;
 
-import 'package:checked_yaml/checked_yaml.dart';
+import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/commands/build_command/helpers/compute.dart';
 import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
 import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
-
-import 'build_utils.dart';
 
 class Generator {
   final String _cd;
@@ -15,19 +14,12 @@ class Generator {
   Generator(this._cd, this._dataDir);
 
   /// Generates required extension files.
-  Future<void> generate(String org, BuildStep step) async {
-    final rushYaml = checkedYamlDecode(
-      await BuildUtils.getRushYaml(_cd).readAsString(),
-      (json) => RushYaml.fromJson(json!),
-      sourceUrl: Uri.tryParse(
-          'https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/schema/rush.json'),
-    );
-
+  Future<void> generate(String org, BuildStep step, RushYaml yaml) async {
     await Future.wait([
       _generateRawFiles(org),
-      _copyAssets(rushYaml, org),
+      _copyAssets(yaml, org),
       _copyLicense(org),
-      _copyDeps(rushYaml, org, step),
+      _copyRequiredClasses(yaml, org, step),
     ]);
   }
 
@@ -94,23 +86,41 @@ rush-version=$rushVersion
   }
 
   /// Unjars extension dependencies into the classes dir.
-  Future<void> _copyDeps(RushYaml rushYml, String org, BuildStep step) async {
-    final libs = rushYml.deps ?? [];
+  Future<void> _copyRequiredClasses(
+      RushYaml rushYml, String org, BuildStep step) async {
+    final deps = rushYml.deps ?? [];
 
-    final classesDir =
-        Directory(p.join(_dataDir, 'workspaces', org, 'classes'));
-    await classesDir.create(recursive: true);
+    final artDir = Directory(p.join(_dataDir, 'workspaces', org, 'art'))
+      ..createSync(recursive: true);
 
-    if (libs.isNotEmpty) {
-      final depsDirPath = p.join(_cd, 'deps');
+    final extractFutures = <Future>[];
 
-      libs.forEach((el) {
-        final lib = p.join(depsDirPath, el);
-        BuildUtils.extractJar(lib, classesDir.path, step);
+    if (deps.isNotEmpty) {
+      final desugarStore =
+          p.join(_dataDir, 'workspaces', org, 'files', 'desugar');
+      final isArtDirEmpty = artDir.listSync().isEmpty;
+
+      deps.forEach((el) {
+        final File dep;
+
+        if (rushYml.build?.desugar?.desugar_deps ?? false) {
+          dep = File(p.join(desugarStore, el));
+        } else {
+          dep = File(p.join(_cd, 'deps', el));
+        }
+
+        final isLibModified = dep.existsSync()
+            ? dep.lastModifiedSync().isAfter(artDir.statSync().modified)
+            : true;
+
+        if (isLibModified || isArtDirEmpty) {
+          extractFutures.add(compute(
+              _extractJar, _ExtractJarArgs(dep.path, artDir.path, step)));
+        }
       });
     }
 
-    final kotlinEnabled = rushYml.kotlin?.enable ?? false;
+    final kotlinEnabled = rushYml.build?.kotlin?.enable ?? false;
 
     // If Kotlin is enabled, unjar Kotlin std. lib as well.
     // This step won't be needed once MIT merges the Kotlin support PR.
@@ -118,8 +128,21 @@ rush-version=$rushVersion
       final kotlinStdLib =
           File(p.join(_cd, '.rush', 'dev-deps', 'kotlin-stdlib.jar'));
 
-      BuildUtils.extractJar(kotlinStdLib.path, classesDir.path, step);
+      extractFutures.add(compute(
+          _extractJar, _ExtractJarArgs(kotlinStdLib.path, artDir.path, step)));
     }
+
+    final classesDir =
+        Directory(p.join(_dataDir, 'workspaces', org, 'classes'));
+
+    classesDir.listSync(recursive: true).whereType<File>().forEach((el) {
+      final newPath =
+          p.join(artDir.path, p.relative(el.path, from: classesDir.path));
+      Directory(p.dirname(newPath)).createSync(recursive: true);
+      el.copySync(newPath);
+    });
+
+    await Future.wait(extractFutures);
   }
 
   /// Copies LICENSE file if there's any.
@@ -137,4 +160,45 @@ rush-version=$rushVersion
       await licenseTxt.copy(p.join(dest.path, 'LICENSE'));
     }
   }
+
+  /// Extracts JAR file from [input] and saves the content to [outputDir].
+  static void _extractJar(_ExtractJarArgs args) {
+    final step = args.step;
+
+    final file = File(args.input);
+    if (!file.existsSync()) {
+      step
+        ..log(LogType.erro,
+            'Unable to find required library \'${p.basename(file.path)}\'')
+        ..finishNotOk();
+      exit(1);
+    }
+
+    final bytes = file.readAsBytesSync();
+    final jar = ZipDecoder().decodeBytes(bytes).files;
+
+    for (final entity in jar) {
+      if (entity.isFile) {
+        final data = entity.content;
+        try {
+          File(p.join(args.outputDir, entity.name))
+            ..createSync(recursive: true)
+            ..writeAsBytesSync(data);
+        } catch (e) {
+          step
+            ..log(LogType.erro, e.toString())
+            ..finishNotOk();
+          exit(1);
+        }
+      }
+    }
+  }
+}
+
+class _ExtractJarArgs {
+  final String input;
+  final String outputDir;
+  final BuildStep step;
+
+  _ExtractJarArgs(this.input, this.outputDir, this.step);
 }

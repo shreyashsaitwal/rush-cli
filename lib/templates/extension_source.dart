@@ -45,9 +45,10 @@ class $name(container: ComponentContainer) : AndroidNonvisibleComponent(containe
 
   @SimpleFunction(description = "Returns the sum of the given list of integers.")
 	fun SumAll(integers: YailList): Int {
-		return integers.sumBy { it.toString().toIntOrNull() ?: 0 }
+		return integers.sumBy {
+      it.toString().toIntOrNull() ?: 0
+    }
 	}
-
 }
 ''';
 }

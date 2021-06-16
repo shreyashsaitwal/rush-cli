@@ -3,7 +3,6 @@ import 'dart:io' show Directory, File, exit;
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 import 'package:hive/hive.dart';
-import 'package:archive/archive.dart';
 import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_prompt/rush_prompt.dart';
@@ -34,37 +33,6 @@ class BuildUtils {
         Logger.log(LogType.erro,
             'Something went wrong while invalidating build caches.\n${e.toString()}');
         exit(1);
-      }
-    }
-  }
-
-  /// Extracts JAR file from [filePath] and saves the content to [saveTo].
-  static void extractJar(String filePath, String saveTo, BuildStep step) {
-    final file = File(filePath);
-    if (!file.existsSync()) {
-      step
-        ..log(LogType.erro,
-            'Unable to find required library \'${p.basename(file.path)}\'')
-        ..finishNotOk();
-      exit(1);
-    }
-
-    final bytes = file.readAsBytesSync();
-    final jar = ZipDecoder().decodeBytes(bytes).files;
-
-    for (final entity in jar) {
-      if (entity.isFile) {
-        final data = entity.content;
-        try {
-          File(p.join(saveTo, entity.name))
-            ..createSync(recursive: true)
-            ..writeAsBytesSync(data);
-        } catch (e) {
-          step
-            ..log(LogType.erro, e.toString())
-            ..finishNotOk();
-          exit(1);
-        }
       }
     }
   }

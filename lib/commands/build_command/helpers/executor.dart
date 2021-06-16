@@ -66,11 +66,11 @@ class Executor {
 
       final libraryJars = CmdUtils.generateClasspath([devDeps, deps]);
 
-      final classesDir =
-          Directory(p.join(_dataDir, 'workspaces', org, 'classes'));
+      final artDir =
+          Directory(p.join(_dataDir, 'workspaces', org, 'art'));
 
-      final injar = File(p.join(classesDir.path, 'ART.jar'));
-      final outjar = File(p.join(classesDir.path, 'art_opt.jar'));
+      final injar = File(p.join(artDir.path, 'ART.jar'));
+      final outjar = File(p.join(artDir.path, 'ART.opt.jar'));
 
       final pgRules = File(p.join(_cd, 'src', 'proguard-rules.pro'));
 
@@ -99,7 +99,7 @@ class Executor {
 
   /// Executes Jetifier standalone in reverse mode. Returns true if de-jetification
   /// (androidx -> support lib) is required, otherwise false.
-  Future<bool> execJetifier(String org, BuildStep step) async {
+  Future<bool> execDeJetifier(String org, BuildStep step) async {
     final args = () {
       final rawOrgDir =
           Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'x', org));
@@ -145,62 +145,6 @@ class Executor {
     }
 
     return isDeJetNeeded;
-  }
-
-  Future<void> execDesugar(String org, BuildStep step) async {
-    final desugarJar = p.join(_dataDir, 'tools', 'other', 'desugar.jar');
-
-    final inputJar =
-        File(p.join(_dataDir, 'workspaces', org, 'classes', 'ART.jar'));
-    final outputJar =
-        File(p.join(_dataDir, 'workspaces', org, 'classes', 'ART.jar.dsgr'));
-
-    final rtJar = p.join(_dataDir, 'tools', 'other', 'rt.jar');
-
-    final fileContents = <String>[]
-      // ignore: prefer_inlined_adds
-      ..add('--emit_dependency_metadata_as_needed')
-      ..addAll(['--bootclasspath_entry', rtJar])
-      ..addAll(['--input', inputJar.path])
-      ..addAll(['--output', outputJar.path]);
-
-    final devDeps = Directory(p.join(_cd, '.rush', 'dev-deps'));
-    final deps = Directory(p.join(_cd, 'deps'));
-    final classpath =
-        CmdUtils.generateClasspath([devDeps, deps], relative: false);
-
-    classpath.split(CmdUtils.getSeparator()).forEach((el) {
-      fileContents.addAll(['--classpath_entry', '\'' + el + '\'']);
-    });
-
-    final argsFile =
-        File(p.join(_dataDir, 'workspaces', org, 'files', 'desugar.rsh'))
-          ..createSync();
-
-    var lines = '';
-    fileContents.forEach((el) {
-      lines += el + '\n';
-    });
-    argsFile.writeAsStringSync(lines);
-
-    final args = <String>['java'];
-    args
-      ..addAll(['-cp', desugarJar])
-      ..add('com.google.devtools.build.android.desugar.Desugar')
-      ..add('@${argsFile.path}');
-
-    final process = ProcessStreamer.stream(args);
-
-    try {
-      // ignore: unused_local_variable
-      await for (final res in process) {}
-    } on ProcessRunnerException catch (e) {
-      _prettyPrintErrors(e.result!.stderr.split('\n'), step);
-      rethrow;
-    }
-
-    inputJar.deleteSync();
-    outputJar.renameSync(inputJar.path);
   }
 
   /// Analyzes [errList] and prints it accordingly to stdout/stderr in
