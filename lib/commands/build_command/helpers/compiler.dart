@@ -282,7 +282,7 @@ class Compiler {
               line = line.replaceFirst(p.join(cd, 'src'), 'src');
             }
 
-            step.log(LogType.warn, ' ' * 7 + line, addPrefix: false);
+            step.log(LogType.warn, ' ' * 5 + line, addPrefix: false);
           }
         });
       }
@@ -329,9 +329,9 @@ class Compiler {
           skipThis = false;
         } else if (!skipThis) {
           if (gotErr) {
-            step.log(LogType.erro, ' ' * 7 + line, addPrefix: false);
+            step.log(LogType.erro, ' ' * 5 + line, addPrefix: false);
           } else {
-            step.log(LogType.warn, ' ' * 7 + line, addPrefix: false);
+            step.log(LogType.warn, ' ' * 5 + line, addPrefix: false);
           }
         }
       });

@@ -66,8 +66,7 @@ class Executor {
 
       final libraryJars = CmdUtils.generateClasspath([devDeps, deps]);
 
-      final artDir =
-          Directory(p.join(_dataDir, 'workspaces', org, 'art'));
+      final artDir = Directory(p.join(_dataDir, 'workspaces', org, 'art'));
 
       final injar = File(p.join(artDir.path, 'ART.jar'));
       final outjar = File(p.join(artDir.path, 'ART.opt.jar'));
@@ -180,7 +179,7 @@ class Executor {
         step.log(LogType.note, msg);
       } else {
         final msg = err.replaceFirst(errPattern, '').trim();
-        step.log(prevLogType, ' ' * 7 + msg, addPrefix: false);
+        step.log(prevLogType, ' ' * 5 + msg, addPrefix: false);
       }
     }
   }

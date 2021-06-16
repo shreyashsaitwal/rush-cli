@@ -17,7 +17,7 @@ class Generator {
   Future<void> generate(String org, BuildStep step, RushYaml yaml) async {
     await Future.wait([
       _generateRawFiles(org),
-      _copyAssets(yaml, org),
+      _copyAssets(yaml, org, step),
       _copyLicense(org),
       _copyRequiredClasses(yaml, org, step),
     ]);
@@ -53,7 +53,7 @@ rush-version=$rushVersion
   }
 
   /// Copies extension's assets to the raw dircetory.
-  Future<void> _copyAssets(RushYaml rushYml, String org) async {
+  Future<void> _copyAssets(RushYaml rushYml, String org, BuildStep step) async {
     final assets = rushYml.assets.other ?? [];
 
     if (assets.isNotEmpty) {
@@ -64,7 +64,13 @@ rush-version=$rushVersion
 
       assets.forEach((el) async {
         final asset = File(p.join(assetsDir, el));
-        await asset.copy(p.join(assetsDestDirX.path, el));
+
+        if (asset.existsSync()) {
+          await asset.copy(p.join(assetsDestDirX.path, el));
+        } else {
+          step.log(LogType.warn,
+              'Unable to find asset "${p.basename(el)}". Skipping.');
+        }
       });
     }
 

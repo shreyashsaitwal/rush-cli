@@ -148,7 +148,7 @@ class BuildCommand extends Command {
           'The following error occurred while validating metadata file (rush.yml):');
 
       e.message.split('\n').forEach((element) {
-        valStep.log(LogType.erro, ' ' * 7 + element, addPrefix: false);
+        valStep.log(LogType.erro, ' ' * 5 + element, addPrefix: false);
       });
 
       valStep.finishNotOk();
@@ -161,10 +161,10 @@ class BuildCommand extends Command {
 
       if (e.toString().contains('\n')) {
         e.toString().split('\n').forEach((element) {
-          valStep.log(LogType.erro, ' ' * 7 + element, addPrefix: false);
+          valStep.log(LogType.erro, ' ' * 5 + element, addPrefix: false);
         });
       } else {
-        valStep.log(LogType.erro, ' ' * 7 + e.toString(), addPrefix: false);
+        valStep.log(LogType.erro, ' ' * 5 + e.toString(), addPrefix: false);
       }
 
       valStep.finishNotOk();
@@ -453,21 +453,26 @@ class BuildCommand extends Command {
 
     assembleStep.finishOk();
 
+    final timestamp = BuildUtils.getTimeDifference(_startTime, DateTime.now());
+
     final store = ErrWarnStore();
     var warn = '';
 
+    final brightBlack = '\u001b[30;1m';
+    final yellow = '\u001b[33m';
+    final reset = '\u001b[0m';
+
     if (store.getWarnings > 0) {
-      warn += '[\u001b[33m'; // yellow
+      warn += '$brightBlack[$reset';
+      warn += yellow;
       warn += store.getWarnings > 1
           ? '${store.getWarnings} warnings'
           : '${store.getWarnings} warning';
-      warn += '\u001b[0m]'; // reset
+      warn += '$brightBlack]$reset';
     }
 
-    Logger.logCustom(
-        'Build successful ${BuildUtils.getTimeDifference(_startTime, DateTime.now())} $warn',
-        prefix: '\n• ',
-        prefixFG: ConsoleColor.brightGreen);
+    Logger.logCustom('Build successful $timestamp $warn',
+        prefix: '\n• ', prefixFG: ConsoleColor.brightGreen);
     exit(0);
   }
 }

@@ -1,106 +1,14 @@
 import 'dart:io' show Directory, File, exit;
 
 import 'package:args/args.dart';
-import 'package:path/path.dart' as p;
+import 'package:dart_console/dart_console.dart' show ConsoleColor;
 import 'package:hive/hive.dart';
+import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_prompt/rush_prompt.dart';
-import 'package:dart_console/dart_console.dart' show ConsoleColor;
 
 class BuildUtils {
-  /// Copys the dev deps in case they are not present.
-  /// This might be needed when the project is cloned from a VCS.
-  static void copyDevDeps(String dataDir, String cd) {
-    final devDepsDir = Directory(p.join(cd, '.rush', 'dev-deps'))
-      ..createSync(recursive: true);
-
-    final devDepsCache = Directory(p.join(dataDir, 'dev-deps'));
-
-    if (devDepsDir.listSync().length < devDepsCache.listSync().length) {
-      CmdUtils.copyDir(devDepsCache, devDepsDir);
-    }
-  }
-
-  /// Cleans workspace dir for the given [org].
-  static void cleanWorkspaceDir(String dataDir, String org) {
-    final dir = Directory(p.join(dataDir, 'workspaces', org));
-
-    if (dir.existsSync()) {
-      try {
-        dir.deleteSync(recursive: true);
-      } catch (e) {
-        Logger.log(LogType.erro,
-            'Something went wrong while invalidating build caches.\n${e.toString()}');
-        exit(1);
-      }
-    }
-  }
-
-  /// Gets time difference between the given two `DateTime`s.
-  static String getTimeDifference(DateTime timeOne, DateTime timeTwo) {
-    final diff = timeTwo.difference(timeOne).inMilliseconds;
-
-    final seconds = diff ~/ 1000;
-    final millis = diff % 1000;
-
-    var res = '';
-    if (seconds > 0) {
-      res += '${seconds}s ';
-    }
-    res += '${millis}ms';
-
-    return '[$res]';
-  }
-
-  /// Prints "• Build Failed" to the console
-  static void printFailMsg(String timeDiff) {
-    final store = ErrWarnStore();
-
-    var errWarn = '[';
-
-    if (store.getErrors > 0) {
-      errWarn += '\u001b[31m'; // red
-      errWarn += store.getErrors > 1
-          ? '${store.getErrors} errors'
-          : '${store.getErrors} error';
-      errWarn += '\u001b[0m'; // reset
-
-      if (store.getWarnings > 0) {
-        errWarn += ';';
-      }
-    } else if (store.getWarnings > 0) {
-      errWarn += '\u001b[33m'; // yellow
-      errWarn += store.getWarnings > 1
-          ? '${store.getWarnings} warnings'
-          : '${store.getWarnings} warning';
-      errWarn += '\u001b[0m'; // reset
-    }
-
-    errWarn = errWarn.length == 1 ? '' : '$errWarn]';
-
-    Logger.logCustom('Build failed $errWarn $timeDiff',
-        prefix: '\n• ', prefixFG: ConsoleColor.red);
-  }
-
-  /// Returns `true` if the current extension needs to be optimized.
-  static bool needsOptimization(
-      bool isRelease, ArgResults args, RushYaml yaml) {
-    if (args['no-optimize']) {
-      return false;
-    }
-
-    if (args['optimize']) {
-      return true;
-    }
-
-    if (isRelease && (yaml.release?.optimize ?? false)) {
-      return true;
-    }
-
-    return false;
-  }
-
   /// Returns `true` if rush.yml and AndroidManifest.xml is modified.
   static Future<bool> areInfoFilesModified(String cd, Box dataBox) async {
     final rushYml;
@@ -128,6 +36,34 @@ class BuildUtils {
     }
 
     return res;
+  }
+
+  /// Cleans workspace dir for the given [org].
+  static void cleanWorkspaceDir(String dataDir, String org) {
+    final dir = Directory(p.join(dataDir, 'workspaces', org));
+
+    if (dir.existsSync()) {
+      try {
+        dir.deleteSync(recursive: true);
+      } catch (e) {
+        Logger.log(LogType.erro,
+            'Something went wrong while invalidating build caches.\n${e.toString()}');
+        exit(1);
+      }
+    }
+  }
+
+  /// Copys the dev deps in case they are not present.
+  /// This might be needed when the project is cloned from a VCS.
+  static void copyDevDeps(String dataDir, String cd) {
+    final devDepsDir = Directory(p.join(cd, '.rush', 'dev-deps'))
+      ..createSync(recursive: true);
+
+    final devDepsCache = Directory(p.join(dataDir, 'dev-deps'));
+
+    if (devDepsDir.listSync().length < devDepsCache.listSync().length) {
+      CmdUtils.copyDir(devDepsCache, devDepsDir);
+    }
   }
 
   /// Ensures that the required data exists in the data box.
@@ -201,5 +137,80 @@ class BuildUtils {
     } else {
       throw Exception('rush.yml not found');
     }
+  }
+
+  /// Gets time difference between the given two `DateTime`s.
+  static String getTimeDifference(DateTime timeOne, DateTime timeTwo) {
+    final diff = timeTwo.difference(timeOne).inMilliseconds;
+
+    final brightBlack = '\u001b[30;1m';
+    final cyan = '\u001b[36m';
+    final reset = '\u001b[0m';
+
+    final seconds = diff ~/ 1000;
+    final millis = diff % 1000;
+
+    var res = '$brightBlack[$reset';
+    res += cyan;
+    if (seconds > 0) {
+      res += '${seconds}s ';
+    }
+    res += '${millis}ms';
+    res += '$brightBlack]$reset';
+
+    return '$res';
+  }
+
+  /// Returns `true` if the current extension needs to be optimized.
+  static bool needsOptimization(
+      bool isRelease, ArgResults args, RushYaml yaml) {
+    if (args['no-optimize']) {
+      return false;
+    }
+
+    if (args['optimize']) {
+      return true;
+    }
+
+    if (isRelease && (yaml.release?.optimize ?? false)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /// Prints "• Build Failed" to the console
+  static void printFailMsg(String timeDiff) {
+    final store = ErrWarnStore();
+
+    final brightBlack = '\u001b[30;1m';
+    final red = '\u001b[31m';
+    final yellow = '\u001b[33m';
+    final reset = '\u001b[0m';
+
+    var errWarn = '$brightBlack[$reset';
+
+    if (store.getErrors > 0) {
+      errWarn += red;
+      errWarn += store.getErrors > 1
+          ? '${store.getErrors} errors'
+          : '${store.getErrors} error';
+      errWarn += reset;
+
+      if (store.getWarnings > 0) {
+        errWarn += ';';
+      }
+    } else if (store.getWarnings > 0) {
+      errWarn += yellow;
+      errWarn += store.getWarnings > 1
+          ? '${store.getWarnings} warnings'
+          : '${store.getWarnings} warning';
+      errWarn += reset;
+    }
+
+    errWarn = errWarn.length == 1 ? '' : '$errWarn$brightBlack]$reset';
+
+    Logger.logCustom('Build failed $timeDiff $errWarn',
+        prefix: '\n• ', prefixFG: ConsoleColor.red);
   }
 }

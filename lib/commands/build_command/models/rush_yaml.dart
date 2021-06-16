@@ -66,11 +66,8 @@ class RushYaml {
   factory RushYaml.fromJson(Map json, BuildStep step) {
     final yaml = _$RushYamlFromJson(json);
 
-    if (yaml.license_url != null) {
-      step.log(LogType.warn,
-          'Field `license_url` is deprecated. Consider using field `license` instead.');
-    }
-
+    if (yaml.license_url != null) {}
+    _printLicWarn(step, yaml.license_url!);
     if (yaml.release != null) {
       _printReleaseWarn(step);
     }
@@ -80,6 +77,21 @@ class RushYaml {
 
   Map<String, dynamic> toJson() => _$RushYamlToJson(this);
 
+  static void _printLicWarn(BuildStep step, String value) {
+    final brightBlack = '\u001b[30;1m';
+    final cyan = '\u001b[36m';
+    final green = '\u001b[32m';
+    final reset = '\u001b[0m';
+
+    step.log(LogType.warn,
+        'Field `license_url` is deprecated. Consider using field `license` instead.');
+    step.log(LogType.warn, ' ' * 4 + '$brightBlack|$reset', addPrefix: false);
+    step.log(LogType.warn,
+        ' ' * 4 + '$brightBlack|$reset${cyan}license: $green$value$reset',
+        addPrefix: false);
+    step.log(LogType.warn, ' ' * 4 + '$brightBlack|$reset', addPrefix: false);
+  }
+
   static void _printReleaseWarn(BuildStep step) {
     final brightBlack = '\u001b[30;1m';
     final cyan = '\u001b[36m';
@@ -88,11 +100,14 @@ class RushYaml {
 
     step.log(LogType.warn,
         'Field `release` is deprecated. Consider using field `build.release` instead.');
-    step.log(LogType.warn, '  $brightBlack|$reset', addPrefix: false);
-    step.log(LogType.warn, '  $brightBlack|$reset${cyan}build:', addPrefix: false);
-    step.log(LogType.warn, '  $brightBlack|$reset$cyan  release:', addPrefix: false);
-    step.log(LogType.warn, '  $brightBlack|$reset$cyan    optimize: ${green}true',
+    step.log(LogType.warn, ' ' * 4 + '$brightBlack|$reset', addPrefix: false);
+    step.log(LogType.warn, ' ' * 4 + '$brightBlack|$reset${cyan}build:',
         addPrefix: false);
-    step.log(LogType.warn, '  $brightBlack|$reset', addPrefix: false);
+    step.log(LogType.warn, ' ' * 4 + '$brightBlack|$reset$cyan  release:',
+        addPrefix: false);
+    step.log(LogType.warn,
+        ' ' * 4 + '$brightBlack|$reset$cyan    optimize: ${green}true',
+        addPrefix: false);
+    step.log(LogType.warn, ' ' * 4 + '$brightBlack|$reset', addPrefix: false);
   }
 }

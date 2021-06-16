@@ -57,8 +57,7 @@ class MigrateCommand extends Command {
       compStep.finishNotOk();
 
       Logger.logCustom('Build failed',
-          prefix: '\n• ',
-          prefixFG: ConsoleColor.brightRed);
+          prefix: '\n• ', prefixFG: ConsoleColor.brightRed);
       exit(1);
     }
 
@@ -275,9 +274,9 @@ class MigrateCommand extends Command {
           gotErr = false;
         } else {
           if (gotErr) {
-            step.log(LogType.erro, ' ' * 7 + line, addPrefix: false);
+            step.log(LogType.erro, ' ' * 5 + line, addPrefix: false);
           } else {
-            step.log(LogType.warn, ' ' * 7 + line, addPrefix: false);
+            step.log(LogType.warn, ' ' * 5 + line, addPrefix: false);
           }
         }
       });

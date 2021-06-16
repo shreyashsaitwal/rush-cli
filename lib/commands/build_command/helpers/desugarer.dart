@@ -127,7 +127,7 @@ class Desugarer {
         if (el.startsWith(errPattern)) {
           args.step.log(LogType.erro, el.replaceFirst(errPattern, ''));
         } else {
-          args.step.log(LogType.erro, ' ' * 7 + el, addPrefix: false);
+          args.step.log(LogType.erro, ' ' * 5 + el, addPrefix: false);
         }
       });
       rethrow;
