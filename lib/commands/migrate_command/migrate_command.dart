@@ -1,11 +1,10 @@
 import 'dart:io' show File, Directory, exit;
 
-import 'package:path/path.dart' as p;
-import 'package:dart_console/dart_console.dart';
 import 'package:args/command_runner.dart';
-import 'package:process_runner/process_runner.dart';
-import 'package:rush_cli/helpers/cmd_utils.dart';
+import 'package:dart_console/dart_console.dart';
+import 'package:path/path.dart' as p;
 import 'package:rush_cli/helpers/casing.dart';
+import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
 import 'package:rush_cli/templates/intellij_files.dart';
@@ -239,49 +238,12 @@ class MigrateCommand extends Command {
         ..addAll([...srcFiles]);
 
       return args;
-    };
+    }();
 
-    final stream = ProcessStreamer.stream(args());
-
-    try {
-      // ignore: unused_local_variable
-      await for (final result in stream) {}
-    } on ProcessRunnerException catch (e) {
-      final stderr = e.result?.stderr.split('\n') ?? [];
-
-      final errPattern = RegExp(r'\s*error:\s?');
-
-      final excludePatterns = [
-        RegExp('The following options were not recognized'),
-        RegExp(r'\d+\s*warnings?:?\s?'),
-        RegExp(r'\d+\s*errors?\s?'),
-      ];
-
-      var gotErr = true;
-
-      stderr.where((line) => line.trim().isNotEmpty).forEach((line) {
-        if (line.startsWith(_cd)) {
-          line = line.replaceFirst(p.join(_cd, 'src'), 'src');
-        }
-
-        if (line.contains(errPattern)) {
-          line = line.replaceFirst(
-              errPattern, line.startsWith(errPattern) ? '' : ' ');
-          gotErr = true;
-
-          step.log(LogType.erro, line);
-        } else if (excludePatterns.any((el) => el.hasMatch(line))) {
-          gotErr = false;
-        } else {
-          if (gotErr) {
-            step.log(LogType.erro, ' ' * 5 + line, addPrefix: false);
-          } else {
-            step.log(LogType.warn, ' ' * 5 + line, addPrefix: false);
-          }
-        }
-      });
-
-      rethrow;
+    final result =
+        await ProcessStreamer.stream(args, _cd, step, isProcessIsolated: false);
+    if (result == ProcessResult.error) {
+      throw Exception();
     }
   }
 

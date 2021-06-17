@@ -23,12 +23,7 @@ class Compiler {
 
     final args = await _getJavacArgs(await dataBox.get('name'), org, version);
 
-    await compute(_streamOutput, <String, dynamic>{
-      'cd': _cd,
-      'args': args,
-      'step': step,
-      'forKt': false,
-    });
+    await compute(_startProcess, _StartProcessArgs(_cd, args, step, false));
 
     await _generateInfoFilesIfNoBlocks(org, version, instance, step);
   }
@@ -42,18 +37,8 @@ class Compiler {
     final kaptArgs = await _getKaptArgs(dataBox);
 
     await Future.wait([
-      compute(_streamOutput, <String, dynamic>{
-        'cd': _cd,
-        'args': ktcArgs,
-        'step': step,
-        'forKt': false,
-      }),
-      compute(_streamOutput, <String, dynamic>{
-        'cd': _cd,
-        'args': kaptArgs,
-        'step': step,
-        'forKt': false,
-      }),
+      compute(_startProcess, _StartProcessArgs(_cd, ktcArgs, step, true)),
+      compute(_startProcess, _StartProcessArgs(_cd, kaptArgs, step, true)),
     ]);
 
     await _generateInfoFilesIfNoBlocks(
@@ -80,12 +65,7 @@ class Compiler {
         filesDir,
       ];
 
-      await compute(_streamOutput, <String, dynamic>{
-        'cd': _cd,
-        'args': args,
-        'step': step,
-        'forKt': false,
-      });
+      await compute(_startProcess, _StartProcessArgs(_cd, args, step, false));
 
       step.log(LogType.warn, 'No declaration of any block annotation found');
     }
@@ -201,145 +181,18 @@ class Compiler {
     return [kotlincJvm, '@${argFile.path}'];
   }
 
-  /// This list keeps a track of the errors/warnings/etc. that have
-  /// been printed already while Kotlin compilation.
-  static final _alreadyPrinted = <String>[];
+  /// Starts a new process with [args.cmdArgs] and prints the output to
+  /// the console.
+  static Future<void> _startProcess(_StartProcessArgs args) async {
+    final cd = args.cd;
+    final cmdArgs = args.cmdArgs;
+    final step = args.step;
+    final isIsolated = args.isParallelProcess;
 
-  /// Starts a new process from [argMap] and prints the output to the
-  /// console.
-  static Future<void> _streamOutput(Map<String, dynamic> argMap) async {
-    String cd = argMap['cd'];
-    List<String> args = argMap['args'];
-    BuildStep step = argMap['step'];
-    bool forKt = argMap['forKt'] ?? false;
-
-    final warnPattern = RegExp(r'(\s*warning:\s?)+', caseSensitive: false);
-    final errPattern = RegExp(r'(\s*error:\s?)+', caseSensitive: false);
-    final notePattern = RegExp(r'(\s*note:\s?)+', caseSensitive: false);
-
-    // These patterns are either useless or don't make sense in Rush's
-    // context. For example, the error and warning count printed by
-    // javac is not necessary to print as Rush itself keeps track of
-    // them.
-    final excludePatterns = [
-      RegExp(r'The\sfollowing\soptions\swere\snot\srecognized'),
-      RegExp(r'\d+\s*warnings?\s?'),
-      RegExp(r'\d+\s*errors?\s?'),
-      RegExp(r'.*Recompile\swith.*for\sdetails', dotAll: true)
-    ];
-
-    final stream = ProcessStreamer.stream(args);
-
-    try {
-      await for (final result in stream) {
-        final stdout = result.output.split('\n');
-
-        var skipThis = false;
-
-        stdout
-            .where((line) =>
-                line.trim().isNotEmpty &&
-                !excludePatterns.any((el) => el.hasMatch(line)))
-            .forEach((line) {
-          // When compiling Kotlin, the Kotlin compiler and the annotation
-          // processing plugin, kapt, are run in parallel to reduce the
-          // overall compilation time. Because of this if there are errors,
-          // they will be printed twice.
-
-          // Therefore, to prevent this from happening, we keep a track of
-          // all sorts of things that are already printed while compiling
-          // Kotlin in the [alreadyPrinted] list, and everytime there's
-          // something new to print we check if that was already printed or
-          // not.
-
-          // Here, we aren't checking for errPattern because if any error
-          // occurred this block won't run; the catch block will.
-
-          if (forKt && _alreadyPrinted.contains(line)) {
-            skipThis = true;
-          } else if (line.contains(warnPattern)) {
-            line = line.replaceFirst(
-                warnPattern, line.startsWith(warnPattern) ? '' : ' ');
-
-            if (line.startsWith(cd)) {
-              line = line.replaceFirst(p.join(cd, 'src'), 'src');
-            }
-
-            skipThis = false;
-            step.log(LogType.warn, line);
-          } else if (line.contains(notePattern)) {
-            line = line.replaceFirst(
-                notePattern, line.startsWith(notePattern) ? '' : ' ');
-
-            if (line.startsWith(cd)) {
-              line = line.replaceFirst(p.join(cd, 'src'), 'src');
-            }
-
-            skipThis = false;
-            step.log(LogType.note, line);
-          } else if (!skipThis) {
-            if (line.startsWith(cd)) {
-              line = line.replaceFirst(p.join(cd, 'src'), 'src');
-            }
-
-            step.log(LogType.warn, ' ' * 5 + line, addPrefix: false);
-          }
-        });
-      }
-    } on ProcessRunnerException catch (e) {
-      final stderr = e.result?.stderr.split('\n') ?? [];
-
-      var gotErr = true;
-      var skipThis = false;
-
-      stderr
-          .where((line) =>
-              line.trim().isNotEmpty &&
-              !excludePatterns.any((el) => el.hasMatch(line)))
-          .forEach((line) {
-        if (line.startsWith(cd)) {
-          line = line.replaceFirst(p.join(cd, 'src'), 'src');
-        }
-
-        if (forKt && _alreadyPrinted.contains(line)) {
-          skipThis = true;
-        } else if (line.contains(errPattern)) {
-          final msg = line.replaceFirst(
-              errPattern, line.startsWith(errPattern) ? '' : ' ');
-          step.log(LogType.erro, msg);
-
-          _alreadyPrinted.add(line);
-          gotErr = true;
-          skipThis = false;
-        } else if (line.contains(warnPattern)) {
-          final msg = line.replaceFirst(
-              warnPattern, line.startsWith(warnPattern) ? '' : ' ');
-          step.log(LogType.warn, msg);
-
-          _alreadyPrinted.add(line);
-          gotErr = false;
-          skipThis = false;
-        } else if (line.contains(notePattern)) {
-          final msg = line.replaceFirst(
-              notePattern, line.startsWith(notePattern) ? '' : ' ');
-          step.log(LogType.note, msg);
-
-          _alreadyPrinted.add(line);
-          gotErr = false;
-          skipThis = false;
-        } else if (!skipThis) {
-          if (gotErr) {
-            step.log(LogType.erro, ' ' * 5 + line, addPrefix: false);
-          } else {
-            step.log(LogType.warn, ' ' * 5 + line, addPrefix: false);
-          }
-        }
-      });
-
-      rethrow;
-    } catch (e) {
-      step.log(LogType.erro, e.toString().trim());
-      rethrow;
+    final result = await ProcessStreamer.stream(cmdArgs, cd, step,
+        isProcessIsolated: isIsolated);
+    if (result == ProcessResult.error) {
+      throw Exception();
     }
   }
 
@@ -410,4 +263,13 @@ class Compiler {
 
     return file;
   }
+}
+
+class _StartProcessArgs {
+  final String cd;
+  final List<String> cmdArgs;
+  final BuildStep step;
+  final bool isParallelProcess;
+
+  _StartProcessArgs(this.cd, this.cmdArgs, this.step, this.isParallelProcess);
 }

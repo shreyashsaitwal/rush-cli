@@ -4,7 +4,6 @@ import 'package:path/path.dart' as p;
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
 import 'package:rush_prompt/rush_prompt.dart';
-import 'package:process_runner/process_runner.dart' show ProcessRunnerException;
 
 enum ExeType { d8, d8ForSup, proguard, jetifier }
 
@@ -40,18 +39,12 @@ class Executor {
         ]);
 
       return res;
-    };
+    }();
 
-    final stream = ProcessStreamer.stream(args());
-
-    try {
-      // ignore: unused_local_variable
-      await for (final result in stream) {}
-    } on ProcessRunnerException catch (e) {
-      final errList = e.result!.stderr.split('\n');
-      _prettyPrintErrors(errList, step);
-
-      rethrow;
+    final result =
+        await ProcessStreamer.stream(args, _cd, step, isProcessIsolated: false);
+    if (result == ProcessResult.error) {
+      throw Exception();
     }
   }
 
@@ -81,18 +74,12 @@ class Executor {
         ..add('@${pgRules.path}');
 
       return res;
-    };
+    }();
 
-    final stream = ProcessStreamer.stream(args());
-
-    try {
-      // ignore: unused_local_variable
-      await for (final result in stream) {}
-    } on ProcessRunnerException catch (e) {
-      final errList = e.result!.stderr.split('\n');
-      _prettyPrintErrors(errList, step);
-
-      rethrow;
+    final result =
+        await ProcessStreamer.stream(args, _cd, step, isProcessIsolated: false);
+    if (result == ProcessResult.error) {
+      throw Exception();
     }
   }
 
@@ -121,66 +108,18 @@ class Executor {
         ..add('-r');
 
       return res;
-    };
+    }();
 
-    final stream = ProcessStreamer.stream(args());
+    final patternChecker = ProcessPatternChecker(
+        RegExp(r'WARNING: \[Main\] No references were rewritten.'));
 
-    var isDeJetNeeded = true;
-
-    try {
-      final pattern =
-          RegExp(r'WARNING: \[Main\] No references were rewritten.');
-
-      await for (final result in stream) {
-        if (isDeJetNeeded) {
-          isDeJetNeeded = !result.output.contains(pattern);
-        }
-      }
-    } on ProcessRunnerException catch (e) {
-      final errList = e.result!.stderr.split('\n');
-      _prettyPrintErrors(errList, step);
-
-      rethrow;
+    final stream = await ProcessStreamer.stream(args, _cd, step,
+        isProcessIsolated: false, patternChecker: patternChecker);
+    if (stream == ProcessResult.error) {
+      throw Exception();
     }
 
-    return isDeJetNeeded;
-  }
-
-  /// Analyzes [errList] and prints it accordingly to stdout/stderr in
-  /// different colors.
-  void _prettyPrintErrors(List<String> errList, BuildStep step) {
-    final errPattern = RegExp(r'\s*error:?\s?', caseSensitive: false);
-    final warnPattern = RegExp(r'\s*warning:?\s?', caseSensitive: false);
-    final infoPattern = RegExp(r'\s*info:?\s?', caseSensitive: false);
-    final notePattern = RegExp(r'\s*note:?\s?', caseSensitive: false);
-
-    var prevLogType = LogType.erro;
-
-    for (final err in errList) {
-      if (err.startsWith(errPattern)) {
-        final msg = err.replaceFirst(errPattern, '').trim();
-        prevLogType = LogType.erro;
-
-        step.log(LogType.erro, msg);
-      } else if (err.startsWith(warnPattern)) {
-        final msg = err.replaceFirst(warnPattern, '').trim();
-        prevLogType = LogType.warn;
-
-        step.log(LogType.warn, msg);
-      } else if (err.startsWith(infoPattern)) {
-        final msg = err.replaceFirst(infoPattern, '').trim();
-        prevLogType = LogType.info;
-
-        step.log(LogType.info, msg);
-      } else if (err.startsWith(notePattern)) {
-        final msg = err.replaceFirst(notePattern, '').trim();
-        prevLogType = LogType.note;
-
-        step.log(LogType.note, msg);
-      } else {
-        final msg = err.replaceFirst(errPattern, '').trim();
-        step.log(prevLogType, ' ' * 5 + msg, addPrefix: false);
-      }
-    }
+    // If the above pattern exists, de-jetification isn't needed.
+    return !patternChecker.patternExists;
   }
 }

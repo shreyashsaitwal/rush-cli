@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:process_runner/process_runner.dart';
 import 'package:rush_cli/commands/build_command/helpers/compute.dart';
 import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
@@ -88,7 +87,9 @@ class Desugarer {
 
       final contents = <String>[];
       contents
+        // emits META-INF/desugar_deps
         ..add('--emit_dependency_metadata_as_needed')
+        // Rewrites try-with-resources statements
         ..add('--desugar_try_with_resources_if_needed')
         ..addAll(['--bootclasspath_entry', rtJar])
         ..addAll(['--input', args.input])
@@ -113,24 +114,15 @@ class Desugarer {
       ..add('com.google.devtools.build.android.desugar.Desugar')
       ..add('@${p.basename(argFile.path)}');
 
-    final process = ProcessStreamer.stream(cmdArgs,
+    // Changing the working directory to arg file's parent dir
+    // because the desugar.jar doesn't allow the use of `:`
+    // in file path which is a common char in Windows paths.
+    final result = await ProcessStreamer.stream(cmdArgs, args.cd, args.step,
+        isProcessIsolated: true,
         workingDirectory: Directory(p.dirname(argFile.path)));
 
-    try {
-      // ignore: unused_local_variable
-      await for (final r in process) {}
-    } on ProcessRunnerException catch (e) {
-      final errPattern = RegExp(r'\s*error:?\s?', caseSensitive: false);
-
-      final errList = e.result!.stderr.split('\n');
-      errList.forEach((el) {
-        if (el.startsWith(errPattern)) {
-          args.step.log(LogType.erro, el.replaceFirst(errPattern, ''));
-        } else {
-          args.step.log(LogType.erro, ' ' * 5 + el, addPrefix: false);
-        }
-      });
-      rethrow;
+    if (result == ProcessResult.error) {
+      throw Exception();
     }
 
     argFile.deleteSync();
