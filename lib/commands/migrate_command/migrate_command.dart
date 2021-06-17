@@ -240,9 +240,8 @@ class MigrateCommand extends Command {
       return args;
     }();
 
-    final result =
-        await ProcessStreamer.stream(args, _cd, step, isProcessIsolated: false);
-    if (result == ProcessResult.error) {
+    final result = await ProcessStreamer.stream(args, _cd, step);
+    if (result.result == Result.error) {
       throw Exception();
     }
   }

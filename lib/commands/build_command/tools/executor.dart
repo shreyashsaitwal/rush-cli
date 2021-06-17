@@ -41,9 +41,8 @@ class Executor {
       return res;
     }();
 
-    final result =
-        await ProcessStreamer.stream(args, _cd, step, isProcessIsolated: false);
-    if (result == ProcessResult.error) {
+    final result = await ProcessStreamer.stream(args, _cd, step);
+    if (result.result == Result.error) {
       throw Exception();
     }
   }
@@ -76,9 +75,8 @@ class Executor {
       return res;
     }();
 
-    final result =
-        await ProcessStreamer.stream(args, _cd, step, isProcessIsolated: false);
-    if (result == ProcessResult.error) {
+    final result = await ProcessStreamer.stream(args, _cd, step);
+    if (result.result == Result.error) {
       throw Exception();
     }
   }
@@ -113,9 +111,9 @@ class Executor {
     final patternChecker = ProcessPatternChecker(
         RegExp(r'WARNING: \[Main\] No references were rewritten.'));
 
-    final stream = await ProcessStreamer.stream(args, _cd, step,
-        isProcessIsolated: false, patternChecker: patternChecker);
-    if (stream == ProcessResult.error) {
+    final result = await ProcessStreamer.stream(args, _cd, step,
+        patternChecker: patternChecker);
+    if (result.result == Result.error) {
       throw Exception();
     }
 

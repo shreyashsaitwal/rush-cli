@@ -21,7 +21,7 @@ class Desugarer {
 
     // Here, all the desugar process' futures are stored for them
     // to get excecuted parallely by the [Future.wait] method.
-    final desugarFutures = <Future>[];
+    final desugarFutures = <Future<ProcessResult>>[];
 
     // This is where all previously desugared deps of the extension
     // are stored. They are reused between builds.
@@ -31,16 +31,39 @@ class Desugarer {
 
     deps.forEach((el) {
       final output = p.join(desugarStore.path, p.basename(el));
-      final args = _DesugarArgs(_cd, _dataDir, el, output, org, step);
+      final args = _DesugarArgs(
+          cd: _cd,
+          dataDir: _dataDir,
+          input: el,
+          output: output,
+          org: org,
+          step: step);
       desugarFutures.add(compute(_desugar, args));
     });
 
     // Desugar extension classes
     final classesDir = p.join(_dataDir, 'workspaces', org, 'classes');
-    desugarFutures.add(compute(_desugar,
-        _DesugarArgs(_cd, _dataDir, classesDir, classesDir, org, step)));
+    desugarFutures.add(compute(
+        _desugar,
+        _DesugarArgs(
+            cd: _cd,
+            dataDir: _dataDir,
+            input: classesDir,
+            output: classesDir,
+            org: org,
+            step: step)));
 
-    await Future.wait(desugarFutures);
+    final results = await Future.wait(desugarFutures);
+
+    final store = ErrWarnStore();
+    results.forEach((el) {
+      store.incErrors(el.store.getErrors);
+      store.incWarnings(el.store.getWarnings);
+    });
+
+    if (results.any((el) => el.result == Result.error)) {
+      throw Exception();
+    }
   }
 
   /// Returns a list of extension dependencies that are to be desugared.
@@ -74,7 +97,7 @@ class Desugarer {
   }
 
   /// Desugars the specified JAR file or a directory of class files.
-  static Future<void> _desugar(_DesugarArgs args) async {
+  static Future<ProcessResult> _desugar(_DesugarArgs args) async {
     final desugarJar = p.join(args.dataDir, 'tools', 'other', 'desugar.jar');
 
     final classpath = CmdUtils.generateClasspath([
@@ -118,14 +141,15 @@ class Desugarer {
     // because the desugar.jar doesn't allow the use of `:`
     // in file path which is a common char in Windows paths.
     final result = await ProcessStreamer.stream(cmdArgs, args.cd, args.step,
-        isProcessIsolated: true,
-        workingDirectory: Directory(p.dirname(argFile.path)));
+        workingDirectory: Directory(p.dirname(argFile.path)),
+        isProcessIsolated: true);
 
-    if (result == ProcessResult.error) {
+    if (result.result == Result.error) {
       throw Exception();
     }
 
     argFile.deleteSync();
+    return result;
   }
 }
 
@@ -142,5 +166,10 @@ class _DesugarArgs {
   final BuildStep step;
 
   _DesugarArgs(
-      this.cd, this.dataDir, this.input, this.output, this.org, this.step);
+      {required this.cd,
+      required this.dataDir,
+      required this.input,
+      required this.output,
+      required this.org,
+      required this.step});
 }

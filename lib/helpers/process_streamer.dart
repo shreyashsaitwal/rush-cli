@@ -4,7 +4,19 @@ import 'package:path/path.dart' as p;
 import 'package:process_runner/process_runner.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-enum ProcessResult { ok, error }
+enum Result { ok, error }
+
+class ProcessResult {
+  late final Result _result;
+  late final ErrWarnStore _errWarnStore;
+
+  ProcessResult();
+
+  ProcessResult._init(this._result, this._errWarnStore);
+
+  Result get result => _result;
+  ErrWarnStore get store => _errWarnStore;
+}
 
 class ProcessPatternChecker {
   final RegExp _pattern;
@@ -26,10 +38,10 @@ class ProcessStreamer {
     List<String> args,
     String cd,
     BuildStep step, {
-    bool isProcessIsolated = false,
     Directory? workingDirectory,
     ProcessPatternChecker? patternChecker,
-    bool beSlient = true,
+    bool isProcessIsolated = false,
+    bool printNormalOutputAlso = false,
   }) async {
     // These patterns are either useless or don't make sense in Rush's
     // context. For example, the error and warning count printed by
@@ -59,7 +71,7 @@ class ProcessStreamer {
           patternChecker._exists = stdout.any((el) => el.contains(pattern));
         }
 
-        if (!beSlient) {
+        if (printNormalOutputAlso) {
           final outputLines = stdout.where((line) =>
               line.trim().isNotEmpty &&
               !excludePatterns.any((el) => el.hasMatch(line)));
@@ -67,7 +79,8 @@ class ProcessStreamer {
           _printToTheConsole(outputLines.toList(), cd, step, isProcessIsolated);
         }
       }
-      return ProcessResult.ok;
+
+      return ProcessResult._init(Result.ok, ErrWarnStore());
     } on ProcessRunnerException catch (e) {
       final stderr = e.result?.stderr.split('\n') ?? [];
       final errorLines = stderr.where((line) =>
@@ -75,7 +88,8 @@ class ProcessStreamer {
           !excludePatterns.any((el) => el.hasMatch(line)));
 
       _printToTheConsole(errorLines.toList(), cd, step, isProcessIsolated);
-      return ProcessResult.error;
+
+      return ProcessResult._init(Result.error, ErrWarnStore());
     }
   }
 
@@ -85,7 +99,7 @@ class ProcessStreamer {
 
   /// Prints [outputLines] to the console with appropriate [LogType].
   static void _printToTheConsole(List<String> outputLines, String cd,
-      BuildStep step, bool trackAlreadyPrinted) {
+      BuildStep step, bool stackAlreadyPrinted) {
     final patterns = <LogType, RegExp>{
       LogType.erro: RegExp(r'(\s*error:\s?)+', caseSensitive: false),
       LogType.warn: RegExp(r'(\s*warning:\s?)+', caseSensitive: false),
@@ -104,7 +118,7 @@ class ProcessStreamer {
         type = null;
       }
 
-      if (trackAlreadyPrinted && _alreadyPrinted.contains(line)) {
+      if (stackAlreadyPrinted && _alreadyPrinted.contains(line)) {
         skipThisErrStack = true;
         continue;
       }

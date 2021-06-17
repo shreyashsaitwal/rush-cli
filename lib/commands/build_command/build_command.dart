@@ -265,7 +265,7 @@ class BuildCommand extends Command {
     }
 
     if (rushYaml.build?.desugar?.enable ?? false) {
-      processStep.log(LogType.info, 'Desugaring Java 8 langauge features');
+      processStep.log(LogType.info, 'Desugaring Java 8 language features');
       final desugarer = Desugarer(_cd, _dataDir);
       await desugarer.run(org, rushYaml, processStep);
     }
@@ -277,6 +277,7 @@ class BuildCommand extends Command {
       processStep.log(
           LogType.info, 'Linking extension assets and dependencies');
     }
+
     await Generator(_cd, _dataDir).generate(org, processStep, rushYaml);
 
     final executor = Executor(_cd, _dataDir);
@@ -328,7 +329,7 @@ class BuildCommand extends Command {
       }
     }
 
-    processStep.log(LogType.info, 'Dexing the extension');
+    processStep.log(LogType.info, 'Generating DEX bytecode');
     try {
       await _dex(org, needDeJet, processStep);
     } catch (e) {

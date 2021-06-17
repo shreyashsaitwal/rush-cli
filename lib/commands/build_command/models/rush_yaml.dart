@@ -66,8 +66,9 @@ class RushYaml {
   factory RushYaml.fromJson(Map json, BuildStep step) {
     final yaml = _$RushYamlFromJson(json);
 
-    if (yaml.license_url != null) {}
-    _printLicWarn(step, yaml.license_url!);
+    if (yaml.license_url != null) {
+      _printLicWarn(step, yaml.license_url!);
+    }
     if (yaml.release != null) {
       _printReleaseWarn(step);
     }
@@ -87,7 +88,7 @@ class RushYaml {
         'Field `license_url` is deprecated. Consider using field `license` instead.');
     step.log(LogType.warn, ' ' * 4 + '$brightBlack|$reset', addPrefix: false);
     step.log(LogType.warn,
-        ' ' * 4 + '$brightBlack|$reset${cyan}license: $green$value$reset',
+        ' ' * 4 + '$brightBlack|$reset${cyan}license: $green\'$value\'$reset',
         addPrefix: false);
     step.log(LogType.warn, ' ' * 4 + '$brightBlack|$reset', addPrefix: false);
   }

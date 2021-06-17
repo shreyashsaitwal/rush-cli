@@ -198,9 +198,11 @@ class BuildUtils {
       errWarn += reset;
 
       if (store.getWarnings > 0) {
-        errWarn += ';';
+        errWarn += '$brightBlack;$reset ';
       }
-    } else if (store.getWarnings > 0) {
+    }
+
+    if (store.getWarnings > 0) {
       errWarn += yellow;
       errWarn += store.getWarnings > 1
           ? '${store.getWarnings} warnings'

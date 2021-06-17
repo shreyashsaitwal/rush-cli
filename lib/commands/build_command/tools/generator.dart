@@ -99,7 +99,7 @@ rush-version=$rushVersion
     final artDir = Directory(p.join(_dataDir, 'workspaces', org, 'art'))
       ..createSync(recursive: true);
 
-    final extractFutures = <Future>[];
+    final extractFutures = <Future<ErrWarnStore>>[];
 
     if (deps.isNotEmpty) {
       final desugarStore =
@@ -115,13 +115,23 @@ rush-version=$rushVersion
           dep = File(p.join(_cd, 'deps', el));
         }
 
+        if (!dep.existsSync()) {
+          step
+            ..log(LogType.erro,
+                'Unable to find required library \'${p.basename(dep.path)}\'')
+            ..finishNotOk();
+          exit(1);
+        }
+
         final isLibModified = dep.existsSync()
             ? dep.lastModifiedSync().isAfter(artDir.statSync().modified)
             : true;
 
         if (isLibModified || isArtDirEmpty) {
           extractFutures.add(compute(
-              _extractJar, _ExtractJarArgs(dep.path, artDir.path, step)));
+              _extractJar,
+              _ExtractJarArgs(
+                  input: dep.path, outputDir: artDir.path, step: step)));
         }
       });
     }
@@ -135,7 +145,9 @@ rush-version=$rushVersion
           File(p.join(_cd, '.rush', 'dev-deps', 'kotlin-stdlib.jar'));
 
       extractFutures.add(compute(
-          _extractJar, _ExtractJarArgs(kotlinStdLib.path, artDir.path, step)));
+          _extractJar,
+          _ExtractJarArgs(
+              input: kotlinStdLib.path, outputDir: artDir.path, step: step)));
     }
 
     final classesDir =
@@ -148,7 +160,13 @@ rush-version=$rushVersion
       el.copySync(newPath);
     });
 
-    await Future.wait(extractFutures);
+    final result = await Future.wait(extractFutures);
+
+    final store = ErrWarnStore();
+    result.forEach((el) {
+      store.incErrors(el.getErrors);
+      store.incWarnings(el.getWarnings);
+    });
   }
 
   /// Copies LICENSE file if there's any.
@@ -168,17 +186,10 @@ rush-version=$rushVersion
   }
 
   /// Extracts JAR file from [input] and saves the content to [outputDir].
-  static void _extractJar(_ExtractJarArgs args) {
+  static ErrWarnStore _extractJar(_ExtractJarArgs args) {
     final step = args.step;
 
     final file = File(args.input);
-    if (!file.existsSync()) {
-      step
-        ..log(LogType.erro,
-            'Unable to find required library \'${p.basename(file.path)}\'')
-        ..finishNotOk();
-      exit(1);
-    }
 
     final bytes = file.readAsBytesSync();
     final jar = ZipDecoder().decodeBytes(bytes).files;
@@ -198,6 +209,8 @@ rush-version=$rushVersion
         }
       }
     }
+
+    return ErrWarnStore();
   }
 }
 
@@ -206,5 +219,6 @@ class _ExtractJarArgs {
   final String outputDir;
   final BuildStep step;
 
-  _ExtractJarArgs(this.input, this.outputDir, this.step);
+  _ExtractJarArgs(
+      {required this.input, required this.outputDir, required this.step});
 }

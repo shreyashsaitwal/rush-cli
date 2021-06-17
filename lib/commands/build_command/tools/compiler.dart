@@ -23,7 +23,12 @@ class Compiler {
 
     final args = await _getJavacArgs(await dataBox.get('name'), org, version);
 
-    await compute(_startProcess, _StartProcessArgs(_cd, args, step, false));
+    final result = await _startProcess(
+        _StartProcessArgs(cd: _cd, cmdArgs: args, step: step));
+
+    if (result.result == Result.error) {
+      throw Exception();
+    }
 
     await _generateInfoFilesIfNoBlocks(org, version, instance, step);
   }
@@ -36,10 +41,26 @@ class Compiler {
     final ktcArgs = _getKtcArgs(org);
     final kaptArgs = await _getKaptArgs(dataBox);
 
-    await Future.wait([
-      compute(_startProcess, _StartProcessArgs(_cd, ktcArgs, step, true)),
-      compute(_startProcess, _StartProcessArgs(_cd, kaptArgs, step, true)),
+    final results = await Future.wait([
+      compute(
+          _startProcess,
+          _StartProcessArgs(
+              cd: _cd, cmdArgs: ktcArgs, step: step, isParallelProcess: true)),
+      compute(
+          _startProcess,
+          _StartProcessArgs(
+              cd: _cd, cmdArgs: kaptArgs, step: step, isParallelProcess: true)),
     ]);
+
+    final store = ErrWarnStore();
+    results.forEach((el) {
+      store.incErrors(el.store.getErrors);
+      store.incWarnings(el.store.getWarnings);
+    });
+
+    if (results.any((el) => el.result == Result.error)) {
+      throw Exception();
+    }
 
     await _generateInfoFilesIfNoBlocks(
         org, await dataBox.get('version'), instance, step);
@@ -65,7 +86,12 @@ class Compiler {
         filesDir,
       ];
 
-      await compute(_startProcess, _StartProcessArgs(_cd, args, step, false));
+      final result = await _startProcess(
+          _StartProcessArgs(cd: _cd, cmdArgs: args, step: step));
+
+      if (result.result == Result.error) {
+        throw Exception();
+      }
 
       step.log(LogType.warn, 'No declaration of any block annotation found');
     }
@@ -183,17 +209,16 @@ class Compiler {
 
   /// Starts a new process with [args.cmdArgs] and prints the output to
   /// the console.
-  static Future<void> _startProcess(_StartProcessArgs args) async {
+  static Future<ProcessResult> _startProcess(_StartProcessArgs args) async {
     final cd = args.cd;
     final cmdArgs = args.cmdArgs;
     final step = args.step;
     final isIsolated = args.isParallelProcess;
 
     final result = await ProcessStreamer.stream(cmdArgs, cd, step,
-        isProcessIsolated: isIsolated);
-    if (result == ProcessResult.error) {
-      throw Exception();
-    }
+        isProcessIsolated: isIsolated, printNormalOutputAlso: true);
+
+    return result;
   }
 
   /// Returns base64 encoded options required by the Rush annotation processor.
@@ -271,5 +296,9 @@ class _StartProcessArgs {
   final BuildStep step;
   final bool isParallelProcess;
 
-  _StartProcessArgs(this.cd, this.cmdArgs, this.step, this.isParallelProcess);
+  _StartProcessArgs(
+      {required this.cd,
+      required this.cmdArgs,
+      required this.step,
+      this.isParallelProcess = false});
 }
