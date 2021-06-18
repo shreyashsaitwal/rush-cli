@@ -12,6 +12,7 @@ String getPgRules(String org, String name) {
 -allowaccessmodification
 -mergeinterfacesaggressively
 
+-repackageclasses '${org.replaceAll('.', '/')}/repack'
 -flattenpackagehierarchy
 -dontpreverify
 ''';
