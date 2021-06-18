@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_runner/process_runner.dart';
 import 'package:rush_prompt/rush_prompt.dart';
@@ -40,7 +41,7 @@ class ProcessStreamer {
     BuildStep step, {
     Directory? workingDirectory,
     ProcessPatternChecker? patternChecker,
-    bool isProcessIsolated = false,
+    bool trackAlreadyPrinted = false,
     bool printNormalOutputAlso = false,
   }) async {
     // These patterns are either useless or don't make sense in Rush's
@@ -76,7 +77,8 @@ class ProcessStreamer {
               line.trim().isNotEmpty &&
               !excludePatterns.any((el) => el.hasMatch(line)));
 
-          _printToTheConsole(outputLines.toList(), cd, step, isProcessIsolated);
+          await _printToTheConsole(
+              outputLines.toList(), cd, step, trackAlreadyPrinted);
         }
       }
 
@@ -87,7 +89,8 @@ class ProcessStreamer {
           line.trim().isNotEmpty &&
           !excludePatterns.any((el) => el.hasMatch(line)));
 
-      _printToTheConsole(errorLines.toList(), cd, step, isProcessIsolated);
+      await _printToTheConsole(
+          errorLines.toList(), cd, step, trackAlreadyPrinted);
 
       return ProcessResult._init(Result.error, ErrWarnStore());
     }
@@ -95,11 +98,11 @@ class ProcessStreamer {
 
   /// This list keeps a track of the errors/warnings/etc. that have
   /// been printed already.
-  static final _alreadyPrinted = <String>[];
+  // static final _alreadyPrinted = <String>[];
 
   /// Prints [outputLines] to the console with appropriate [LogType].
-  static void _printToTheConsole(List<String> outputLines, String cd,
-      BuildStep step, bool stackAlreadyPrinted) {
+  static Future<void> _printToTheConsole(List<String> outputLines, String cd,
+      BuildStep step, bool trackAlreadyPrinted) async {
     final patterns = <LogType, RegExp>{
       LogType.erro: RegExp(r'(\s*error:\s?)+', caseSensitive: false),
       LogType.warn: RegExp(r'(\s*warning:\s?)+', caseSensitive: false),
@@ -108,7 +111,15 @@ class ProcessStreamer {
     };
 
     var skipThisErrStack = false;
-    var pervLogType = LogType.warn;
+    var prevLogType = LogType.warn;
+
+    final Box? buildBox;
+    if (trackAlreadyPrinted) {
+      Hive.init(p.join(cd, '.rush'));
+      buildBox = await Hive.openBox('build');
+    } else {
+      buildBox = null;
+    }
 
     for (var line in outputLines) {
       final MapEntry<LogType, RegExp>? type;
@@ -118,30 +129,43 @@ class ProcessStreamer {
         type = null;
       }
 
-      if (stackAlreadyPrinted && _alreadyPrinted.contains(line)) {
-        skipThisErrStack = true;
-        continue;
+      final List<String> alreadyPrinted;
+      if (trackAlreadyPrinted) {
+        alreadyPrinted = (await buildBox!.get('alreadyPrinted')) ?? [];
+
+        if (alreadyPrinted.contains(line)) {
+          skipThisErrStack = true;
+          continue;
+        }
+      } else {
+        alreadyPrinted = [];
       }
 
       if (type != null) {
-        line = line.replaceFirst(
+        var formattedLine = line.replaceFirst(
             type.value, line.startsWith(type.value) ? '' : ' ');
 
-        if (line.startsWith(cd)) {
-          line = line.replaceFirst(p.join(cd, 'src'), 'src');
+        if (formattedLine.startsWith(cd)) {
+          formattedLine = formattedLine.replaceFirst(p.join(cd, 'src'), 'src');
         }
 
-        step.log(type.key, line);
-        pervLogType = type.key;
-
+        step.log(type.key, formattedLine);
+        prevLogType = type.key;
         skipThisErrStack = false;
-        _alreadyPrinted.add(line);
+
+        if (trackAlreadyPrinted) {
+          await buildBox!.put('alreadyPrinted', [...alreadyPrinted, line]);
+        }
       } else if (!skipThisErrStack) {
         if (line.startsWith(cd)) {
           line = line.replaceFirst(p.join(cd, 'src'), 'src');
         }
-        step.log(pervLogType, ' ' * 5 + line, addPrefix: false);
+        step.log(prevLogType, ' ' * 5 + line, addPrefix: false);
       }
+    }
+
+    if (trackAlreadyPrinted) {
+      await buildBox!.close();
     }
   }
 }

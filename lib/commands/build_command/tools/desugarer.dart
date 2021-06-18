@@ -142,7 +142,7 @@ class Desugarer {
     // in file path which is a common char in Windows paths.
     final result = await ProcessStreamer.stream(cmdArgs, args.cd, args.step,
         workingDirectory: Directory(p.dirname(argFile.path)),
-        isProcessIsolated: true);
+        trackAlreadyPrinted: true);
 
     if (result.result == Result.error) {
       throw Exception();

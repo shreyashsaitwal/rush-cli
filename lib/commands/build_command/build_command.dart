@@ -101,19 +101,6 @@ class BuildCommand extends Command {
 
     final valStep = BuildStep('Checking project files')..init();
 
-    final manifestFile = File(p.join(_cd, 'src', 'AndroidManifest.xml'));
-    if (!manifestFile.existsSync()) {
-      valStep
-        ..log(LogType.erro, 'AndroidManifest.xml not found')
-        ..finishNotOk();
-
-      BuildUtils.printFailMsg(
-          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
-      exit(1);
-    }
-
-    valStep.log(LogType.info, 'AndroidManifest.xml file found');
-
     File yamlFile;
     try {
       yamlFile = BuildUtils.getRushYaml(_cd);
@@ -133,6 +120,7 @@ class BuildCommand extends Command {
     // This is done in case the user deletes the .rush directory.
     BuildUtils.copyDevDeps(_dataDir, _cd);
 
+    valStep.log(LogType.info, 'Checking metadata file (rush.yml)');
     final RushYaml rushYaml;
     try {
       rushYaml = checkedYamlDecode(
@@ -173,9 +161,20 @@ class BuildCommand extends Command {
       exit(2);
     }
 
-    valStep
-      ..log(LogType.info, 'Metadata file (rush.yml) found')
-      ..finishOk();
+    valStep.log(LogType.info, 'Checking AndroidManifest.xml file');
+
+    final manifestFile = File(p.join(_cd, 'src', 'AndroidManifest.xml'));
+    if (!manifestFile.existsSync()) {
+      valStep
+        ..log(LogType.erro, 'AndroidManifest.xml not found')
+        ..finishNotOk();
+
+      BuildUtils.printFailMsg(
+          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
+      exit(1);
+    }
+
+    valStep.finishOk();
 
     if (await BuildUtils.areInfoFilesModified(_cd, dataBox)) {
       BuildUtils.cleanWorkspaceDir(_dataDir, await dataBox.get('org'));
@@ -242,6 +241,7 @@ class BuildCommand extends Command {
       compileStep.finishNotOk();
       BuildUtils.printFailMsg(
           BuildUtils.getTimeDifference(_startTime, DateTime.now()));
+      await BuildUtils.emptyBuildBox();
       exit(1);
     }
 
@@ -267,7 +267,16 @@ class BuildCommand extends Command {
     if (rushYaml.build?.desugar?.enable ?? false) {
       processStep.log(LogType.info, 'Desugaring Java 8 language features');
       final desugarer = Desugarer(_cd, _dataDir);
-      await desugarer.run(org, rushYaml, processStep);
+      try {
+        await desugarer.run(org, rushYaml, processStep);
+      } catch (e) {
+        processStep.finishNotOk();
+        BuildUtils.printFailMsg(
+            BuildUtils.getTimeDifference(_startTime, DateTime.now()));
+
+        await BuildUtils.emptyBuildBox();
+        exit(1);
+      }
     }
 
     // Generate the extension files
@@ -311,10 +320,8 @@ class BuildCommand extends Command {
         needDeJet = await executor.execDeJetifier(org, processStep);
       } catch (e) {
         processStep.finishNotOk();
-
         BuildUtils.printFailMsg(
             BuildUtils.getTimeDifference(_startTime, DateTime.now()));
-
         exit(1);
       }
 

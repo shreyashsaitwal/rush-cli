@@ -172,7 +172,9 @@ class BuildUtils {
       return true;
     }
 
-    if (isRelease && (yaml.release?.optimize ?? false)) {
+    if (isRelease &&
+        ((yaml.build?.release?.optimize ?? false) ||
+            (yaml.release?.optimize ?? false))) {
       return true;
     }
 
@@ -214,5 +216,10 @@ class BuildUtils {
 
     Logger.logCustom('Build failed $timeDiff $errWarn',
         prefix: '\n• ', prefixFG: ConsoleColor.red);
+  }
+
+  static Future<void> emptyBuildBox() async {
+    final buildBox = await Hive.openBox('build');
+    await buildBox.delete('alreadyPrinted');
   }
 }

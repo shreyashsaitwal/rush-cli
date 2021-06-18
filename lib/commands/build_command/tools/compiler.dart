@@ -213,10 +213,10 @@ class Compiler {
     final cd = args.cd;
     final cmdArgs = args.cmdArgs;
     final step = args.step;
-    final isIsolated = args.isParallelProcess;
+    final isParallelProcess = args.isParallelProcess;
 
     final result = await ProcessStreamer.stream(cmdArgs, cd, step,
-        isProcessIsolated: isIsolated, printNormalOutputAlso: true);
+        trackAlreadyPrinted: isParallelProcess, printNormalOutputAlso: true);
 
     return result;
   }
