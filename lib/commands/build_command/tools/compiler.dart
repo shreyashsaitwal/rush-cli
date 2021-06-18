@@ -138,8 +138,8 @@ class Compiler {
 
   /// Returns commmand line args required for compiling Kotlin sources.
   List<String> _getKtcArgs(String org) {
-    final kotlincJvm = p.join(_dataDir, 'tools', 'kotlinc', 'bin',
-        'kotlinc-jvm' + (Platform.isWindows ? '.bat' : ''));
+    final kotlinc = p.join(_dataDir, 'tools', 'kotlinc', 'bin',
+        'kotlinc' + (Platform.isWindows ? '.bat' : ''));
 
     final classpath = CmdUtils.generateClasspath([
       Directory(p.join(_cd, '.rush', 'dev-deps')),
@@ -158,7 +158,7 @@ class Compiler {
 
     final argFile = _writeArgFile('compile.rsh', org, args);
 
-    return [kotlincJvm, '@${argFile.path}'];
+    return [kotlinc, '@${argFile.path}'];
   }
 
   /// Returns command line args required for running the Kapt
@@ -199,12 +199,12 @@ class Compiler {
       ..add(prefix + 'apoptions=' + await _getEncodedApOpts(box) + '"')
       ..add(p.join(_cd, 'src')); // src dir
 
-    final kotlincJvm = p.join(
-        kotlincDir, 'bin', 'kotlinc-jvm' + (Platform.isWindows ? '.bat' : ''));
+    final kotlinc = p.join(
+        kotlincDir, 'bin', 'kotlinc' + (Platform.isWindows ? '.bat' : ''));
 
     final argFile = _writeArgFile('kapt.rsh', org, args);
 
-    return [kotlincJvm, '@${argFile.path}'];
+    return [kotlinc, '@${argFile.path}'];
   }
 
   /// Starts a new process with [args.cmdArgs] and prints the output to
