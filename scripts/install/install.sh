@@ -40,7 +40,6 @@ rm "$binDir/rush-$target.zip"
 
 if [ "$OS" = "Windows_NT" ]; then
   dataDir="$APPDATA/rush"
-  execs="rush.exe swap.exe"
 else
   case $(uname -sm) in
     "Darwin x86_64" | "Darwin arm64")
@@ -48,7 +47,6 @@ else
     *)
       dataDir="home/$HOME/rush" ;;
   esac
-  execs="rush"
 fi
 
 # Delete dataDir if it already exists
@@ -56,17 +54,17 @@ if [ -d $dataDir ]; then
   rm -rf $dataDir
 fi
 
-# the (re-)create it
+# Then (re-)create it
 mkdir $dataDir
 
 # Move the EXEs under the binDir
-mv $binDir/exe/$target/* $binDir
+mv "$binDir/exe/$target/*" $binDir
 chmod +x "$binDir/rush"
 
 rm -r "$binDir/exe/"
 
 # Move all the directories that were unzipped
-mv $(ls -d $binDir/*/) $binDir/.installer $dataDir
+mv $(ls -d "$binDir/*/") $dataDir
 
 echo "Success! Installed Rush at $binDir/rush"
 if command -v rush &> /dev/null; then

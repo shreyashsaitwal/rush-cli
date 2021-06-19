@@ -40,6 +40,10 @@ function writeEnvDart() {
 }
 writeEnvDart
 
+if [ ! -d "build/bin" ]; then
+  mkdir -p "build/bin"
+fi
+
 if [ "$OS" = "Windows_NT" ]; then
   # Compile swap.exe (needed only for Windows)
   dart compile exe -o build/bin/swap.exe bin/swap.dart
