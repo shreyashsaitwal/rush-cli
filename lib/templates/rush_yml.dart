@@ -10,7 +10,7 @@ description: Extension component for $name. Created using Rush.
 
 version:
   number: auto        # Auto increments version number when built with '-r' ('--release') flag.
-  name: $versionName
+  name: '$versionName'
 
 authors:
   - $author

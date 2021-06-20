@@ -14,7 +14,7 @@ else {
   }
 }
 
-$ZipUrl = "https://github.com/shreyashsaitwal/rush-cli/releases/latest/download/rush-win64.zip"
+$ZipUrl = "https://github.com/shreyashsaitwal/rush-cli/releases/latest/download/rush-win.zip"
 
 # GitHub requires TLS 1.2
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12

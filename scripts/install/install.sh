@@ -20,15 +20,15 @@ else
 fi
 
 # Set the target
-if [ "$OS" = "Windows_NT" ]; then
-  target='win'
+if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+  target="win"
+  dataDir="$APPDATA/rush"
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+  target="mac"
+  dataDir="$HOME/Library/Application Support/rush"
 else
-  case $(uname -sm) in
-    "Darwin x86_64" | "Darwin arm64")
-      target="mac" ;;
-    *)
-      target="linux" ;;
-  esac
+  target="linux"
+  dataDir="home/$HOME/rush"
 fi
 
 zipUrl="https://github.com/shreyashsaitwal/rush-cli/releases/latest/download/rush-$target.zip"
@@ -37,17 +37,6 @@ zipUrl="https://github.com/shreyashsaitwal/rush-cli/releases/latest/download/rus
 curl --location --progress-bar -o "$binDir/rush-$target.zip" "$zipUrl"
 unzip -oq "$binDir/rush-$target.zip" -d $binDir/
 rm "$binDir/rush-$target.zip"
-
-if [ "$OS" = "Windows_NT" ]; then
-  dataDir="$APPDATA/rush"
-else
-  case $(uname -sm) in
-    "Darwin x86_64" | "Darwin arm64")
-      dataDir="$HOME/Library/Application Support/rush" ;;
-    *)
-      dataDir="home/$HOME/rush" ;;
-  esac
-fi
 
 # Delete dataDir if it already exists
 if [ -d $dataDir ]; then
@@ -74,7 +63,7 @@ else
     /bin/zsh) shell_profile=".zshrc" ;;
     *) shell_profile=".bash_profile" ;;
 	esac
-	echo "Now, manually add the directory to your \$HOME/$shell_profile (or similar):"
+	echo "Now, manually add Rush's bin directory to your \$HOME/$shell_profile (or similar):"
 	echo "  export PATH=\"\$binDir:\$PATH\""
 	echo "Run 'rush --help' to get started."
 fi
