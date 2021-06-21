@@ -9,7 +9,7 @@ pat="$1"
 # @params:
 #   $1 -> file path in GH repo relative to exe/
 function fetch() {
-  echo $(curl -s -u shreyashsaitwal:$pat https://api.github.com/repos/shreyashsaitwal/pack/contents/exe/$1)
+  echo $(curl -s -u shreyashsaitwal:$pat https://api.github.com/repos/shreyashsaitwal/rush-pack/contents/exe/$1)
 }
 
 # @params:
@@ -29,7 +29,7 @@ EOF
   echo "Uploading $1..."
   curl -X PUT -u shreyashsaitwal:$pat \
     -H "Accept: application/vnd.github.v3+json" \
-    https://api.github.com/repos/shreyashsaitwal/pack/contents/exe/$1 \
+    https://api.github.com/repos/shreyashsaitwal/rush-pack/contents/exe/$1 \
     -d @build/curl.args
 }
 
