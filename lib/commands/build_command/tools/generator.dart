@@ -128,10 +128,8 @@ rush-version=$rushVersion
             : true;
 
         if (isLibModified || isArtDirEmpty) {
-          extractFutures.add(compute(
-              _extractJar,
-              _ExtractJarArgs(
-                  input: dep.path, outputDir: artDir.path, step: step)));
+          extractFutures.add(compute(_extractJar,
+              _ExtractJarArgs(input: dep.path, outputDir: artDir.path)));
         }
       });
     }
@@ -144,10 +142,8 @@ rush-version=$rushVersion
       final kotlinStdLib =
           File(p.join(_cd, '.rush', 'dev-deps', 'kotlin-stdlib.jar'));
 
-      extractFutures.add(compute(
-          _extractJar,
-          _ExtractJarArgs(
-              input: kotlinStdLib.path, outputDir: artDir.path, step: step)));
+      extractFutures.add(compute(_extractJar,
+          _ExtractJarArgs(input: kotlinStdLib.path, outputDir: artDir.path)));
     }
 
     final classesDir =
@@ -187,7 +183,7 @@ rush-version=$rushVersion
 
   /// Extracts JAR file from [input] and saves the content to [outputDir].
   static ErrWarnStore _extractJar(_ExtractJarArgs args) {
-    final step = args.step;
+    final step = BuildStep('');
 
     final file = File(args.input);
 
@@ -217,8 +213,6 @@ rush-version=$rushVersion
 class _ExtractJarArgs {
   final String input;
   final String outputDir;
-  final BuildStep step;
 
-  _ExtractJarArgs(
-      {required this.input, required this.outputDir, required this.step});
+  _ExtractJarArgs({required this.input, required this.outputDir});
 }

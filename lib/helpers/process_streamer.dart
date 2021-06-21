@@ -37,13 +37,23 @@ class ProcessStreamer {
   /// emitted by that process.
   static Future<ProcessResult> stream(
     List<String> args,
-    String cd,
-    BuildStep step, {
+    String cd, {
     Directory? workingDirectory,
     ProcessPatternChecker? patternChecker,
     bool trackAlreadyPrinted = false,
     bool printNormalOutputAlso = false,
   }) async {
+    // In almost all places where this class (`ProcessStreamer`) is used,
+    // a new isolate is spawned. Isolates don't allow passing objects that
+    // depends on `dart:ffi` as arguments to it. Now, `BuildStep`, which
+    // builds on top of `dart_console`, indirectly depends on `dart:ffi`
+    // and because of this reason we don't get the required step as an
+    // argument to this method and instead instantiate a new one here.
+    // This won't start a new build step; it will just append messages to
+    // the existing step because we aren't calling the `init()` method on
+    // it.
+    final step = BuildStep('');
+
     // These patterns are either useless or don't make sense in Rush's
     // context. For example, the error and warning count printed by
     // javac is not necessary to print as Rush itself keeps track of

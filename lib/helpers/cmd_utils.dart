@@ -35,7 +35,7 @@ class CmdUtils {
         entity.copySync(p.join(dest.path, p.basename(entity.path)));
       } else if (entity is Directory) {
         var newDest =
-            Directory(p.join(dest.path, entity.path.split('\\').last));
+            Directory(p.join(dest.path, entity.path.split(p.separator).last));
         newDest.createSync();
         copyDir(entity, newDest);
       }

@@ -32,12 +32,12 @@ class Desugarer {
     deps.forEach((el) {
       final output = p.join(desugarStore.path, p.basename(el));
       final args = _DesugarArgs(
-          cd: _cd,
-          dataDir: _dataDir,
-          input: el,
-          output: output,
-          org: org,
-          step: step);
+        cd: _cd,
+        dataDir: _dataDir,
+        input: el,
+        output: output,
+        org: org,
+      );
       desugarFutures.add(compute(_desugar, args));
     });
 
@@ -46,12 +46,12 @@ class Desugarer {
     desugarFutures.add(compute(
         _desugar,
         _DesugarArgs(
-            cd: _cd,
-            dataDir: _dataDir,
-            input: classesDir,
-            output: classesDir,
-            org: org,
-            step: step)));
+          cd: _cd,
+          dataDir: _dataDir,
+          input: classesDir,
+          output: classesDir,
+          org: org,
+        )));
 
     final results = await Future.wait(desugarFutures);
 
@@ -140,7 +140,7 @@ class Desugarer {
     // Changing the working directory to arg file's parent dir
     // because the desugar.jar doesn't allow the use of `:`
     // in file path which is a common char in Windows paths.
-    final result = await ProcessStreamer.stream(cmdArgs, args.cd, args.step,
+    final result = await ProcessStreamer.stream(cmdArgs, args.cd,
         workingDirectory: Directory(p.dirname(argFile.path)),
         trackAlreadyPrinted: true);
 
@@ -163,13 +163,11 @@ class _DesugarArgs {
   final String input;
   final String output;
   final String dataDir;
-  final BuildStep step;
 
   _DesugarArgs(
       {required this.cd,
       required this.dataDir,
       required this.input,
       required this.output,
-      required this.org,
-      required this.step});
+      required this.org});
 }

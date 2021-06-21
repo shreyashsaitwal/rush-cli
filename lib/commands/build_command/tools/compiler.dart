@@ -23,8 +23,8 @@ class Compiler {
 
     final args = await _getJavacArgs(await dataBox.get('name'), org, version);
 
-    final result = await _startProcess(
-        _StartProcessArgs(cd: _cd, cmdArgs: args, step: step));
+    final result =
+        await _startProcess(_StartProcessArgs(cd: _cd, cmdArgs: args));
 
     if (result.result == Result.error) {
       throw Exception();
@@ -45,11 +45,11 @@ class Compiler {
       compute(
           _startProcess,
           _StartProcessArgs(
-              cd: _cd, cmdArgs: ktcArgs, step: step, isParallelProcess: true)),
+              cd: _cd, cmdArgs: ktcArgs, isParallelProcess: true)),
       compute(
           _startProcess,
           _StartProcessArgs(
-              cd: _cd, cmdArgs: kaptArgs, step: step, isParallelProcess: true)),
+              cd: _cd, cmdArgs: kaptArgs, isParallelProcess: true)),
     ]);
 
     final store = ErrWarnStore();
@@ -86,8 +86,8 @@ class Compiler {
         filesDir,
       ];
 
-      final result = await _startProcess(
-          _StartProcessArgs(cd: _cd, cmdArgs: args, step: step));
+      final result =
+          await _startProcess(_StartProcessArgs(cd: _cd, cmdArgs: args));
 
       if (result.result == Result.error) {
         throw Exception();
@@ -212,10 +212,9 @@ class Compiler {
   static Future<ProcessResult> _startProcess(_StartProcessArgs args) async {
     final cd = args.cd;
     final cmdArgs = args.cmdArgs;
-    final step = args.step;
     final isParallelProcess = args.isParallelProcess;
 
-    final result = await ProcessStreamer.stream(cmdArgs, cd, step,
+    final result = await ProcessStreamer.stream(cmdArgs, cd,
         trackAlreadyPrinted: isParallelProcess, printNormalOutputAlso: true);
 
     return result;
@@ -293,12 +292,11 @@ class Compiler {
 class _StartProcessArgs {
   final String cd;
   final List<String> cmdArgs;
-  final BuildStep step;
   final bool isParallelProcess;
 
-  _StartProcessArgs(
-      {required this.cd,
-      required this.cmdArgs,
-      required this.step,
-      this.isParallelProcess = false});
+  _StartProcessArgs({
+    required this.cd,
+    required this.cmdArgs,
+    this.isParallelProcess = false,
+  });
 }
