@@ -13,7 +13,7 @@ fi
 if ! command -v rush &> /dev/null; then
   binDir="$HOME/.rush/bin"
   if [ ! -d "$binDir" ]; then
-    mkdir $binDir
+    mkdir -p $binDir
   fi
 else
   binDir="$(dirname $(which rush))"
@@ -28,7 +28,7 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
   dataDir="$HOME/Library/Application Support/rush"
 else
   target="linux"
-  dataDir="home/$HOME/rush"
+  dataDir="$HOME/rush"
 fi
 
 zipUrl="https://github.com/shreyashsaitwal/rush-cli/releases/latest/download/rush-$target.zip"
@@ -47,13 +47,17 @@ fi
 mkdir $dataDir
 
 # Move the EXEs under the binDir
-mv "$binDir/exe/$target/*" $binDir
-chmod +x "$binDir/rush"
-
+mv "$binDir/exe/$target"/* $binDir
 rm -r "$binDir/exe/"
 
 # Move all the directories that were unzipped
-mv $(ls -d "$binDir/*/") $dataDir
+mv $(ls -d "$binDir"/*/) $dataDir
+
+# Give all the necessary scripts execution permission
+chmod +x "$binDir/rush"
+chmod +x "$dataDir/tools/kotlinc/kotlinc"
+chmod +x "$dataDir/tools/kotlinc/kapt"
+chmod +x "$dataDir/tools/jetifier-standalone/bin/jetifier-standalone"
 
 echo "Success! Installed Rush at $binDir/rush"
 if command -v rush &> /dev/null; then
@@ -64,6 +68,6 @@ else
     *) shell_profile=".bash_profile" ;;
 	esac
 	echo "Now, manually add Rush's bin directory to your \$HOME/$shell_profile (or similar):"
-	echo "  export PATH=\"\$binDir:\$PATH\""
+	echo "  export PATH=\"\$PATH:$binDir\""
 	echo "Run 'rush --help' to get started."
 fi

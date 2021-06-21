@@ -255,7 +255,7 @@ class Compiler {
     final res = await ProcessRunner().runProcess(
         ['java', '-cp', processorJar, 'io.shreyash.rush.OptsEncoder', opts]);
 
-    if (res.stderr.isEmpty) {
+    if (res.exitCode == 0) {
       await box.put('apOpts',
           <String, String>{'raw': opts, 'encoded': res.stdout.trim()});
 
