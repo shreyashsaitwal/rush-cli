@@ -28,7 +28,7 @@ class UpgradeCommand extends Command {
   @override
   Future<void> run() async {
     PrintArt();
-    Logger.log(LogType.info, 'Fetching data\n');
+    Logger.log(LogType.info, 'Fetching data...');
 
     final box = await Hive.openBox('data.init');
     final binDir = p.dirname(Platform.resolvedExecutable);
@@ -36,7 +36,8 @@ class UpgradeCommand extends Command {
     final contents = await UpgradeUtils.fetchContents(box, binDir, '');
 
     if (contents.isEmpty) {
-      Logger.log(LogType.info, 'You already have the latest version of Rush installed.');
+      Logger.log(LogType.info,
+          'You already have the latest version of Rush installed.');
       exit(0);
     }
 
@@ -99,11 +100,11 @@ class UpgradeCommand extends Command {
     final body = release.body!.split('\n');
 
     body
-        .where((el) => !el.startsWith('#'))
-        .toList()
-        .getRange(0, body.length < 4 ? body.length : 4)
+        .where((el) => el.startsWith(RegExp(r'(\*|-|•)')))
+        .take(5)
         .forEach((el) {
-      console.writeLine(' ' * 2 + '- ' + el.replaceFirst('* ', ''));
+      console.writeLine(
+          ' ' * 2 + '- ' + el.replaceFirst(RegExp(r'(\*|-|•)'), '').trim());
     });
 
     console
