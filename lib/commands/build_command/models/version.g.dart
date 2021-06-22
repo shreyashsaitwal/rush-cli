@@ -12,7 +12,7 @@ Version _$VersionFromJson(Map json) {
         allowedKeys: const ['number', 'name'], requiredKeys: const ['number']);
     final val = Version(
       number: $checkedConvert(json, 'number', (v) => v),
-      name: $checkedConvert(json, 'name', (v) => v as String?),
+      name: $checkedConvert(json, 'name', (v) => v),
     );
     return val;
   });

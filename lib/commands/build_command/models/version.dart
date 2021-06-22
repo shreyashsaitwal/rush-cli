@@ -10,7 +10,7 @@ part 'version.g.dart';
 class Version {
   @JsonKey(required: true)
   final dynamic number;
-  final String? name;
+  final dynamic name;
 
   const Version({required this.number, this.name});
 
