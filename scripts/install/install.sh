@@ -59,15 +59,32 @@ chmod +x "$dataDir/tools/kotlinc/kotlinc"
 chmod +x "$dataDir/tools/kotlinc/kapt"
 chmod +x "$dataDir/tools/jetifier-standalone/bin/jetifier-standalone"
 
-echo "Success! Installed Rush at $binDir/rush"
-if command -v rush &> /dev/null; then
-  echo "Run 'rush --help' to get started."
-else
-  case $SHELL in
-    /bin/zsh) shell_profile=".zshrc" ;;
-    *) shell_profile=".bash_profile" ;;
-	esac
-	echo "Now, manually add Rush's bin directory to your \$HOME/$shell_profile (or similar):"
-	echo "  export PATH=\"\$PATH:$binDir\""
-	echo "Run 'rush --help' to get started."
+cyan='\033[0;36m'
+green='\033[0;32m'
+reset='\033[0m'
+
+echo
+echo -e "${green}Success!${reset} Installed Rush at $binDir/rush"
+if ! command -v rush &> /dev/null; then
+  if [ "$OS" = "Windows_NT" ]; then
+    echo
+    echo "Now, add the following entry to your 'PATH' environment variable:"
+    echo -e "${cyan}$binDir${reset}"
+  else
+    case $SHELL in
+      /bin/zsh) shell_profile=".zshrc" ;;
+      *) shell_profile=".bash_profile" ;;
+    esac
+
+    exp=" export PATH=\"\$PATH:$binDir\" "
+    edge=$(echo " $exp " | sed 's/./-/g')
+
+    echo
+    echo "Now, manually add Rush's bin directory to your \$HOME/$shell_profile (or similar):"
+    echo $edge
+    echo -e "|${cyan}${exp}${reset}|"
+    echo $edge
+  fi
 fi
+echo
+echo -e "Run ${cyan}rush --help${reset} to get started."
