@@ -49,7 +49,7 @@ class CmdUtils {
       bool relative = true}) {
     final jars = <String>[];
 
-    entities.forEach((entity) {
+    for (final entity in entities) {
       if (entity is Directory) {
         entity
             .listSync(recursive: true)
@@ -71,7 +71,7 @@ class CmdUtils {
           jars.add(entity.path);
         }
       }
-    });
+    }
 
     if (classesDir != null) {
       jars.add(classesDir.path);

@@ -62,9 +62,7 @@ class RushCommandRunner extends CommandRunner {
 
     final console = Console();
     // Print description
-    console
-      ..writeLine(' ' + description)
-      ..writeLine();
+    console..writeLine(' ' + description)..writeLine();
 
     // Print usage
     console

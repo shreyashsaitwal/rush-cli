@@ -55,7 +55,8 @@ class Desugar {
   // ignore: non_constant_identifier_names
   Desugar({required this.enable, this.desugar_deps});
 
-  factory Desugar.fromJson(Map<String, dynamic> json) => _$DesugarFromJson(json);
+  factory Desugar.fromJson(Map<String, dynamic> json) =>
+      _$DesugarFromJson(json);
 
   Map<String, dynamic> toJson() => _$DesugarToJson(this);
 }
@@ -71,7 +72,8 @@ class Release {
 
   Release({required this.optimize});
 
-  factory Release.fromJson(Map<String, dynamic> json) => _$ReleaseFromJson(json);
+  factory Release.fromJson(Map<String, dynamic> json) =>
+      _$ReleaseFromJson(json);
 
   Map<String, dynamic> toJson() => _$ReleaseToJson(this);
 }

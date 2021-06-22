@@ -17,7 +17,8 @@ class Desugarer {
   /// compatible with Android API level < 26.
   Future<void> run(String org, RushYaml yaml, BuildStep step) async {
     final desugarDeps = yaml.build?.desugar?.desugar_deps ?? false;
-    final deps = desugarDeps ? _depsToBeDesugared(org, yaml.deps ?? []) : <String>[];
+    final deps =
+        desugarDeps ? _depsToBeDesugared(org, yaml.deps ?? []) : <String>[];
 
     // Here, all the desugar process' futures are stored for them
     // to get excecuted parallely by the [Future.wait] method.
@@ -29,7 +30,7 @@ class Desugarer {
         Directory(p.join(_dataDir, 'workspaces', org, 'files', 'desugar'))
           ..createSync(recursive: true);
 
-    deps.forEach((el) {
+    for (final el in deps) {
       final output = p.join(desugarStore.path, p.basename(el));
       final args = _DesugarArgs(
         cd: _cd,
@@ -39,7 +40,7 @@ class Desugarer {
         org: org,
       );
       desugarFutures.add(compute(_desugar, args));
-    });
+    }
 
     // Desugar extension classes
     final classesDir = p.join(_dataDir, 'workspaces', org, 'classes');
@@ -56,10 +57,10 @@ class Desugarer {
     final results = await Future.wait(desugarFutures);
 
     final store = ErrWarnStore();
-    results.forEach((el) {
-      store.incErrors(el.store.getErrors);
-      store.incWarnings(el.store.getWarnings);
-    });
+    for (final result in results) {
+      store.incErrors(result.store.getErrors);
+      store.incWarnings(result.store.getWarnings);
+    }
 
     if (results.any((el) => el.result == Result.error)) {
       throw Exception();

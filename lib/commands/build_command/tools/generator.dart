@@ -62,7 +62,7 @@ rush-version=$rushVersion
           p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'assets'));
       await assetsDestDirX.create(recursive: true);
 
-      assets.forEach((el) async {
+      for (final el in assets) {
         final asset = File(p.join(assetsDir, el));
 
         if (asset.existsSync()) {
@@ -71,7 +71,7 @@ rush-version=$rushVersion
           step.log(LogType.warn,
               'Unable to find asset "${p.basename(el)}". Skipping.');
         }
-      });
+      }
     }
 
     // Pattern to match URL
@@ -106,7 +106,7 @@ rush-version=$rushVersion
           p.join(_dataDir, 'workspaces', org, 'files', 'desugar');
       final isArtDirEmpty = artDir.listSync().isEmpty;
 
-      deps.forEach((el) {
+      for (final el in deps) {
         final File dep;
 
         if (rushYml.build?.desugar?.desugar_deps ?? false) {
@@ -131,7 +131,7 @@ rush-version=$rushVersion
           extractFutures.add(compute(_extractJar,
               _ExtractJarArgs(input: dep.path, outputDir: artDir.path)));
         }
-      });
+      }
     }
 
     final kotlinEnabled = rushYml.build?.kotlin?.enable ?? false;
@@ -156,13 +156,13 @@ rush-version=$rushVersion
       el.copySync(newPath);
     });
 
-    final result = await Future.wait(extractFutures);
+    final results = await Future.wait(extractFutures);
 
     final store = ErrWarnStore();
-    result.forEach((el) {
-      store.incErrors(el.getErrors);
-      store.incWarnings(el.getWarnings);
-    });
+    for (final result in results) {
+      store.incErrors(result.getErrors);
+      store.incWarnings(result.getWarnings);
+    }
   }
 
   /// Copies LICENSE file if there's any.

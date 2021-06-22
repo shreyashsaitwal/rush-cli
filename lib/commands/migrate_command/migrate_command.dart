@@ -81,13 +81,15 @@ class MigrateCommand extends Command {
 
       exit(1);
     } else if (genFiles.entries.any((el) => el.value.length > 1)) {
-      final extensionNames = genFiles['rushYml']
-          ?.map((e) => p.basenameWithoutExtension(e.path).split('rush-').last);
+      final extensionNames = genFiles['rushYml']?.map(
+              (e) => p.basenameWithoutExtension(e.path).split('rush-').last) ??
+          [];
 
       compStep.log(LogType.erro, 'More than two extensions found');
-      extensionNames?.forEach((el) {
+      for (final el in extensionNames) {
         compStep.log(LogType.erro, ' ' * 2 + '- ' + el, addPrefix: false);
-      });
+      }
+
       compStep
         ..log(LogType.erro,
             'Currently, Rush doesn\'t supports multiple extensions inside one project.')

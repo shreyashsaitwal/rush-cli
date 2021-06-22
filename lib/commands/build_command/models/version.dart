@@ -14,7 +14,8 @@ class Version {
 
   const Version({required this.number, this.name});
 
-  factory Version.fromJson(Map<String, dynamic> json) => _$VersionFromJson(json);
+  factory Version.fromJson(Map<String, dynamic> json) =>
+      _$VersionFromJson(json);
 
   Map<String, dynamic> toJson() => _$VersionToJson(this);
 }

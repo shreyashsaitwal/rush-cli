@@ -13,7 +13,8 @@ class Release {
 
   Release({required this.optimize});
 
-  factory Release.fromJson(Map<String, dynamic> json) => _$ReleaseFromJson(json);
+  factory Release.fromJson(Map<String, dynamic> json) =>
+      _$ReleaseFromJson(json);
 
   Map<String, dynamic> toJson() => _$ReleaseToJson(this);
 }

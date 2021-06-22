@@ -54,10 +54,10 @@ class Compiler {
     ]);
 
     final store = ErrWarnStore();
-    results.forEach((el) {
-      store.incErrors(el.store.getErrors);
-      store.incWarnings(el.store.getWarnings);
-    });
+    for (final result in results) {
+      store.incErrors(result.store.getErrors);
+      store.incWarnings(result.store.getWarnings);
+    }
 
     if (results.any((el) => el.result == Result.error)) {
       throw Exception();
@@ -280,9 +280,9 @@ class Compiler {
 
     var contents = '';
 
-    args.forEach((line) {
+    for (final line in args) {
       contents += line.replaceAll('\\', '/') + '\n';
-    });
+    }
 
     file.writeAsStringSync(contents);
 

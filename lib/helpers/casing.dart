@@ -3,10 +3,10 @@ class Casing {
   static String pascalCase(String input) {
     final processed = _process(input);
     var result = '';
-    processed.forEach((word) {
+    for (final word in processed) {
       final firstLetter = word.split('').first;
       result += word.replaceFirst(firstLetter, firstLetter.toUpperCase());
-    });
+    }
     return result;
   }
 
@@ -15,7 +15,7 @@ class Casing {
     final processed = _process(input);
     var result = '';
     var isFirst = true;
-    processed.forEach((word) {
+    for (final word in processed) {
       final firstLetter = word.split('').first;
       if (isFirst) {
         result += word.replaceFirst(firstLetter, firstLetter.toLowerCase());
@@ -23,7 +23,7 @@ class Casing {
       } else {
         result += word.replaceFirst(firstLetter, firstLetter.toUpperCase());
       }
-    });
+    }
     return result;
   }
 
@@ -32,7 +32,7 @@ class Casing {
     final processed = _process(input);
     var result = '';
     var isFirst = true;
-    processed.forEach((word) {
+    for (final word in processed) {
       final firstLetter = word.split('').first;
       if (!isFirst) {
         result +=
@@ -41,7 +41,7 @@ class Casing {
         isFirst = false;
         result += word.replaceFirst(firstLetter, firstLetter.toLowerCase());
       }
-    });
+    }
     return result;
   }
 

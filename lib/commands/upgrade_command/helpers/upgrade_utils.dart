@@ -91,9 +91,9 @@ class UpgradeUtils {
   static int getSize(List<GitHubFile> files) {
     var res = 0;
 
-    files.forEach((element) {
-      res += element.size!;
-    });
+    for (final el in files) {
+      res += el.size!;
+    }
 
     return res ~/ 1.049e+6;
   }
