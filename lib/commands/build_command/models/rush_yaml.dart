@@ -66,7 +66,9 @@ class RushYaml {
     this.homepage,
   });
 
-  factory RushYaml.fromJson(Map<String, dynamic> json, BuildStep step) {
+  // Because `YamlMap` can't be casted to Map<String, dynamic>
+  // ignore: strict_raw_type
+  factory RushYaml.fromJson(Map json, BuildStep step) {
     final yaml = _$RushYamlFromJson(json);
 
     if (yaml.license_url != null) {

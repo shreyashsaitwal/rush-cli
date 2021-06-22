@@ -165,6 +165,9 @@ class MigrateCommand extends Command {
     final aiwebres = Directory(p.join(baseDir.path, 'aiwebres'));
     if (aiwebres.existsSync() && aiwebres.listSync().isNotEmpty) {
       CmdUtils.copyDir(aiwebres, assetsDest);
+    } else {
+      File(p.join(_dataDir, 'tools', 'other', 'icon-rush.png'))
+          .copySync(p.join(projectDirPath, 'assets', 'icon.png'));
     }
 
     step.log(LogType.info, 'Copied assets');
@@ -205,11 +208,11 @@ class MigrateCommand extends Command {
     _writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
     _writeFile(p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
         getDevDepsXml());
-    _writeFile(p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
-        getDevDepsXml());
+    _writeFile(
+        p.join(projectDir, '.idea', 'libraries', 'deps.xml'), getDepsXml());
     _writeFile(p.join(projectDir, '.idea', 'modules.xml'),
         getModulesXml(kebabCasedName));
-    _writeFile(p.join(projectDir, '$kebabCasedName.iml'), getIml());
+    _writeFile(p.join(projectDir, '.idea', '$kebabCasedName.iml'), getIml());
   }
 
   Future<void> _compileJava(Directory output, BuildStep step) async {
