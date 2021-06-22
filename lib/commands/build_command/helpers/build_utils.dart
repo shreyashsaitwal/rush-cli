@@ -11,20 +11,21 @@ import 'package:rush_prompt/rush_prompt.dart';
 class BuildUtils {
   /// Returns `true` if rush.yml and AndroidManifest.xml is modified.
   static Future<bool> areInfoFilesModified(String cd, Box dataBox) async {
-    final rushYml;
+    final File rushYml;
     try {
       rushYml = getRushYaml(cd);
     } catch (e) {
       rethrow;
     }
 
-    final isYmlMod =
-        rushYml.lastModifiedSync().isAfter(await dataBox.get('rushYmlLastMod'));
+    final isYmlMod = rushYml
+        .lastModifiedSync()
+        .isAfter(await dataBox.get('rushYmlLastMod') as DateTime);
 
     final manifestFile = File(p.join(cd, 'src', 'AndroidManifest.xml'));
     final isManifestMod = manifestFile
         .lastModifiedSync()
-        .isAfter(await dataBox.get('manifestLastMod'));
+        .isAfter(await dataBox.get('manifestLastMod') as DateTime);
 
     final res = isYmlMod || isManifestMod;
 
@@ -164,11 +165,11 @@ class BuildUtils {
   /// Returns `true` if the current extension needs to be optimized.
   static bool needsOptimization(
       bool isRelease, ArgResults args, RushYaml yaml) {
-    if (args['no-optimize']) {
+    if (args['no-optimize'] as bool) {
       return false;
     }
 
-    if (args['optimize']) {
+    if (args['optimize'] as bool) {
       return true;
     }
 

@@ -29,7 +29,7 @@ void main(List<String> args) {
     ..addCommand(BuildCommand(_cd, _dataDir))
     ..addCommand(MigrateCommand(_cd, _dataDir))
     ..addCommand(UpgradeCommand(_dataDir))
-    ..run(args).catchError((err) {
+    ..run(args).catchError((Object err) {
       if (err is UsageException) {
         runner.printUsage();
       } else {

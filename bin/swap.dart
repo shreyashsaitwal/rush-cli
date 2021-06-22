@@ -8,7 +8,7 @@ Future<void> main(List<String> args) async {
 
   final res = parser.parse(args);
 
-  final oldExe = File(res['oldExe']);
+  final oldExe = File(res['oldExe'] as String);
   oldExe.deleteSync();
 
   final newExe = File(oldExe.path + '.new');

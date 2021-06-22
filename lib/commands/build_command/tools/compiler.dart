@@ -18,10 +18,11 @@ class Compiler {
   Future<void> compileJava(Box dataBox, BuildStep step) async {
     final instance = DateTime.now();
 
-    final org = await dataBox.get('org');
+    final org = await dataBox.get('org') as String;
     final version = await dataBox.get('version') as int;
+    final name = await dataBox.get('name') as String;
 
-    final args = await _getJavacArgs(await dataBox.get('name'), org, version);
+    final args = await _getJavacArgs(name, org, version);
 
     final result =
         await _startProcess(_StartProcessArgs(cd: _cd, cmdArgs: args));
@@ -36,7 +37,7 @@ class Compiler {
   /// Compiles the Kotlin files for this extension project.
   Future<void> compileKt(Box dataBox, BuildStep step) async {
     final instance = DateTime.now();
-    final org = await dataBox.get('org');
+    final org = await dataBox.get('org') as String;
 
     final ktcArgs = _getKtcArgs(org);
     final kaptArgs = await _getKaptArgs(dataBox);
@@ -63,7 +64,7 @@ class Compiler {
     }
 
     await _generateInfoFilesIfNoBlocks(
-        org, await dataBox.get('version'), instance, step);
+        org, await dataBox.get('version') as int, instance, step);
   }
 
   /// Generates info files if no block annotations are declared.
@@ -177,7 +178,7 @@ class Compiler {
 
     final toolsJar = p.join(_dataDir, 'tools', 'other', 'tools.jar');
 
-    final org = await box.get('org');
+    final org = await box.get('org') as String;
 
     final prefix = '-P "plugin:org.jetbrains.kotlin.kapt3:';
     final kaptDir = Directory(p.join(_dataDir, 'workspaces', org, 'kapt'))
@@ -224,9 +225,9 @@ class Compiler {
   /// This is only needed when running Kapt, as it doesn't support passing
   /// options to the annotation processor in textual form.
   Future<String> _getEncodedApOpts(Box box) async {
-    final name = await box.get('name');
-    final org = await box.get('org');
-    final version = await box.get('version');
+    final name = await box.get('name') as String;
+    final org = await box.get('org') as String;
+    final version = await box.get('version') as int;
 
     final filesDir = Directory(p.join(_dataDir, 'workspaces', org, 'files'))
       ..createSync(recursive: true);
@@ -239,10 +240,10 @@ class Compiler {
       'output=${filesDir.path}'
     ].join(';');
 
-    final boxOpts = (await box.get('apOpts') ?? {}) as Map;
+    final boxOpts = (await box.get('apOpts') ?? {'': ''}) as Map;
 
     if (opts == boxOpts['raw']) {
-      return boxOpts['encoded'];
+      return boxOpts['encoded'] as String;
     }
 
     final processorJar =

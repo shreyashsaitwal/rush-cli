@@ -30,7 +30,7 @@ class Desugarer {
           ..createSync(recursive: true);
 
     deps.forEach((el) {
-      final output = p.join(desugarStore.path, p.basename(el));
+      final output = p.join(desugarStore.path, p.basename(el as String));
       final args = _DesugarArgs(
         cd: _cd,
         dataDir: _dataDir,

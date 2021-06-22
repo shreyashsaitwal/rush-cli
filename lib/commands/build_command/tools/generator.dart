@@ -192,7 +192,7 @@ rush-version=$rushVersion
 
     for (final entity in jar) {
       if (entity.isFile) {
-        final data = entity.content;
+        final data = entity.content as List<int>;
         try {
           File(p.join(args.outputDir, entity.name))
             ..createSync(recursive: true)

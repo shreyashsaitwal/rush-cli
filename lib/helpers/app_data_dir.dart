@@ -5,7 +5,7 @@ import 'package:path/path.dart' as path;
 class RushDataDir {
   static String? dataDir() {
     var os = Platform.operatingSystem;
-    late var appDataDir;
+    late String appDataDir;
 
     switch (os) {
       case 'windows':

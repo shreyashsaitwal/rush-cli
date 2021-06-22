@@ -18,7 +18,7 @@ class BuildCommand extends Command {
   final String _cd;
   final String _dataDir;
 
-  late final _startTime;
+  late final DateTime _startTime;
 
   BuildCommand(this._cd, this._dataDir) {
     argParser
@@ -177,11 +177,12 @@ class BuildCommand extends Command {
     valStep.finishOk();
 
     if (await BuildUtils.areInfoFilesModified(_cd, dataBox)) {
-      BuildUtils.cleanWorkspaceDir(_dataDir, await dataBox.get('org'));
+      BuildUtils.cleanWorkspaceDir(
+          _dataDir, await dataBox.get('org') as String);
     }
 
     // Increment version number if this is a production build.
-    final isRelease = argResults!['release'];
+    final isRelease = argResults!['release'] as bool;
     if (isRelease) {
       final extVerYml = rushYaml.version.number;
 
@@ -190,7 +191,8 @@ class BuildCommand extends Command {
         await dataBox.put('version', extVerBox + 1);
       }
 
-      BuildUtils.cleanWorkspaceDir(_dataDir, await dataBox.get('org'));
+      BuildUtils.cleanWorkspaceDir(
+          _dataDir, await dataBox.get('org') as String);
     }
 
     final optimize =
@@ -246,8 +248,10 @@ class BuildCommand extends Command {
     }
 
     compileStep.finishOk();
-    await _process(await dataBox.get('org'), optimize,
-        argResults!['support-lib'], rushYaml);
+
+    final org = await dataBox.get('org') as String;
+    final deJet = argResults!['support-lib'] as bool;
+    await _process(org, optimize, deJet, rushYaml);
   }
 
   /// Further process the extension by generating extension files, adding

@@ -1,6 +1,6 @@
 name: rush_cli
 description: A new and improved way of building MIT AI2 extensions.
-version: 1.1.1
+version: 1.2.0
 homepage: https://github.com/ShreyashSaitwal/rush-cli
 
 executables:
@@ -15,7 +15,7 @@ environment:
 dev_dependencies:
   build_runner: ^2.0.0
   json_serializable: ^4.0.0
-  pedantic: ^1.9.0
+  lints: ^1.0.1
 
 publish_to: none
 

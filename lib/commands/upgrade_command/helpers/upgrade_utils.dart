@@ -29,8 +29,8 @@ class UpgradeUtils {
         final boxedEntity = await box.get(entity.name) ??
             <String, String>{'sha': '', 'path': ''};
 
-        final boxedSha = boxedEntity['sha'] ?? '';
-        final boxedPath = boxedEntity['path'] ?? '';
+        final boxedSha = (boxedEntity['sha'] ?? '') as String;
+        final boxedPath = (boxedEntity['path'] ?? '') as String;
 
         if (entity.path!.startsWith('exe') ||
             boxedSha != entity.sha ||
@@ -52,7 +52,7 @@ class UpgradeUtils {
     required ProgressBar pb,
   }) async {
     for (final content in contents) {
-      final savePath;
+      final String savePath;
 
       if (content.path!.startsWith('exe')) {
         if (RegExp(r'rush(.exe)?', dotAll: false).hasMatch(content.name!)) {

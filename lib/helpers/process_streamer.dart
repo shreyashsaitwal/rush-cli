@@ -29,7 +29,7 @@ class ProcessPatternChecker {
 
   bool get patternExists => _exists;
   // ignore: unused_element
-  set _patternExists(value) => _exists = value;
+  set _patternExists(bool value) => _exists = value;
 }
 
 class ProcessStreamer {
@@ -141,7 +141,8 @@ class ProcessStreamer {
 
       final List<String> alreadyPrinted;
       if (trackAlreadyPrinted) {
-        alreadyPrinted = (await buildBox!.get('alreadyPrinted')) ?? [];
+        alreadyPrinted = ((await buildBox!.get('alreadyPrinted')) ?? <String>[])
+            as List<String>;
 
         if (alreadyPrinted.contains(line)) {
           skipThisErrStack = true;
