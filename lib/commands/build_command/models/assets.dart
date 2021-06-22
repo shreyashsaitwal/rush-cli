@@ -16,7 +16,7 @@ class Assets {
 
   Assets({required this.icon, this.other});
 
-  factory Assets.fromJson(Map json) => _$AssetsFromJson(json);
+  factory Assets.fromJson(Map<String, dynamic> json) => _$AssetsFromJson(json);
 
   Map<String, dynamic> toJson() => _$AssetsToJson(this);
 }

@@ -30,13 +30,22 @@ RushYaml _$RushYamlFromJson(Map json) {
     final val = RushYaml(
       name: $checkedConvert(json, 'name', (v) => v as String),
       description: $checkedConvert(json, 'description', (v) => v as String),
-      version:
-          $checkedConvert(json, 'version', (v) => Version.fromJson(v as Map)),
-      assets: $checkedConvert(json, 'assets', (v) => Assets.fromJson(v as Map)),
-      release: $checkedConvert(json, 'release',
-          (v) => v == null ? null : Release.fromJson(v as Map)),
+      version: $checkedConvert(json, 'version',
+          (v) => Version.fromJson(Map<String, dynamic>.from(v as Map))),
+      assets: $checkedConvert(json, 'assets',
+          (v) => Assets.fromJson(Map<String, dynamic>.from(v as Map))),
+      release: $checkedConvert(
+          json,
+          'release',
+          (v) => v == null
+              ? null
+              : Release.fromJson(Map<String, dynamic>.from(v as Map))),
       build: $checkedConvert(
-          json, 'build', (v) => v == null ? null : Build.fromJson(v as Map)),
+          json,
+          'build',
+          (v) => v == null
+              ? null
+              : Build.fromJson(Map<String, dynamic>.from(v as Map))),
       authors: $checkedConvert(json, 'authors',
           (v) => (v as List<dynamic>?)?.map((e) => e as String).toList()),
       deps: $checkedConvert(json, 'deps',

@@ -125,7 +125,10 @@ class BuildCommand extends Command {
     try {
       rushYaml = checkedYamlDecode(
         yamlFile.readAsStringSync(),
-        (json) => RushYaml.fromJson(json!, valStep),
+        (json) {
+          json = json as Map<String, dynamic>;
+          return RushYaml.fromJson(json, valStep);
+        },
         sourceUrl: Uri.tryParse(
             'https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/schema/rush.json'),
       );

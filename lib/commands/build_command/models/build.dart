@@ -19,7 +19,7 @@ class Build {
 
   Build(this.release, {this.desugar, this.kotlin});
 
-  factory Build.fromJson(Map json) => _$BuildFromJson(json);
+  factory Build.fromJson(Map<String, dynamic> json) => _$BuildFromJson(json);
 
   Map<String, dynamic> toJson() => _$BuildToJson(this);
 }
@@ -35,7 +35,7 @@ class Kotlin {
 
   Kotlin({required this.enable});
 
-  factory Kotlin.fromJson(Map json) => _$KotlinFromJson(json);
+  factory Kotlin.fromJson(Map<String, dynamic> json) => _$KotlinFromJson(json);
 
   Map<String, dynamic> toJson() => _$KotlinToJson(this);
 }
@@ -49,11 +49,13 @@ class Desugar {
   @JsonKey(defaultValue: false, required: true)
   final bool enable;
   @JsonKey(defaultValue: false)
+  // ignore: non_constant_identifier_names
   final bool? desugar_deps;
 
+  // ignore: non_constant_identifier_names
   Desugar({required this.enable, this.desugar_deps});
 
-  factory Desugar.fromJson(Map json) => _$DesugarFromJson(json);
+  factory Desugar.fromJson(Map<String, dynamic> json) => _$DesugarFromJson(json);
 
   Map<String, dynamic> toJson() => _$DesugarToJson(this);
 }
@@ -69,7 +71,7 @@ class Release {
 
   Release({required this.optimize});
 
-  factory Release.fromJson(Map json) => _$ReleaseFromJson(json);
+  factory Release.fromJson(Map<String, dynamic> json) => _$ReleaseFromJson(json);
 
   Map<String, dynamic> toJson() => _$ReleaseToJson(this);
 }

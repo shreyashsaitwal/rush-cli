@@ -17,7 +17,7 @@ class Desugarer {
   /// compatible with Android API level < 26.
   Future<void> run(String org, RushYaml yaml, BuildStep step) async {
     final desugarDeps = yaml.build?.desugar?.desugar_deps ?? false;
-    final deps = desugarDeps ? _depsToBeDesugared(org, yaml.deps ?? []) : [];
+    final deps = desugarDeps ? _depsToBeDesugared(org, yaml.deps ?? []) : <String>[];
 
     // Here, all the desugar process' futures are stored for them
     // to get excecuted parallely by the [Future.wait] method.
@@ -30,7 +30,7 @@ class Desugarer {
           ..createSync(recursive: true);
 
     deps.forEach((el) {
-      final output = p.join(desugarStore.path, p.basename(el as String));
+      final output = p.join(desugarStore.path, p.basename(el));
       final args = _DesugarArgs(
         cd: _cd,
         dataDir: _dataDir,

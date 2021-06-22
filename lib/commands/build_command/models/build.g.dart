@@ -10,12 +10,24 @@ Build _$BuildFromJson(Map json) {
   return $checkedNew('Build', json, () {
     $checkKeys(json, allowedKeys: const ['desugar', 'kotlin', 'release']);
     final val = Build(
-      $checkedConvert(json, 'release',
-          (v) => v == null ? null : Release.fromJson(v as Map)),
-      desugar: $checkedConvert(json, 'desugar',
-          (v) => v == null ? null : Desugar.fromJson(v as Map)),
+      $checkedConvert(
+          json,
+          'release',
+          (v) => v == null
+              ? null
+              : Release.fromJson(Map<String, dynamic>.from(v as Map))),
+      desugar: $checkedConvert(
+          json,
+          'desugar',
+          (v) => v == null
+              ? null
+              : Desugar.fromJson(Map<String, dynamic>.from(v as Map))),
       kotlin: $checkedConvert(
-          json, 'kotlin', (v) => v == null ? null : Kotlin.fromJson(v as Map)),
+          json,
+          'kotlin',
+          (v) => v == null
+              ? null
+              : Kotlin.fromJson(Map<String, dynamic>.from(v as Map))),
     );
     return val;
   });

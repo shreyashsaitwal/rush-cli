@@ -159,7 +159,7 @@ class BuildUtils {
     res += '${millis}ms';
     res += '$brightBlack]$reset';
 
-    return '$res';
+    return res;
   }
 
   /// Returns `true` if the current extension needs to be optimized.

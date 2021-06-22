@@ -38,12 +38,14 @@ class RushYaml {
   List<String>? authors;
 
   @JsonKey(defaultValue: null, includeIfNull: false)
+  // ignore: non_constant_identifier_names
   String? license_url;
 
   @JsonKey(includeIfNull: false)
   String? license;
 
   @JsonKey(includeIfNull: false)
+  // ignore: non_constant_identifier_names
   int? min_sdk;
 
   @JsonKey(includeIfNull: false)
@@ -59,11 +61,12 @@ class RushYaml {
     this.authors,
     this.deps,
     this.license,
+    // ignore: non_constant_identifier_names
     this.min_sdk,
     this.homepage,
   });
 
-  factory RushYaml.fromJson(Map json, BuildStep step) {
+  factory RushYaml.fromJson(Map<String, dynamic> json, BuildStep step) {
     final yaml = _$RushYamlFromJson(json);
 
     if (yaml.license_url != null) {

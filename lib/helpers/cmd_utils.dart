@@ -47,7 +47,7 @@ class CmdUtils {
       {List<String> exclude = const [''],
       Directory? classesDir,
       bool relative = true}) {
-    final jars = [];
+    final jars = <String>[];
 
     entities.forEach((entity) {
       if (entity is Directory) {
