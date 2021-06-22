@@ -35,6 +35,7 @@ jobs:
           ./scripts/build.sh -v 1.2.0 -t ${{ secrets.GH_PAT }}
 
       - name: Get jq
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
         shell: bash
         run: |
           if [[ "$OSTYPE" == "linux-gnu"* ]]; then sudo apt-get install jq; fi
@@ -42,7 +43,7 @@ jobs:
           if [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "msys" ]]; then choco install jq; fi
 
       - name: Upload exe to rush-pack repo
-        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push'}}
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
         shell: bash
         run: |
           chmod +x ./scripts/upload_exe.sh
@@ -50,7 +51,7 @@ jobs:
 
   release:
     needs: [build]
-    # if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push'}}
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
 
     strategy:
       fail-fast: true
