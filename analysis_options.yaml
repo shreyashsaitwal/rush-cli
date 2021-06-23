@@ -1,14 +1,9 @@
-include: package:pedantic/analysis_options.yaml
-
-linter:
-  rules:
-    - camel_case_types
-    - always_put_required_named_parameters_first
-    - sort_pub_dependencies
-    - avoid_empty_else
-    - avoid_relative_lib_imports
-    - prefer_single_quotes
+include: package:lints/recommended.yaml
 
 analyzer:
-  enable-experiment:
-    - non-nullable
+  exclude: ['**.g.dart']
+  strong-mode:
+    implicit-casts: false
+  language:
+    strict-raw-types: true
+    strict-inference: true

@@ -1,134 +1,60 @@
 import 'package:dart_console/dart_console.dart';
+import 'package:rush_prompt/rush_prompt.dart';
 
 class BuildStep {
-  final console = Console();
-
+  final _console = Console();
   final String _title;
 
   BuildStep(this._title);
 
+  LogType? prevLogType;
+
   /// Initializes this step.
   void init() {
-    console
+    _console
       ..setForegroundColor(ConsoleColor.brightBlack)
       ..write('┌ ')
       ..resetColorAttributes()
-      ..setForegroundColor(ConsoleColor.brightWhite)
-      ..writeLine(_title)
-      ..resetColorAttributes();
+      ..writeLine(_title);
   }
 
-  /// Logs the given [msg] as a warning to this step's stdout.
-  void logErr(String msg, {bool addPrefix = true, bool addSpace = false}) {
-    if (addSpace) {
-      console
-        ..setForegroundColor(ConsoleColor.brightBlack)
-        ..writeErrorLine('│ ')
-        ..resetColorAttributes();
+  void log(LogType type, String msg, {bool addPrefix = true}) {
+    if (prevLogType != null && prevLogType != type) {
+      _printPipe(fullLine: true);
     }
-    console
-      ..setForegroundColor(ConsoleColor.brightBlack)
-      ..write('│ ')
-      ..resetColorAttributes();
+    prevLogType = type;
+    _printPipe();
 
-    if (addPrefix) {
-      console
-        ..setBackgroundColor(ConsoleColor.red)
-        ..setForegroundColor(ConsoleColor.brightWhite)
-        ..write('ERR')
-        ..resetColorAttributes()
-        ..write(' ');
-    }
-
-    console
-      ..setForegroundColor(ConsoleColor.red)
-      ..writeErrorLine(msg)
-      ..resetColorAttributes();
+    Logger.log(type, msg, addPrefix: addPrefix);
   }
 
-  /// Logs the given [msg] as a warning to this step's stdout.
-  void logWarn(String msg, {bool addPrefix = true, bool addSpace = false}) {
-    if (addSpace) {
-      console
-        ..setForegroundColor(ConsoleColor.brightBlack)
-        ..writeLine('│ ')
-        ..resetColorAttributes();
-    }
-    console
-      ..setForegroundColor(ConsoleColor.brightBlack)
-      ..write('│ ')
-      ..resetColorAttributes();
-
-    if (addPrefix) {
-      console
-        ..setBackgroundColor(ConsoleColor.yellow)
-        ..setForegroundColor(ConsoleColor.black)
-        ..write('WARN')
-        ..resetColorAttributes()
-        ..write(' ');
-    }
-
-    console
-      ..setForegroundColor(ConsoleColor.yellow)
-      ..writeErrorLine(msg)
-      ..resetColorAttributes();
-  }
-
-  /// Logs the given [msg] to this step's stdout and optionally styles it.
-  void log(String msg, ConsoleColor clr,
-      {bool addSpace = false,
-      String prefix = '',
-      ConsoleColor prefFG = ConsoleColor.white,
-      ConsoleColor prefBG = ConsoleColor.black}) {
-    if (addSpace) {
-      console
-        ..setForegroundColor(ConsoleColor.brightBlack)
-        ..writeLine('│ ')
-        ..resetColorAttributes();
-    }
-    console
-      ..setForegroundColor(ConsoleColor.brightBlack)
-      ..write('│ ')
-      ..resetColorAttributes();
-
-    if (prefix != '' && prefBG != ConsoleColor.black) {
-      console
-        ..write(' ')
-        ..setBackgroundColor(prefBG)
-        ..setForegroundColor(prefFG)
-        ..write(prefix)
-        ..resetColorAttributes()
-        ..write(' ')
-        ..setForegroundColor(clr)
-        ..writeLine(msg)
-        ..resetColorAttributes();
+  void _printPipe({bool fullLine = false}) {
+    _console.setForegroundColor(ConsoleColor.brightBlack);
+    if (fullLine) {
+      _console.writeLine('│ ');
     } else {
-      console
-        ..setForegroundColor(clr)
-        ..writeLine(' ' + msg)
-        ..resetColorAttributes();
+      _console.write('│ ');
     }
+    _console.resetColorAttributes();
   }
 
   /// Finishes this step.
-  void finishOk(String msg) {
-    console
+  void finishOk({String? msg}) {
+    _console
       ..setForegroundColor(ConsoleColor.brightBlack)
       ..write('└ ')
-      ..resetColorAttributes()
       ..setForegroundColor(ConsoleColor.green)
-      ..writeLine(msg)
+      ..writeLine(msg ?? 'done')
       ..resetColorAttributes();
   }
 
   /// Finishes this step.
-  void finishNotOk(String msg) {
-    console
+  void finishNotOk({String? msg}) {
+    _console
       ..setForegroundColor(ConsoleColor.brightBlack)
       ..write('└ ')
-      ..resetColorAttributes()
       ..setForegroundColor(ConsoleColor.red)
-      ..writeLine(msg)
+      ..writeLine(msg ?? 'failed')
       ..resetColorAttributes();
   }
 }

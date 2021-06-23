@@ -5,8 +5,5 @@ String getDotGitignore() {
 
 # Output directory
 out
-
-# IntelliJ files
-*.iml
 ''';
 }

@@ -21,8 +21,7 @@ class MultipleChoiceQuestion extends Question {
     _id = id;
     _options = options;
 
-    _hint = hint ??
-        '(Use arrow keys to navigate to the correct option & enter to select it.)';
+    _hint = hint ?? '(Use arrow keys to navigate & press enter to select)';
   }
 
   void _renderList(int activeIndex) {
@@ -30,10 +29,10 @@ class MultipleChoiceQuestion extends Question {
       if (activeIndex == _options.indexOf(option)) {
         console
           ..setForegroundColor(ConsoleColor.cyan)
-          ..writeLine('› $option')
+          ..writeLine(' › $option')
           ..resetColorAttributes();
       } else {
-        console.writeLine('  $option');
+        console.writeLine(' ' * 3 + '$option');
       }
     });
   }
@@ -53,7 +52,7 @@ class MultipleChoiceQuestion extends Question {
     console
       ..setForegroundColor(ConsoleColor.green)
       ..write('? ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..write('$_question ')
       ..setForegroundColor(ConsoleColor.brightBlack)
       ..writeLine(_hint == '' ? '' : '$_hint ');

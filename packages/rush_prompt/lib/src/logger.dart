@@ -1,74 +1,67 @@
-import 'dart:io' show exit;
-
 import 'package:dart_console/dart_console.dart';
+import 'package:rush_prompt/src/err_warn_store.dart';
+
+enum LogType { erro, warn, info, note }
 
 class Logger {
-  /// Logs the given [message] to the stdout in red color and optionally adds a prefix
-  /// (ERR) in front of it.
-  static void logErr(String message,
-      {bool addPrefix = true, bool addSpace = false, int? exitCode}) {
-    final console = Console();
+  static final _console = Console();
+  static final _errWarnStore = ErrWarnStore();
 
-    if (addPrefix) {
-      console
-        ..write(addSpace ? '\n' : '')
-        ..setBackgroundColor(ConsoleColor.red)
-        ..setForegroundColor(ConsoleColor.brightWhite)
-        ..write('ERR')
+  static void log(LogType type, String msg, {bool addPrefix = true}) {
+    final printPrefix = (ConsoleColor clr, String prefix) {
+      _console
+        ..setForegroundColor(clr)
+        ..write(prefix)
         ..resetColorAttributes()
         ..write(' ');
-    }
-
-    console
-      ..setForegroundColor(ConsoleColor.brightWhite)
-      ..writeErrorLine(message)
-      ..resetColorAttributes();
-
-    if (exitCode != null) {
-      exit(exitCode);
-    }
-  }
-
-  static void logWarn(String message,
-      {bool addPrefix = true, bool addSpace = false}) {
-    final console = Console();
+    };
 
     if (addPrefix) {
-      console
-        ..write(addSpace ? '\n' : '')
-        ..setBackgroundColor(ConsoleColor.yellow)
-        ..setForegroundColor(ConsoleColor.black)
-        ..write('WARN')
-        ..resetColorAttributes()
-        ..write(' ');
+      switch (type) {
+        case LogType.erro:
+          printPrefix(ConsoleColor.red, 'erro');
+          _errWarnStore.incErrors();
+          break;
+        case LogType.warn:
+          printPrefix(ConsoleColor.yellow, 'warn');
+          _errWarnStore.incWarnings();
+          break;
+        case LogType.note:
+          printPrefix(ConsoleColor.blue, 'note');
+          break;
+        default:
+          printPrefix(ConsoleColor.cyan, 'info');
+          break;
+      }
     }
 
-    console
-      ..setForegroundColor(ConsoleColor.brightWhite)
-      ..writeErrorLine(message)
-      ..resetColorAttributes();
+    if (type == LogType.erro) {
+      _console.writeErrorLine(msg);
+    } else {
+      _console.writeLine(msg);
+    }
   }
 
   /// Logs the given [message] to the stdout and optionally styles it.
-  static void log(
+  static void logCustom(
     String message, {
-    ConsoleColor color = ConsoleColor.brightWhite,
+    ConsoleColor? color,
     String prefix = '',
     ConsoleColor? prefixFG,
-    ConsoleColor? prefixBG,
   }) {
-    final console = Console();
-    if (prefixBG != null) {
-      console.setBackgroundColor(prefixBG);
-    }
     if (prefixFG != null) {
-      console.setForegroundColor(prefixFG);
+      _console.setForegroundColor(prefixFG);
     }
 
-    console
+    _console
       ..write(prefix)
-      ..resetColorAttributes()
-      ..setForegroundColor(color)
+      ..resetColorAttributes();
+
+    if (color != null) {
+      _console.setForegroundColor(color);
+    }
+
+    _console
       ..writeLine(message)
       ..resetColorAttributes();
   }

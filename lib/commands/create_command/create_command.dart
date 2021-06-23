@@ -4,21 +4,18 @@ import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/helpers/copy.dart';
+import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/templates/rules_pro.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
-import 'package:rush_cli/templates/iml_template.dart';
-import 'package:rush_cli/templates/libs_xml.dart';
-import 'package:rush_cli/templates/misc_xml.dart';
-import 'package:rush_cli/templates/modules_xml.dart';
+import 'package:rush_cli/templates/intellij_files.dart';
 import 'package:rush_cli/helpers/casing.dart';
 import 'package:rush_cli/commands/create_command/questions.dart';
 import 'package:rush_cli/templates/android_manifest.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
-import 'package:rush_cli/templates/readme_template.dart';
-import 'package:rush_cli/templates/rush_yaml_template.dart';
-import 'package:rush_cli/templates/extension_template.dart';
+import 'package:rush_cli/templates/readme.dart';
+import 'package:rush_cli/templates/rush_yml.dart';
+import 'package:rush_cli/templates/extension_source.dart';
 
 class CreateCommand extends Command {
   final String _cd;
@@ -41,7 +38,7 @@ class CreateCommand extends Command {
     Console()
       ..setForegroundColor(ConsoleColor.cyan)
       ..write(' create: ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..writeLine(description)
       ..writeLine()
       ..writeLine(' Usage: ')
@@ -69,6 +66,7 @@ class CreateCommand extends Command {
     final answers = RushPrompt(questions: Questions.questions).askAll();
     final authorName = answers[1][1].toString().trim();
     final versionName = answers[2][1].toString().trim();
+    final lang = answers[3][1].toString().trim();
     var orgName = answers[0][1].toString().trim();
 
     final camelCasedName = Casing.camelCase(name);
@@ -88,19 +86,32 @@ class CreateCommand extends Command {
     // Creates the required files for the extension.
     try {
       final extPath = p.joinAll([projectDir, 'src', ...orgName.split('.')]);
-      _writeFile(
-          p.join(extPath, '$pascalCasedName.java'),
-          getExtensionTemp(
-            pascalCasedName,
-            orgName,
-          ));
+
+      if (lang == 'Java') {
+        _writeFile(
+            p.join(extPath, '$pascalCasedName.java'),
+            getExtensionTempJava(
+              pascalCasedName,
+              orgName,
+            ));
+      } else {
+        _writeFile(
+            p.join(extPath, '$pascalCasedName.kt'),
+            getExtensionTempKt(
+              pascalCasedName,
+              orgName,
+            ));
+      }
 
       _writeFile(p.join(projectDir, 'src', 'AndroidManifest.xml'),
           getManifestXml(orgName));
-      _writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'), getPgRules());
+      _writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'),
+          getPgRules(orgName, pascalCasedName));
 
-      _writeFile(p.join(projectDir, 'rush.yml'),
-          getRushYaml(pascalCasedName, versionName, authorName));
+      _writeFile(
+          p.join(projectDir, 'rush.yml'),
+          getRushYamlTemp(
+              pascalCasedName, versionName, authorName, lang == 'Kotlin'));
 
       _writeFile(p.join(projectDir, 'README.md'), getReadme(pascalCasedName));
       _writeFile(p.join(projectDir, '.gitignore'), getDotGitignore());
@@ -109,15 +120,18 @@ class CreateCommand extends Command {
 
       // IntelliJ IDEA files
       _writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
+
       _writeFile(p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
           getDevDepsXml());
       _writeFile(
           p.join(projectDir, '.idea', 'libraries', 'deps.xml'), getDepsXml());
+
       _writeFile(p.join(projectDir, '.idea', 'modules.xml'),
           getModulesXml(kebabCasedName));
-      _writeFile(p.join(projectDir, '$kebabCasedName.iml'), getIml());
+      _writeFile(p.join(projectDir, '.idea', '$kebabCasedName.iml'), getIml());
     } catch (e) {
-      Logger.logErr(e.toString(), exitCode: 1);
+      Logger.log(LogType.erro, e.toString());
+      exit(1);
     }
 
     try {
@@ -125,7 +139,8 @@ class CreateCommand extends Command {
       Directory(p.join(projectDir, '.rush', 'dev-deps'))
           .createSync(recursive: true);
     } catch (e) {
-      Logger.logErr(e.toString(), exitCode: 1);
+      Logger.log(LogType.erro, e.toString());
+      exit(1);
     }
 
     // Copy icon
@@ -145,11 +160,9 @@ class CreateCommand extends Command {
     // Copy dev-deps.
     final devDepsDir = p.join(_dataDir, 'dev-deps');
 
-    Logger.log('Getting things ready...',
-        color: ConsoleColor.brightWhite,
-        prefix: '\n• ',
-        prefixFG: ConsoleColor.yellow);
-    Copy.copyDir(Directory(devDepsDir),
+    Logger.logCustom('Getting things ready...',
+        prefix: '\n• ', prefixFG: ConsoleColor.yellow);
+    CmdUtils.copyDir(Directory(devDepsDir),
         Directory(p.join(projectDir, '.rush', 'dev-deps')));
 
     Console()
@@ -157,27 +170,26 @@ class CreateCommand extends Command {
       ..write('• ')
       ..setForegroundColor(ConsoleColor.brightGreen)
       ..write('Success! ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..write('Generated a new AI2 extension project in: ')
       ..setForegroundColor(ConsoleColor.cyan)
       ..writeLine(projectDir)
       ..writeLine()
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..write('Next up, \n' + ' ' * 2 + '-')
       ..setForegroundColor(ConsoleColor.yellow)
       ..write(' cd ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..write('into ')
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write(kebabCasedName + '/')
-      ..setForegroundColor(ConsoleColor.brightWhite)
+      ..resetColorAttributes()
       ..writeLine(', and')
       ..write(' ' * 2 + '- run ')
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write('rush build ')
-      ..setForegroundColor(ConsoleColor.brightWhite)
-      ..writeLine('to compile your extension.')
-      ..resetColorAttributes();
+      ..resetColorAttributes()
+      ..writeLine('to compile your extension.');
   }
 
   /// Creates a file in [path] and writes [content] inside it.

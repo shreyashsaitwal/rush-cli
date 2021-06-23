@@ -15,6 +15,11 @@ class Questions {
         question: 'Version name',
         id: 'version',
       ),
+      MultipleChoiceQuestion(
+        question: 'Language',
+        options: ['Java', 'Kotlin'],
+        id: 'lang',
+      ),
     ];
   }
 }
