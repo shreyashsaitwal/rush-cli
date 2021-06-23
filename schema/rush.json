@@ -135,7 +135,7 @@
 		},
 		"license": {
 			"title": "Extension license",
-			"description": "The license agreement for the end-users of the extension. This could be a remote URL or a relative path to a local text document.",
+			"description": "The license agreement for the end-users of the extension. This could be a remote URL or path to the local license file relative to the project root.",
 			"type": "string"
 		},
 		"min_sdk": {

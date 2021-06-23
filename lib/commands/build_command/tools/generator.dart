@@ -18,7 +18,7 @@ class Generator {
     await Future.wait([
       _generateInfoFiles(org),
       _copyAssets(yaml, org, step),
-      _copyLicense(org),
+      _copyLicense(org, yaml),
       _copyRequiredClasses(yaml, org, step),
     ]);
   }
@@ -166,18 +166,25 @@ rush-version=$rushVersion
   }
 
   /// Copies LICENSE file if there's any.
-  Future<void> _copyLicense(String org) async {
-    final license = File(p.join(_cd, 'LICENSE'));
-    final licenseTxt = File(p.join(_cd, 'LICENSE.txt'));
+  Future<void> _copyLicense(String org, RushYaml yaml) async {
+    // Pattern to match URL
+    final urlPattern = RegExp(
+        r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_\+.~#?&\/\/=]*)',
+        dotAll: true);
+
+    final File license;
+    if (yaml.license != null && !urlPattern.hasMatch(yaml.license!)) {
+      license = File(p.join(_cd, yaml.license));
+    } else {
+      return;
+    }
 
     final dest = Directory(
         p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'aiwebres'));
     await dest.create(recursive: true);
 
-    if (await license.exists()) {
+    if (license.existsSync()) {
       await license.copy(p.join(dest.path, 'LICENSE'));
-    } else if (await licenseTxt.exists()) {
-      await licenseTxt.copy(p.join(dest.path, 'LICENSE'));
     }
   }
 
