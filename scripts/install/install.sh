@@ -4,12 +4,12 @@
 set -e
 
 if ! command -v unzip >/dev/null; then
-	echo "err: unzip is required to install Rush. Please install it and try again."
+	echo "err: unzip is required to install Rush. Please install it and try again"
 	exit 1
 fi
 
-# Check if Rush is already installed; if it is, use the old
-# path for storing Rush executable
+# Check if Rush is already installed; if it is, use the old path for storing,
+# Rush executable
 if ! command -v rush >/dev/null; then
   binDir="$HOME/.rush/bin"
   if [ ! -d "$binDir" ]; then
@@ -19,16 +19,21 @@ else
   binDir="$(dirname $(which rush))"
 fi
 
-# Set the target
-if [ "$OSTYPE" = "msys" ] || [ "$OSTYPE" = "cygwin" ]; then
+# Set the target and data dir
+if [ "$OS" = "Windows_NT" ]; then
   target="win"
   dataDir="$APPDATA/rush"
-elif [ "$OSTYPE" = "darwin"* ]; then
-  target="mac"
-  dataDir="$HOME/Library/Application Support/rush"
 else
-  target="linux"
-  dataDir="$HOME/rush"
+  case $(uname -sm) in
+  "Darwin x86_64")
+    target="mac"
+    dataDir="$HOME/Library/Application Support/rush"
+    ;;
+  *)
+    target="linux"
+    dataDir="$HOME/rush"
+    ;;
+  esac
 fi
 
 zipUrl="https://github.com/shreyashsaitwal/rush-cli/releases/latest/download/rush-$target.zip"
@@ -59,17 +64,13 @@ chmod +x "$dataDir/tools/kotlinc/bin/kotlinc"
 chmod +x "$dataDir/tools/kotlinc/bin/kapt"
 chmod +x "$dataDir/tools/jetifier-standalone/bin/jetifier-standalone"
 
-cyan='\033[0;36m'
-green='\033[0;32m'
-reset='\033[0m'
-
 echo
-echo "${green}Success!${reset} Installed Rush at $binDir/rush"
+echo "Success! Installed Rush at $binDir/rush"
 if ! command -v rush >/dev/null; then
   if [ "$OS" = "Windows_NT" ]; then
+    exp=" $dataDir/bin "
     echo
     echo "Now, add the following entry to your 'PATH' environment variable:"
-    echo "${cyan}$binDir${reset}"
   else
     case $SHELL in
       /bin/zsh) shell_profile=".zshrc" ;;
@@ -77,14 +78,14 @@ if ! command -v rush >/dev/null; then
     esac
 
     exp=" export PATH=\"\$PATH:$binDir\" "
-    edge=$(echo " $exp " | sed 's/./-/g')
-
     echo
     echo "Now, manually add Rush's bin directory to your \$HOME/$shell_profile (or similar):"
-    echo $edge
-    echo "|${cyan}${exp}${reset}|"
-    echo $edge
   fi
+
+    edge=$(echo " $exp " | sed 's/./-/g')
+    echo $edge
+    echo "|$exp|"
+    echo $edge
 fi
 echo
-echo "Run ${cyan}rush --help${reset} to get started."
+echo "Run rush --help to get started."

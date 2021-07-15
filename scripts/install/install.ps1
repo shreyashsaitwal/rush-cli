@@ -2,8 +2,8 @@
 
 $ErrorActionPreference = 'Stop'
 
-# Check if Rush is already installed; if it is, use the old
-# path for storing rush.exe
+# Check if Rush is already installed; if it is, use the old path for storing
+# rush.exe
 if (Get-Command "rush.exe" -ErrorAction SilentlyContinue) {
   $BinDir = (Get-Item (Get-Command "rush.exe").Path).DirectoryName
 }
