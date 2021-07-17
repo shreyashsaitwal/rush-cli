@@ -105,7 +105,7 @@ class MigrateCommand extends Command {
     final org = CmdUtils.getPackage(extName, p.join(_cd, 'src'));
 
     final projectDir =
-        Directory(p.join(p.dirname(_cd), Casing.kebabCase(extName)))
+        Directory(p.join(p.dirname(_cd), Casing.kebabCase(extName) + '-rush'))
           ..createSync(recursive: true);
 
     final rushYmlDest = p.join(projectDir.path, 'rush.yml');
@@ -124,7 +124,7 @@ class MigrateCommand extends Command {
     _copySrcFiles(org, projectDir.path, finalStep);
     _copyAssets(org, projectDir.path, finalStep);
     _copyDeps(projectDir.path, finalStep);
-    _genNecessaryFiles(org, extName);
+    _genNecessaryFiles(org, extName, projectDir.path);
 
     finalStep.finishOk();
 
@@ -195,24 +195,23 @@ class MigrateCommand extends Command {
   }
 
   /// Generates files like readme, proguard-rules.pro, etc.
-  void _genNecessaryFiles(String org, String extName) {
+  void _genNecessaryFiles(String org, String extName, String projectDirPath) {
     final kebabCasedName = Casing.kebabCase(extName);
-    final projectDir = p.join(p.dirname(_cd), kebabCasedName);
 
-    _writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'),
+    _writeFile(p.join(projectDirPath, 'src', 'proguard-rules.pro'),
         getPgRules(org, extName));
-    _writeFile(p.join(projectDir, 'README.md'), getReadme(extName));
-    _writeFile(p.join(projectDir, '.gitignore'), getDotGitignore());
+    _writeFile(p.join(projectDirPath, 'README.md'), getReadme(extName));
+    _writeFile(p.join(projectDirPath, '.gitignore'), getDotGitignore());
 
     // IntelliJ IDEA files
-    _writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
-    _writeFile(p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
+    _writeFile(p.join(projectDirPath, '.idea', 'misc.xml'), getMiscXml());
+    _writeFile(p.join(projectDirPath, '.idea', 'libraries', 'dev-deps.xml'),
         getDevDepsXml());
     _writeFile(
-        p.join(projectDir, '.idea', 'libraries', 'deps.xml'), getDepsXml());
-    _writeFile(p.join(projectDir, '.idea', 'modules.xml'),
+        p.join(projectDirPath, '.idea', 'libraries', 'deps.xml'), getDepsXml());
+    _writeFile(p.join(projectDirPath, '.idea', 'modules.xml'),
         getModulesXml(kebabCasedName));
-    _writeFile(p.join(projectDir, '.idea', '$kebabCasedName.iml'), getIml());
+    _writeFile(p.join(projectDirPath, '.idea', '$kebabCasedName.iml'), getIml());
   }
 
   Future<void> _compileJava(Directory output, BuildStep step) async {
@@ -280,11 +279,11 @@ class MigrateCommand extends Command {
       ..resetColorAttributes()
       ..write('into ')
       ..setForegroundColor(ConsoleColor.brightBlue)
-      ..write('../' + kebabCasedName + '/')
+      ..write('../' + kebabCasedName + '-rush')
       ..resetColorAttributes()
       ..writeLine(',')
       ..write(
-          '  - remove all the unsupported annotations (like, @DesignerComponent, @UsesPermissions, etc) from ')
+          '  - remove all the unsupported annotations (like, @DesignerComponent, @UsesPermissions, etc) and their imports from ')
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write(extName + '.java')
       ..resetColorAttributes()
