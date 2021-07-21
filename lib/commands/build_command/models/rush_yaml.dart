@@ -1,8 +1,8 @@
 import 'package:json_annotation/json_annotation.dart';
-import 'package:rush_cli/models/metadata_file/assets.dart';
-import 'package:rush_cli/models/metadata_file/build.dart' show Build;
-import 'package:rush_cli/models/metadata_file/release.dart';
-import 'package:rush_cli/models/metadata_file/version.dart';
+import 'package:rush_cli/commands/build_command/models/assets.dart';
+import 'package:rush_cli/commands/build_command/models/build.dart' show Build;
+import 'package:rush_cli/commands/build_command/models/release.dart';
+import 'package:rush_cli/commands/build_command/models/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 part 'rush_yaml.g.dart';

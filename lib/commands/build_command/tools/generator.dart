@@ -3,7 +3,7 @@ import 'dart:io' show Directory, File, exit;
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build_command/helpers/compute.dart';
-import 'package:rush_cli/models/metadata_file/rush_yaml.dart';
+import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
 import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
