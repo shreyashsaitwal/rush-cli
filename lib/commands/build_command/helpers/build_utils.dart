@@ -4,7 +4,7 @@ import 'package:args/args.dart';
 import 'package:dart_console/dart_console.dart' show ConsoleColor;
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
+import 'package:rush_cli/models/metadata_file/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
