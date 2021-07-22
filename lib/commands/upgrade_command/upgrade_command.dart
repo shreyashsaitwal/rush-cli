@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' show Directory, File, Platform, ProcessStartMode, exit;
 
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
@@ -53,9 +53,10 @@ class UpgradeCommand extends Command {
   @override
   Future<void> run() async {
     final isForce = argResults?['force'] as bool;
+    final initDataBox = await Hive.openBox('data.init');
 
     Logger.log(LogType.info, 'Fetching data...');
-    final reqContents = await _fetchReqContents(isForce);
+    final reqContents = await _fetchReqContents(initDataBox, isForce);
     final releaseInfo = await _fetchLatestRelease();
 
     if (releaseInfo.name == 'v$rushVersion' && !isForce) {
@@ -66,10 +67,11 @@ class UpgradeCommand extends Command {
       exit(0);
     }
 
-    final List<Future<Response<dynamic>>> dlFutures = [];
-    var dlSize = 0;
-
     final binDir = p.dirname(Platform.resolvedExecutable);
+
+    Logger.log(
+        LogType.info, 'Starting download... [${reqContents.length} MB]\n');
+    final ProgressBar pb = ProgressBar(reqContents.length);
 
     for (final el in reqContents) {
       final savePath = () {
@@ -79,18 +81,9 @@ class UpgradeCommand extends Command {
         return p.join(_dataDir, el.path);
       }();
 
-      dlSize += el.size!;
-
-      final dl = Dio().download(el.downloadUrl!, savePath);
-      dlFutures.add(dl);
-    }
-
-    Logger.log(LogType.info, 'Downloading... ${dlSize ~/ 1.049e+6} MiB');
-    try {
-      await Future.wait(dlFutures);
-    } catch (e) {
-      Logger.log(LogType.erro, 'Something went wrong');
-      Logger.log(LogType.erro, e.toString(), addPrefix: false);
+      await Dio().download(el.downloadUrl!, savePath, deleteOnError: true);
+      _updateBox(initDataBox, el, savePath);
+      pb.incr();
     }
 
     Logger.log(
@@ -103,14 +96,19 @@ class UpgradeCommand extends Command {
 
   /// Returns all the files that are changed since the last release and needs to
   /// be updated.
-  Future<List<RepoContent>> _fetchReqContents(bool force) async {
+  Future<List<RepoContent>> _fetchReqContents(
+      Box initDataBox, bool force) async {
     final response = await Dio().get('$API_ENDPT/contents');
     final json = response.data as List;
 
-    final initDataBox = await Hive.openBox('data.init');
-
-    final contents =
-        json.map((el) => RepoContent.fromJson(el as Map<String, dynamic>));
+    final contents = json
+        .map((el) => RepoContent.fromJson(el as Map<String, dynamic>))
+        .where((el) {
+      if (el.path!.startsWith('exe')) {
+        return el.path!.contains(_correctExePath());
+      }
+      return true;
+    });
 
     // If this is not a forceful upgrade, only return the files that are changed
     // since the last upgrade, otherwise, return all files.
@@ -136,6 +134,17 @@ class UpgradeCommand extends Command {
     return contents.toList();
   }
 
+  String _correctExePath() {
+    switch (Platform.operatingSystem) {
+      case 'windows':
+        return 'exe/win';
+      case 'macos':
+        return 'exe/mac';
+      default:
+        return 'exe/linux';
+    }
+  }
+
   /// Replaces the old `rush.exe` with new one on Windows.
   Future<void> _swapExe(String binDir) async {
     final ext = Platform.isWindows ? '.exe' : '';
@@ -159,10 +168,10 @@ class UpgradeCommand extends Command {
 
       await ProcessRunner()
           .runProcess(args, startMode: ProcessStartMode.detached);
+    } else {
+      old.deleteSync();
+      _new.renameSync(old.path);
     }
-
-    old.deleteSync();
-    _new.renameSync(old.path);
   }
 
   /// Returns a [GhRelease] containing the information of the latest `rush-cli`
@@ -171,5 +180,15 @@ class UpgradeCommand extends Command {
     final res = await Dio().get('$API_ENDPT/release');
     final json = res.data as Map<String, dynamic>;
     return GhRelease.fromJson(json);
+  }
+
+  Future<void> _updateBox(
+      Box initBox, RepoContent content, String savePath) async {
+    final value = {
+      'path': savePath,
+      'sha': content.sha!,
+    };
+
+    await initBox.put(content.name, value);
   }
 }

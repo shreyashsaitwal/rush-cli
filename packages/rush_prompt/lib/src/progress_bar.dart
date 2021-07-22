@@ -1,46 +1,39 @@
 import 'package:dart_console/dart_console.dart';
 
 class ProgressBar {
-  final String _title;
-  final int _total;
+  final int _totalLen;
 
-  ProgressBar(this._title, this._total) {
-    _render();
+  ProgressBar(this._totalLen) {
+    _render(0, _totalLen);
   }
 
-  final _console = Console();
-  var _currentProgress = 0;
+  int _currLen = 0;
 
-  int get currentProgress => _currentProgress;
-
-  void increment() {
-    _currentProgress++;
-    _render();
+  void incr() {
+    _currLen++;
+    _render(_currLen, _totalLen);
   }
 
-  void _render() {
-    if (_currentProgress > 0) {
-      _console
-        ..cursorUp()
-        ..eraseLine();
-    }
+  void _render(int prog, int total) {
+    final console = Console();
 
-    var totalWidth = (_console.windowWidth * (45 / 100)).ceil();
-    var progressWidth = ' ' * (totalWidth * (_currentProgress / _total)).ceil();
-    _console
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..write('info ')
-      ..resetColorAttributes()
-      ..write('$_title  ')
-      ..setBackgroundColor(ConsoleColor.brightBlue)
-      ..write(progressWidth)
+    console
+      ..cursorUp()
+      ..eraseLine();
+
+    // Total length of the bar (45% of terminal window's)
+    final barLen = console.windowWidth * 0.45;
+
+    final progPerc = prog / total;
+    final progLen = barLen * progPerc;
+
+    console
+      ..write(' ' * 5)
+      ..setBackgroundColor(ConsoleColor.blue)
+      ..write(' ' * progLen.toInt())
       ..setBackgroundColor(ConsoleColor.brightBlack)
-      ..write(' ' * (totalWidth - progressWidth.length))
+      ..write(' ' * (barLen.toInt() - progLen.toInt()))
       ..resetColorAttributes()
-      ..writeLine('  (${(_currentProgress / _total * 100).ceil()}% done)');
-
-    if (_currentProgress == _total) {
-      _console.showCursor();
-    }
+      ..writeLine(' (${(progPerc * 100).toInt()}% done)');
   }
 }
