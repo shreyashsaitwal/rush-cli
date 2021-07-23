@@ -22,8 +22,8 @@ function writeVersionDart() {
   file='./lib/version.dart'
 
   printf "// Auto-generated; DO NOT modify\n" > $file
-  printf "const rushVersion = '$version';\n" >> $file
-  printf "const rushBuiltOn = '$(date '+%Y-%m-%d %H:%M:%S')';\n" >> $file
+  printf "const rushVersion = '%s';\n" "$version" >> $file
+  printf "const rushBuiltOn = '%s';\n" "$(date '+%Y-%m-%d %H:%M:%S')" >> $file
 
   echo 'Generated lib/version.dart'
 }
@@ -34,7 +34,7 @@ function writeEnvDart() {
   file='./lib/env.dart'
 
   printf "// Auto-generated; DO NOT modify\n" > $file
-  printf "const GH_PAT = '$token';\n" >> $file
+  printf "const GH_PAT = '%s';\n" "$token" >> $file
 
   echo 'Generated lib/env.dart'
 }
@@ -53,5 +53,5 @@ else
 fi
 
 # Compile Rush executable
-dart compile exe -o build/bin/rush$ext bin/rush.dart
+dart compile exe -o build/bin/rush"$ext" bin/rush.dart
 chmod +x build/bin/rush

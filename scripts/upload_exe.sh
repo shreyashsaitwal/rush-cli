@@ -9,7 +9,7 @@ pat="$1"
 # @params:
 #   $1 -> file path in GH repo relative to exe/
 function fetch() {
-  echo $(curl -s -u shreyashsaitwal:$pat https://api.github.com/repos/shreyashsaitwal/rush-pack/contents/exe/$1)
+  echo "$(curl -s -u shreyashsaitwal:$pat https://api.github.com/repos/shreyashsaitwal/rush-pack/contents/exe/$1)"
 }
 
 # @params:
@@ -27,7 +27,7 @@ function upload() {
 EOF
 
   echo "Uploading $1..."
-  curl -X PUT -u shreyashsaitwal:$pat \
+  curl -X PUT -u shreyashsaitwal:"$pat" \
     -H "Accept: application/vnd.github.v3+json" \
     https://api.github.com/repos/shreyashsaitwal/rush-pack/contents/exe/$1 \
     -d @build/curl.args
@@ -37,26 +37,26 @@ EOF
 #   $1 -> is Linux or Windows?
 #   $2 -> file to be encoded
 function encode() {
-  if [ $1 ]; then
-    echo $(base64 -w0 $2)
+  if [ "$1" ]; then
+    echo "$(base64 -w0 $2)"
   else
-    echo $(base64 -i $2)
+    echo "$(base64 -i $2)"
   fi
 }
 
 if [[ "$OSTYPE" = "cygwin" ]] || [[ "$OSTYPE" == "msys" ]]; then
   res=$(fetch "win")
-  exeSha=$(echo $res | jq '.[0].sha')
-  swapSha=$(echo $res | jq '.[1].sha')
+  exeSha=$(echo "$res" | jq '.[0].sha')
+  swapSha=$(echo "$res" | jq '.[1].sha')
 
-  upload "win/rush.exe" $(encode true build/bin/rush.exe) $exeSha
-  upload "win/swap.exe" $(encode true build/bin/swap.exe) $swapSha
+  upload "win/rush.exe" "$(encode true build/bin/rush.exe)" "$exeSha"
+  upload "win/swap.exe" "$(encode true build/bin/swap.exe)" "$swapSha"
 elif [[ "$OSTYPE" == "darwin"* ]]; then
   res=$(fetch "mac")
-  exeSha=$(echo $res | jq '.[0].sha')
-  upload "mac/rush" $(encode false build/bin/rush) $exeSha
+  exeSha=$(echo "$res" | jq '.[0].sha')
+  upload "mac/rush" "$(encode false build/bin/rush)" "$exeSha"
 else
   res=$(fetch "linux")
-  exeSha=$(echo $res | jq '.[0].sha')
-  upload "linux/rush" $(encode true build/bin/rush) $exeSha
+  exeSha=$(echo "$res" | jq '.[0].sha')
+  upload "linux/rush" "$(encode true build/bin/rush)" "$exeSha"
 fi

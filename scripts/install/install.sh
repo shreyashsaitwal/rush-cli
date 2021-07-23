@@ -40,7 +40,7 @@ zipUrl="https://github.com/shreyashsaitwal/rush-cli/releases/latest/download/rus
 
 # Download and unzip rush-$target.zip
 curl --location --progress-bar -o "$binDir/rush-$target.zip" "$zipUrl"
-unzip -oq "$binDir/rush-$target.zip" -d $binDir/
+unzip -oq "$binDir/rush-$target.zip" -d "$binDir"/
 rm "$binDir/rush-$target.zip"
 
 # Delete dataDir if it already exists
@@ -56,7 +56,7 @@ mv "$binDir/exe/$target"/* "$binDir"
 rm -r "$binDir/exe/"
 
 # Move all the directories that were unzipped
-mv $(ls -d "$binDir"/*/) "$dataDir"
+mv "$(ls -d "$binDir"/*/)" "$dataDir"
 
 # Give all the necessary scripts execution permission
 chmod +x "$binDir/rush"
@@ -83,9 +83,9 @@ if ! command -v rush >/dev/null; then
   fi
 
     edge=$(echo " $exp " | sed 's/./-/g')
-    echo $edge
+    echo "$edge"
     echo "|$exp|"
-    echo $edge
+    echo "$edge"
 fi
 echo
 echo "Run rush --help to get started."
