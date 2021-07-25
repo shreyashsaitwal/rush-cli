@@ -16,11 +16,13 @@ class UpgradeCommand extends Command {
   final String _dataDir;
 
   UpgradeCommand(this._dataDir) {
-    argParser.addFlag('force',
-        abbr: 'f',
-        help:
-            'Forcefully upgrades Rush to the latest version. This downloads and replaces even the unchanged files.',
-        defaultsTo: false);
+    argParser
+      ..addFlag('force',
+          abbr: 'f',
+          help:
+              'Forcefully upgrades Rush to the latest version. This downloads and replaces even the unchanged files.',
+          defaultsTo: false)
+      ..addFlag('safe', abbr: 's', hide: true, defaultsTo: false);
 
     final dir = Directory(p.join(_dataDir, '.installer'))
       ..createSync(recursive: true);
@@ -56,7 +58,9 @@ class UpgradeCommand extends Command {
     final initDataBox = await Hive.openBox('data.init');
 
     Logger.log(LogType.info, 'Fetching data...');
-    final reqContents = await _fetchReqContents(initDataBox, isForce);
+    final allContent = await _fetchAllContent(initDataBox);
+    final reqContent = await _reqContents(initDataBox, allContent, isForce);
+
     final releaseInfo = await _fetchLatestRelease();
 
     if (releaseInfo.name == 'v$rushVersion' && !isForce) {
@@ -70,10 +74,10 @@ class UpgradeCommand extends Command {
     final binDir = p.dirname(Platform.resolvedExecutable);
 
     Logger.log(
-        LogType.info, 'Starting download... [${reqContents.length} MB]\n');
-    final ProgressBar pb = ProgressBar(reqContents.length);
+        LogType.info, 'Starting download... [${reqContent.length} MB]\n');
+    final ProgressBar pb = ProgressBar(reqContent.length);
 
-    for (final el in reqContents) {
+    for (final el in reqContent) {
       final savePath = () {
         if (el.path!.startsWith('exe')) {
           return p.join(binDir, el.name! + '.new');
@@ -82,23 +86,96 @@ class UpgradeCommand extends Command {
       }();
 
       await Dio().download(el.downloadUrl!, savePath, deleteOnError: true);
-      _updateBox(initDataBox, el, savePath);
+      await _updateBox(initDataBox, el, savePath);
       pb.incr();
     }
 
     Logger.log(
         LogType.info, 'Download complete; performing post download tasks...');
+    if (!(argResults?['safe'] as bool)) {
+      await _removeRedundantFiles(initDataBox, allContent);
+    }
     _swapExe(binDir);
 
     Logger.log(LogType.info,
         'Done! Rush was successfully upgraded to ${releaseInfo.name}');
   }
 
+  /// Returns a list of all the files that needs to be downloaded from GH.
+  Future<List<RepoContent>> _reqContents(
+      Box initDataBox, List<RepoContent> contents, bool force) async {
+    // If this is a forceful upgrade, return all the files, else only the ones
+    // that have changed.
+    if (force) {
+      return contents;
+    }
+
+    final res = <RepoContent>[];
+    for (final el in contents) {
+      final data = await initDataBox.get(el.name);
+
+      // Stage this file for download if: 1. data is null or 2. it's sha doesn't
+      // match with that of upstream or 3. it doesn't exist at the expected
+      // location.
+      if (data == null) {
+        res.add(el);
+      } else {
+        final idealPath = File(p.join(_dataDir, el.path));
+        if (el.sha != data['sha'] || !idealPath.existsSync()) {
+          res.add(el);
+        }
+      }
+    }
+
+    return res;
+  }
+
+  /// Removes all the files that are no longer needed.
+  Future<void> _removeRedundantFiles(
+      Box initDataBox, List<RepoContent> contents) async {
+    final entriesInBox = initDataBox.keys;
+
+    final devDepsToRemove = Directory(p.join(_dataDir, 'dev-deps'))
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((file) => !contents.any((el) =>
+            el.path ==
+            p.relative(file.path, from: _dataDir).replaceAll('\\', '/')));
+
+    final toolsToRemove = Directory(p.join(_dataDir, 'tools'))
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((file) => !contents.any((el) =>
+            el.path ==
+            p.relative(file.path, from: _dataDir).replaceAll('\\', '/')));
+
+    for (final file in [...devDepsToRemove, ...toolsToRemove]) {
+      // Remove box entry of this file if it exists
+      final basename = p.basename(file.path);
+      if (entriesInBox.contains(basename)) {
+        await initDataBox.delete(basename);
+      }
+
+      try {
+        file.deleteSync();
+      } catch (_) {}
+    }
+  }
+
   /// Returns all the files that are changed since the last release and needs to
   /// be updated.
-  Future<List<RepoContent>> _fetchReqContents(
-      Box initDataBox, bool force) async {
-    final response = await Dio().get('$API_ENDPT/contents');
+  Future<List<RepoContent>> _fetchAllContent(Box initDataBox) async {
+    final Response response;
+    try {
+      response = await Dio().get('$API_ENDPT/contents');
+    } catch (e) {
+      Logger.log(LogType.erro, 'Something went wrong:');
+      Logger.log(
+          LogType.erro, e.toString().replaceAll(API_ENDPT, 'https://***.com'),
+          addPrefix: false);
+      exit(1);
+    }
+
     final json = response.data as List;
 
     final contents = json
@@ -109,27 +186,6 @@ class UpgradeCommand extends Command {
       }
       return true;
     });
-
-    // If this is not a forceful upgrade, only return the files that are changed
-    // since the last upgrade, otherwise, return all files.
-    if (!force) {
-      final res = <RepoContent>[];
-
-      for (final el in contents) {
-        var data = await initDataBox.get(el.name);
-
-        if (data != null) {
-          final idealPath = p.join(_dataDir, el.path);
-          if (el.sha != data['sha'] || !File(idealPath).existsSync()) {
-            res.add(el);
-          }
-        } else {
-          res.add(el);
-        }
-      }
-
-      return res;
-    }
 
     return contents.toList();
   }
@@ -177,8 +233,18 @@ class UpgradeCommand extends Command {
   /// Returns a [GhRelease] containing the information of the latest `rush-cli`
   /// repo's release on GitHub.
   Future<GhRelease> _fetchLatestRelease() async {
-    final res = await Dio().get('$API_ENDPT/release');
-    final json = res.data as Map<String, dynamic>;
+    final Response response;
+    try {
+      response = await Dio().get('$API_ENDPT/release');
+    } catch (e) {
+      Logger.log(LogType.erro, 'Something went wrong:');
+      Logger.log(
+          LogType.erro, e.toString().replaceAll(API_ENDPT, 'https://***'),
+          addPrefix: false);
+      exit(1);
+    }
+
+    final json = response.data as Map<String, dynamic>;
     return GhRelease.fromJson(json);
   }
 
