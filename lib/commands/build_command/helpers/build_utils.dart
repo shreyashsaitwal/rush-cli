@@ -60,10 +60,14 @@ class BuildUtils {
     final devDepsDir = Directory(p.join(cd, '.rush', 'dev-deps'))
       ..createSync(recursive: true);
 
-    final devDepsCache = Directory(p.join(dataDir, 'dev-deps'));
+    final devDepsStore = Directory(p.join(dataDir, 'dev-deps'));
 
-    if (devDepsDir.listSync().length < devDepsCache.listSync().length) {
-      CmdUtils.copyDir(devDepsCache, devDepsDir);
+    // TODO: Not the best way to do this; needs to be improved.
+    if (devDepsDir.listSync().length != devDepsStore.listSync().length) {
+      devDepsDir
+        ..deleteSync(recursive: true)
+        ..createSync();
+      CmdUtils.copyDir(devDepsStore, devDepsDir);
     }
   }
 

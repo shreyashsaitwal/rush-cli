@@ -5,8 +5,8 @@ set -e
 
 while (( "$#" )); do
   case "$1" in
-    "-t" | "--token")
-      token="$2"
+    "-u" | "--url")
+      url="$2"
       shift 2 ;;
     "-v" | "--version")
       version="$2"
@@ -34,7 +34,7 @@ function writeEnvDart() {
   file='./lib/env.dart'
 
   printf "// Auto-generated; DO NOT modify\n" > $file
-  printf "const GH_PAT = '%s';\n" "$token" >> $file
+  printf "const API_ENDPT = '%s';\n" "$url" >> $file
 
   echo 'Generated lib/env.dart'
 }
