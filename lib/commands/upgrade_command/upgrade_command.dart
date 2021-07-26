@@ -8,12 +8,12 @@ import 'package:path/path.dart' as p;
 import 'package:process_runner/process_runner.dart';
 import 'package:rush_cli/commands/upgrade_command/models/repo_content.dart';
 import 'package:rush_cli/commands/upgrade_command/models/gh_release.dart';
-import 'package:rush_cli/env.dart';
 import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 class UpgradeCommand extends Command {
   final String _dataDir;
+  static const String _endpt = 'https://rush-api.shreyashsaitwal.repl.co';
 
   UpgradeCommand(this._dataDir) {
     argParser
@@ -167,12 +167,10 @@ class UpgradeCommand extends Command {
   Future<List<RepoContent>> _fetchAllContent(Box initDataBox) async {
     final Response response;
     try {
-      response = await Dio().get('$API_ENDPT/contents');
+      response = await Dio().get('$_endpt/contents');
     } catch (e) {
       Logger.log(LogType.erro, 'Something went wrong:');
-      Logger.log(
-          LogType.erro, e.toString().replaceAll(API_ENDPT, 'https://***.com'),
-          addPrefix: false);
+      Logger.log(LogType.erro, e.toString(), addPrefix: false);
       exit(1);
     }
 
@@ -235,12 +233,10 @@ class UpgradeCommand extends Command {
   Future<GhRelease> _fetchLatestRelease() async {
     final Response response;
     try {
-      response = await Dio().get('$API_ENDPT/release');
+      response = await Dio().get('$_endpt/release');
     } catch (e) {
       Logger.log(LogType.erro, 'Something went wrong:');
-      Logger.log(
-          LogType.erro, e.toString().replaceAll(API_ENDPT, 'https://***'),
-          addPrefix: false);
+      Logger.log(LogType.erro, e.toString(), addPrefix: false);
       exit(1);
     }
 
