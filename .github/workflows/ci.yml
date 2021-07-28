@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           chmod +x ./scripts/build.sh
-          ./scripts/build.sh -v 1.2.0 -t ${{ secrets.GH_PAT }}
+          ./scripts/build.sh -v 1.2.1
 
       - name: Get jq
         if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
@@ -42,7 +42,7 @@ jobs:
           if [[ "$OSTYPE" == "darwin"* ]]; then brew install jq; fi
           if [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "msys" ]]; then choco install jq; fi
 
-      - name: Upload exe to rush-pack repo
+      - name: Upload exe to pack repo
         if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
         shell: bash
         run: |
@@ -72,16 +72,16 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Download rush-pack repo
+      - name: Download pack repo
         run: |
           mkdir build
-          curl -#Lo build/pack.zip -u "shreyashsaitwal:${{ secrets.GH_PAT }}" https://github.com/shreyashsaitwal/rush-pack/archive/refs/heads/main.zip
+          curl -#Lo build/pack.zip -u "shreyashsaitwal:${{ secrets.GH_PAT }}" https://github.com/shreyashsaitwal/pack/archive/refs/heads/main.zip
           unzip -o build/pack.zip -d build
           rm build/pack.zip
 
       - name: Add files to base directory
         env:
-          PACK_DIR: build/rush-pack-main
+          PACK_DIR: build/pack-main
         run: |
           mkdir -p $BASE_DIR/exe
           cp -R $PACK_DIR/exe/${{ matrix.os_short }} $BASE_DIR/exe
