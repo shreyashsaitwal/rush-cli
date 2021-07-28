@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [main, dev]
   pull_request:
@@ -33,6 +34,13 @@ jobs:
         run: |
           chmod +x ./scripts/build.sh
           ./scripts/build.sh -v 1.2.1
+
+      - name: Upload executable
+        if: ${{ github.ref != 'refs/heads/main' }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: rush-${{ matrix.os_short }}
+          path: ./build/bin/*
 
       - name: Get jq
         if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
