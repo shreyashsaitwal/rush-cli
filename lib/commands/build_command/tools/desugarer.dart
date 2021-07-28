@@ -115,12 +115,12 @@ class Desugarer {
         ..add('--emit_dependency_metadata_as_needed')
         // Rewrites try-with-resources statements
         ..add('--desugar_try_with_resources_if_needed')
-        ..addAll(['--bootclasspath_entry', rtJar])
-        ..addAll(['--input', args.input])
-        ..addAll(['--output', args.output]);
+        ..addAll(['--bootclasspath_entry', '\'$rtJar\''])
+        ..addAll(['--input', '\'${args.input}\''])
+        ..addAll(['--output', '\'${args.output}\'']);
 
       classpath.split(CmdUtils.getSeparator()).forEach((el) {
-        contents.addAll(['--classpath_entry', el]);
+        contents.addAll(['--classpath_entry', '\'$el\'']);
       });
 
       final file = File(p.join(args.dataDir, 'workspaces', args.org, 'files',
