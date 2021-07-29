@@ -56,7 +56,7 @@ mv "$binDir/exe/$target"/* "$binDir"
 rm -r "$binDir/exe/"
 
 # Move all the directories that were unzipped
-mv "$(ls -d "$binDir"/*/)" "$dataDir"
+mv $(ls -d "$binDir"/*/) "$dataDir"
 
 # Give all the necessary scripts execution permission
 chmod +x "$binDir/rush"
