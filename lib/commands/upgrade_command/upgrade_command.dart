@@ -1,4 +1,5 @@
-import 'dart:io' show Directory, File, Platform, ProcessStartMode, exit;
+import 'dart:io'
+    show Directory, File, Platform, Process, ProcessStartMode, exit;
 
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
@@ -86,7 +87,7 @@ class UpgradeCommand extends Command {
       }();
 
       await Dio().download(el.downloadUrl!, savePath, deleteOnError: true);
-      await _updateBox(initDataBox, el, savePath);
+      await _updateInitBox(initDataBox, el, savePath);
       pb.incr();
     }
 
@@ -225,6 +226,7 @@ class UpgradeCommand extends Command {
     } else {
       old.deleteSync();
       _new.renameSync(old.path);
+      _chmodExe(old.path);
     }
   }
 
@@ -244,7 +246,8 @@ class UpgradeCommand extends Command {
     return GhRelease.fromJson(json);
   }
 
-  Future<void> _updateBox(
+  /// Updates init box's values.
+  Future<void> _updateInitBox(
       Box initBox, RepoContent content, String savePath) async {
     final value = {
       'path': savePath,
@@ -252,5 +255,10 @@ class UpgradeCommand extends Command {
     };
 
     await initBox.put(content.name, value);
+  }
+
+  /// Grants Rush binary execution permission on Unix systems.
+  Future<void> _chmodExe(String exePath) async {
+    Process.runSync('chmod', ['+x', exePath]);
   }
 }
