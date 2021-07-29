@@ -210,7 +210,7 @@ class UpgradeCommand extends Command {
     if (Platform.isWindows) {
       // Replace old swap.exe with new if it exists.
       final newSwap = p.join(binDir, 'swap.exe.new');
-      if (!File(newSwap).existsSync()) {
+      if (File(newSwap).existsSync()) {
         final oldSwap = File(p.join(binDir, 'swap.exe'))..createSync();
         oldSwap.deleteSync();
         File(newSwap).renameSync(oldSwap.path);
