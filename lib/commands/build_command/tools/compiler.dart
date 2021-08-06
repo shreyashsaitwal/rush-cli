@@ -128,13 +128,16 @@ class Compiler {
     final args = <String>[];
 
     args
-      ..add('javac')
       ..addAll(['-d', classesDir.path])
       ..addAll(['-cp', classpath])
       ..addAll([...apArgs])
       ..addAll([...CmdUtils.getJavaSourceFiles(srcDir)]);
 
-    return args;
+    final javacRsh = File(p.join(filesDir.path, 'javac.rsh'))
+      ..createSync()
+      ..writeAsStringSync(args.join('\n'));
+
+    return ['javac', '@${javacRsh.path}'];
   }
 
   /// Returns commmand line args required for compiling Kotlin sources.

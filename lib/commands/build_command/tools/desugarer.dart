@@ -101,10 +101,13 @@ class Desugarer {
   static Future<ProcessResult> _desugar(_DesugarArgs args) async {
     final desugarJar = p.join(args.dataDir, 'tools', 'other', 'desugar.jar');
 
-    final classpath = CmdUtils.generateClasspath([
-      Directory(p.join(args.cd, '.rush', 'dev-deps')),
-      Directory(p.join(args.cd, 'deps'))
-    ], relative: false);
+    final classpath = CmdUtils.generateClasspath(
+        [
+          Directory(p.join(args.cd, '.rush', 'dev-deps')),
+          Directory(p.join(args.cd, 'deps'))
+        ],
+        relative: false,
+        exclude: [p.basename(args.input)]);
 
     final argFile = () {
       final rtJar = p.join(args.dataDir, 'tools', 'other', 'rt.jar');
@@ -115,6 +118,7 @@ class Desugarer {
         ..add('--emit_dependency_metadata_as_needed')
         // Rewrites try-with-resources statements
         ..add('--desugar_try_with_resources_if_needed')
+        ..add('--copy_bridges_from_classpath')
         ..addAll(['--bootclasspath_entry', '\'$rtJar\''])
         ..addAll(['--input', '\'${args.input}\''])
         ..addAll(['--output', '\'${args.output}\'']);
