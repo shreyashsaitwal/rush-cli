@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:process_runner/process_runner.dart';
 import 'package:rush_cli/commands/build_command/helpers/compute.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
+import 'package:rush_cli/helpers/dir_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
@@ -106,7 +107,7 @@ class Compiler {
       ..createSync(recursive: true);
 
     final classpath = CmdUtils.generateClasspath([
-      Directory(p.join(_cd, '.rush', 'dev-deps')),
+      Directory(p.join(_dataDir, 'dev-deps')),
       Directory(p.join(_cd, 'deps')),
       Directory(p.join(_dataDir, 'tools', 'processor')),
     ], classesDir: classesDir);
@@ -146,7 +147,7 @@ class Compiler {
         'kotlinc' + (Platform.isWindows ? '.bat' : ''));
 
     final classpath = CmdUtils.generateClasspath([
-      Directory(p.join(_cd, '.rush', 'dev-deps')),
+      Directory(p.join(_dataDir, 'dev-deps')),
       Directory(p.join(_cd, 'deps')),
     ]);
 
@@ -172,7 +173,7 @@ class Compiler {
     final apDir = Directory(p.join(_dataDir, 'tools', 'processor'));
 
     final classpath = CmdUtils.generateClasspath([
-      Directory(p.join(_cd, '.rush', 'dev-deps')),
+      Directory(p.join(_dataDir, 'dev-deps')),
       Directory(p.join(_cd, 'deps')),
       apDir,
     ], exclude: [

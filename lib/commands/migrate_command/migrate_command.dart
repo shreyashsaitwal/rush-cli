@@ -5,6 +5,7 @@ import 'package:dart_console/dart_console.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/helpers/casing.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
+import 'package:rush_cli/helpers/dir_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
 import 'package:rush_cli/templates/intellij_files.dart';
@@ -175,12 +176,6 @@ class MigrateCommand extends Command {
 
   /// Copies all necessary deps.
   void _copyDeps(String projectDir, BuildStep step) {
-    final devDeps = Directory(p.join(_dataDir, 'dev-deps'));
-    final devDepsDest = Directory(p.join(projectDir, '.rush', 'dev-deps'))
-      ..createSync(recursive: true);
-
-    CmdUtils.copyDir(devDeps, devDepsDest);
-
     final deps = Directory(p.join(_cd, 'lib', 'deps'));
     final depsDest = Directory(p.join(projectDir, 'deps'))..createSync();
 
@@ -206,7 +201,7 @@ class MigrateCommand extends Command {
     // IntelliJ IDEA files
     _writeFile(p.join(projectDirPath, '.idea', 'misc.xml'), getMiscXml());
     _writeFile(p.join(projectDirPath, '.idea', 'libraries', 'dev-deps.xml'),
-        getDevDepsXml());
+        getDevDepsXml(_dataDir));
     _writeFile(
         p.join(projectDirPath, '.idea', 'libraries', 'deps.xml'), getDepsXml());
     _writeFile(p.join(projectDirPath, '.idea', 'modules.xml'),

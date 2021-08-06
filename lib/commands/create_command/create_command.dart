@@ -4,7 +4,7 @@ import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/helpers/cmd_utils.dart';
+import 'package:rush_cli/helpers/dir_utils.dart';
 import 'package:rush_cli/templates/rules_pro.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
@@ -60,8 +60,18 @@ class CreateCommand extends Command {
       printUsage();
       exit(64); // Exit code 64 indicates usage error
     }
-
     PrintArt();
+
+    final kebabCasedName = Casing.kebabCase(name);
+    final projectDir = p.join(_cd, kebabCasedName);
+
+    if (Directory(projectDir).existsSync()) {
+      Logger.log(
+          LogType.erro,
+          'A dircetory named "$kebabCasedName" already exists in $_cd. Please '
+          'choose a different name for the extension or move to different directory.');
+      exit(1);
+    }
 
     final answers = RushPrompt(questions: Questions.questions).askAll();
     final authorName = answers[1][1].toString().trim();
@@ -71,7 +81,6 @@ class CreateCommand extends Command {
 
     final camelCasedName = Casing.camelCase(name);
     final pascalCasedName = Casing.pascalCase(name);
-    final kebabCasedName = Casing.kebabCase(name);
 
     // If the last word after '.' in pacakge name is same as the
     // extension name, then
@@ -81,7 +90,8 @@ class CreateCommand extends Command {
       orgName = orgName.toLowerCase() + '.' + camelCasedName.toLowerCase();
     }
 
-    final projectDir = p.join(_cd, kebabCasedName);
+    Logger.logCustom('Getting things ready...',
+        prefix: '\n• ', prefixFG: ConsoleColor.yellow);
 
     // Creates the required files for the extension.
     try {
@@ -122,7 +132,7 @@ class CreateCommand extends Command {
       _writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
 
       _writeFile(p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
-          getDevDepsXml());
+          getDevDepsXml(_dataDir));
       _writeFile(
           p.join(projectDir, '.idea', 'libraries', 'deps.xml'), getDepsXml());
 
@@ -136,8 +146,6 @@ class CreateCommand extends Command {
 
     try {
       Directory(p.join(projectDir, 'assets')).createSync(recursive: true);
-      Directory(p.join(projectDir, '.rush', 'dev-deps'))
-          .createSync(recursive: true);
     } catch (e) {
       Logger.log(LogType.erro, e.toString());
       exit(1);
@@ -156,14 +164,6 @@ class CreateCommand extends Command {
       'rushYmlLastMod': DateTime.now(),
       'srcDirLastMod': DateTime.now(),
     });
-
-    // Copy dev-deps.
-    final devDepsDir = p.join(_dataDir, 'dev-deps');
-
-    Logger.logCustom('Getting things ready...',
-        prefix: '\n• ', prefixFG: ConsoleColor.yellow);
-    CmdUtils.copyDir(Directory(devDepsDir),
-        Directory(p.join(projectDir, '.rush', 'dev-deps')));
 
     Console()
       ..setForegroundColor(ConsoleColor.green)

@@ -2,6 +2,7 @@ import 'dart:io' show Directory, File, Platform;
 
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/helpers/cmd_utils.dart';
+import 'package:rush_cli/helpers/dir_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
@@ -30,7 +31,7 @@ class Executor {
       res
         ..addAll(['-cp', d8.path])
         ..add('com.android.tools.r8.D8')
-        ..addAll(['--lib', p.join(_cd, '.rush', 'dev-deps', 'android.jar')])
+        ..addAll(['--lib', p.join(_dataDir, 'dev-deps', 'android.jar')])
         ..addAll([
           '--release',
           '--output',
@@ -53,10 +54,9 @@ class Executor {
       final proguardJar =
           File(p.join(_dataDir, 'tools', 'other', 'proguard.jar'));
 
-      final devDeps = Directory(p.join(_cd, '.rush', 'dev-deps'));
       final deps = Directory(p.join(_cd, 'deps'));
-
-      final libraryJars = CmdUtils.generateClasspath([devDeps, deps]);
+      final libraryJars = CmdUtils.generateClasspath(
+          [Directory(p.join(_dataDir, 'dev-deps')), deps]);
 
       final artDir = Directory(p.join(_dataDir, 'workspaces', org, 'art'));
 

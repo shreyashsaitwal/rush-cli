@@ -6,13 +6,13 @@ import 'package:rush_cli/commands/build_command/build_command.dart';
 import 'package:rush_cli/commands/create_command/create_command.dart';
 import 'package:rush_cli/commands/migrate_command/migrate_command.dart';
 import 'package:rush_cli/commands/upgrade_command/upgrade_command.dart';
-import 'package:rush_cli/helpers/app_data_dir.dart';
+import 'package:rush_cli/helpers/dir_utils.dart';
 import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 void main(List<String> args) {
   final _cd = Directory.current.path;
-  final _dataDir = RushDataDir.dataDir()!;
+  final _dataDir = DirUtils.dataDir()!;
 
   final runner = RushCommandRunner(
       'rush', 'A new and improved way of building App Inventor 2 extensions.');

@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build_command/helpers/compute.dart';
 import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
+import 'package:rush_cli/helpers/dir_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
@@ -103,7 +104,7 @@ class Desugarer {
 
     final classpath = CmdUtils.generateClasspath(
         [
-          Directory(p.join(args.cd, '.rush', 'dev-deps')),
+          Directory(p.join(args.dataDir, 'dev-deps')),
           Directory(p.join(args.cd, 'deps'))
         ],
         relative: false,
