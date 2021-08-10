@@ -2,7 +2,6 @@ import 'dart:io' show Directory, File, Platform;
 
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/helpers/cmd_utils.dart';
-import 'package:rush_cli/helpers/dir_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 

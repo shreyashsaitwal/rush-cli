@@ -4,7 +4,6 @@ import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/helpers/dir_utils.dart';
 import 'package:rush_cli/templates/rules_pro.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
@@ -68,7 +67,7 @@ class CreateCommand extends Command {
     if (Directory(projectDir).existsSync()) {
       Logger.log(
           LogType.erro,
-          'A dircetory named "$kebabCasedName" already exists in $_cd. Please '
+          'A directory named "$kebabCasedName" already exists in $_cd. Please '
           'choose a different name for the extension or move to different directory.');
       exit(1);
     }
@@ -82,7 +81,7 @@ class CreateCommand extends Command {
     final camelCasedName = Casing.camelCase(name);
     final pascalCasedName = Casing.pascalCase(name);
 
-    // If the last word after '.' in pacakge name is same as the
+    // If the last word after '.' in package name is same as the
     // extension name, then
     final isOrgAndNameSame =
         orgName.split('.').last.toLowerCase() == camelCasedName.toLowerCase();
@@ -126,7 +125,7 @@ class CreateCommand extends Command {
       _writeFile(p.join(projectDir, 'README.md'), getReadme(pascalCasedName));
       _writeFile(p.join(projectDir, '.gitignore'), getDotGitignore());
       _writeFile(p.join(projectDir, 'deps', '.placeholder'),
-          'This directory stores your extension\'s depenedencies.');
+          'This directory stores your extension\'s dependencies.');
 
       // IntelliJ IDEA files
       _writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());

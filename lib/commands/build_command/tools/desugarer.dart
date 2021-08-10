@@ -4,7 +4,6 @@ import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build_command/helpers/compute.dart';
 import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
-import 'package:rush_cli/helpers/dir_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
@@ -22,7 +21,7 @@ class Desugarer {
         desugarDeps ? _depsToBeDesugared(org, yaml.deps ?? []) : <String>[];
 
     // Here, all the desugar process' futures are stored for them
-    // to get excecuted parallely by the [Future.wait] method.
+    // to get executed in parallel by the [Future.wait] method.
     final desugarFutures = <Future<ProcessResult>>[];
 
     // This is where all previously desugared deps of the extension

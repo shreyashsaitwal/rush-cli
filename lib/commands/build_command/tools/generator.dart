@@ -52,7 +52,7 @@ rush-version=$rushVersion
 ''');
   }
 
-  /// Copies extension's assets to the raw dircetory.
+  /// Copies extension's assets to the raw directory.
   Future<void> _copyAssets(RushYaml rushYml, String org, BuildStep step) async {
     final assets = rushYml.assets.other ?? [];
 
