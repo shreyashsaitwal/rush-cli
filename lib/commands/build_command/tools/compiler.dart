@@ -5,7 +5,6 @@ import 'package:path/path.dart' as p;
 import 'package:process_runner/process_runner.dart';
 import 'package:rush_cli/commands/build_command/helpers/compute.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
-import 'package:rush_cli/helpers/dir_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
@@ -74,14 +73,18 @@ class Compiler {
     final filesDir = p.join(_dataDir, 'workspaces', org, 'files');
     final componentsJson = File(p.join(filesDir, 'components.json'));
 
+    final classpath = CmdUtils.generateClasspath([
+      Directory(p.join(_dataDir, 'tools', 'processor')),
+      Directory(p.join(_dataDir, 'tools', 'kotlinc', 'lib'))
+    ]);
+
     if (!componentsJson.existsSync() ||
         componentsJson.lastModifiedSync().isBefore(instance)) {
       final args = <String>[
         'java',
         '-cp',
-        CmdUtils.generateClasspath(
-            [Directory(p.join(_dataDir, 'tools', 'processor'))]),
-        'io.shreyash.rush.util.InfoFilesGenerator',
+        classpath,
+        'io.shreyash.rush.InfoFilesGeneratorKt',
         _cd,
         version.toString(),
         org,
@@ -141,7 +144,7 @@ class Compiler {
     return ['javac', '@${javacRsh.path}'];
   }
 
-  /// Returns commmand line args required for compiling Kotlin sources.
+  /// Returns command line args required for compiling Kotlin sources.
   List<String> _getKtcArgs(String org) {
     final kotlinc = p.join(_dataDir, 'tools', 'kotlinc', 'bin',
         'kotlinc' + (Platform.isWindows ? '.bat' : ''));
@@ -250,14 +253,16 @@ class Compiler {
       return boxOpts['encoded'] as String;
     }
 
-    final processorJar =
-        p.join(_dataDir, 'tools', 'processor', 'processor.jar');
+    final classpath = CmdUtils.generateClasspath([
+      File(p.join(_dataDir, 'tools', 'processor', 'processor.jar')),
+      File(p.join(_dataDir, 'dev-deps', 'kotlin-stdlib.jar'))
+    ]);
 
-    // The encoding is done by Java. This is because I was unable to implement
-    // the function for encoding the options in Dart. This class is a part of
-    // processor module in rush annotation processor repo.
+    // The encoding is done by the processor. This is because I was unable to
+    // implement the function for encoding the options in Dart. This class is
+    // a part of processor module in rush annotation processor repo.
     final res = await ProcessRunner().runProcess(
-        ['java', '-cp', processorJar, 'io.shreyash.rush.OptsEncoder', opts]);
+        ['java', '-cp', classpath, 'io.shreyash.rush.OptsEncoderKt', opts]);
 
     if (res.exitCode == 0) {
       await box.put('apOpts',

@@ -38,7 +38,7 @@ class BuildCommand extends Command {
           defaultsTo: false,
           negatable: false,
           help:
-              'Optimizes, skrinks and obfuscates extension\'s Java bytecode using ProGuard.')
+              'Optimizes, shrinks and obfuscates extension\'s Java bytecode using ProGuard.')
       ..addFlag('no-optimize', negatable: false, defaultsTo: false);
   }
 
