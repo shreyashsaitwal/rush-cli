@@ -45,10 +45,10 @@ class MigrateCommand extends Command {
 
   @override
   Future<void> run() async {
-    final dir = Directory(p.join(_dataDir, 'cache'))..createSync();
+    final dir = Directory(p.join(_dataDir, 'workspaces'))..createSync();
     final outputDir = Directory(dir.path).createTempSync();
 
-    final compStep = BuildStep('Introspecting the source files')..init();
+    final compStep = BuildStep('Introspecting the sources')..init();
 
     try {
       await _compileJava(outputDir, compStep);
@@ -264,9 +264,7 @@ class MigrateCommand extends Command {
       ..setForegroundColor(ConsoleColor.brightGreen)
       ..write('Success! ')
       ..resetColorAttributes()
-      ..writeLine(
-          'Migrated the extension-template project in the current directory to Rush.')
-      ..write('  The generated Rush extension project can be found here: ')
+      ..write('Generated: ')
       ..setForegroundColor(ConsoleColor.cyan)
       ..writeLine(projectDir)
       ..writeLine()
@@ -280,8 +278,7 @@ class MigrateCommand extends Command {
       ..write('../' + kebabCasedName + '-rush')
       ..resetColorAttributes()
       ..writeLine(',')
-      ..write(
-          '  - remove all the unsupported annotations (like, @DesignerComponent, @UsesPermissions, etc) and their imports from ')
+      ..write('  - remove all the unsupported annotations from ')
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write(extName + '.java')
       ..resetColorAttributes()
