@@ -1,13 +1,16 @@
-String getDevDepsXml() {
+import 'package:path/path.dart' as p;
+
+String getDevDepsXml(String _dataDir) {
+  final devDepsPath = p.join(_dataDir, 'dev-deps').replaceAll('\\', '/');
   return '''
 <component name="libraryTable">
   <library name="dev-deps">
     <CLASSES>
-      <root url="file://\$PROJECT_DIR\$/.rush/dev-deps" />
+      <root url="file://$devDepsPath" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />
-    <jarDirectory url="file://\$PROJECT_DIR\$/.rush/dev-deps" recursive="false" />
+    <jarDirectory url="file://$devDepsPath" recursive="false" />
   </library>
 </component>
 ''';

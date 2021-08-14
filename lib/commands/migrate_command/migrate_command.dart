@@ -45,16 +45,15 @@ class MigrateCommand extends Command {
 
   @override
   Future<void> run() async {
-    final dir = Directory(p.join(_dataDir, 'cache'))..createSync();
+    final dir = Directory(p.join(_dataDir, 'workspaces'))..createSync();
     final outputDir = Directory(dir.path).createTempSync();
 
-    final compStep = BuildStep('Introspecting the source files')..init();
+    final compStep = BuildStep('Introspecting the sources')..init();
 
     try {
       await _compileJava(outputDir, compStep);
     } catch (e) {
       compStep.finishNotOk();
-
       Logger.logCustom('Build failed',
           prefix: '\n• ', prefixFG: ConsoleColor.brightRed);
       exit(1);
@@ -87,12 +86,12 @@ class MigrateCommand extends Command {
 
       compStep.log(LogType.erro, 'More than two extensions found');
       for (final el in extensionNames) {
-        compStep.log(LogType.erro, ' ' * 2 + '- ' + el, addPrefix: false);
+        compStep.log(LogType.erro, ' ' * 5 + '- ' + el, addPrefix: false);
       }
 
       compStep
         ..log(LogType.erro,
-            'Currently, Rush doesn\'t supports multiple extensions inside one project.')
+            'Currently, Rush doesn\'t support multiple extensions inside one project.')
         ..finishNotOk();
 
       exit(1);
@@ -175,12 +174,6 @@ class MigrateCommand extends Command {
 
   /// Copies all necessary deps.
   void _copyDeps(String projectDir, BuildStep step) {
-    final devDeps = Directory(p.join(_dataDir, 'dev-deps'));
-    final devDepsDest = Directory(p.join(projectDir, '.rush', 'dev-deps'))
-      ..createSync(recursive: true);
-
-    CmdUtils.copyDir(devDeps, devDepsDest);
-
     final deps = Directory(p.join(_cd, 'lib', 'deps'));
     final depsDest = Directory(p.join(projectDir, 'deps'))..createSync();
 
@@ -188,7 +181,7 @@ class MigrateCommand extends Command {
       CmdUtils.copyDir(deps, depsDest);
     } else {
       _writeFile(p.join(depsDest.path, '.placeholder'),
-          'This directory stores your extension\'s depenedencies.');
+          'This directory stores your extension\'s dependencies.');
     }
 
     step.log(LogType.info, 'Copied dependencies');
@@ -206,21 +199,26 @@ class MigrateCommand extends Command {
     // IntelliJ IDEA files
     _writeFile(p.join(projectDirPath, '.idea', 'misc.xml'), getMiscXml());
     _writeFile(p.join(projectDirPath, '.idea', 'libraries', 'dev-deps.xml'),
-        getDevDepsXml());
+        getDevDepsXml(_dataDir));
     _writeFile(
         p.join(projectDirPath, '.idea', 'libraries', 'deps.xml'), getDepsXml());
     _writeFile(p.join(projectDirPath, '.idea', 'modules.xml'),
         getModulesXml(kebabCasedName));
-    _writeFile(p.join(projectDirPath, '.idea', '$kebabCasedName.iml'), getIml());
+    _writeFile(
+        p.join(projectDirPath, '.idea', '$kebabCasedName.iml'), getIml());
   }
 
   Future<void> _compileJava(Directory output, BuildStep step) async {
     final args = () {
       final devDeps = Directory(p.join(_cd, 'lib', 'appinventor'));
       final deps = Directory(p.join(_cd, 'lib', 'deps'));
-      final migrator = File(p.join(_dataDir, 'tools', 'other', 'migrator.jar'));
+      final processorDir = Directory(p.join(_dataDir, 'tools', 'processor'));
 
-      final classpath = CmdUtils.generateClasspath([devDeps, deps, migrator],
+      final migrator = File(p.join(_dataDir, 'tools', 'other', 'migrator.jar'));
+      final ktStdLib = File(p.join(_dataDir, 'dev-deps', 'kotlin-stdlib.jar'));
+
+      final classpath = CmdUtils.generateClasspath(
+          [devDeps, deps, processorDir, migrator, ktStdLib],
           exclude: ['AnnotationProcessors.jar']);
 
       final javacArgs = <String>[
@@ -266,9 +264,7 @@ class MigrateCommand extends Command {
       ..setForegroundColor(ConsoleColor.brightGreen)
       ..write('Success! ')
       ..resetColorAttributes()
-      ..writeLine(
-          'Migrated the extension-template project in the current directory to Rush.')
-      ..write('  The generated Rush extension project can be found here: ')
+      ..write('Generated: ')
       ..setForegroundColor(ConsoleColor.cyan)
       ..writeLine(projectDir)
       ..writeLine()
@@ -282,8 +278,7 @@ class MigrateCommand extends Command {
       ..write('../' + kebabCasedName + '-rush')
       ..resetColorAttributes()
       ..writeLine(',')
-      ..write(
-          '  - remove all the unsupported annotations (like, @DesignerComponent, @UsesPermissions, etc) and their imports from ')
+      ..write('  - remove all the unsupported annotations from ')
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write(extName + '.java')
       ..resetColorAttributes()

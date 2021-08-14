@@ -38,7 +38,7 @@ class BuildCommand extends Command {
           defaultsTo: false,
           negatable: false,
           help:
-              'Optimizes, skrinks and obfuscates extension\'s Java bytecode using ProGuard.')
+              'Optimizes, shrinks and obfuscates extension\'s Java bytecode using ProGuard.')
       ..addFlag('no-optimize', negatable: false, defaultsTo: false);
   }
 
@@ -116,9 +116,6 @@ class BuildCommand extends Command {
 
     Hive.init(p.join(_cd, '.rush'));
     final dataBox = await Hive.openBox('data');
-
-    // This is done in case the user deletes the .rush directory.
-    BuildUtils.copyDevDeps(_dataDir, _cd);
 
     valStep.log(LogType.info, 'Checking metadata file (rush.yml)');
     final RushYaml rushYaml;
@@ -198,6 +195,10 @@ class BuildCommand extends Command {
     final optimize =
         BuildUtils.needsOptimization(isRelease, argResults!, rushYaml);
 
+    // Delete the dev-deps dir if it exists
+    final devDeps = Directory(p.join(_cd, '.rush', 'dev-deps'));
+    if (devDeps.existsSync()) devDeps.deleteSync(recursive: true);
+
     await _compile(
         dataBox, optimize, rushYaml.build?.kotlin?.enable ?? false, rushYaml);
   }
@@ -205,7 +206,7 @@ class BuildCommand extends Command {
   /// Compiles extension's source files
   Future<void> _compile(
       Box dataBox, bool optimize, bool enableKt, RushYaml rushYaml) async {
-    final compileStep = BuildStep('Compiling source files')..init();
+    final compileStep = BuildStep('Compiling sources')..init();
     final compiler = Compiler(_cd, _dataDir);
 
     final srcFiles = Directory(p.join(_cd, 'src'))

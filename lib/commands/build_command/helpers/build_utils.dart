@@ -54,23 +54,6 @@ class BuildUtils {
     }
   }
 
-  /// Copys the dev deps in case they are not present.
-  /// This might be needed when the project is cloned from a VCS.
-  static void copyDevDeps(String dataDir, String cd) {
-    final devDepsDir = Directory(p.join(cd, '.rush', 'dev-deps'))
-      ..createSync(recursive: true);
-
-    final devDepsStore = Directory(p.join(dataDir, 'dev-deps'));
-
-    // TODO: Not the best way to do this; needs to be improved.
-    if (devDepsDir.listSync().length != devDepsStore.listSync().length) {
-      devDepsDir
-        ..deleteSync(recursive: true)
-        ..createSync();
-      CmdUtils.copyDir(devDepsStore, devDepsDir);
-    }
-  }
-
   /// Ensures that the required data exists in the data box.
   static Future<void> ensureBoxValues(String cd, Box box, RushYaml yaml) async {
     // Check extension's name

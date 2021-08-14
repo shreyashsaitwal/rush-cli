@@ -52,7 +52,7 @@ rush-version=$rushVersion
 ''');
   }
 
-  /// Copies extension's assets to the raw dircetory.
+  /// Copies extension's assets to the raw directory.
   Future<void> _copyAssets(RushYaml rushYml, String org, BuildStep step) async {
     final assets = rushYml.assets.other ?? [];
 
@@ -140,7 +140,7 @@ rush-version=$rushVersion
     // This step won't be needed once MIT merges the Kotlin support PR.
     if (kotlinEnabled) {
       final kotlinStdLib =
-          File(p.join(_cd, '.rush', 'dev-deps', 'kotlin-stdlib.jar'));
+          File(p.join(_dataDir, 'dev-deps', 'kotlin-stdlib.jar'));
 
       extractFutures.add(compute(_extractJar,
           _ExtractJarArgs(input: kotlinStdLib.path, outputDir: artDir.path)));
