@@ -215,7 +215,8 @@ class MigrateCommand extends Command {
       final processorDir = Directory(p.join(_dataDir, 'tools', 'processor'));
 
       final migrator = File(p.join(_dataDir, 'tools', 'other', 'migrator.jar'));
-      final ktStdLib = File(p.join(_dataDir, 'dev-deps', 'kotlin-stdlib.jar'));
+      final ktStdLib =
+          File(p.join(_dataDir, 'dev-deps', 'kotlin', 'kotlin-stdlib.jar'));
 
       final classpath = CmdUtils.generateClasspath(
           [devDeps, deps, processorDir, migrator, ktStdLib],

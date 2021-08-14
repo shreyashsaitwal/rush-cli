@@ -255,7 +255,7 @@ class Compiler {
 
     final classpath = CmdUtils.generateClasspath([
       File(p.join(_dataDir, 'tools', 'processor', 'processor.jar')),
-      File(p.join(_dataDir, 'dev-deps', 'kotlin-stdlib.jar'))
+      File(p.join(_dataDir, 'dev-deps', 'kotlin', 'kotlin-stdlib.jar'))
     ]);
 
     // The encoding is done by the processor. This is because I was unable to
