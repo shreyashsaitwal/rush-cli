@@ -180,7 +180,7 @@ class MigrateCommand extends Command {
     if (deps.existsSync() && deps.listSync().isNotEmpty) {
       CmdUtils.copyDir(deps, depsDest);
     } else {
-      _writeFile(p.join(depsDest.path, '.placeholder'),
+      CmdUtils.writeFile(p.join(depsDest.path, '.placeholder'),
           'This directory stores your extension\'s dependencies.');
     }
 
@@ -191,20 +191,20 @@ class MigrateCommand extends Command {
   void _genNecessaryFiles(String org, String extName, String projectDirPath) {
     final kebabCasedName = Casing.kebabCase(extName);
 
-    _writeFile(p.join(projectDirPath, 'src', 'proguard-rules.pro'),
+    CmdUtils.writeFile(p.join(projectDirPath, 'src', 'proguard-rules.pro'),
         getPgRules(org, extName));
-    _writeFile(p.join(projectDirPath, 'README.md'), getReadme(extName));
-    _writeFile(p.join(projectDirPath, '.gitignore'), getDotGitignore());
+    CmdUtils.writeFile(p.join(projectDirPath, 'README.md'), getReadme(extName));
+    CmdUtils.writeFile(p.join(projectDirPath, '.gitignore'), getDotGitignore());
 
     // IntelliJ IDEA files
-    _writeFile(p.join(projectDirPath, '.idea', 'misc.xml'), getMiscXml());
-    _writeFile(p.join(projectDirPath, '.idea', 'libraries', 'dev-deps.xml'),
+    CmdUtils.writeFile(p.join(projectDirPath, '.idea', 'misc.xml'), getMiscXml());
+    CmdUtils.writeFile(p.join(projectDirPath, '.idea', 'libraries', 'dev-deps.xml'),
         getDevDepsXml(_dataDir));
-    _writeFile(
+    CmdUtils.writeFile(
         p.join(projectDirPath, '.idea', 'libraries', 'deps.xml'), getDepsXml());
-    _writeFile(p.join(projectDirPath, '.idea', 'modules.xml'),
+    CmdUtils.writeFile(p.join(projectDirPath, '.idea', 'modules.xml'),
         getModulesXml(kebabCasedName));
-    _writeFile(
+    CmdUtils.writeFile(
         p.join(projectDirPath, '.idea', '$kebabCasedName.iml'), getIml());
   }
 
@@ -247,13 +247,6 @@ class MigrateCommand extends Command {
     if (result.result == Result.error) {
       throw Exception();
     }
-  }
-
-  /// Creates a file in [path] and writes [content] inside it.
-  void _writeFile(String path, String content) {
-    File(path)
-      ..createSync(recursive: true)
-      ..writeAsStringSync(content);
   }
 
   /// Prints the footer.

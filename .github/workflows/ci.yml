@@ -33,7 +33,7 @@ jobs:
         shell: bash
         run: |
           chmod +x ./scripts/build.sh
-          ./scripts/build.sh -v 1.2.2
+          ./scripts/build.sh -v 1.2.3
 
       - name: Upload executable
         if: ${{ github.ref != 'refs/heads/main' }}

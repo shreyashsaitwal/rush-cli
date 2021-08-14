@@ -6,6 +6,7 @@ import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
+import 'package:rush_cli/templates/intellij_files.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 class BuildUtils {
@@ -209,5 +210,22 @@ class BuildUtils {
   static Future<void> emptyBuildBox() async {
     final buildBox = await Hive.openBox('build');
     await buildBox.delete('alreadyPrinted');
+  }
+
+  static void updateDevDepsXml(String cd, String dataDir) {
+    final devDepsXmlFile = () {
+      final file = File(p.join(cd, '.idea', 'libraries', 'dev-deps.xml'));
+      if (file.existsSync()) {
+        return file;
+      } else {
+        return File(p.join(cd, '.idea', 'libraries', 'dev_deps.xml'))
+          ..createSync(recursive: true);
+      }
+    }();
+
+    final devDepsXml = getDevDepsXml(dataDir);
+    if (devDepsXmlFile.readAsStringSync() != devDepsXml) {
+      CmdUtils.writeFile(devDepsXmlFile.path, devDepsXml);
+    }
   }
 }

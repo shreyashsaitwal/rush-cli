@@ -10,7 +10,7 @@ String getDevDepsXml(String _dataDir) {
     </CLASSES>
     <JAVADOC />
     <SOURCES />
-    <jarDirectory url="file://$devDepsPath" recursive="false" />
+    <jarDirectory url="file://$devDepsPath" recursive="true" />
   </library>
 </component>
 ''';

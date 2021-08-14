@@ -101,4 +101,11 @@ class CmdUtils {
     }
     return ':';
   }
+
+  /// Creates a file in [path] and writes [content] inside it.
+  static void writeFile(String path, String content) {
+    File(path)
+      ..createSync(recursive: true)
+      ..writeAsStringSync(content);
+  }
 }

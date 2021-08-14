@@ -197,6 +197,7 @@ class BuildCommand extends Command {
 
     // Delete the dev-deps dir if it exists
     final devDeps = Directory(p.join(_cd, '.rush', 'dev-deps'));
+    BuildUtils.updateDevDepsXml(_cd, _dataDir);
     if (devDeps.existsSync()) devDeps.deleteSync(recursive: true);
 
     await _compile(

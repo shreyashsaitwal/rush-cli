@@ -4,6 +4,7 @@ import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/templates/rules_pro.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
@@ -97,14 +98,14 @@ class CreateCommand extends Command {
       final extPath = p.joinAll([projectDir, 'src', ...orgName.split('.')]);
 
       if (lang == 'Java') {
-        _writeFile(
+        CmdUtils.writeFile(
             p.join(extPath, '$pascalCasedName.java'),
             getExtensionTempJava(
               pascalCasedName,
               orgName,
             ));
       } else {
-        _writeFile(
+        CmdUtils.writeFile(
             p.join(extPath, '$pascalCasedName.kt'),
             getExtensionTempKt(
               pascalCasedName,
@@ -112,32 +113,30 @@ class CreateCommand extends Command {
             ));
       }
 
-      _writeFile(p.join(projectDir, 'src', 'AndroidManifest.xml'),
+      CmdUtils.writeFile(p.join(projectDir, 'src', 'AndroidManifest.xml'),
           getManifestXml(orgName));
-      _writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'),
+      CmdUtils.writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'),
           getPgRules(orgName, pascalCasedName));
 
-      _writeFile(
+      CmdUtils.writeFile(
           p.join(projectDir, 'rush.yml'),
           getRushYamlTemp(
               pascalCasedName, versionName, authorName, lang == 'Kotlin'));
 
-      _writeFile(p.join(projectDir, 'README.md'), getReadme(pascalCasedName));
-      _writeFile(p.join(projectDir, '.gitignore'), getDotGitignore());
-      _writeFile(p.join(projectDir, 'deps', '.placeholder'),
+      CmdUtils.writeFile(p.join(projectDir, 'README.md'), getReadme(pascalCasedName));
+      CmdUtils.writeFile(p.join(projectDir, '.gitignore'), getDotGitignore());
+      CmdUtils.writeFile(p.join(projectDir, 'deps', '.placeholder'),
           'This directory stores your extension\'s dependencies.');
 
       // IntelliJ IDEA files
-      _writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
-
-      _writeFile(p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
+      CmdUtils.writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
+      CmdUtils.writeFile(p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
           getDevDepsXml(_dataDir));
-      _writeFile(
+      CmdUtils.writeFile(
           p.join(projectDir, '.idea', 'libraries', 'deps.xml'), getDepsXml());
-
-      _writeFile(p.join(projectDir, '.idea', 'modules.xml'),
+      CmdUtils.writeFile(p.join(projectDir, '.idea', 'modules.xml'),
           getModulesXml(kebabCasedName));
-      _writeFile(p.join(projectDir, '.idea', '$kebabCasedName.iml'), getIml());
+      CmdUtils.writeFile(p.join(projectDir, '.idea', '$kebabCasedName.iml'), getIml());
     } catch (e) {
       Logger.log(LogType.erro, e.toString());
       exit(1);
@@ -189,12 +188,5 @@ class CreateCommand extends Command {
       ..write('rush build ')
       ..resetColorAttributes()
       ..writeLine('to compile your extension.');
-  }
-
-  /// Creates a file in [path] and writes [content] inside it.
-  void _writeFile(String path, String content) {
-    File(path)
-      ..createSync(recursive: true)
-      ..writeAsStringSync(content);
   }
 }
