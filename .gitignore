@@ -1,17 +1,17 @@
+# Files and directories created by IntelliJ IDEA
+/.idea
+*.iml
+
 # Files and directories created by pub
 .dart_tool/
 .packages
-.idea
 pubspec.lock
 
 # Conventional directory for build outputs
-build/
+/build/
 
 # Directory created by dartdoc
-doc/api/
+/doc/api/
 
-misc/
-temp/
-
-*.iml
-env.dart
+/misc/
+/temp/

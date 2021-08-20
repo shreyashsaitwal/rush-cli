@@ -1,6 +1,4 @@
-import 'package:json_annotation/json_annotation.dart';
-
-part 'assets.g.dart';
+part of 'rush_yaml.dart';
 
 @JsonSerializable(
   anyMap: true,

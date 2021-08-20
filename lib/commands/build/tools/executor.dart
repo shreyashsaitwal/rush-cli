@@ -1,6 +1,8 @@
 import 'dart:io' show Directory, File, Platform;
 
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/commands/build/helpers/build_utils.dart';
+import 'package:rush_cli/commands/build/models/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
 import 'package:rush_prompt/rush_prompt.dart';
@@ -48,15 +50,14 @@ class Executor {
   }
 
   /// Executes ProGuard which is used to optimize and obfuscate the code.
-  Future<void> execProGuard(String org, BuildStep step) async {
+  Future<void> execProGuard(
+      String org, BuildStep step, RushYaml rushYaml) async {
     final args = () {
       final proguardJar =
           File(p.join(_dataDir, 'tools', 'other', 'proguard.jar'));
 
-      final deps = Directory(p.join(_cd, 'deps'));
-      final libraryJars = CmdUtils.generateClasspath(
-          [Directory(p.join(_dataDir, 'dev-deps')), deps]);
-
+      final libraryJars =
+          BuildUtils.classpathStringForDeps(_cd, _dataDir, rushYaml);
       final artDir = Directory(p.join(_dataDir, 'workspaces', org, 'art'));
 
       final injar = File(p.join(artDir.path, 'ART.jar'));
@@ -118,5 +119,27 @@ class Executor {
 
     // If the above pattern exists, de-jetification isn't needed.
     return !patternChecker.patternExists;
+  }
+
+  /// Executes the rush-resolver.jar.
+  Future<void> execResolver() async {
+    final classpath = CmdUtils.classpathString([
+      Directory(p.join(_dataDir, 'tools', 'resolver')),
+      Directory(p.join(_dataDir, 'tools', 'processor')),
+      Directory(p.join(_dataDir, 'dev-deps')),
+      File(p.join(_dataDir, 'tools', 'kotlinc', 'lib', 'kotlin-reflect.jar'))
+    ]);
+
+    final res = await ProcessStreamer.stream([
+      'java',
+      '-cp',
+      classpath,
+      'io.shreyash.rush.resolver.MainKt',
+      _cd,
+    ], _cd, printNormalOutputAlso: true);
+
+    if (res.result == Result.error) {
+      throw Exception();
+    }
   }
 }

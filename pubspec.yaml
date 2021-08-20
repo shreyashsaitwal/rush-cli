@@ -23,6 +23,7 @@ dependencies:
   archive: ^3.1.2
   args: ^2.0.0
   checked_yaml: ^2.0.1
+  collection: ^1.15.0
   dart_console: ^1.0.0
   dio: ^4.0.0-beta5
   hive: ^2.0.0

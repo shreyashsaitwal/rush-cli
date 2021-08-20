@@ -2,8 +2,9 @@ import 'dart:io' show Directory, File, exit;
 
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/commands/build_command/helpers/compute.dart';
-import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
+import 'package:rush_cli/commands/build/helpers/build_utils.dart';
+import 'package:rush_cli/commands/build/helpers/compute.dart';
+import 'package:rush_cli/commands/build/models/rush_yaml.dart';
 import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
@@ -94,19 +95,19 @@ rush-version=$rushVersion
   /// Unjars extension dependencies into the classes dir.
   Future<void> _copyRequiredClasses(
       RushYaml rushYml, String org, BuildStep step) async {
-    final deps = rushYml.deps ?? [];
+    final implDeps = BuildUtils.getDepJarPaths(_cd, rushYml, DepScope.implement);
 
     final artDir = Directory(p.join(_dataDir, 'workspaces', org, 'art'))
       ..createSync(recursive: true);
 
     final extractFutures = <Future<ErrWarnStore>>[];
 
-    if (deps.isNotEmpty) {
+    if (implDeps.isNotEmpty) {
       final desugarStore =
           p.join(_dataDir, 'workspaces', org, 'files', 'desugar');
       final isArtDirEmpty = artDir.listSync().isEmpty;
 
-      for (final el in deps) {
+      for (final el in implDeps) {
         final File dep;
 
         if (rushYml.build?.desugar?.desugar_deps ?? false) {
@@ -136,8 +137,8 @@ rush-version=$rushVersion
 
     final kotlinEnabled = rushYml.build?.kotlin?.enable ?? false;
 
-    // If Kotlin is enabled, unjar Kotlin std. lib as well.
-    // This step won't be needed once MIT merges the Kotlin support PR.
+    // If Kotlin is enabled, unjar Kotlin std. lib as well. This step won't be
+    //needed once MIT merges the Kotlin support PR [#2323].
     if (kotlinEnabled) {
       final kotlinStdLib =
           File(p.join(_dataDir, 'dev-deps', 'kotlin', 'kotlin-stdlib.jar'));

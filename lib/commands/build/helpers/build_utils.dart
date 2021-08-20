@@ -1,11 +1,15 @@
 import 'dart:io' show Directory, File, exit;
 
+import 'package:archive/archive.dart';
 import 'package:args/args.dart';
+import 'package:checked_yaml/checked_yaml.dart';
 import 'package:dart_console/dart_console.dart' show ConsoleColor;
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
+import 'package:rush_cli/commands/build/models/rush_lock.dart';
+import 'package:rush_cli/commands/build/models/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
+import 'package:rush_cli/templates/intellij_files.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 class BuildUtils {
@@ -70,10 +74,10 @@ class BuildUtils {
 
     // Check extension's version number
     final extVersion = yaml.version.number;
-
     if (extVersion is! int && extVersion.toString().trim() != 'auto') {
       throw Exception(
-          'Unsupported value for key "number" in field "version": $extVersion.\nValue MUST be either a positive integer or `auto`.');
+          'Unsupported value for key "number" in field "version": $extVersion.\n'
+          'Value MUST be either a positive integer or `auto`.');
     }
 
     if (!box.containsKey('version')) {
@@ -160,9 +164,7 @@ class BuildUtils {
       return true;
     }
 
-    if (isRelease &&
-        ((yaml.build?.release?.optimize ?? false) ||
-            (yaml.release?.optimize ?? false))) {
+    if (isRelease && (yaml.build?.release?.optimize ?? false)) {
       return true;
     }
 
@@ -206,8 +208,90 @@ class BuildUtils {
         prefix: '\n• ', prefixFG: ConsoleColor.red);
   }
 
+  /// Delete's everything inside the build box.
   static Future<void> emptyBuildBox() async {
     final buildBox = await Hive.openBox('build');
     await buildBox.delete('alreadyPrinted');
+  }
+
+  /// Checks whether the .idea/libraries/dev_deps.xml file defines the correct
+  /// dev deps and updates it if required. This is required since Rush v1.2.2
+  /// as this release centralized the dev deps directory for all the Rush projects.
+  /// So, therefore, to not break IDE features for old projects, this file needs
+  /// to point to the correct location of dev deps.
+  static void updateDevDepsXml(String cd, String dataDir) {
+    final devDepsXmlFile = () {
+      final file = File(p.join(cd, '.idea', 'libraries', 'dev-deps.xml'));
+      if (file.existsSync()) {
+        return file;
+      } else {
+        return File(p.join(cd, '.idea', 'libraries', 'dev_deps.xml'))
+          ..createSync(recursive: true);
+      }
+    }();
+
+    final devDepsXml = getDevDepsXml(dataDir);
+    if (devDepsXmlFile.readAsStringSync() != devDepsXml) {
+      CmdUtils.writeFile(devDepsXmlFile.path, devDepsXml);
+    }
+  }
+
+  static List<String> getDepJarPaths(
+      String cd, RushYaml rushYaml, DepScope scope) {
+    final allEntries = rushYaml.deps?.where((el) => el.scope() == scope);
+    final localJars = allEntries
+            ?.where((el) => !el.value().contains(':'))
+            .map((el) => p.join(cd, 'deps', el.value())) ??
+        [];
+
+    final RushLock lockFile;
+    try {
+      lockFile = checkedYamlDecode(
+          File(p.join(cd, '.rush', 'rush.lock')).readAsStringSync(),
+          (json) => RushLock.fromJson(json!));
+    } catch (e) {
+      Logger.log(LogType.erro, e.toString());
+      exit(1);
+    }
+
+    final remoteJars = lockFile.resolvedDeps
+        .where((el) => el.scope == scope.value())
+        .map((el) {
+      if (el.type == 'aar') {
+        return _extractJar(el.localPath);
+      }
+      return el.localPath;
+    });
+
+    return [...localJars, ...remoteJars];
+  }
+
+  static String classpathStringForDeps(
+      String cd, String dataDir, RushYaml rushYaml) {
+    final depJars = [
+      ...getDepJarPaths(cd, rushYaml, DepScope.implement),
+      ...getDepJarPaths(cd, rushYaml, DepScope.compileOnly)
+    ];
+
+    final devDepsDir = Directory(p.join(dataDir, 'dev-deps'));
+    for (final el in devDepsDir.listSync(recursive: true)) {
+      if (el is File) {
+        depJars.add(el.path);
+      }
+    }
+
+    return depJars.join(CmdUtils.cpSeparator());
+  }
+
+  static String _extractJar(String aarPath) {
+    final archive = ZipDecoder().decodeBytes(File(aarPath).readAsBytesSync());
+    final classesJar =
+        archive.files.firstWhere((el) => el.isFile && el.name == 'classes.jar');
+    final jar = File(p.join(
+        p.dirname(aarPath), p.basenameWithoutExtension(aarPath) + '.jar'));
+    jar
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(classesJar.content as List<int>);
+    return jar.path;
   }
 }

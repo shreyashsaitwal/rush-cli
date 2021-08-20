@@ -43,42 +43,34 @@ class CmdUtils {
   }
 
   /// Returns a ";" or ":" separated string of dependencies.
-  static String generateClasspath(List<FileSystemEntity> entities,
-      {List<String> exclude = const [''],
-      Directory? classesDir,
-      bool relative = true}) {
+  static String classpathString(List<FileSystemEntity> locations,
+      {List<String> exclude = const []}) {
+    final jarClassPattern = RegExp(r'^.(jar|class)$');
     final jars = <String>[];
 
-    for (final entity in entities) {
-      if (entity is Directory) {
-        entity
+    for (final el in locations) {
+      if (el is Directory) {
+        final paths = el
             .listSync(recursive: true)
             .whereType<File>()
             .where((el) =>
-                p.extension(el.path) == '.jar' &&
-                !exclude.contains(p.basename(el.path)))
-            .forEach((el) {
-          if (relative) {
-            jars.add(p.relative(el.path));
-          } else {
-            jars.add(el.path);
-          }
-        });
-      } else if (entity is File) {
-        if (relative) {
-          jars.add(p.relative(entity.path));
-        } else {
-          jars.add(entity.path);
+                !exclude.contains(p.basename(el.path)) &&
+                jarClassPattern.hasMatch(p.extension(el.path)))
+            .map((el) => el.path)
+            .toList();
+        jars.addAll(paths);
+      } else if (el is File) {
+        if (!exclude.contains(p.basename(el.path)) &&
+            jarClassPattern.hasMatch(p.extension(el.path))) {
+          jars.add(el.path);
         }
       }
     }
 
-    if (classesDir != null) {
-      jars.add(classesDir.path);
-    }
-
-    return jars.join(getSeparator());
+    return jars.join(cpSeparator());
   }
+
+  static String cpSeparator() => Platform.isWindows ? ';' : ':';
 
   /// Returns a list of paths that represent Java sources files.
   static List<String> getJavaSourceFiles(Directory srcDir) {
@@ -95,10 +87,10 @@ class CmdUtils {
     return files;
   }
 
-  static String getSeparator() {
-    if (Platform.isWindows) {
-      return ';';
-    }
-    return ':';
+  /// Creates a file in [path] and writes [content] inside it.
+  static void writeFile(String path, String content) {
+    File(path)
+      ..createSync(recursive: true)
+      ..writeAsStringSync(content);
   }
 }

@@ -7,8 +7,8 @@ import 'package:dio/dio.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_runner/process_runner.dart';
-import 'package:rush_cli/commands/upgrade_command/models/repo_content.dart';
-import 'package:rush_cli/commands/upgrade_command/models/gh_release.dart';
+import 'package:rush_cli/commands/upgrade/models/repo_content.dart';
+import 'package:rush_cli/commands/upgrade/models/gh_release.dart';
 import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
@@ -21,7 +21,8 @@ class UpgradeCommand extends Command {
       ..addFlag('force',
           abbr: 'f',
           help:
-              'Forcefully upgrades Rush to the latest version. This downloads and replaces even the unchanged files.',
+              'Forcefully upgrades Rush to the latest version. This downloads '
+              'and replaces even the unchanged files.',
           defaultsTo: false)
       ..addFlag('safe', abbr: 's', hide: true, defaultsTo: false);
 

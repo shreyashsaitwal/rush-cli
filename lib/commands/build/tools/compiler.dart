@@ -3,7 +3,9 @@ import 'dart:io' show Directory, File, Platform, exit;
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_runner/process_runner.dart';
-import 'package:rush_cli/commands/build_command/helpers/compute.dart';
+import 'package:rush_cli/commands/build/helpers/build_utils.dart';
+import 'package:rush_cli/commands/build/helpers/compute.dart';
+import 'package:rush_cli/commands/build/models/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
 import 'package:rush_prompt/rush_prompt.dart';
@@ -15,15 +17,15 @@ class Compiler {
   Compiler(this._cd, this._dataDir);
 
   /// Compiles the Java files for this extension project.
-  Future<void> compileJava(Box dataBox, BuildStep step) async {
+  Future<void> compileJava(
+      Box dataBox, BuildStep step, RushYaml rushYaml) async {
     final instance = DateTime.now();
 
     final org = await dataBox.get('org') as String;
     final version = await dataBox.get('version') as int;
     final name = await dataBox.get('name') as String;
 
-    final args = await _getJavacArgs(name, org, version);
-
+    final args = await _getJavacArgs(name, org, version, rushYaml);
     final result =
         await _startProcess(_StartProcessArgs(cd: _cd, cmdArgs: args));
 
@@ -31,16 +33,22 @@ class Compiler {
       throw Exception();
     }
 
-    await _generateInfoFilesIfNoBlocks(org, version, instance, step);
+    final componentsJson =
+        File(p.join(_dataDir, 'workspaces', org, 'files', 'components.json'));
+    if (!componentsJson.existsSync() ||
+        componentsJson.lastModifiedSync().isBefore(instance)) {
+      await _generateInfoFilesIfNoBlocks(
+          org, await dataBox.get('version') as int, rushYaml, step);
+    }
   }
 
   /// Compiles the Kotlin files for this extension project.
-  Future<void> compileKt(Box dataBox, BuildStep step) async {
+  Future<void> compileKt(Box dataBox, BuildStep step, RushYaml rushYaml) async {
     final instance = DateTime.now();
     final org = await dataBox.get('org') as String;
 
-    final ktcArgs = _getKtcArgs(org);
-    final kaptArgs = await _getKaptArgs(dataBox);
+    final ktcArgs = _getKtcArgs(org, rushYaml);
+    final kaptArgs = await _getKaptArgs(dataBox, rushYaml);
 
     final results = await Future.wait([
       compute(
@@ -63,58 +71,48 @@ class Compiler {
       throw Exception();
     }
 
-    await _generateInfoFilesIfNoBlocks(
-        org, await dataBox.get('version') as int, instance, step);
+    final componentsJson =
+        File(p.join(_dataDir, 'workspaces', org, 'files', 'components.json'));
+    if (!componentsJson.existsSync() ||
+        componentsJson.lastModifiedSync().isBefore(instance)) {
+      await _generateInfoFilesIfNoBlocks(
+          org, await dataBox.get('version') as int, rushYaml, step);
+    }
   }
 
   /// Generates info files if no block annotations are declared.
   Future<void> _generateInfoFilesIfNoBlocks(
-      String org, int version, DateTime instance, BuildStep step) async {
+      String org, int version, RushYaml rushYaml, BuildStep step) async {
     final filesDir = p.join(_dataDir, 'workspaces', org, 'files');
-    final componentsJson = File(p.join(filesDir, 'components.json'));
-
-    final classpath = CmdUtils.generateClasspath([
+    final classpath = CmdUtils.classpathString([
       Directory(p.join(_dataDir, 'tools', 'processor')),
       Directory(p.join(_dataDir, 'tools', 'kotlinc', 'lib'))
     ]);
 
-    if (!componentsJson.existsSync() ||
-        componentsJson.lastModifiedSync().isBefore(instance)) {
-      final args = <String>[
-        'java',
-        '-cp',
-        classpath,
-        'io.shreyash.rush.InfoFilesGeneratorKt',
-        _cd,
-        version.toString(),
-        org,
-        filesDir,
-      ];
+    final args = <String>[
+      'java',
+      '-cp',
+      classpath,
+      'io.shreyash.rush.InfoFilesGeneratorKt',
+      _cd,
+      version.toString(),
+      org,
+      filesDir,
+    ];
 
-      final result =
-          await _startProcess(_StartProcessArgs(cd: _cd, cmdArgs: args));
+    final result =
+        await _startProcess(_StartProcessArgs(cd: _cd, cmdArgs: args));
 
-      if (result.result == Result.error) {
-        throw Exception();
-      }
-
-      step.log(LogType.warn, 'No declaration of any block annotation found');
+    if (result.result == Result.error) {
+      throw Exception();
     }
+
+    step.log(LogType.warn, 'No declaration of any block annotation found');
   }
 
-  /// Returns the command line args required for compiling Java
-  /// sources.
+  /// Returns the command line args required for compiling sources.
   Future<List<String>> _getJavacArgs(
-      String name, String org, int version) async {
-    final classesDir = Directory(p.join(_dataDir, 'workspaces', org, 'classes'))
-      ..createSync(recursive: true);
-
-    final classpath = CmdUtils.generateClasspath([
-      Directory(p.join(_dataDir, 'dev-deps')),
-      Directory(p.join(_cd, 'deps')),
-      Directory(p.join(_dataDir, 'tools', 'processor')),
-    ], classesDir: classesDir);
-
+      String name, String org, int version, RushYaml rushYaml) async {
     final filesDir = Directory(p.join(_dataDir, 'workspaces', org, 'files'))
       ..createSync(recursive: true);
 
@@ -128,6 +126,14 @@ class Compiler {
       '-Aoutput=${filesDir.path}',
     ];
 
+    final classesDir = Directory(p.join(_dataDir, 'workspaces', org, 'classes'))
+      ..createSync(recursive: true);
+
+    final classpath = BuildUtils.classpathStringForDeps(
+            _cd, _dataDir, rushYaml) +
+        CmdUtils.cpSeparator() +
+        CmdUtils.classpathString(
+            [Directory(p.join(_dataDir, 'tools', 'processor')), classesDir]);
     final srcDir = Directory(p.join(_cd, 'src'));
     final args = <String>[];
 
@@ -145,18 +151,16 @@ class Compiler {
   }
 
   /// Returns command line args required for compiling Kotlin sources.
-  List<String> _getKtcArgs(String org) {
+  List<String> _getKtcArgs(String org, RushYaml rushYaml) {
     final kotlinc = p.join(_dataDir, 'tools', 'kotlinc', 'bin',
         'kotlinc' + (Platform.isWindows ? '.bat' : ''));
-
-    final classpath = CmdUtils.generateClasspath([
-      Directory(p.join(_dataDir, 'dev-deps')),
-      Directory(p.join(_cd, 'deps')),
-    ]);
 
     final classesDir = Directory(p.join(_dataDir, 'workspaces', org, 'classes'))
       ..createSync(recursive: true);
     final srcDir = p.join(_cd, 'src');
+
+    final classpath =
+        BuildUtils.classpathStringForDeps(_cd, _dataDir, rushYaml);
 
     final args = <String>[];
     args
@@ -169,19 +173,18 @@ class Compiler {
     return [kotlinc, '@${argFile.path}'];
   }
 
-  /// Returns command line args required for running the Kapt
-  /// compiler plugin. Kapt is required for processing annotations
-  /// in Kotlin sources and needs to be invoked separately.
-  Future<List<String>> _getKaptArgs(Box box) async {
+  /// Returns command line args required for running the Kapt compiler plugin.
+  /// Kapt is required for processing annotations in Kotlin sources and needs
+  /// to be invoked separately.
+  Future<List<String>> _getKaptArgs(Box box, RushYaml rushYaml) async {
     final apDir = Directory(p.join(_dataDir, 'tools', 'processor'));
 
-    final classpath = CmdUtils.generateClasspath([
-      Directory(p.join(_dataDir, 'dev-deps')),
-      Directory(p.join(_cd, 'deps')),
-      apDir,
-    ], exclude: [
-      'processor.jar'
-    ]);
+    final classpath =
+        BuildUtils.classpathStringForDeps(_cd, _dataDir, rushYaml) +
+            CmdUtils.cpSeparator() +
+            CmdUtils.classpathString(
+                [Directory(p.join(_dataDir, 'tools', 'processor'))],
+                exclude: ['processor.jar']);
 
     final toolsJar = p.join(_dataDir, 'tools', 'other', 'tools.jar');
 
@@ -215,8 +218,7 @@ class Compiler {
     return [kotlinc, '@${argFile.path}'];
   }
 
-  /// Starts a new process with [args.cmdArgs] and prints the output to
-  /// the console.
+  /// Starts a new process with [args.cmdArgs] and prints the output to the console.
   static Future<ProcessResult> _startProcess(_StartProcessArgs args) async {
     final cd = args.cd;
     final cmdArgs = args.cmdArgs;
@@ -253,13 +255,13 @@ class Compiler {
       return boxOpts['encoded'] as String;
     }
 
-    final classpath = CmdUtils.generateClasspath([
+    final classpath = CmdUtils.classpathString([
       File(p.join(_dataDir, 'tools', 'processor', 'processor.jar')),
       File(p.join(_dataDir, 'dev-deps', 'kotlin', 'kotlin-stdlib.jar'))
     ]);
 
     // The encoding is done by the processor. This is because I was unable to
-    // implement the function for encoding the options in Dart. This class is
+    // implement the function for encoding the options in Dart. This file is
     // a part of processor module in rush annotation processor repo.
     final res = await ProcessRunner().runProcess(
         ['java', '-cp', classpath, 'io.shreyash.rush.OptsEncoderKt', opts]);

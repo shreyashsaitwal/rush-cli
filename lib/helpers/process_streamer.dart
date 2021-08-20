@@ -33,8 +33,8 @@ class ProcessPatternChecker {
 }
 
 class ProcessStreamer {
-  /// Starts a process from given [args] and returns a stream of events
-  /// emitted by that process.
+  /// Starts a process from given [args] and returns a stream of events emitted
+  /// by that process.
   static Future<ProcessResult> stream(
     List<String> args,
     String cd, {
@@ -43,21 +43,19 @@ class ProcessStreamer {
     bool trackAlreadyPrinted = false,
     bool printNormalOutputAlso = false,
   }) async {
-    // In almost all places where this class (`ProcessStreamer`) is used,
-    // a new isolate is spawned. Isolates don't allow passing objects that
-    // depends on `dart:ffi` as arguments to it. Now, `BuildStep`, which
-    // builds on top of `dart_console`, indirectly depends on `dart:ffi`
-    // and because of this reason we don't get the required step as an
-    // argument to this method and instead instantiate a new one here.
-    // This won't start a new build step; it will just append messages to
-    // the existing step because we aren't calling the `init()` method on
-    // it.
+    // In almost all places where this class (`ProcessStreamer`) is used, a new
+    // isolate is spawned. Isolates don't allow passing objects that depends on
+    // `dart:ffi` as arguments to it. Now, `BuildStep`, which builds on top of
+    // `dart_console`, indirectly depends on `dart:ffi` and because of this reason
+    // we don't get the required step as an argument to this method and instead
+    // instantiate a new one here. This won't start a new build step; it will just
+    // append messages to the existing step because we aren't calling the `init()`
+    // method on it.
     final step = BuildStep('');
 
-    // These patterns are either useless or don't make sense in Rush's
-    // context. For example, the error and warning count printed by
-    // javac is not necessary to print as Rush itself keeps track of
-    // them.
+    // These patterns are either useless or don't make sense in Rush's context.
+    // For example, the error and warning count printed by javac is not necessary
+    // to print as Rush itself keeps track of them.
     final excludePatterns = [
       RegExp(r'The\sfollowing\soptions\swere\snot\srecognized'),
       RegExp(r'\d+\s*warnings?\s?'),
@@ -74,9 +72,9 @@ class ProcessStreamer {
       await for (final data in process) {
         final stdout = data.stdout.split('\n');
 
-        // Checks if a particular string that matches the pattern
-        // exists in stdout. This is specifically required for
-        // checking if de-jetification is necessary.
+        // Checks if a particular string that matches the pattern exists in stdout.
+        // This is specifically required for checking if de-jetification is
+        // necessary.
         if (patternChecker != null) {
           final pattern = patternChecker.pattern;
           patternChecker._exists = stdout.any((el) => el.contains(pattern));
@@ -106,18 +104,14 @@ class ProcessStreamer {
     }
   }
 
-  /// This list keeps a track of the errors/warnings/etc. that have
-  /// been printed already.
-  // static final _alreadyPrinted = <String>[];
-
   /// Prints [outputLines] to the console with appropriate [LogType].
   static Future<void> _printToTheConsole(List<String> outputLines, String cd,
       BuildStep step, bool trackAlreadyPrinted) async {
     final patterns = <LogType, RegExp>{
-      LogType.erro: RegExp(r'(\s*error:\s?)+', caseSensitive: false),
-      LogType.warn: RegExp(r'(\s*warning:\s?)+', caseSensitive: false),
-      LogType.info: RegExp(r'(\s*info:\s?)+', caseSensitive: false),
-      LogType.note: RegExp(r'(\s*note:\s?)+', caseSensitive: false),
+      LogType.erro: RegExp(r'(\s*error:?\s?)+', caseSensitive: false),
+      LogType.warn: RegExp(r'(\s*warning:?\s?)+', caseSensitive: false),
+      LogType.info: RegExp(r'(\s*info:?\s?)+', caseSensitive: false),
+      LogType.note: RegExp(r'(\s*note:?\s?)+', caseSensitive: false),
     };
 
     var skipThisErrStack = false;

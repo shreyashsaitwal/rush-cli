@@ -1,8 +1,9 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/commands/build_command/helpers/compute.dart';
-import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
+import 'package:rush_cli/commands/build/helpers/build_utils.dart';
+import 'package:rush_cli/commands/build/helpers/compute.dart';
+import 'package:rush_cli/commands/build/models/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
 import 'package:rush_prompt/rush_prompt.dart';
@@ -13,24 +14,26 @@ class Desugarer {
 
   Desugarer(this._cd, this._dataDir);
 
-  /// Desugars the extension files and dependencies making them
-  /// compatible with Android API level < 26.
-  Future<void> run(String org, RushYaml yaml, BuildStep step) async {
-    final desugarDeps = yaml.build?.desugar?.desugar_deps ?? false;
-    final deps =
-        desugarDeps ? _depsToBeDesugared(org, yaml.deps ?? []) : <String>[];
+  /// Desugars the extension files and dependencies making them compatible with
+  /// Android API level < 26.
+  Future<void> run(String org, RushYaml rushYaml, BuildStep step) async {
+    final shouldDesugarDeps = rushYaml.build?.desugar?.desugar_deps ?? false;
+    final implDeps = shouldDesugarDeps
+        ? _depsToBeDesugared(
+            org, BuildUtils.getDepJarPaths(_cd, rushYaml, DepScope.implement))
+        : <String>[];
 
-    // Here, all the desugar process' futures are stored for them
-    // to get executed in parallel by the [Future.wait] method.
+    // Here, all the desugar process' futures are stored for them to get executed
+    // in parallel by the [Future.wait] method.
     final desugarFutures = <Future<ProcessResult>>[];
 
-    // This is where all previously desugared deps of the extension
-    // are stored. They are reused between builds.
+    // This is where all previously desugared deps of the extension are stored.
+    // They are reused between builds.
     final desugarStore =
         Directory(p.join(_dataDir, 'workspaces', org, 'files', 'desugar'))
           ..createSync(recursive: true);
 
-    for (final el in deps) {
+    for (final el in implDeps) {
       final output = p.join(desugarStore.path, p.basename(el));
       final args = _DesugarArgs(
         cd: _cd,
@@ -38,6 +41,7 @@ class Desugarer {
         input: el,
         output: output,
         org: org,
+        rushYaml: rushYaml,
       );
       desugarFutures.add(compute(_desugar, args));
     }
@@ -52,6 +56,7 @@ class Desugarer {
           input: classesDir,
           output: classesDir,
           org: org,
+          rushYaml: rushYaml,
         )));
 
     final results = await Future.wait(desugarFutures);
@@ -74,11 +79,10 @@ class Desugarer {
     final store =
         Directory(p.join(_dataDir, 'workspaces', org, 'files', 'desugar'))
           ..createSync(recursive: true);
-    final depsDir = p.join(_cd, 'deps');
 
     for (final el in deps) {
-      final depDes = File(p.join(store.path, el));
-      final depOrig = File(p.join(depsDir, el));
+      final depDes = File(p.join(store.path, p.basename(el)));
+      final depOrig = File(el);
 
       // Add the dep if it isn't already desugared
       if (!depDes.existsSync()) {
@@ -101,13 +105,8 @@ class Desugarer {
   static Future<ProcessResult> _desugar(_DesugarArgs args) async {
     final desugarJar = p.join(args.dataDir, 'tools', 'other', 'desugar.jar');
 
-    final classpath = CmdUtils.generateClasspath(
-        [
-          Directory(p.join(args.dataDir, 'dev-deps')),
-          Directory(p.join(args.cd, 'deps'))
-        ],
-        relative: false,
-        exclude: [p.basename(args.input)]);
+    final classpath =
+        BuildUtils.classpathStringForDeps(args.cd, args.dataDir, args.rushYaml);
 
     final argFile = () {
       final rtJar = p.join(args.dataDir, 'tools', 'other', 'rt.jar');
@@ -123,7 +122,7 @@ class Desugarer {
         ..addAll(['--input', '\'${args.input}\''])
         ..addAll(['--output', '\'${args.output}\'']);
 
-      classpath.split(CmdUtils.getSeparator()).forEach((el) {
+      classpath.split(CmdUtils.cpSeparator()).forEach((el) {
         contents.addAll(['--classpath_entry', '\'$el\'']);
       });
 
@@ -142,9 +141,9 @@ class Desugarer {
       ..add('com.google.devtools.build.android.desugar.Desugar')
       ..add('@${p.basename(argFile.path)}');
 
-    // Changing the working directory to arg file's parent dir
-    // because the desugar.jar doesn't allow the use of `:`
-    // in file path which is a common char in Windows paths.
+    // Changing the working directory to arg file's parent dir because the
+    // desugar.jar doesn't allow the use of `:` in file path which is a common
+    // char in Windows paths.
     final result = await ProcessStreamer.stream(cmdArgs, args.cd,
         workingDirectory: Directory(p.dirname(argFile.path)),
         trackAlreadyPrinted: true);
@@ -158,21 +157,23 @@ class Desugarer {
   }
 }
 
-/// Arguments of the [Desugarer._desugar] method. This class is used
-/// instead of directly passing required args to that method because
-/// when running a method in an [Isolate], we can only pass one arg
-/// to it.
+/// Arguments of the [Desugarer._desugar] method. This class is used instead of
+/// directly passing required args to that method because when running a method
+/// in an [Isolate], we can only pass one arg to it.
 class _DesugarArgs {
   final String cd;
   final String org;
   final String input;
   final String output;
   final String dataDir;
+  final RushYaml rushYaml;
 
-  _DesugarArgs(
-      {required this.cd,
-      required this.dataDir,
-      required this.input,
-      required this.output,
-      required this.org});
+  _DesugarArgs({
+    required this.cd,
+    required this.dataDir,
+    required this.input,
+    required this.output,
+    required this.org,
+    required this.rushYaml,
+  });
 }

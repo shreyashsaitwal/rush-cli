@@ -1,7 +1,6 @@
-import 'dart:io' show Directory, Link, Platform, exit;
+import 'dart:io' show Directory, Platform, exit;
 
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 class DirUtils {
@@ -14,16 +13,13 @@ class DirUtils {
         appDataDir =
             p.join(Platform.environment['UserProfile']!, 'AppData', 'Roaming');
         break;
-
       case 'macos':
         appDataDir = p.join(
             Platform.environment['HOME']!, 'Library', 'Application Support');
         break;
-
       case 'linux':
         appDataDir = p.join('home', Platform.environment['HOME']);
         break;
-
       default:
         break;
     }

@@ -3,15 +3,16 @@ import 'dart:io' show File, Directory, exit;
 import 'package:archive/archive_io.dart';
 import 'package:args/command_runner.dart';
 import 'package:checked_yaml/checked_yaml.dart';
+import 'package:collection/collection.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/commands/build_command/helpers/build_utils.dart';
-import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
-import 'package:rush_cli/commands/build_command/tools/compiler.dart';
-import 'package:rush_cli/commands/build_command/tools/desugarer.dart';
-import 'package:rush_cli/commands/build_command/tools/executor.dart';
-import 'package:rush_cli/commands/build_command/tools/generator.dart';
+import 'package:rush_cli/commands/build/helpers/build_utils.dart';
+import 'package:rush_cli/commands/build/models/rush_yaml.dart';
+import 'package:rush_cli/commands/build/tools/compiler.dart';
+import 'package:rush_cli/commands/build/tools/desugarer.dart';
+import 'package:rush_cli/commands/build/tools/executor.dart';
+import 'package:rush_cli/commands/build/tools/generator.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 class BuildCommand extends Command {
@@ -30,9 +31,9 @@ class BuildCommand extends Command {
           abbr: 's',
           defaultsTo: false,
           help:
-              'Generates two flavors of extensions, one that uses AndroidX libraries, and other that '
-              'uses support libraries. The later is supposed to be used with builders that haven\'t '
-              'yet migrated to AndroidX.')
+              'Generates two flavors of extensions, one that uses AndroidX libraries, '
+              'and other that uses support libraries. The later is supposed to '
+              'be used with builders that haven\'t yet migrated to AndroidX.')
       ..addFlag('optimize',
           abbr: 'o',
           defaultsTo: false,
@@ -78,14 +79,14 @@ class BuildCommand extends Command {
       ..write('   -s, --support-lib')
       ..resetColorAttributes()
       ..writeLine(' ' * 5 +
-          'Generates two flavors of extensions, one that uses AndroidX libraries, and other that '
-              'uses support libraries.')
+          'Generates two flavors of extensions, one that uses AndroidX libraries, '
+              'and other that uses support libraries.')
       ..setForegroundColor(ConsoleColor.yellow)
       ..write('   -o, --[no-]optimize')
       ..resetColorAttributes()
       ..writeLine(' ' * 3 +
-          'Optimize, obfuscates and shrinks your code with a set of ProGuard rules defined in '
-              'proguard-rules.pro rules file.')
+          'Optimize, obfuscates and shrinks your code with a set of ProGuard '
+              'rules defined in proguard-rules.pro rules file.')
       ..resetColorAttributes()
       ..writeLine();
   }
@@ -151,7 +152,6 @@ class BuildCommand extends Command {
       } else {
         valStep.log(LogType.erro, ' ' * 5 + e.toString(), addPrefix: false);
       }
-
       valStep.finishNotOk();
       BuildUtils.printFailMsg(
           BuildUtils.getTimeDifference(_startTime, DateTime.now()));
@@ -165,7 +165,6 @@ class BuildCommand extends Command {
       valStep
         ..log(LogType.erro, 'AndroidManifest.xml not found')
         ..finishNotOk();
-
       BuildUtils.printFailMsg(
           BuildUtils.getTimeDifference(_startTime, DateTime.now()));
       exit(1);
@@ -197,13 +196,62 @@ class BuildCommand extends Command {
 
     // Delete the dev-deps dir if it exists
     final devDeps = Directory(p.join(_cd, '.rush', 'dev-deps'));
+    BuildUtils.updateDevDepsXml(_cd, _dataDir);
     if (devDeps.existsSync()) devDeps.deleteSync(recursive: true);
 
+    await _resolveDeps(rushYaml, dataBox);
     await _compile(
         dataBox, optimize, rushYaml.build?.kotlin?.enable ?? false, rushYaml);
   }
 
-  /// Compiles extension's source files
+  Future<void> _resolveDeps(RushYaml rushYaml, Box dataBox) async {
+    final containsRemoteDeps =
+        rushYaml.deps?.any((el) => el.value().contains(':')) ?? false;
+    if (!containsRemoteDeps) {
+      return;
+    }
+
+    final step = BuildStep('Resolving dependencies')..init();
+
+    final lastResolvedDeps =
+        await dataBox.get('deps', defaultValue: <String>[]) as List<String>;
+    final currentRemoteDeps = rushYaml.deps
+            ?.where((el) => el.value().contains(':'))
+            .map((el) => el.value())
+            .toList() ??
+        <String>[];
+
+    final areDepsUpToDate = DeepCollectionEquality.unordered()
+        .equals(lastResolvedDeps, currentRemoteDeps);
+
+    final lockFile = File(p.join(_cd, '.rush', 'rush.lock'));
+    final lastResolveTime = await dataBox.get('lastResolveTime',
+        defaultValue: DateTime.now()) as DateTime;
+
+    if (!areDepsUpToDate ||
+        !lockFile.existsSync() ||
+        lockFile.lastModifiedSync().isAfter(lastResolveTime)) {
+      try {
+        await Executor(_cd, _dataDir).execResolver();
+      } catch (e) {
+        step.finishNotOk();
+        BuildUtils.printFailMsg(
+            BuildUtils.getTimeDifference(_startTime, DateTime.now()));
+        exit(1);
+      } finally {
+        await Future.wait([
+          dataBox.put('deps', currentRemoteDeps),
+          dataBox.put('lastResolveTime', DateTime.now())
+        ]);
+      }
+    } else {
+      step.log(LogType.info, 'Everything is up-to-date!');
+    }
+
+    step.finishOk();
+  }
+
+  /// Compiles extension's source files.
   Future<void> _compile(
       Box dataBox, bool optimize, bool enableKt, RushYaml rushYaml) async {
     final compileStep = BuildStep('Compiling sources')..init();
@@ -234,11 +282,11 @@ class BuildCommand extends Command {
           exit(1);
         }
 
-        await compiler.compileKt(dataBox, compileStep);
+        await compiler.compileKt(dataBox, compileStep, rushYaml);
       }
 
       if (javaFiles.isNotEmpty) {
-        await compiler.compileJava(dataBox, compileStep);
+        await compiler.compileJava(dataBox, compileStep, rushYaml);
       }
     } catch (e) {
       compileStep.finishNotOk();
@@ -294,11 +342,9 @@ class BuildCommand extends Command {
 
     await Generator(_cd, _dataDir).generate(org, processStep, rushYaml);
 
-    final executor = Executor(_cd, _dataDir);
-
     // Create a JAR containing the contents of extension's dependencies and
     // compiled source files
-    final artJar = await _generateArtJar(org, processStep, optimize);
+    final artJar = await _generateArtJar(org, processStep, optimize, rushYaml);
 
     // Copy ART to raw dir
     if (artJar.existsSync()) {
@@ -322,7 +368,8 @@ class BuildCommand extends Command {
       processStep.log(LogType.info, 'De-jetifing the extension');
 
       try {
-        needDeJet = await executor.execDeJetifier(org, processStep);
+        needDeJet =
+            await Executor(_cd, _dataDir).execDeJetifier(org, processStep);
       } catch (e) {
         processStep.finishNotOk();
         BuildUtils.printFailMsg(
@@ -331,8 +378,8 @@ class BuildCommand extends Command {
       }
 
       if (!needDeJet && deJet) {
-        // Delete the raw/sup directory so that support version of
-        // the extension isn't generated.
+        // Delete the raw/sup directory so that support version of the extension
+        // isn't generated.
         Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'sup'))
             .deleteSync(recursive: true);
 
@@ -355,10 +402,9 @@ class BuildCommand extends Command {
     _assemble(org);
   }
 
-  /// JAR the compiled class files and third-party dependencies into a
-  /// single JAR.
-  Future<File> _generateArtJar(
-      String org, BuildStep processStep, bool optimize) async {
+  /// JAR the compiled class files and third-party dependencies into a single JAR.
+  Future<File> _generateArtJar(String org, BuildStep processStep, bool optimize,
+      RushYaml rushYaml) async {
     final artDir = Directory(p.join(_dataDir, 'workspaces', org, 'art'));
 
     final artJar =
@@ -389,7 +435,7 @@ class BuildCommand extends Command {
 
     try {
       if (optimize) {
-        await _optimizeArt(artJar, org, processStep);
+        await _optimizeArt(artJar, org, processStep, rushYaml);
       }
     } catch (e) {
       processStep.finishNotOk();
@@ -402,11 +448,11 @@ class BuildCommand extends Command {
   }
 
   Future<void> _optimizeArt(
-      File artJar, String org, BuildStep processStep) async {
+      File artJar, String org, BuildStep processStep, RushYaml rushYaml) async {
     final executor = Executor(_cd, _dataDir);
 
     processStep.log(LogType.info, 'Optimizing the extension');
-    await executor.execProGuard(org, processStep);
+    await executor.execProGuard(org, processStep, rushYaml);
 
     // Delete the old non-optimized JAR...
     artJar.deleteSync();
@@ -417,8 +463,7 @@ class BuildCommand extends Command {
       ..deleteSync(recursive: true);
   }
 
-  /// Convert generated extension JAR file from previous step into DEX
-  /// bytecode.
+  /// Convert generated extension JAR file from previous step into DEX bytecode.
   Future<void> _dex(String org, bool deJet, BuildStep processStep) async {
     final executor = Executor(_cd, _dataDir);
 

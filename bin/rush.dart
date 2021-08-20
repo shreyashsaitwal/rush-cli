@@ -2,10 +2,10 @@ import 'dart:io' show Directory, exit;
 
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
-import 'package:rush_cli/commands/build_command/build_command.dart';
-import 'package:rush_cli/commands/create_command/create_command.dart';
-import 'package:rush_cli/commands/migrate_command/migrate_command.dart';
-import 'package:rush_cli/commands/upgrade_command/upgrade_command.dart';
+import 'package:rush_cli/commands/build/build.dart';
+import 'package:rush_cli/commands/create/create.dart';
+import 'package:rush_cli/commands/migrate/migrate.dart';
+import 'package:rush_cli/commands/upgrade/upgrade.dart';
 import 'package:rush_cli/helpers/dir_utils.dart';
 import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
@@ -28,14 +28,15 @@ void main(List<String> args) {
     ..addCommand(CreateCommand(_cd, _dataDir))
     ..addCommand(BuildCommand(_cd, _dataDir))
     ..addCommand(MigrateCommand(_cd, _dataDir))
-    ..addCommand(UpgradeCommand(_dataDir))
-    ..run(args).catchError((Object err) {
-      if (err is UsageException) {
-        runner.printUsage();
-      } else {
-        throw err;
-      }
-    });
+    ..addCommand(UpgradeCommand(_dataDir));
+
+  runner.run(args).catchError((Object err) {
+    if (err is UsageException) {
+      runner.printUsage();
+    } else {
+      throw err;
+    }
+  });
 }
 
 void _printVersion() {

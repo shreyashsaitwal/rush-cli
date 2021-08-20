@@ -20,7 +20,8 @@ class MigrateCommand extends Command {
 
   @override
   String get description =>
-      'Introspects and migrates the extension-template project in the current directory to Rush.';
+      'Introspects and migrates the extension-template project in the current '
+      'directory to Rush.';
 
   @override
   String get name => 'migrate';
@@ -130,9 +131,8 @@ class MigrateCommand extends Command {
     _printFooter(projectDir.path, Casing.kebabCase(extName), extName);
   }
 
-  /// Copies all the src files.
-  /// This doesn't perform any checks, just copies everything except the assets and
-  /// aiwebres directory.
+  /// Copies all the src files without performing any checks; it just copies
+  /// everything except the assets and aiwebres directory.
   void _copySrcFiles(String package, String projectDirPath, BuildStep step) {
     final baseDir = Directory(p.joinAll([_cd, 'src', ...package.split('.')]));
 
@@ -180,7 +180,7 @@ class MigrateCommand extends Command {
     if (deps.existsSync() && deps.listSync().isNotEmpty) {
       CmdUtils.copyDir(deps, depsDest);
     } else {
-      _writeFile(p.join(depsDest.path, '.placeholder'),
+      CmdUtils.writeFile(p.join(depsDest.path, '.placeholder'),
           'This directory stores your extension\'s dependencies.');
     }
 
@@ -191,36 +191,36 @@ class MigrateCommand extends Command {
   void _genNecessaryFiles(String org, String extName, String projectDirPath) {
     final kebabCasedName = Casing.kebabCase(extName);
 
-    _writeFile(p.join(projectDirPath, 'src', 'proguard-rules.pro'),
+    CmdUtils.writeFile(p.join(projectDirPath, 'src', 'proguard-rules.pro'),
         getPgRules(org, extName));
-    _writeFile(p.join(projectDirPath, 'README.md'), getReadme(extName));
-    _writeFile(p.join(projectDirPath, '.gitignore'), getDotGitignore());
+    CmdUtils.writeFile(p.join(projectDirPath, 'README.md'), getReadme(extName));
+    CmdUtils.writeFile(p.join(projectDirPath, '.gitignore'), getDotGitignore());
 
     // IntelliJ IDEA files
-    _writeFile(p.join(projectDirPath, '.idea', 'misc.xml'), getMiscXml());
-    _writeFile(p.join(projectDirPath, '.idea', 'libraries', 'dev-deps.xml'),
+    CmdUtils.writeFile(
+        p.join(projectDirPath, '.idea', 'misc.xml'), getMiscXml());
+    CmdUtils.writeFile(
+        p.join(projectDirPath, '.idea', 'libraries', 'dev-deps.xml'),
         getDevDepsXml(_dataDir));
-    _writeFile(
+    CmdUtils.writeFile(
         p.join(projectDirPath, '.idea', 'libraries', 'deps.xml'), getDepsXml());
-    _writeFile(p.join(projectDirPath, '.idea', 'modules.xml'),
+    CmdUtils.writeFile(p.join(projectDirPath, '.idea', 'modules.xml'),
         getModulesXml(kebabCasedName));
-    _writeFile(
+    CmdUtils.writeFile(
         p.join(projectDirPath, '.idea', '$kebabCasedName.iml'), getIml());
   }
 
   Future<void> _compileJava(Directory output, BuildStep step) async {
     final args = () {
-      final devDeps = Directory(p.join(_cd, 'lib', 'appinventor'));
-      final deps = Directory(p.join(_cd, 'lib', 'deps'));
-      final processorDir = Directory(p.join(_dataDir, 'tools', 'processor'));
-
-      final migrator = File(p.join(_dataDir, 'tools', 'other', 'migrator.jar'));
-      final ktStdLib =
-          File(p.join(_dataDir, 'dev-deps', 'kotlin', 'kotlin-stdlib.jar'));
-
-      final classpath = CmdUtils.generateClasspath(
-          [devDeps, deps, processorDir, migrator, ktStdLib],
-          exclude: ['AnnotationProcessors.jar']);
+      final classpath = CmdUtils.classpathString([
+        Directory(p.join(_cd, 'lib', 'appinventor')),
+        Directory(p.join(_cd, 'lib', 'deps')),
+        Directory(p.join(_dataDir, 'tools', 'processor')),
+        File(p.join(_dataDir, 'tools', 'other', 'migrator.jar')),
+        File(p.join(_dataDir, 'dev-deps', 'kotlin', 'kotlin-stdlib.jar'))
+      ], exclude: [
+        'AnnotationProcessors.jar'
+      ]);
 
       final javacArgs = <String>[
         '-Xlint:-options',
@@ -247,13 +247,6 @@ class MigrateCommand extends Command {
     if (result.result == Result.error) {
       throw Exception();
     }
-  }
-
-  /// Creates a file in [path] and writes [content] inside it.
-  void _writeFile(String path, String content) {
-    File(path)
-      ..createSync(recursive: true)
-      ..writeAsStringSync(content);
   }
 
   /// Prints the footer.
