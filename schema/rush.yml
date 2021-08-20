@@ -1,0 +1,156 @@
+$schema: 'https://json-schema.org/draft/2020-12/schema'
+$id: https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/schema/rush.yml
+
+title: Rush metadata file
+description: |
+  This YAML file holds the extension's metadata, such as it's name, description,
+  version related information, etc.
+
+type: object
+required:
+  - name
+  - description
+  - version
+  - assets
+
+properties:
+  name:
+    title: Extension name
+    description: |
+      The user facing name of the extension. This MUST match with the primary
+      Java/Kotlin class file of the extension.
+    type: string
+
+  description:
+    title: Extension description
+    description: A brief description of your extension. Supports Markdown.
+    type: string
+
+  version:
+    title: Extension version info
+    description: Version related information of your extension.
+    type: object
+    properties:
+      number:
+        title: Extension's version number
+        description: |
+          An integer value representing the current version of the extension.
+          Use `auto` if you want to auto-increment the value with every release
+          build.
+        oneOf:
+          - type: integer
+            exclusiveMinimun: 0
+          - type: string
+            enum:
+              - auto
+      name:
+        description: The name of the current version of the extension.
+        type: string
+      required:
+        - number
+
+  assets:
+    title: Extension assets
+    description: The extension's assets.
+    type: object
+    properties:
+      icon:
+        description: |
+          The extension's icon. Can be a local image stored in assets directory
+          or a remote URL. For best results, use an image that is 16×16px.
+        type: string
+      other:
+        description: |
+          A list of all the assets required by this extension (excluding icon
+          image). This could be of anything -- images, text files, archives,
+          etc.
+        type: array
+      required:
+        - icon
+
+  # todo
+  deps:
+    title: Extension dependencies
+    description: The extension's dependencies.
+    type: array
+
+  build:
+    title: Build
+    description: Build configuration for the extension.
+    type: object
+    properties:
+      kotlin:
+        title: Kotlin
+        description: Kotlin language related build configuration.
+        type: object
+        properties:
+          enable:
+            title: Enable Kotlin support
+            description: |
+              Indicates whether to enable Kotlin language support or not for the
+              extension.
+            type: boolean
+          required:
+            - enable
+      desugar:
+        title: Desugar
+        description: Build configuration for desugaring Java 8 language features.
+        type: object
+        properties:
+          enable:
+            title: Enable desugaring
+            description: |
+              Indicates whether to enable desugaring of Java 8 language
+              features. You MUST set it to true if you wish to use Java 8
+              language features, such as lambda expressions.
+            type: boolean
+          desugar_deps:
+            title: Desugar dependencies
+            description: |
+              If set to true, Rush will try to desugar the dependencies of the
+              extension as well.
+            type: boolean
+          required:
+            - enable
+      release:
+        title: release
+        description: Build configuration for release builds.
+        type: object
+        properties:
+          optimize:
+            title: Optimize release build
+            description: |
+              Indicates whether to optimize the extension while creating a
+              release build or not. You can mark a build as a release build by
+              passing the `--release` flag (abbr: `-r`).
+            type: boolean
+          required:
+            - optimize
+
+  license:
+    title: Extension license
+    description: |
+      The license agreement for the end-users of the extension. This could be a
+      remote URL or path to the local license file relative to the project root.
+    type: string
+
+  min_sdk:
+    title: Extension's minimum Android SDK
+    description: |
+      The minimum version number of the Android SDK the extension needs in order
+      to function properly. This MUST be greater than or equal to `7`.
+    type: integer
+    minimum: 7
+
+  homepage:
+    title: Extension's homepage
+    description: |
+      The remote URL of the extension's homepage. This could be a link to the
+      GitHub repository, community post, or the website of the extension.
+    type: string
+
+  authors:
+    title: Extension authors
+    description: A list of all the authors of the extension.
+    type: array
+    minItems: 1
