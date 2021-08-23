@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/helpers/build_utils.dart';
 import 'package:rush_cli/commands/build/helpers/compute.dart';
+import 'package:rush_cli/commands/build/models/rush_lock.dart';
 import 'package:rush_cli/commands/build/models/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
@@ -16,11 +17,11 @@ class Desugarer {
 
   /// Desugars the extension files and dependencies making them compatible with
   /// Android API level < 26.
-  Future<void> run(String org, RushYaml rushYaml, BuildStep step) async {
+  Future<void> run(String org, RushYaml rushYaml, BuildStep step, RushLock? rushLock) async {
     final shouldDesugarDeps = rushYaml.build?.desugar?.desugar_deps ?? false;
     final implDeps = shouldDesugarDeps
         ? _depsToBeDesugared(
-            org, BuildUtils.getDepJarPaths(_cd, rushYaml, DepScope.implement))
+            org, BuildUtils.getDepJarPaths(_cd, rushYaml, DepScope.implement, rushLock))
         : <String>[];
 
     // Here, all the desugar process' futures are stored for them to get executed
@@ -42,6 +43,7 @@ class Desugarer {
         output: output,
         org: org,
         rushYaml: rushYaml,
+        rushLock: rushLock,
       );
       desugarFutures.add(compute(_desugar, args));
     }
@@ -57,6 +59,7 @@ class Desugarer {
           output: classesDir,
           org: org,
           rushYaml: rushYaml,
+          rushLock: rushLock,
         )));
 
     final results = await Future.wait(desugarFutures);
@@ -75,7 +78,6 @@ class Desugarer {
   /// Returns a list of extension dependencies that are to be desugared.
   List<String> _depsToBeDesugared(String org, List<String> deps) {
     final res = <String>[];
-
     final store =
         Directory(p.join(_dataDir, 'workspaces', org, 'files', 'desugar'))
           ..createSync(recursive: true);
@@ -106,7 +108,7 @@ class Desugarer {
     final desugarJar = p.join(args.dataDir, 'tools', 'other', 'desugar.jar');
 
     final classpath =
-        BuildUtils.classpathStringForDeps(args.cd, args.dataDir, args.rushYaml);
+        BuildUtils.classpathStringForDeps(args.cd, args.dataDir, args.rushYaml, args.rushLock);
 
     final argFile = () {
       final rtJar = p.join(args.dataDir, 'tools', 'other', 'rt.jar');
@@ -167,6 +169,7 @@ class _DesugarArgs {
   final String output;
   final String dataDir;
   final RushYaml rushYaml;
+  final RushLock? rushLock;
 
   _DesugarArgs({
     required this.cd,
@@ -175,5 +178,6 @@ class _DesugarArgs {
     required this.output,
     required this.org,
     required this.rushYaml,
+    required this.rushLock,
   });
 }

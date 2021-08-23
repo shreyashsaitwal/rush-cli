@@ -9,6 +9,7 @@ import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/helpers/build_utils.dart';
 import 'package:rush_cli/commands/build/models/rush_yaml.dart';
+import 'package:rush_cli/commands/build/models/rush_lock.dart';
 import 'package:rush_cli/commands/build/tools/compiler.dart';
 import 'package:rush_cli/commands/build/tools/desugarer.dart';
 import 'package:rush_cli/commands/build/tools/executor.dart';
@@ -199,16 +200,16 @@ class BuildCommand extends Command {
     BuildUtils.updateDevDepsXml(_cd, _dataDir);
     if (devDeps.existsSync()) devDeps.deleteSync(recursive: true);
 
-    await _resolveDeps(rushYaml, dataBox);
-    await _compile(
-        dataBox, optimize, rushYaml.build?.kotlin?.enable ?? false, rushYaml);
+    final rushLock = await _resolveDeps(rushYaml, dataBox);
+    await _compile(dataBox, optimize, rushYaml.build?.kotlin?.enable ?? false,
+        rushYaml, rushLock);
   }
 
-  Future<void> _resolveDeps(RushYaml rushYaml, Box dataBox) async {
+  Future<RushLock?> _resolveDeps(RushYaml rushYaml, Box dataBox) async {
     final containsRemoteDeps =
         rushYaml.deps?.any((el) => el.value().contains(':')) ?? false;
     if (!containsRemoteDeps) {
-      return;
+      return null;
     }
 
     final step = BuildStep('Resolving dependencies')..init();
@@ -248,14 +249,28 @@ class BuildCommand extends Command {
       step.log(LogType.info, 'Everything is up-to-date!');
     }
 
+    final RushLock rushLock;
+    try {
+      rushLock = checkedYamlDecode(
+          File(p.join(_cd, '.rush', 'rush.lock')).readAsStringSync(),
+          (json) => RushLock.fromJson(json!));
+    } catch (e) {
+      step.log(LogType.erro, e.toString());
+      exit(1);
+    }
+
     step.finishOk();
+    return rushLock;
   }
 
   /// Compiles extension's source files.
-  Future<void> _compile(
-      Box dataBox, bool optimize, bool enableKt, RushYaml rushYaml) async {
+  Future<void> _compile(Box dataBox, bool optimize, bool enableKt,
+      RushYaml rushYaml, RushLock? rushLock) async {
     final compileStep = BuildStep('Compiling sources')..init();
-    final compiler = Compiler(_cd, _dataDir);
+
+    if (rushLock != null) {
+      _mergeManifests(dataBox, rushLock, compileStep, rushYaml.minSdk ?? 7);
+    }
 
     final srcFiles = Directory(p.join(_cd, 'src'))
         .listSync(recursive: true)
@@ -273,6 +288,7 @@ class BuildCommand extends Command {
         LogType.info, 'Picked $count source file' + (count > 1 ? 's' : ''));
 
     try {
+      final compiler = Compiler(_cd, _dataDir);
       if (ktFiles.isNotEmpty) {
         if (!enableKt) {
           compileStep
@@ -282,11 +298,11 @@ class BuildCommand extends Command {
           exit(1);
         }
 
-        await compiler.compileKt(dataBox, compileStep, rushYaml);
+        await compiler.compileKt(dataBox, compileStep, rushYaml, rushLock);
       }
 
       if (javaFiles.isNotEmpty) {
-        await compiler.compileJava(dataBox, compileStep, rushYaml);
+        await compiler.compileJava(dataBox, compileStep, rushYaml, rushLock);
       }
     } catch (e) {
       compileStep.finishNotOk();
@@ -300,13 +316,68 @@ class BuildCommand extends Command {
 
     final org = await dataBox.get('org') as String;
     final deJet = argResults!['support-lib'] as bool;
-    await _process(org, optimize, deJet, rushYaml);
+    await _process(org, optimize, deJet, rushYaml, rushLock);
+  }
+
+  Future<void> _mergeManifests(
+      Box dataBox, RushLock rushLock, BuildStep step, int minSdk) async {
+    final lastMerge = await dataBox.get('lastManifMerge',
+        defaultValue: DateTime.now()) as DateTime;
+
+    final depManifests =
+        rushLock.resolvedDeps.where((el) => el.type == 'aar').map((el) {
+      final outputDir = Directory(p.join(
+          p.dirname(el.localPath), p.basenameWithoutExtension(el.localPath)))
+        ..createSync(recursive: true);
+      return p.join(outputDir.path, 'AndroidManifest.xml');
+    }).toList();
+
+    final areDepManifestsMod = depManifests.any((el) {
+      final file = File(el);
+      // If the file doesn't exist, chances are it was deleted by someone. Just
+      // to be sure, unzip the AAR again.
+      if (!file.existsSync()) {
+        BuildUtils.unzip(p.dirname(el) + '.aar', p.dirname(el));
+      }
+
+      if (file.existsSync()) {
+        return file.lastModifiedSync().isAfter(lastMerge);
+      } else {
+        depManifests.remove(el);
+      }
+      return false;
+    });
+
+    final org = dataBox.get('org') as String;
+
+    final mainManifest = File(p.join(_cd, 'src', 'AndroidManifest.xml'));
+    final output =
+        File(p.join(_dataDir, 'workspaces', org, 'files', 'MergedManifest.xml'));
+
+    final conditions = !output.existsSync() ||
+        mainManifest.lastModifiedSync().isAfter(lastMerge) ||
+        areDepManifestsMod;
+    if (conditions) {
+      step.log(
+          LogType.info, 'Merging main AndroidManifest.xml with that from deps');
+
+      try {
+        await Executor(_cd, _dataDir)
+            .execManifMerger(minSdk, mainManifest.path, depManifests, output.path);
+      } catch (e) {
+        step.finishNotOk();
+        BuildUtils.printFailMsg(
+            BuildUtils.getTimeDifference(_startTime, DateTime.now()));
+        await BuildUtils.emptyBuildBox();
+        exit(1);
+      }
+    }
   }
 
   /// Further process the extension by generating extension files, adding
   /// libraries and jaring the extension.
-  Future<void> _process(
-      String org, bool optimize, bool deJet, RushYaml rushYaml) async {
+  Future<void> _process(String org, bool optimize, bool deJet,
+      RushYaml rushYaml, RushLock? rushLock) async {
     final BuildStep processStep;
     final rulesPro = File(p.join(_cd, 'src', 'proguard-rules.pro'));
 
@@ -321,12 +392,11 @@ class BuildCommand extends Command {
       processStep.log(LogType.info, 'Desugaring Java 8 language features');
       final desugarer = Desugarer(_cd, _dataDir);
       try {
-        await desugarer.run(org, rushYaml, processStep);
+        await desugarer.run(org, rushYaml, processStep, rushLock);
       } catch (e) {
         processStep.finishNotOk();
         BuildUtils.printFailMsg(
             BuildUtils.getTimeDifference(_startTime, DateTime.now()));
-
         await BuildUtils.emptyBuildBox();
         exit(1);
       }
@@ -340,11 +410,13 @@ class BuildCommand extends Command {
           LogType.info, 'Linking extension assets and dependencies');
     }
 
-    await Generator(_cd, _dataDir).generate(org, processStep, rushYaml);
+    await Generator(_cd, _dataDir)
+        .generate(org, processStep, rushYaml, rushLock);
 
     // Create a JAR containing the contents of extension's dependencies and
     // compiled source files
-    final artJar = await _generateArtJar(org, processStep, optimize, rushYaml);
+    final artJar =
+        await _generateArtJar(org, processStep, optimize, rushYaml, rushLock);
 
     // Copy ART to raw dir
     if (artJar.existsSync()) {
@@ -404,7 +476,7 @@ class BuildCommand extends Command {
 
   /// JAR the compiled class files and third-party dependencies into a single JAR.
   Future<File> _generateArtJar(String org, BuildStep processStep, bool optimize,
-      RushYaml rushYaml) async {
+      RushYaml rushYaml, RushLock? rushLock) async {
     final artDir = Directory(p.join(_dataDir, 'workspaces', org, 'art'));
 
     final artJar =
@@ -435,7 +507,7 @@ class BuildCommand extends Command {
 
     try {
       if (optimize) {
-        await _optimizeArt(artJar, org, processStep, rushYaml);
+        await _optimizeArt(artJar, org, processStep, rushYaml, rushLock);
       }
     } catch (e) {
       processStep.finishNotOk();
@@ -447,12 +519,12 @@ class BuildCommand extends Command {
     return artJar;
   }
 
-  Future<void> _optimizeArt(
-      File artJar, String org, BuildStep processStep, RushYaml rushYaml) async {
+  Future<void> _optimizeArt(File artJar, String org, BuildStep processStep,
+      RushYaml rushYaml, RushLock? rushLock) async {
     final executor = Executor(_cd, _dataDir);
 
     processStep.log(LogType.info, 'Optimizing the extension');
-    await executor.execProGuard(org, processStep, rushYaml);
+    await executor.execProGuard(org, processStep, rushYaml, rushLock);
 
     // Delete the old non-optimized JAR...
     artJar.deleteSync();

@@ -2,7 +2,6 @@ import 'dart:io' show Directory, File, exit;
 
 import 'package:archive/archive.dart';
 import 'package:args/args.dart';
-import 'package:checked_yaml/checked_yaml.dart';
 import 'package:dart_console/dart_console.dart' show ConsoleColor;
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
@@ -237,28 +236,30 @@ class BuildUtils {
   }
 
   static List<String> getDepJarPaths(
-      String cd, RushYaml rushYaml, DepScope scope) {
+      String cd, RushYaml rushYaml, DepScope scope, RushLock? rushLock) {
     final allEntries = rushYaml.deps?.where((el) => el.scope() == scope);
     final localJars = allEntries
             ?.where((el) => !el.value().contains(':'))
             .map((el) => p.join(cd, 'deps', el.value())) ??
         [];
 
-    final RushLock lockFile;
-    try {
-      lockFile = checkedYamlDecode(
-          File(p.join(cd, '.rush', 'rush.lock')).readAsStringSync(),
-          (json) => RushLock.fromJson(json!));
-    } catch (e) {
-      Logger.log(LogType.erro, e.toString());
-      exit(1);
+    if (rushLock == null) {
+      return localJars.toList();
     }
 
-    final remoteJars = lockFile.resolvedDeps
+    final remoteJars = rushLock.resolvedDeps
         .where((el) => el.scope == scope.value())
         .map((el) {
       if (el.type == 'aar') {
-        return _extractJar(el.localPath);
+        final outputDir = Directory(p.join(
+            p.dirname(el.localPath), p.basenameWithoutExtension(el.localPath)))
+          ..createSync(recursive: true);
+        final classesJar = File(p.join(outputDir.path, 'classes.jar'));
+
+        if (!classesJar.existsSync()) {
+          unzip(el.localPath, outputDir.path);
+        }
+        return classesJar.path;
       }
       return el.localPath;
     });
@@ -267,10 +268,10 @@ class BuildUtils {
   }
 
   static String classpathStringForDeps(
-      String cd, String dataDir, RushYaml rushYaml) {
+      String cd, String dataDir, RushYaml rushYaml, RushLock? rushLock) {
     final depJars = [
-      ...getDepJarPaths(cd, rushYaml, DepScope.implement),
-      ...getDepJarPaths(cd, rushYaml, DepScope.compileOnly)
+      ...getDepJarPaths(cd, rushYaml, DepScope.implement, rushLock),
+      ...getDepJarPaths(cd, rushYaml, DepScope.compileOnly, rushLock)
     ];
 
     final devDepsDir = Directory(p.join(dataDir, 'dev-deps'));
@@ -283,15 +284,22 @@ class BuildUtils {
     return depJars.join(CmdUtils.cpSeparator());
   }
 
-  static String _extractJar(String aarPath) {
-    final archive = ZipDecoder().decodeBytes(File(aarPath).readAsBytesSync());
-    final classesJar =
-        archive.files.firstWhere((el) => el.isFile && el.name == 'classes.jar');
-    final jar = File(p.join(
-        p.dirname(aarPath), p.basenameWithoutExtension(aarPath) + '.jar'));
-    jar
-      ..createSync(recursive: true)
-      ..writeAsBytesSync(classesJar.content as List<int>);
-    return jar.path;
+  static void unzip(String zipFilePath, String outputDirPath) {
+    final archive =
+        ZipDecoder().decodeBytes(File(zipFilePath).readAsBytesSync());
+
+    for (final file in archive.files) {
+      if (file.isFile) {
+        final bytes = file.content as List<int>;
+        try {
+          File(p.join(outputDirPath, file.name))
+            ..createSync(recursive: true)
+            ..writeAsBytesSync(bytes);
+        } catch (e) {
+          Logger.log(LogType.erro, e.toString());
+          exit(1);
+        }
+      }
+    }
   }
 }

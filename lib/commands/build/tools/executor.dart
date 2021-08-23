@@ -2,6 +2,7 @@ import 'dart:io' show Directory, File, Platform;
 
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/helpers/build_utils.dart';
+import 'package:rush_cli/commands/build/models/rush_lock.dart';
 import 'package:rush_cli/commands/build/models/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
@@ -51,13 +52,13 @@ class Executor {
 
   /// Executes ProGuard which is used to optimize and obfuscate the code.
   Future<void> execProGuard(
-      String org, BuildStep step, RushYaml rushYaml) async {
+      String org, BuildStep step, RushYaml rushYaml, RushLock? rushLock) async {
     final args = () {
       final proguardJar =
           File(p.join(_dataDir, 'tools', 'other', 'proguard.jar'));
 
       final libraryJars =
-          BuildUtils.classpathStringForDeps(_cd, _dataDir, rushYaml);
+          BuildUtils.classpathStringForDeps(_cd, _dataDir, rushYaml, rushLock);
       final artDir = Directory(p.join(_dataDir, 'workspaces', org, 'art'));
 
       final injar = File(p.join(artDir.path, 'ART.jar'));
@@ -132,11 +133,37 @@ class Executor {
 
     final res = await ProcessStreamer.stream([
       'java',
-      '-cp',
-      classpath,
+      ...['-cp', classpath],
       'io.shreyash.rush.resolver.MainKt',
       _cd,
     ], _cd, printNormalOutputAlso: true);
+
+    if (res.result == Result.error) {
+      throw Exception();
+    }
+  }
+
+  Future<void> execManifMerger(int minSdk, String mainManifest,
+      List<String> depManifests, String output) async {
+    final classpath = CmdUtils.classpathString([
+      Directory(p.join(_dataDir, 'tools', 'merger')),
+      Directory(p.join(_dataDir, 'dev-deps', 'kotlin')),
+      File(p.join(_dataDir, 'dev-deps', 'android.jar')),
+      File(p.join(_dataDir, 'dev-deps', 'gson-2.1.jar')),
+    ]);
+
+    final args = [
+      'java',
+      ...['-cp', classpath],
+      'com.android.manifmerger.Merger',
+      ...['--main', mainManifest],
+      ...['--libs', depManifests.join(CmdUtils.cpSeparator())],
+      ...['--property', 'MIN_SDK_VERSION=${minSdk.toString()}'],
+      ...['--out', output],
+      ...['--log', 'INFO'],
+    ];
+    final res =
+        await ProcessStreamer.stream(args, _cd, printNormalOutputAlso: true);
 
     if (res.result == Result.error) {
       throw Exception();

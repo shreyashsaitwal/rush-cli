@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:process_runner/process_runner.dart';
 import 'package:rush_cli/commands/build/helpers/build_utils.dart';
 import 'package:rush_cli/commands/build/helpers/compute.dart';
+import 'package:rush_cli/commands/build/models/rush_lock.dart';
 import 'package:rush_cli/commands/build/models/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
@@ -18,14 +19,14 @@ class Compiler {
 
   /// Compiles the Java files for this extension project.
   Future<void> compileJava(
-      Box dataBox, BuildStep step, RushYaml rushYaml) async {
+      Box dataBox, BuildStep step, RushYaml rushYaml, RushLock? rushLock) async {
     final instance = DateTime.now();
 
     final org = await dataBox.get('org') as String;
     final version = await dataBox.get('version') as int;
     final name = await dataBox.get('name') as String;
 
-    final args = await _getJavacArgs(name, org, version, rushYaml);
+    final args = await _getJavacArgs(name, org, version, rushYaml, rushLock);
     final result =
         await _startProcess(_StartProcessArgs(cd: _cd, cmdArgs: args));
 
@@ -43,12 +44,12 @@ class Compiler {
   }
 
   /// Compiles the Kotlin files for this extension project.
-  Future<void> compileKt(Box dataBox, BuildStep step, RushYaml rushYaml) async {
+  Future<void> compileKt(Box dataBox, BuildStep step, RushYaml rushYaml, RushLock? rushLock) async {
     final instance = DateTime.now();
     final org = await dataBox.get('org') as String;
 
-    final ktcArgs = _getKtcArgs(org, rushYaml);
-    final kaptArgs = await _getKaptArgs(dataBox, rushYaml);
+    final ktcArgs = _getKtcArgs(org, rushYaml, rushLock);
+    final kaptArgs = await _getKaptArgs(dataBox, rushYaml, rushLock);
 
     final results = await Future.wait([
       compute(
@@ -112,7 +113,7 @@ class Compiler {
 
   /// Returns the command line args required for compiling sources.
   Future<List<String>> _getJavacArgs(
-      String name, String org, int version, RushYaml rushYaml) async {
+      String name, String org, int version, RushYaml rushYaml, RushLock? rushLock) async {
     final filesDir = Directory(p.join(_dataDir, 'workspaces', org, 'files'))
       ..createSync(recursive: true);
 
@@ -130,7 +131,7 @@ class Compiler {
       ..createSync(recursive: true);
 
     final classpath = BuildUtils.classpathStringForDeps(
-            _cd, _dataDir, rushYaml) +
+            _cd, _dataDir, rushYaml, rushLock) +
         CmdUtils.cpSeparator() +
         CmdUtils.classpathString(
             [Directory(p.join(_dataDir, 'tools', 'processor')), classesDir]);
@@ -151,7 +152,7 @@ class Compiler {
   }
 
   /// Returns command line args required for compiling Kotlin sources.
-  List<String> _getKtcArgs(String org, RushYaml rushYaml) {
+  List<String> _getKtcArgs(String org, RushYaml rushYaml, RushLock? rushLock) {
     final kotlinc = p.join(_dataDir, 'tools', 'kotlinc', 'bin',
         'kotlinc' + (Platform.isWindows ? '.bat' : ''));
 
@@ -160,7 +161,7 @@ class Compiler {
     final srcDir = p.join(_cd, 'src');
 
     final classpath =
-        BuildUtils.classpathStringForDeps(_cd, _dataDir, rushYaml);
+        BuildUtils.classpathStringForDeps(_cd, _dataDir, rushYaml, rushLock);
 
     final args = <String>[];
     args
@@ -176,11 +177,11 @@ class Compiler {
   /// Returns command line args required for running the Kapt compiler plugin.
   /// Kapt is required for processing annotations in Kotlin sources and needs
   /// to be invoked separately.
-  Future<List<String>> _getKaptArgs(Box box, RushYaml rushYaml) async {
+  Future<List<String>> _getKaptArgs(Box box, RushYaml rushYaml, RushLock? rushLock) async {
     final apDir = Directory(p.join(_dataDir, 'tools', 'processor'));
 
     final classpath =
-        BuildUtils.classpathStringForDeps(_cd, _dataDir, rushYaml) +
+        BuildUtils.classpathStringForDeps(_cd, _dataDir, rushYaml, rushLock) +
             CmdUtils.cpSeparator() +
             CmdUtils.classpathString(
                 [Directory(p.join(_dataDir, 'tools', 'processor'))],
