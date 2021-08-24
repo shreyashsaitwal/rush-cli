@@ -1,11 +1,11 @@
 class ErrWarnStore {
-  factory ErrWarnStore() {
-    return _store;
-  }
+  ErrWarnStore._internal();
 
   static final ErrWarnStore _store = ErrWarnStore._internal();
 
-  ErrWarnStore._internal();
+  factory ErrWarnStore() {
+    return _store;
+  }
 
   var _errors = 0;
   int get getErrors => _errors;

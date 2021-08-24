@@ -4,7 +4,6 @@ import 'package:rush_prompt/rush_prompt.dart';
 part 'assets.dart';
 part 'build.dart';
 part 'deps.dart';
-part 'version.dart';
 
 part 'rush_yaml.g.dart';
 
@@ -21,10 +20,10 @@ class RushYaml {
   String description;
 
   @JsonKey(required: true)
-  Version version;
+  Assets assets;
 
   @JsonKey(required: true)
-  Assets assets;
+  String version;
 
   @JsonKey(includeIfNull: false)
   Build? build;
@@ -47,8 +46,8 @@ class RushYaml {
   RushYaml({
     required this.name,
     required this.description,
-    required this.version,
     required this.assets,
+    required this.version,
     this.build,
     this.authors,
     this.deps,

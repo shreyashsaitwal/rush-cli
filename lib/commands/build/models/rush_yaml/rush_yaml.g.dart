@@ -11,8 +11,8 @@ RushYaml _$RushYamlFromJson(Map json) {
     $checkKeys(json, allowedKeys: const [
       'name',
       'description',
-      'version',
       'assets',
+      'version',
       'build',
       'deps',
       'authors',
@@ -22,16 +22,15 @@ RushYaml _$RushYamlFromJson(Map json) {
     ], requiredKeys: const [
       'name',
       'description',
-      'version',
-      'assets'
+      'assets',
+      'version'
     ]);
     final val = RushYaml(
       name: $checkedConvert(json, 'name', (v) => v as String),
       description: $checkedConvert(json, 'description', (v) => v as String),
-      version: $checkedConvert(json, 'version',
-          (v) => Version.fromJson(Map<String, dynamic>.from(v as Map))),
       assets: $checkedConvert(json, 'assets',
           (v) => Assets.fromJson(Map<String, dynamic>.from(v as Map))),
+      version: $checkedConvert(json, 'version', (v) => v as String),
       build: $checkedConvert(
           json,
           'build',
@@ -58,8 +57,8 @@ Map<String, dynamic> _$RushYamlToJson(RushYaml instance) {
   final val = <String, dynamic>{
     'name': instance.name,
     'description': instance.description,
-    'version': instance.version,
     'assets': instance.assets,
+    'version': instance.version,
   };
 
   void writeNotNull(String key, dynamic value) {
@@ -214,21 +213,4 @@ Map<String, dynamic> _$DepsToJson(Deps instance) => <String, dynamic>{
       'compile_only': instance.compileOnly,
       'implement': instance.implement,
       'exclude': instance.exclude,
-    };
-
-Version _$VersionFromJson(Map json) {
-  return $checkedNew('Version', json, () {
-    $checkKeys(json,
-        allowedKeys: const ['number', 'name'], requiredKeys: const ['number']);
-    final val = Version(
-      number: $checkedConvert(json, 'number', (v) => v),
-      name: $checkedConvert(json, 'name', (v) => v),
-    );
-    return val;
-  });
-}
-
-Map<String, dynamic> _$VersionToJson(Version instance) => <String, dynamic>{
-      'number': instance.number,
-      'name': instance.name,
     };

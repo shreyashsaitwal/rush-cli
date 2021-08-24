@@ -7,14 +7,6 @@ class Questions {
         question: 'Organisation (package name)',
         id: 'org',
       ),
-      SimpleQuestion(
-        question: 'Author',
-        id: 'author',
-      ),
-      SimpleQuestion(
-        question: 'Version name',
-        id: 'version',
-      ),
       MultipleChoiceQuestion(
         question: 'Language',
         options: ['Java', 'Kotlin'],

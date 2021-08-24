@@ -1,15 +1,8 @@
-String getRushYamlTemp(
-    String name, String versionName, String author, bool enableKt) {
+String getRushYamlTemp(String name, bool enableKt) {
   return '''
 name: $name
-description: |
-  **$name**: A new AI2 extension.
-  Built with 💖 & Rush.
-authors: [ $author ]
-
-version:
-  number: auto
-  name: '$versionName'
+description: Extension component for **Kot**. Built with <3 & Rush.
+version: '1.0'
 
 build:
   release:

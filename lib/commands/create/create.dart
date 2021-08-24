@@ -4,18 +4,18 @@ import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/helpers/cmd_utils.dart';
-import 'package:rush_cli/templates/rules_pro.dart';
-
-import 'package:rush_prompt/rush_prompt.dart';
-import 'package:rush_cli/templates/intellij_files.dart';
-import 'package:rush_cli/helpers/casing.dart';
+import 'package:rush_cli/commands/build/hive_adapters/data_box.dart';
 import 'package:rush_cli/commands/create/questions.dart';
+import 'package:rush_cli/helpers/casing.dart';
+import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/templates/android_manifest.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
-import 'package:rush_cli/templates/readme.dart';
-import 'package:rush_cli/templates/rush_yml.dart';
 import 'package:rush_cli/templates/extension_source.dart';
+import 'package:rush_cli/templates/intellij_files.dart';
+import 'package:rush_cli/templates/readme.dart';
+import 'package:rush_cli/templates/rules_pro.dart';
+import 'package:rush_cli/templates/rush_yml.dart';
+import 'package:rush_prompt/rush_prompt.dart';
 
 class CreateCommand extends Command {
   final String _cd;
@@ -74,10 +74,8 @@ class CreateCommand extends Command {
     }
 
     final answers = RushPrompt(questions: Questions.questions).askAll();
-    final authorName = answers[1][1].toString().trim();
-    final versionName = answers[2][1].toString().trim();
-    final lang = answers[3][1].toString().trim();
     var orgName = answers[0][1].toString().trim();
+    final lang = answers[1][1].toString().trim();
 
     final camelCasedName = Casing.camelCase(name);
     final pascalCasedName = Casing.pascalCase(name);
@@ -118,10 +116,8 @@ class CreateCommand extends Command {
       CmdUtils.writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'),
           getPgRules(orgName, pascalCasedName));
 
-      CmdUtils.writeFile(
-          p.join(projectDir, 'rush.yml'),
-          getRushYamlTemp(
-              pascalCasedName, versionName, authorName, lang == 'Kotlin'));
+      CmdUtils.writeFile(p.join(projectDir, 'rush.yml'),
+          getRushYamlTemp(pascalCasedName, lang == 'Kotlin'));
 
       CmdUtils.writeFile(
           p.join(projectDir, 'README.md'), getReadme(pascalCasedName));
@@ -156,15 +152,17 @@ class CreateCommand extends Command {
     File(p.join(_dataDir, 'tools', 'other', 'icon-rush.png'))
         .copySync(p.join(projectDir, 'assets', 'icon.png'));
 
-    Hive.init(p.join(projectDir, '.rush'));
-    final box = await Hive.openBox('data');
-    await box.putAll({
-      'name': pascalCasedName,
-      'version': 1,
-      'org': orgName,
-      'rushYmlLastMod': DateTime.now(),
-      'srcDirLastMod': DateTime.now(),
-    });
+    Hive
+      ..init(p.join(projectDir, '.rush'))
+      ..registerAdapter(DataBoxAdapter());
+    final box = await Hive.openBox<DataBox>('data');
+    await box.put(
+        'data',
+        DataBox(
+          name: pascalCasedName,
+          org: orgName,
+          version: 1,
+        ));
 
     Console()
       ..setForegroundColor(ConsoleColor.green)

@@ -2,8 +2,8 @@ import 'dart:io' show Directory, File, Platform;
 
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/helpers/build_utils.dart';
-import 'package:rush_cli/commands/build/models/rush_lock.dart';
-import 'package:rush_cli/commands/build/models/rush_yaml.dart';
+import 'package:rush_cli/commands/build/models/rush_lock/rush_lock.dart';
+import 'package:rush_cli/commands/build/models/rush_yaml/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
 import 'package:rush_prompt/rush_prompt.dart';
@@ -136,7 +136,7 @@ class Executor {
       ...['-cp', classpath],
       'io.shreyash.rush.resolver.MainKt',
       _cd,
-    ], _cd, printNormalOutputAlso: true);
+    ], _cd, printNormalOutput: true);
 
     if (res.result == Result.error) {
       throw Exception();
@@ -162,9 +162,9 @@ class Executor {
       ...['--out', output],
       ...['--log', 'INFO'],
     ];
-    final res =
-        await ProcessStreamer.stream(args, _cd, printNormalOutputAlso: true);
 
+    final res =
+        await ProcessStreamer.stream(args, _cd, printNormalOutput: true);
     if (res.result == Result.error) {
       throw Exception();
     }

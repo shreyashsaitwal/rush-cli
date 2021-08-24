@@ -5,8 +5,9 @@ import 'package:args/args.dart';
 import 'package:dart_console/dart_console.dart' show ConsoleColor;
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/commands/build/models/rush_lock.dart';
-import 'package:rush_cli/commands/build/models/rush_yaml.dart';
+import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
+import 'package:rush_cli/commands/build/models/rush_lock/rush_lock.dart';
+import 'package:rush_cli/commands/build/models/rush_yaml/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/templates/intellij_files.dart';
 import 'package:rush_prompt/rush_prompt.dart';
@@ -54,65 +55,6 @@ class BuildUtils {
             'Something went wrong while invalidating build caches.\n${e.toString()}');
         exit(1);
       }
-    }
-  }
-
-  /// Ensures that the required data exists in the data box.
-  static Future<void> ensureBoxValues(String cd, Box box, RushYaml yaml) async {
-    // Check extension's name
-    final extName = yaml.name;
-    if (!box.containsKey('name') || (await box.get('name')) != extName) {
-      await box.put('name', yaml.name);
-    }
-
-    // Check extension's org
-    final extOrg = CmdUtils.getPackage(extName, p.join(cd, 'src'));
-    if (!box.containsKey('org') || (await box.get('org')) != extOrg) {
-      await box.put('org', extOrg);
-    }
-
-    // Check extension's version number
-    final extVersion = yaml.version.number;
-    if (extVersion is! int && extVersion.toString().trim() != 'auto') {
-      throw Exception(
-          'Unsupported value for key "number" in field "version": $extVersion.\n'
-          'Value MUST be either a positive integer or `auto`.');
-    }
-
-    if (!box.containsKey('version')) {
-      if (extVersion is int) {
-        await box.put('version', extVersion);
-      } else {
-        await box.put('version', 1);
-      }
-    } else if ((await box.get('version')) != extVersion && extVersion is int) {
-      await box.put('version', extVersion);
-    }
-
-    // Check rush.yml's last modified time
-    if (!box.containsKey('rushYmlLastMod') ||
-        (await box.get('rushYmlLastMod')) == null) {
-      final DateTime lastMod;
-
-      final rushYml = File(p.join(cd, 'rush.yml'));
-      final rushYaml = File(p.join(cd, 'rush.yaml'));
-
-      if (rushYml.existsSync()) {
-        lastMod = rushYml.lastModifiedSync();
-      } else {
-        lastMod = rushYaml.lastModifiedSync();
-      }
-
-      await box.put('rushYmlLastMod', lastMod);
-    }
-
-    // Check Android manifest's last modified time
-    if (!box.containsKey('manifestLastMod') ||
-        (await box.get('manifestLastMod')) == null) {
-      final lastMod =
-          File(p.join(cd, 'src', 'AndroidManifest.xml')).lastModifiedSync();
-
-      await box.put('manifestLastMod', lastMod);
     }
   }
 
@@ -207,10 +149,10 @@ class BuildUtils {
         prefix: '\n• ', prefixFG: ConsoleColor.red);
   }
 
-  /// Delete's everything inside the build box.
-  static Future<void> emptyBuildBox() async {
-    final buildBox = await Hive.openBox('build');
-    await buildBox.delete('alreadyPrinted');
+  /// Deletes the list of previously logged messages from build box.
+  static Future<void> deletePreviouslyLoggedFromBuildBox() async {
+    final buildBox = await Hive.openBox<BuildBox>('build');
+    buildBox.updatePreviouslyLogged([]);
   }
 
   /// Checks whether the .idea/libraries/dev_deps.xml file defines the correct

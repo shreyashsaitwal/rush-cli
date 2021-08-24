@@ -3,25 +3,51 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/helpers/build_utils.dart';
 import 'package:rush_cli/commands/build/helpers/compute.dart';
-import 'package:rush_cli/commands/build/models/rush_lock.dart';
-import 'package:rush_cli/commands/build/models/rush_yaml.dart';
+import 'package:rush_cli/commands/build/models/rush_lock/rush_lock.dart';
+import 'package:rush_cli/commands/build/models/rush_yaml/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
+/// Arguments of the [Desugarer._desugar] method. This class is used instead of
+/// directly passing required args to that method because when running a method
+/// in an [Isolate], we can only pass one arg to it.
+class _DesugarArgs {
+  final String cd;
+  final String org;
+  final String input;
+  final String output;
+  final String dataDir;
+  final RushYaml rushYaml;
+  final RushLock? rushLock;
+
+  _DesugarArgs({
+    required this.cd,
+    required this.dataDir,
+    required this.input,
+    required this.output,
+    required this.org,
+    required this.rushYaml,
+    required this.rushLock,
+  });
+}
+
 class Desugarer {
   final String _cd;
   final String _dataDir;
+  final RushYaml _rushYaml;
 
-  Desugarer(this._cd, this._dataDir);
+  Desugarer(this._cd, this._dataDir, this._rushYaml);
 
   /// Desugars the extension files and dependencies making them compatible with
   /// Android API level < 26.
-  Future<void> run(String org, RushYaml rushYaml, BuildStep step, RushLock? rushLock) async {
-    final shouldDesugarDeps = rushYaml.build?.desugar?.desugar_deps ?? false;
+  Future<void> run(String org, BuildStep step, RushLock? rushLock) async {
+    final shouldDesugarDeps = _rushYaml.build?.desugar?.desugar_deps ?? false;
     final implDeps = shouldDesugarDeps
         ? _depsToBeDesugared(
-            org, BuildUtils.getDepJarPaths(_cd, rushYaml, DepScope.implement, rushLock))
+            org,
+            BuildUtils.getDepJarPaths(
+                _cd, _rushYaml, DepScope.implement, rushLock))
         : <String>[];
 
     // Here, all the desugar process' futures are stored for them to get executed
@@ -42,7 +68,7 @@ class Desugarer {
         input: el,
         output: output,
         org: org,
-        rushYaml: rushYaml,
+        rushYaml: _rushYaml,
         rushLock: rushLock,
       );
       desugarFutures.add(compute(_desugar, args));
@@ -58,7 +84,7 @@ class Desugarer {
           input: classesDir,
           output: classesDir,
           org: org,
-          rushYaml: rushYaml,
+          rushYaml: _rushYaml,
           rushLock: rushLock,
         )));
 
@@ -69,6 +95,7 @@ class Desugarer {
       store.incErrors(result.store.getErrors);
       store.incWarnings(result.store.getWarnings);
     }
+    BuildUtils.deletePreviouslyLoggedFromBuildBox();
 
     if (results.any((el) => el.result == Result.error)) {
       throw Exception();
@@ -107,8 +134,8 @@ class Desugarer {
   static Future<ProcessResult> _desugar(_DesugarArgs args) async {
     final desugarJar = p.join(args.dataDir, 'tools', 'other', 'desugar.jar');
 
-    final classpath =
-        BuildUtils.classpathStringForDeps(args.cd, args.dataDir, args.rushYaml, args.rushLock);
+    final classpath = BuildUtils.classpathStringForDeps(
+        args.cd, args.dataDir, args.rushYaml, args.rushLock);
 
     final argFile = () {
       final rtJar = p.join(args.dataDir, 'tools', 'other', 'rt.jar');
@@ -148,7 +175,7 @@ class Desugarer {
     // char in Windows paths.
     final result = await ProcessStreamer.stream(cmdArgs, args.cd,
         workingDirectory: Directory(p.dirname(argFile.path)),
-        trackAlreadyPrinted: true);
+        trackPreviouslyLogged: true);
 
     if (result.result == Result.error) {
       throw Exception();
@@ -157,27 +184,4 @@ class Desugarer {
     argFile.deleteSync();
     return result;
   }
-}
-
-/// Arguments of the [Desugarer._desugar] method. This class is used instead of
-/// directly passing required args to that method because when running a method
-/// in an [Isolate], we can only pass one arg to it.
-class _DesugarArgs {
-  final String cd;
-  final String org;
-  final String input;
-  final String output;
-  final String dataDir;
-  final RushYaml rushYaml;
-  final RushLock? rushLock;
-
-  _DesugarArgs({
-    required this.cd,
-    required this.dataDir,
-    required this.input,
-    required this.output,
-    required this.org,
-    required this.rushYaml,
-    required this.rushLock,
-  });
 }

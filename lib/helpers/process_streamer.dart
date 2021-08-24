@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_runner/process_runner.dart';
+import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 enum Result { ok, error }
@@ -40,8 +41,8 @@ class ProcessStreamer {
     String cd, {
     Directory? workingDirectory,
     ProcessPatternChecker? patternChecker,
-    bool trackAlreadyPrinted = false,
-    bool printNormalOutputAlso = false,
+    bool trackPreviouslyLogged = false,
+    bool printNormalOutput = false,
   }) async {
     // In almost all places where this class (`ProcessStreamer`) is used, a new
     // isolate is spawned. Isolates don't allow passing objects that depends on
@@ -70,7 +71,7 @@ class ProcessStreamer {
 
     try {
       await for (final data in process) {
-        final stdout = data.stdout.split('\n');
+        final stdout = data.output.split('\n');
 
         // Checks if a particular string that matches the pattern exists in stdout.
         // This is specifically required for checking if de-jetification is
@@ -80,13 +81,13 @@ class ProcessStreamer {
           patternChecker._exists = stdout.any((el) => el.contains(pattern));
         }
 
-        if (printNormalOutputAlso) {
+        if (printNormalOutput) {
           final outputLines = stdout.where((line) =>
               line.trim().isNotEmpty &&
               !excludePatterns.any((el) => el.hasMatch(line)));
 
           await _printToTheConsole(
-              outputLines.toList(), cd, step, trackAlreadyPrinted);
+              outputLines.toList(), cd, step, trackPreviouslyLogged);
         }
       }
 
@@ -98,15 +99,19 @@ class ProcessStreamer {
           !excludePatterns.any((el) => el.hasMatch(line)));
 
       await _printToTheConsole(
-          errorLines.toList(), cd, step, trackAlreadyPrinted);
+          errorLines.toList(), cd, step, trackPreviouslyLogged);
 
       return ProcessResult._init(Result.error, ErrWarnStore());
     }
   }
 
   /// Prints [outputLines] to the console with appropriate [LogType].
-  static Future<void> _printToTheConsole(List<String> outputLines, String cd,
-      BuildStep step, bool trackAlreadyPrinted) async {
+  static Future<void> _printToTheConsole(
+    List<String> outputLines,
+    String cd,
+    BuildStep step,
+    bool trackPreviouslyLogged,
+  ) async {
     final patterns = <LogType, RegExp>{
       LogType.erro: RegExp(r'(\s*error:?\s?)+', caseSensitive: false),
       LogType.warn: RegExp(r'(\s*warning:?\s?)+', caseSensitive: false),
@@ -117,10 +122,12 @@ class ProcessStreamer {
     var skipThisErrStack = false;
     var prevLogType = LogType.warn;
 
-    final Box? buildBox;
-    if (trackAlreadyPrinted) {
-      Hive.init(p.join(cd, '.rush'));
-      buildBox = await Hive.openBox('build');
+    final Box<BuildBox>? buildBox;
+    if (trackPreviouslyLogged) {
+      Hive
+        ..init(p.join(cd, '.rush'))
+        ..registerAdapter(BuildBoxAdapter());
+      buildBox = await Hive.openBox<BuildBox>('build');
     } else {
       buildBox = null;
     }
@@ -133,17 +140,15 @@ class ProcessStreamer {
         type = null;
       }
 
-      final List<String> alreadyPrinted;
-      if (trackAlreadyPrinted) {
-        alreadyPrinted = ((await buildBox!.get('alreadyPrinted')) ?? <String>[])
-            as List<String>;
-
-        if (alreadyPrinted.contains(line)) {
+      final List<String> previouslyLogged;
+      if (trackPreviouslyLogged && buildBox != null) {
+        previouslyLogged = buildBox.getAt(0)!.previouslyLogged;
+        if (previouslyLogged.contains(line)) {
           skipThisErrStack = true;
           continue;
         }
       } else {
-        alreadyPrinted = [];
+        previouslyLogged = [];
       }
 
       if (type != null) {
@@ -158,8 +163,8 @@ class ProcessStreamer {
         prevLogType = type.key;
         skipThisErrStack = false;
 
-        if (trackAlreadyPrinted) {
-          await buildBox!.put('alreadyPrinted', [...alreadyPrinted, line]);
+        if (trackPreviouslyLogged && buildBox != null) {
+          buildBox.updatePreviouslyLogged([...previouslyLogged, line]);
         }
       } else if (!skipThisErrStack) {
         if (line.startsWith(cd)) {
@@ -169,7 +174,7 @@ class ProcessStreamer {
       }
     }
 
-    if (trackAlreadyPrinted) {
+    if (trackPreviouslyLogged) {
       await buildBox!.close();
     }
   }
