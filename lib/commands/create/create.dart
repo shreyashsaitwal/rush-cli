@@ -5,9 +5,9 @@ import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/hive_adapters/data_box.dart';
-import 'package:rush_cli/commands/create/questions.dart';
 import 'package:rush_cli/helpers/casing.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
+import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/templates/android_manifest.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
 import 'package:rush_cli/templates/extension_source.dart';
@@ -17,12 +17,10 @@ import 'package:rush_cli/templates/rules_pro.dart';
 import 'package:rush_cli/templates/rush_yml.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-class CreateCommand extends Command {
-  final String _cd;
-  final String _dataDir;
-  String? extName;
+class CreateCommand extends Command<void> {
+  final FileService _fs;
 
-  CreateCommand(this._cd, this._dataDir);
+  CreateCommand(this._fs);
 
   @override
   String get description =>
@@ -63,17 +61,17 @@ class CreateCommand extends Command {
     PrintArt();
 
     final kebabCasedName = Casing.kebabCase(name);
-    final projectDir = p.join(_cd, kebabCasedName);
+    final projectDir = p.join(_fs.cwd, kebabCasedName);
 
     if (Directory(projectDir).existsSync()) {
       Logger.log(
           LogType.erro,
-          'A directory named "$kebabCasedName" already exists in $_cd. Please '
+          'A directory named "$kebabCasedName" already exists in ${_fs.cwd}. Please '
           'choose a different name for the extension or move to different directory.');
       exit(1);
     }
 
-    final answers = RushPrompt(questions: Questions.questions).askAll();
+    final answers = RushPrompt(questions: _questions()).askAll();
     var orgName = answers[0][1].toString().trim();
     final lang = answers[1][1].toString().trim();
 
@@ -129,7 +127,7 @@ class CreateCommand extends Command {
       CmdUtils.writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
       CmdUtils.writeFile(
           p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
-          getDevDepsXml(_dataDir));
+          getDevDepsXml(_fs.dataDir));
       CmdUtils.writeFile(
           p.join(projectDir, '.idea', 'libraries', 'deps.xml'), getDepsXml());
       CmdUtils.writeFile(p.join(projectDir, '.idea', 'modules.xml'),
@@ -149,7 +147,7 @@ class CreateCommand extends Command {
     }
 
     // Copy icon
-    File(p.join(_dataDir, 'tools', 'other', 'icon-rush.png'))
+    File(p.join(_fs.toolsDir, 'other', 'icon-rush.png'))
         .copySync(p.join(projectDir, 'assets', 'icon.png'));
 
     Hive
@@ -189,5 +187,19 @@ class CreateCommand extends Command {
       ..write('rush build ')
       ..resetColorAttributes()
       ..writeLine('to compile your extension.');
+  }
+
+  List<Question> _questions() {
+    return [
+      SimpleQuestion(
+        question: 'Organisation (package name)',
+        id: 'org',
+      ),
+      MultipleChoiceQuestion(
+        question: 'Language',
+        options: ['Java', 'Kotlin'],
+        id: 'lang',
+      ),
+    ];
   }
 }

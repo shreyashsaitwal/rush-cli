@@ -7,13 +7,11 @@ import 'package:rush_cli/commands/create/create.dart';
 import 'package:rush_cli/commands/migrate/migrate.dart';
 import 'package:rush_cli/commands/upgrade/upgrade.dart';
 import 'package:rush_cli/helpers/dir_utils.dart';
+import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 void main(List<String> args) {
-  final _cd = Directory.current.path;
-  final _dataDir = DirUtils.dataDir()!;
-
   final runner = RushCommandRunner(
       'rush', 'A new and improved way of building App Inventor 2 extensions.');
 
@@ -24,11 +22,13 @@ void main(List<String> args) {
     }
   });
 
+  final fs = FileService(Directory.current.path, DirUtils.dataDir()!);
+
   runner
-    ..addCommand(CreateCommand(_cd, _dataDir))
-    ..addCommand(BuildCommand(_cd, _dataDir))
-    ..addCommand(MigrateCommand(_cd, _dataDir))
-    ..addCommand(UpgradeCommand(_dataDir));
+    ..addCommand(CreateCommand(fs))
+    ..addCommand(BuildCommand(fs))
+    ..addCommand(MigrateCommand(fs))
+    ..addCommand(UpgradeCommand(fs.dataDir));
 
   runner.run(args).catchError((Object err) {
     if (err is UsageException) {

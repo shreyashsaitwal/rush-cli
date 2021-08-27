@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' show File, Directory, exit;
 
 import 'package:archive/archive_io.dart';
@@ -7,7 +8,7 @@ import 'package:collection/collection.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/commands/build/helpers/build_utils.dart';
+import 'package:rush_cli/commands/build/utils/build_utils.dart';
 import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
 import 'package:rush_cli/commands/build/hive_adapters/data_box.dart';
 import 'package:rush_cli/commands/build/models/rush_lock/rush_lock.dart';
@@ -17,18 +18,18 @@ import 'package:rush_cli/commands/build/tools/desugarer.dart';
 import 'package:rush_cli/commands/build/tools/executor.dart';
 import 'package:rush_cli/commands/build/tools/generator.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
+import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-class BuildCommand extends Command {
-  final String _cd;
-  final String _dataDir;
+class BuildCommand extends Command<void> {
+  final FileService _fs;
 
   late final DateTime _startTime;
   late final RushYaml _rushYaml;
   late final Box<DataBox> _dataBox;
   late final Box<BuildBox> _buildBox;
 
-  BuildCommand(this._cd, this._dataDir) {
+  BuildCommand(this._fs) {
     argParser
       ..addFlag('release',
           abbr: 'r',
@@ -109,22 +110,20 @@ class BuildCommand extends Command {
     final valStep = BuildStep('Checking project files')..init();
 
     valStep.log(LogType.info, 'Checking metadata file (rush.yml)');
-    await _checkRushYaml(valStep);
+    await _loadRushYaml(valStep);
 
     valStep.log(LogType.info, 'Checking AndroidManifest.xml file');
-    final manifestFile = File(p.join(_cd, 'src', 'AndroidManifest.xml'));
+    final manifestFile = File(p.join(_fs.cwd, 'src', 'AndroidManifest.xml'));
     if (!manifestFile.existsSync()) {
       valStep
         ..log(LogType.erro, 'AndroidManifest.xml not found')
         ..finishNotOk();
-      BuildUtils.printFailMsg(
-          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
-      exit(1);
+      BuildUtils.printFailMsg(_startTime);
     }
     valStep.finishOk();
 
     Hive
-      ..init(p.join(_cd, '.rush'))
+      ..init(p.join(_fs.cwd, '.rush'))
       ..registerAdapter(BuildBoxAdapter())
       ..registerAdapter(DataBoxAdapter());
 
@@ -148,7 +147,7 @@ class BuildCommand extends Command {
         'data',
         DataBox(
             name: _rushYaml.name,
-            org: CmdUtils.getPackage(_rushYaml.name, p.join(_cd, 'src')),
+            org: CmdUtils.getPackage(_rushYaml.name, p.join(_fs.cwd, 'src')),
             version: 1),
       );
     }
@@ -158,7 +157,7 @@ class BuildCommand extends Command {
     if (isRelease) {
       final val = _dataBox.getAt(0)!;
       _dataBox.updateVersion(val.version + 1);
-      BuildUtils.cleanWorkspaceDir(_dataDir, val.org);
+      BuildUtils.cleanWorkspaceDir(_fs.dataDir, val.org);
     }
 
     final optimize =
@@ -168,19 +167,24 @@ class BuildCommand extends Command {
     await _compile(optimize, rushLock);
   }
 
-  Future<void> _checkRushYaml(BuildStep valStep) async {
-    File yamlFile;
-    try {
-      yamlFile = BuildUtils.getRushYaml(_cd);
-    } catch (_) {
+  Future<void> _loadRushYaml(BuildStep valStep) async {
+    File yamlFile = () {
+      final yml = File(p.join(_fs.cwd, 'rush.yml'));
+
+      if (yml.existsSync()) {
+        return yml;
+      } else {
+        final yaml = File(p.join(_fs.cwd, 'rush.yaml'));
+        if (yaml.existsSync()) {
+          return yaml;
+        }
+      }
+
       valStep
         ..log(LogType.erro, 'Metadata file (rush.yml) not found')
         ..finishNotOk();
-
-      BuildUtils.printFailMsg(
-          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
-      exit(2);
-    }
+      BuildUtils.printFailMsg(_startTime);
+    }()!;
 
     try {
       _rushYaml = checkedYamlDecode(
@@ -191,7 +195,7 @@ class BuildCommand extends Command {
       valStep.log(LogType.erro,
           'The following error occurred while validating metadata file (rush.yml):');
       if (e.toString().contains('\n')) {
-        e.toString().split('\n').forEach((element) {
+        LineSplitter.split(e.toString()).forEach((element) {
           valStep.log(LogType.erro, ' ' * 5 + element, addPrefix: false);
         });
       } else {
@@ -199,9 +203,7 @@ class BuildCommand extends Command {
       }
 
       valStep.finishNotOk();
-      BuildUtils.printFailMsg(
-          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
-      exit(2);
+      BuildUtils.printFailMsg(_startTime);
     }
   }
 
@@ -225,18 +227,16 @@ class BuildCommand extends Command {
     final areDepsUpToDate = DeepCollectionEquality.unordered()
         .equals(lastResolvedDeps, currentRemoteDeps);
 
-    final lockFile = File(p.join(_cd, '.rush', 'rush.lock'));
+    final lockFile = File(p.join(_fs.cwd, '.rush', 'rush.lock'));
 
     if (!areDepsUpToDate ||
         !lockFile.existsSync() ||
         lockFile.lastModifiedSync().isAfter(boxVal.lastResolution)) {
       try {
-        await Executor(_cd, _dataDir).execResolver();
+        await Executor(_fs).execResolver();
       } catch (e) {
         step.finishNotOk();
-        BuildUtils.printFailMsg(
-            BuildUtils.getTimeDifference(_startTime, DateTime.now()));
-        exit(1);
+        BuildUtils.printFailMsg(_startTime);
       } finally {
         _buildBox.updateLastResolution(DateTime.now());
         _buildBox.updateLastResolvedDeps(currentRemoteDeps);
@@ -248,7 +248,7 @@ class BuildCommand extends Command {
     final RushLock rushLock;
     try {
       rushLock = checkedYamlDecode(
-          File(p.join(_cd, '.rush', 'rush.lock')).readAsStringSync(),
+          File(p.join(_fs.cwd, '.rush', 'rush.lock')).readAsStringSync(),
           (json) => RushLock.fromJson(json!));
     } catch (e) {
       step.log(LogType.erro, e.toString());
@@ -267,9 +267,8 @@ class BuildCommand extends Command {
       _mergeManifests(rushLock, compileStep, _rushYaml.minSdk ?? 7);
     }
 
-    final srcFiles = Directory(p.join(_cd, 'src'))
-        .listSync(recursive: true)
-        .whereType<File>();
+    final srcFiles =
+        Directory(_fs.srcDir).listSync(recursive: true).whereType<File>();
 
     final javaFiles = srcFiles
         .whereType<File>()
@@ -282,10 +281,10 @@ class BuildCommand extends Command {
     compileStep.log(
         LogType.info, 'Picked $count source file' + (count > 1 ? 's' : ''));
 
-    try {
-      final compiler = Compiler(_cd, _dataDir, _rushYaml, _dataBox, _buildBox);
-      final isKtEnabled = _rushYaml.build?.kotlin?.enable ?? false;
+    final compiler = Compiler(_fs, _rushYaml, _dataBox, _buildBox);
+    final isKtEnabled = _rushYaml.build?.kotlin?.enable ?? false;
 
+    try {
       if (ktFiles.isNotEmpty) {
         if (!isKtEnabled) {
           compileStep
@@ -297,15 +296,12 @@ class BuildCommand extends Command {
 
         await compiler.compileKt(compileStep, rushLock);
       }
-
       if (javaFiles.isNotEmpty) {
         await compiler.compileJava(compileStep, rushLock);
       }
     } catch (e) {
       compileStep.finishNotOk();
-      BuildUtils.printFailMsg(
-          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
-      exit(1);
+      BuildUtils.printFailMsg(_startTime);
     }
     compileStep.finishOk();
 
@@ -328,12 +324,14 @@ class BuildCommand extends Command {
 
     final areDepManifestsMod = depManifests.any((el) {
       final file = File(el);
-      // If the file doesn't exist, chances are it was deleted by someone. Just
-      // to be sure, unzip the AAR again.
+      // If the file doesn't exist, chances are it was deleted. Just to be sure,
+      // unzip the AAR again.
       if (!file.existsSync()) {
         BuildUtils.unzip(p.dirname(el) + '.aar', p.dirname(el));
       }
 
+      // If the file still doesn't exist, then it means this AAR doesn't contain
+      // any manifest file. Strange.
       if (file.existsSync()) {
         return file.lastModifiedSync().isAfter(lastMerge);
       } else {
@@ -342,26 +340,25 @@ class BuildCommand extends Command {
       return false;
     });
 
-    final mainManifest = File(p.join(_cd, 'src', 'AndroidManifest.xml'));
-    final output = File(p.join(_dataDir, 'workspaces', _dataBox.getAt(0)!.org,
+    final mainManifest = File(p.join(_fs.srcDir, 'AndroidManifest.xml'));
+    final output = File(p.join(_fs.workspacesDir, _dataBox.getAt(0)!.org,
         'files', 'MergedManifest.xml'));
 
     final conditions = !output.existsSync() ||
         mainManifest.lastModifiedSync().isAfter(lastMerge) ||
         areDepManifestsMod;
     if (conditions) {
-      step.log(
-          LogType.info, 'Merging main AndroidManifest.xml with that from deps');
+      step.log(LogType.info, 'Merging Android manifests');
 
       try {
-        await Executor(_cd, _dataDir).execManifMerger(
+        await Executor(_fs).execManifMerger(
             minSdk, mainManifest.path, depManifests, output.path);
       } catch (e) {
         step.finishNotOk();
-        BuildUtils.printFailMsg(
-            BuildUtils.getTimeDifference(_startTime, DateTime.now()));
-        exit(1);
+        BuildUtils.printFailMsg(_startTime);
       }
+    } else {
+      step.log(LogType.info, 'Android manifests up-to-date');
     }
   }
 
@@ -370,7 +367,7 @@ class BuildCommand extends Command {
   Future<void> _process(
       String org, bool optimize, bool deJet, RushLock? rushLock) async {
     final BuildStep processStep;
-    final rulesPro = File(p.join(_cd, 'src', 'proguard-rules.pro'));
+    final rulesPro = File(p.join(_fs.srcDir, 'proguard-rules.pro'));
 
     processStep = BuildStep('Processing the extension')..init();
     if (!rulesPro.existsSync() && optimize) {
@@ -381,15 +378,13 @@ class BuildCommand extends Command {
 
     if (_rushYaml.build?.desugar?.enable ?? false) {
       processStep.log(LogType.info, 'Desugaring Java 8 language features');
-      final desugarer = Desugarer(_cd, _dataDir, _rushYaml);
+      final desugarer = Desugarer(_fs, _rushYaml);
       try {
         _buildBox.close();
         await desugarer.run(org, processStep, rushLock);
       } catch (e) {
         processStep.finishNotOk();
-        BuildUtils.printFailMsg(
-            BuildUtils.getTimeDifference(_startTime, DateTime.now()));
-        exit(1);
+        BuildUtils.printFailMsg(_startTime);
       }
     }
 
@@ -401,8 +396,7 @@ class BuildCommand extends Command {
           LogType.info, 'Linking extension assets and dependencies');
     }
 
-    await Generator(_cd, _dataDir, _rushYaml)
-        .generate(org, processStep, rushLock);
+    await Generator(_fs, _rushYaml).generate(org, processStep, rushLock);
 
     // Create a JAR containing the contents of extension's dependencies and
     // compiled source files
@@ -410,9 +404,9 @@ class BuildCommand extends Command {
 
     // Copy ART to raw dir
     if (artJar.existsSync()) {
-      final destDir = Directory(
-          p.join(_dataDir, 'workspaces', org, 'raw', 'x', org, 'files'))
-        ..createSync(recursive: true);
+      final destDir =
+          Directory(p.join(_fs.workspacesDir, org, 'raw', 'x', org, 'files'))
+            ..createSync(recursive: true);
 
       artJar.copySync(p.join(destDir.path, 'AndroidRuntime.jar'));
     } else {
@@ -420,9 +414,7 @@ class BuildCommand extends Command {
         ..log(LogType.erro, 'File not found: ' + artJar.path)
         ..finishNotOk();
 
-      BuildUtils.printFailMsg(
-          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
-      exit(1);
+      BuildUtils.printFailMsg(_startTime);
     }
 
     var needDeJet = deJet;
@@ -430,19 +422,16 @@ class BuildCommand extends Command {
       processStep.log(LogType.info, 'De-jetifing the extension');
 
       try {
-        needDeJet =
-            await Executor(_cd, _dataDir).execDeJetifier(org, processStep);
+        needDeJet = await Executor(_fs).execDeJetifier(org, processStep);
       } catch (e) {
         processStep.finishNotOk();
-        BuildUtils.printFailMsg(
-            BuildUtils.getTimeDifference(_startTime, DateTime.now()));
-        exit(1);
+        BuildUtils.printFailMsg(_startTime);
       }
 
       if (!needDeJet && deJet) {
         // Delete the raw/sup directory so that support version of the extension
         // isn't generated.
-        Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'sup'))
+        Directory(p.join(_fs.workspacesDir, org, 'raw', 'sup'))
             .deleteSync(recursive: true);
 
         processStep.log(LogType.warn,
@@ -455,9 +444,7 @@ class BuildCommand extends Command {
       await _dex(org, needDeJet, processStep);
     } catch (e) {
       processStep.finishNotOk();
-      BuildUtils.printFailMsg(
-          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
-      exit(1);
+      BuildUtils.printFailMsg(_startTime);
     }
 
     processStep.finishOk();
@@ -467,7 +454,7 @@ class BuildCommand extends Command {
   /// JAR the compiled class files and third-party dependencies into a single JAR.
   Future<File> _generateArtJar(String org, BuildStep processStep, bool optimize,
       RushLock? rushLock) async {
-    final artDir = Directory(p.join(_dataDir, 'workspaces', org, 'art'));
+    final artDir = Directory(p.join(_fs.workspacesDir, org, 'art'));
 
     final artJar =
         File(p.join(artDir.path, 'ART.jar')); // ART == Android Runtime
@@ -501,9 +488,7 @@ class BuildCommand extends Command {
       }
     } catch (e) {
       processStep.finishNotOk();
-      BuildUtils.printFailMsg(
-          BuildUtils.getTimeDifference(_startTime, DateTime.now()));
-      exit(1);
+      BuildUtils.printFailMsg(_startTime);
     }
 
     return artJar;
@@ -511,7 +496,7 @@ class BuildCommand extends Command {
 
   Future<void> _optimizeArt(File artJar, String org, BuildStep processStep,
       RushLock? rushLock) async {
-    final executor = Executor(_cd, _dataDir);
+    final executor = Executor(_fs);
 
     processStep.log(LogType.info, 'Optimizing the extension');
     await executor.execProGuard(org, processStep, _rushYaml, rushLock);
@@ -527,7 +512,7 @@ class BuildCommand extends Command {
 
   /// Convert generated extension JAR file from previous step into DEX bytecode.
   Future<void> _dex(String org, bool deJet, BuildStep processStep) async {
-    final executor = Executor(_cd, _dataDir);
+    final executor = Executor(_fs);
 
     if (deJet) {
       await Future.wait([
@@ -543,11 +528,10 @@ class BuildCommand extends Command {
   void _assemble(String org) {
     final assembleStep = BuildStep('Finalizing the build')..init();
 
-    final rawDirX = Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'x'));
-    final rawDirSup =
-        Directory(p.join(_dataDir, 'workspaces', org, 'raw', 'sup'));
+    final rawDirX = Directory(p.join(_fs.workspacesDir, org, 'raw', 'x'));
+    final rawDirSup = Directory(p.join(_fs.workspacesDir, org, 'raw', 'sup'));
 
-    final outputDir = Directory(p.join(_cd, 'out'))
+    final outputDir = Directory(p.join(_fs.cwd, 'out'))
       ..createSync(recursive: true);
 
     final zipEncoder = ZipFileEncoder();

@@ -6,17 +6,17 @@ import 'package:path/path.dart' as p;
 import 'package:rush_cli/helpers/casing.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
+import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
 import 'package:rush_cli/templates/intellij_files.dart';
 import 'package:rush_cli/templates/readme.dart';
 import 'package:rush_cli/templates/rules_pro.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-class MigrateCommand extends Command {
-  final String _cd;
-  final String _dataDir;
+class MigrateCommand extends Command<void> {
+  final FileService _fs;
 
-  MigrateCommand(this._cd, this._dataDir);
+  MigrateCommand(this._fs);
 
   @override
   String get description =>
@@ -46,7 +46,7 @@ class MigrateCommand extends Command {
 
   @override
   Future<void> run() async {
-    final dir = Directory(p.join(_dataDir, 'workspaces'))..createSync();
+    final dir = Directory(_fs.workspacesDir)..createSync();
     final outputDir = Directory(dir.path).createTempSync();
 
     final compStep = BuildStep('Introspecting the sources')..init();
@@ -102,10 +102,10 @@ class MigrateCommand extends Command {
         .basenameWithoutExtension(genFiles['rushYml']!.first.path)
         .split('rush-')
         .last;
-    final org = CmdUtils.getPackage(extName, p.join(_cd, 'src'));
+    final org = CmdUtils.getPackage(extName, _fs.srcDir);
 
     final projectDir =
-        Directory(p.join(p.dirname(_cd), Casing.kebabCase(extName) + '-rush'))
+        Directory(p.join(p.dirname(_fs.cwd), Casing.kebabCase(extName) + '-rush'))
           ..createSync(recursive: true);
 
     final rushYmlDest = p.join(projectDir.path, 'rush.yml');
@@ -134,7 +134,7 @@ class MigrateCommand extends Command {
   /// Copies all the src files without performing any checks; it just copies
   /// everything except the assets and aiwebres directory.
   void _copySrcFiles(String package, String projectDirPath, BuildStep step) {
-    final baseDir = Directory(p.joinAll([_cd, 'src', ...package.split('.')]));
+    final baseDir = Directory(p.joinAll([_fs.srcDir, ...package.split('.')]));
 
     final dest =
         Directory(p.joinAll([projectDirPath, 'src', ...package.split('.')]))
@@ -151,7 +151,7 @@ class MigrateCommand extends Command {
   /// Copies extension assets and icon.
   void _copyAssets(String package, String projectDirPath, BuildStep step) {
     final baseDir =
-        Directory(p.joinAll([_cd, 'src', ...package.split('.'), 'assets']));
+        Directory(p.joinAll([_fs.srcDir, ...package.split('.'), 'assets']));
 
     final assetsDir = Directory(p.join(baseDir.path, 'assets'));
     final assetsDest = Directory(p.join(projectDirPath, 'assets'))
@@ -165,7 +165,7 @@ class MigrateCommand extends Command {
     if (aiwebres.existsSync() && aiwebres.listSync().isNotEmpty) {
       CmdUtils.copyDir(aiwebres, assetsDest);
     } else {
-      File(p.join(_dataDir, 'tools', 'other', 'icon-rush.png'))
+      File(p.join(_fs.toolsDir, 'other', 'icon-rush.png'))
           .copySync(p.join(projectDirPath, 'assets', 'icon.png'));
     }
 
@@ -174,7 +174,7 @@ class MigrateCommand extends Command {
 
   /// Copies all necessary deps.
   void _copyDeps(String projectDir, BuildStep step) {
-    final deps = Directory(p.join(_cd, 'lib', 'deps'));
+    final deps = Directory(p.join(_fs.cwd, 'lib', 'deps'));
     final depsDest = Directory(p.join(projectDir, 'deps'))..createSync();
 
     if (deps.existsSync() && deps.listSync().isNotEmpty) {
@@ -201,7 +201,7 @@ class MigrateCommand extends Command {
         p.join(projectDirPath, '.idea', 'misc.xml'), getMiscXml());
     CmdUtils.writeFile(
         p.join(projectDirPath, '.idea', 'libraries', 'dev-deps.xml'),
-        getDevDepsXml(_dataDir));
+        getDevDepsXml(_fs.dataDir));
     CmdUtils.writeFile(
         p.join(projectDirPath, '.idea', 'libraries', 'deps.xml'), getDepsXml());
     CmdUtils.writeFile(p.join(projectDirPath, '.idea', 'modules.xml'),
@@ -213,11 +213,11 @@ class MigrateCommand extends Command {
   Future<void> _compileJava(Directory output, BuildStep step) async {
     final args = () {
       final classpath = CmdUtils.classpathString([
-        Directory(p.join(_cd, 'lib', 'appinventor')),
-        Directory(p.join(_cd, 'lib', 'deps')),
-        Directory(p.join(_dataDir, 'tools', 'processor')),
-        File(p.join(_dataDir, 'tools', 'other', 'migrator.jar')),
-        File(p.join(_dataDir, 'dev-deps', 'kotlin', 'kotlin-stdlib.jar'))
+        Directory(p.join(_fs.cwd, 'lib', 'appinventor')),
+        Directory(p.join(_fs.cwd, 'lib', 'deps')),
+        Directory(p.join(_fs.toolsDir, 'processor')),
+        File(p.join(_fs.toolsDir, 'other', 'migrator.jar')),
+        File(p.join(_fs.devDepsDir, 'kotlin', 'kotlin-stdlib.jar'))
       ], exclude: [
         'AnnotationProcessors.jar'
       ]);
@@ -228,7 +228,7 @@ class MigrateCommand extends Command {
       ];
 
       final srcFiles =
-          CmdUtils.getJavaSourceFiles(Directory(p.join(_cd, 'src')));
+          CmdUtils.getJavaSourceFiles(Directory(_fs.srcDir));
       final classesDir = Directory(p.join(output.path, 'classes'))
         ..createSync();
 
@@ -243,7 +243,7 @@ class MigrateCommand extends Command {
       return args;
     }();
 
-    final result = await ProcessStreamer.stream(args, _cd);
+    final result = await ProcessStreamer.stream(args, _fs.cwd);
     if (result.result == Result.error) {
       throw Exception();
     }

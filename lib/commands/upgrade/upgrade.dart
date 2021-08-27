@@ -12,7 +12,7 @@ import 'package:rush_cli/commands/upgrade/models/gh_release.dart';
 import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-class UpgradeCommand extends Command {
+class UpgradeCommand extends Command<void> {
   final String _dataDir;
   static const String _endpt = 'https://rush-api.shreyashsaitwal.repl.co';
 

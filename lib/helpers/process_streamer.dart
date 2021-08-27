@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:hive/hive.dart';
@@ -38,7 +39,7 @@ class ProcessStreamer {
   /// by that process.
   static Future<ProcessResult> stream(
     List<String> args,
-    String cd, {
+    String cwd, {
     Directory? workingDirectory,
     ProcessPatternChecker? patternChecker,
     bool trackPreviouslyLogged = false,
@@ -71,7 +72,7 @@ class ProcessStreamer {
 
     try {
       await for (final data in process) {
-        final stdout = data.output.split('\n');
+        final stdout = LineSplitter.split(data.output);
 
         // Checks if a particular string that matches the pattern exists in stdout.
         // This is specifically required for checking if de-jetification is
@@ -87,19 +88,19 @@ class ProcessStreamer {
               !excludePatterns.any((el) => el.hasMatch(line)));
 
           await _printToTheConsole(
-              outputLines.toList(), cd, step, trackPreviouslyLogged);
+              outputLines.toList(), cwd, step, trackPreviouslyLogged);
         }
       }
 
       return ProcessResult._init(Result.ok, ErrWarnStore());
     } on ProcessRunnerException catch (e) {
-      final stderr = e.result?.stderr.split('\n') ?? [];
+      final stderr = LineSplitter.split(e.result?.stderr ?? '');
       final errorLines = stderr.where((line) =>
           line.trim().isNotEmpty &&
           !excludePatterns.any((el) => el.hasMatch(line)));
 
       await _printToTheConsole(
-          errorLines.toList(), cd, step, trackPreviouslyLogged);
+          errorLines.toList(), cwd, step, trackPreviouslyLogged);
 
       return ProcessResult._init(Result.error, ErrWarnStore());
     }
@@ -108,7 +109,7 @@ class ProcessStreamer {
   /// Prints [outputLines] to the console with appropriate [LogType].
   static Future<void> _printToTheConsole(
     List<String> outputLines,
-    String cd,
+    String cwd,
     BuildStep step,
     bool trackPreviouslyLogged,
   ) async {
@@ -125,7 +126,7 @@ class ProcessStreamer {
     final Box<BuildBox>? buildBox;
     if (trackPreviouslyLogged) {
       Hive
-        ..init(p.join(cd, '.rush'))
+        ..init(p.join(cwd, '.rush'))
         ..registerAdapter(BuildBoxAdapter());
       buildBox = await Hive.openBox<BuildBox>('build');
     } else {
@@ -155,8 +156,8 @@ class ProcessStreamer {
         var formattedLine = line.replaceFirst(
             type.value, line.startsWith(type.value) ? '' : ' ');
 
-        if (formattedLine.startsWith(cd)) {
-          formattedLine = formattedLine.replaceFirst(p.join(cd, 'src'), 'src');
+        if (formattedLine.startsWith(cwd)) {
+          formattedLine = formattedLine.replaceFirst(p.join(cwd, 'src'), 'src');
         }
 
         step.log(type.key, formattedLine);
@@ -167,8 +168,8 @@ class ProcessStreamer {
           buildBox.updatePreviouslyLogged([...previouslyLogged, line]);
         }
       } else if (!skipThisErrStack) {
-        if (line.startsWith(cd)) {
-          line = line.replaceFirst(p.join(cd, 'src'), 'src');
+        if (line.startsWith(cwd)) {
+          line = line.replaceFirst(p.join(cwd, 'src'), 'src');
         }
         step.log(prevLogType, ' ' * 5 + line, addPrefix: false);
       }

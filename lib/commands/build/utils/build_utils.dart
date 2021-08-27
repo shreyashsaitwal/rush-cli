@@ -9,40 +9,11 @@ import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
 import 'package:rush_cli/commands/build/models/rush_lock/rush_lock.dart';
 import 'package:rush_cli/commands/build/models/rush_yaml/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
+import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/templates/intellij_files.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 class BuildUtils {
-  /// Returns `true` if rush.yml and AndroidManifest.xml is modified.
-  static Future<bool> areInfoFilesModified(String cd, Box dataBox) async {
-    final File rushYml;
-    try {
-      rushYml = getRushYaml(cd);
-    } catch (e) {
-      rethrow;
-    }
-
-    final isYmlMod = rushYml
-        .lastModifiedSync()
-        .isAfter(await dataBox.get('rushYmlLastMod') as DateTime);
-
-    final manifestFile = File(p.join(cd, 'src', 'AndroidManifest.xml'));
-    final isManifestMod = manifestFile
-        .lastModifiedSync()
-        .isAfter(await dataBox.get('manifestLastMod') as DateTime);
-
-    final res = isYmlMod || isManifestMod;
-
-    if (res) {
-      await Future.wait([
-        dataBox.put('rushYmlLastMod', rushYml.lastModifiedSync()),
-        dataBox.put('manifestLastMod', manifestFile.lastModifiedSync())
-      ]);
-    }
-
-    return res;
-  }
-
   /// Cleans workspace dir for the given [org].
   static void cleanWorkspaceDir(String dataDir, String org) {
     final dir = Directory(p.join(dataDir, 'workspaces', org));
@@ -55,20 +26,6 @@ class BuildUtils {
             'Something went wrong while invalidating build caches.\n${e.toString()}');
         exit(1);
       }
-    }
-  }
-
-  /// Returns rush.yml file
-  static File getRushYaml(String cd) {
-    final yml = File(p.join(cd, 'rush.yml'));
-    final yaml = File(p.join(cd, 'rush.yaml'));
-
-    if (yml.existsSync()) {
-      return yml;
-    } else if (yaml.existsSync()) {
-      return yaml;
-    } else {
-      throw Exception('rush.yml not found');
     }
   }
 
@@ -113,7 +70,8 @@ class BuildUtils {
   }
 
   /// Prints "• Build Failed" to the console
-  static void printFailMsg(String timeDiff) {
+  static void printFailMsg(DateTime startTime) {
+    final timeDiff = BuildUtils.getTimeDifference(startTime, DateTime.now());
     final store = ErrWarnStore();
 
     final brightBlack = '\u001b[30;1m';
@@ -144,9 +102,9 @@ class BuildUtils {
     }
 
     errWarn = errWarn.length == 1 ? '' : '$errWarn$brightBlack]$reset';
-
     Logger.logCustom('Build failed $timeDiff $errWarn',
         prefix: '\n• ', prefixFG: ConsoleColor.red);
+    exit(1);
   }
 
   /// Deletes the list of previously logged messages from build box.
@@ -160,13 +118,13 @@ class BuildUtils {
   /// as this release centralized the dev deps directory for all the Rush projects.
   /// So, therefore, to not break IDE features for old projects, this file needs
   /// to point to the correct location of dev deps.
-  static void updateDevDepsXml(String cd, String dataDir) {
+  static void updateDevDepsXml(String projectRoot, String dataDir) {
     final devDepsXmlFile = () {
-      final file = File(p.join(cd, '.idea', 'libraries', 'dev-deps.xml'));
+      final file = File(p.join(projectRoot, '.idea', 'libraries', 'dev-deps.xml'));
       if (file.existsSync()) {
         return file;
       } else {
-        return File(p.join(cd, '.idea', 'libraries', 'dev_deps.xml'))
+        return File(p.join(projectRoot, '.idea', 'libraries', 'dev_deps.xml'))
           ..createSync(recursive: true);
       }
     }();
@@ -177,12 +135,12 @@ class BuildUtils {
     }
   }
 
-  static List<String> getDepJarPaths(
-      String cd, RushYaml rushYaml, DepScope scope, RushLock? rushLock) {
+  static List<String> getDepJarPaths(String projectRoot, RushYaml rushYaml,
+      DepScope scope, RushLock? rushLock) {
     final allEntries = rushYaml.deps?.where((el) => el.scope() == scope);
     final localJars = allEntries
             ?.where((el) => !el.value().contains(':'))
-            .map((el) => p.join(cd, 'deps', el.value())) ??
+            .map((el) => p.join(projectRoot, 'deps', el.value())) ??
         [];
 
     if (rushLock == null) {
@@ -210,13 +168,13 @@ class BuildUtils {
   }
 
   static String classpathStringForDeps(
-      String cd, String dataDir, RushYaml rushYaml, RushLock? rushLock) {
+      FileService fs, RushYaml rushYaml, RushLock? rushLock) {
     final depJars = [
-      ...getDepJarPaths(cd, rushYaml, DepScope.implement, rushLock),
-      ...getDepJarPaths(cd, rushYaml, DepScope.compileOnly, rushLock)
+      ...getDepJarPaths(fs.cwd, rushYaml, DepScope.implement, rushLock),
+      ...getDepJarPaths(fs.cwd, rushYaml, DepScope.compileOnly, rushLock)
     ];
 
-    final devDepsDir = Directory(p.join(dataDir, 'dev-deps'));
+    final devDepsDir = Directory(p.join(fs.cwd, 'dev-deps'));
     for (final el in devDepsDir.listSync(recursive: true)) {
       if (el is File) {
         depJars.add(el.path);

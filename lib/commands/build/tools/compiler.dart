@@ -3,37 +3,36 @@ import 'dart:io' show Directory, File, Platform, exit;
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_runner/process_runner.dart';
-import 'package:rush_cli/commands/build/helpers/build_utils.dart';
-import 'package:rush_cli/commands/build/helpers/compute.dart';
+import 'package:rush_cli/commands/build/utils/build_utils.dart';
+import 'package:rush_cli/commands/build/utils/compute.dart';
 import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
 import 'package:rush_cli/commands/build/hive_adapters/data_box.dart';
 import 'package:rush_cli/commands/build/models/rush_lock/rush_lock.dart';
 import 'package:rush_cli/commands/build/models/rush_yaml/rush_yaml.dart';
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/helpers/process_streamer.dart';
+import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 class _StartProcessArgs {
-  final String cd;
+  final String projectRoot;
   final List<String> cmdArgs;
   final bool isParallelProcess;
 
   _StartProcessArgs({
-    required this.cd,
+    required this.projectRoot,
     required this.cmdArgs,
     this.isParallelProcess = false,
   });
 }
 
 class Compiler {
-  final String _cd;
-  final String _dataDir;
+  final FileService _fs;
   final RushYaml _rushYaml;
   final Box<DataBox> _dataBox;
   final Box<BuildBox> _buildBox;
 
-  Compiler(
-      this._cd, this._dataDir, this._rushYaml, this._dataBox, this._buildBox);
+  Compiler(this._fs, this._rushYaml, this._dataBox, this._buildBox);
 
   /// Compiles the Java files for this extension project.
   Future<void> compileJava(BuildStep step, RushLock? rushLock) async {
@@ -42,14 +41,14 @@ class Compiler {
 
     final args = await _getJavacArgs(rushLock);
     final result =
-        await _startProcess(_StartProcessArgs(cd: _cd, cmdArgs: args));
+        await _startProcess(_StartProcessArgs(projectRoot: _fs.cwd, cmdArgs: args));
 
     if (result.result == Result.error) {
       throw Exception();
     }
 
     final componentsJson = File(
-        p.join(_dataDir, 'workspaces', boxVal.org, 'files', 'components.json'));
+        p.join(_fs.dataDir, boxVal.org, 'files', 'components.json'));
     if (!componentsJson.existsSync() ||
         componentsJson.lastModifiedSync().isBefore(instance)) {
       await _generateInfoFilesIfNoBlocks(step);
@@ -76,11 +75,11 @@ class Compiler {
       compute(
           _startProcess,
           _StartProcessArgs(
-              cd: _cd, cmdArgs: ktcArgs, isParallelProcess: true)),
+              projectRoot: _fs.cwd, cmdArgs: ktcArgs, isParallelProcess: true)),
       compute(
           _startProcess,
           _StartProcessArgs(
-              cd: _cd, cmdArgs: kaptArgs, isParallelProcess: true)),
+              projectRoot: _fs.cwd, cmdArgs: kaptArgs, isParallelProcess: true)),
     ]);
     BuildUtils.deletePreviouslyLoggedFromBuildBox();
 
@@ -96,7 +95,7 @@ class Compiler {
 
     final dataBoxVal = _dataBox.getAt(0)!;
     final componentsJson = File(p.join(
-        _dataDir, 'workspaces', dataBoxVal.org, 'files', 'components.json'));
+        _fs.dataDir, dataBoxVal.org, 'files', 'components.json'));
     if (!componentsJson.existsSync() ||
         componentsJson.lastModifiedSync().isBefore(instance)) {
       await _generateInfoFilesIfNoBlocks(step);
@@ -107,24 +106,24 @@ class Compiler {
   Future<void> _generateInfoFilesIfNoBlocks(BuildStep step) async {
     final dataBoxVal = _dataBox.get(0)!;
 
-    final filesDir = p.join(_dataDir, 'workspaces', dataBoxVal.org, 'files');
+    final filesDir = p.join(_fs.dataDir, dataBoxVal.org, 'files');
     final classpath = CmdUtils.classpathString([
-      Directory(p.join(_dataDir, 'tools', 'processor')),
-      Directory(p.join(_dataDir, 'tools', 'kotlinc', 'lib'))
+      Directory(p.join(_fs.toolsDir, 'processor')),
+      Directory(p.join(_fs.toolsDir, 'kotlinc', 'lib'))
     ]);
 
     final args = <String>[
       'java',
       ...['-cp', classpath],
       'io.shreyash.rush.processor.InfoFilesGeneratorKt',
-      _cd,
+      _fs.cwd,
       dataBoxVal.version.toString(),
       dataBoxVal.org,
       filesDir,
     ];
 
     final result =
-        await _startProcess(_StartProcessArgs(cd: _cd, cmdArgs: args));
+        await _startProcess(_StartProcessArgs(projectRoot: _fs.cwd, cmdArgs: args));
     if (result.result == Result.error) {
       throw Exception();
     }
@@ -135,13 +134,13 @@ class Compiler {
   Future<List<String>> _getJavacArgs(RushLock? rushLock) async {
     final dataBoxVal = _dataBox.getAt(0)!;
     final filesDir =
-        Directory(p.join(_dataDir, 'workspaces', dataBoxVal.org, 'files'))
+        Directory(p.join(_fs.dataDir, dataBoxVal.org, 'files'))
           ..createSync(recursive: true);
 
     // Args for annotation processor
     final apArgs = <String>[
       '-Xlint:-options',
-      '-Aroot=$_cd',
+      '-Aroot=${_fs.cwd}',
       '-AextName=${dataBoxVal.name}',
       '-Aorg=${dataBoxVal.org}',
       '-Aversion=${dataBoxVal.version}',
@@ -149,15 +148,14 @@ class Compiler {
     ];
 
     final classesDir =
-        Directory(p.join(_dataDir, 'workspaces', dataBoxVal.org, 'classes'))
+        Directory(p.join(_fs.dataDir, dataBoxVal.org, 'classes'))
           ..createSync(recursive: true);
 
-    final classpath = BuildUtils.classpathStringForDeps(
-            _cd, _dataDir, _rushYaml, rushLock) +
+    final classpath = BuildUtils.classpathStringForDeps(_fs, _rushYaml, rushLock) +
         CmdUtils.cpSeparator() +
         CmdUtils.classpathString(
-            [Directory(p.join(_dataDir, 'tools', 'processor')), classesDir]);
-    final srcDir = Directory(p.join(_cd, 'src'));
+            [Directory(p.join(_fs.toolsDir, 'processor')), classesDir]);
+    final srcDir = Directory(_fs.srcDir);
     final args = <String>[];
 
     args
@@ -178,22 +176,21 @@ class Compiler {
 
   /// Returns command line args required for compiling Kotlin sources.
   List<String> _getKtcArgs(RushLock? rushLock) {
-    final kotlinc = p.join(_dataDir, 'tools', 'kotlinc', 'bin',
+    final kotlinc = p.join(_fs.toolsDir, 'kotlinc', 'bin',
         'kotlinc' + (Platform.isWindows ? '.bat' : ''));
     final org = _dataBox.getAt(0)!.org;
 
-    final classesDir = Directory(p.join(_dataDir, 'workspaces', org, 'classes'))
+    final classesDir = Directory(p.join(_fs.dataDir, org, 'classes'))
       ..createSync(recursive: true);
-    final srcDir = p.join(_cd, 'src');
 
     final classpath =
-        BuildUtils.classpathStringForDeps(_cd, _dataDir, _rushYaml, rushLock);
+        BuildUtils.classpathStringForDeps(_fs, _rushYaml, rushLock);
 
     final args = <String>[];
     args
       ..addAll(['-d', classesDir.path])
       ..addAll(['-cp', '"$classpath"'])
-      ..add(srcDir);
+      ..add(_fs.srcDir);
 
     final argFile = _writeArgFile('compile.rsh', org, args);
     return [kotlinc, '@${argFile.path}'];
@@ -203,25 +200,25 @@ class Compiler {
   /// Kapt is required for processing annotations in Kotlin sources and needs
   /// to be invoked separately.
   Future<List<String>> _getKaptArgs(RushLock? rushLock) async {
-    final apDir = Directory(p.join(_dataDir, 'tools', 'processor'));
+    final apDir = Directory(p.join(_fs.toolsDir, 'processor'));
 
     final classpath =
-        BuildUtils.classpathStringForDeps(_cd, _dataDir, _rushYaml, rushLock) +
+        BuildUtils.classpathStringForDeps(_fs, _rushYaml, rushLock) +
             CmdUtils.cpSeparator() +
             CmdUtils.classpathString([
-              Directory(p.join(_dataDir, 'tools', 'processor')),
+              Directory(p.join(_fs.toolsDir, 'processor')),
             ], exclude: [
               'processor.jar',
             ]);
 
-    final toolsJar = p.join(_dataDir, 'tools', 'other', 'tools.jar');
+    final toolsJar = p.join(_fs.toolsDir, 'other', 'tools.jar');
     final org = _dataBox.getAt(0)!.org;
 
     final pluginPrefix = '-P "plugin:org.jetbrains.kotlin.kapt3:';
-    final kaptDir = Directory(p.join(_dataDir, 'workspaces', org, 'kapt'))
+    final kaptDir = Directory(p.join(_fs.dataDir, org, 'kapt'))
       ..createSync(recursive: true);
 
-    final kotlincDir = p.join(_dataDir, 'tools', 'kotlinc');
+    final kotlincDir = p.join(_fs.toolsDir, 'kotlinc');
     final args = <String>[
       ...['-cp', '"$classpath"'],
       '-Xplugin="$toolsJar"',
@@ -237,7 +234,7 @@ class Compiler {
             '"',
         pluginPrefix + 'apoptions=' + await _getEncodedApOpts() + '"',
       ],
-      p.join(_cd, 'src'),
+      _fs.srcDir,
     ];
 
     final kotlinc = p.join(
@@ -248,14 +245,10 @@ class Compiler {
 
   /// Starts a new process with [args.cmdArgs] and prints the output to the console.
   static Future<ProcessResult> _startProcess(_StartProcessArgs args) async {
-    final cd = args.cd;
-    final cmdArgs = args.cmdArgs;
-    final isParallelProcess = args.isParallelProcess;
-
     return await ProcessStreamer.stream(
-      cmdArgs,
-      cd,
-      trackPreviouslyLogged: isParallelProcess,
+      args.cmdArgs,
+      args.projectRoot,
+      trackPreviouslyLogged: args.isParallelProcess,
       printNormalOutput: true,
     );
   }
@@ -266,11 +259,11 @@ class Compiler {
   Future<String> _getEncodedApOpts() async {
     final dataBoxVal = _dataBox.getAt(0)!;
     final filesDir =
-        Directory(p.join(_dataDir, 'workspaces', dataBoxVal.org, 'files'))
+        Directory(p.join(_fs.dataDir, dataBoxVal.org, 'files'))
           ..createSync(recursive: true);
 
     final opts = [
-      'root=${_cd.replaceAll('\\', '/')}',
+      'root=${_fs.srcDir.replaceAll('\\', '/')}',
       'extName=${dataBoxVal.name}',
       'org=${dataBoxVal.org}',
       'version=${dataBoxVal.version}',
@@ -283,8 +276,8 @@ class Compiler {
     }
 
     final classpath = CmdUtils.classpathString([
-      File(p.join(_dataDir, 'tools', 'processor', 'processor.jar')),
-      File(p.join(_dataDir, 'dev-deps', 'kotlin', 'kotlin-stdlib.jar'))
+      File(p.join(_fs.toolsDir, 'processor', 'processor.jar')),
+      File(p.join(_fs.devDepsDir, 'kotlin', 'kotlin-stdlib.jar'))
     ]);
 
     // The encoding is done by the processor. This is because I was unable to
@@ -315,7 +308,7 @@ class Compiler {
   /// if the same args were executed from CMD, it would work. Although won't
   /// work on Git Bash and PowerShell.
   File _writeArgFile(String fileName, String org, List<String> args) {
-    final file = File(p.join(_dataDir, 'workspaces', org, 'files', fileName))
+    final file = File(p.join(_fs.dataDir, org, 'files', fileName))
       ..createSync(recursive: true);
     var contents = '';
 
