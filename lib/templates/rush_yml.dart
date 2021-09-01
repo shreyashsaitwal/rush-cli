@@ -1,27 +1,26 @@
 String getRushYamlTemp(String name, bool enableKt) {
   return '''
-name: $name
-description: Extension component for **Kot**. Built with <3 & Rush.
 version: '1.0'
 
-build:
-  release:
-    optimize: true
+android:
+  compile_sdk: 31
+  min_sdk: 7
 ${enableKt ? _getKtField() : ''}
-  desugar:
-    enable: false
-    desugar_deps: false
+# desugar:
+#  src_files: false
+#  deps: false
 
-assets:
-  icon: icon.png  # This can be a URL or a local image in 'assets' folder.
-  # other: [ 'asset01', 'asset02' ]
+# deps:
+#   - implement: 'example.jar'
+#   - implement: 'com.example:foo-bar:1.2.3'
 ''';
 }
 
 String _getKtField() {
   return '''
 
-  kotlin:
-    enable: true
+kotlin:
+  enable: true
+  version: 'latest-stable'
 ''';
 }

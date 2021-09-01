@@ -6,7 +6,7 @@ import 'package:rush_cli/commands/build/build.dart';
 import 'package:rush_cli/commands/create/create.dart';
 import 'package:rush_cli/commands/migrate/migrate.dart';
 import 'package:rush_cli/commands/upgrade/upgrade.dart';
-import 'package:rush_cli/helpers/dir_utils.dart';
+import 'package:rush_cli/utils/dir_utils.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';

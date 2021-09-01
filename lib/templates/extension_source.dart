@@ -2,12 +2,18 @@ String getExtensionTempJava(String name, String org) {
   return '''
 package $org;
 
+import com.google.appinventor.components.annotations.Meta;
 import com.google.appinventor.components.annotations.SimpleFunction;
-import com.google.appinventor.components.runtime.AndroidNonvisibleComponent;
+import com.google.appinventor.components.runtime.util.YailList;
 import com.google.appinventor.components.runtime.ComponentContainer;
 import com.google.appinventor.components.runtime.errors.YailRuntimeError;
-import com.google.appinventor.components.runtime.util.YailList;
+import com.google.appinventor.components.runtime.AndroidNonvisibleComponent;
 
+@Meta(
+    name = "$name",
+    description = "Extension component for $name. Built with <3 and Rush.",
+    icon = "icon.png"
+)
 public class $name extends AndroidNonvisibleComponent {
 
   public $name(ComponentContainer container) {
@@ -36,19 +42,28 @@ String getExtensionTempKt(String name, String org) {
   return '''
 package $org
 
+import com.google.appinventor.components.annotations.Meta
 import com.google.appinventor.components.annotations.SimpleFunction
-import com.google.appinventor.components.runtime.AndroidNonvisibleComponent
-import com.google.appinventor.components.runtime.ComponentContainer
 import com.google.appinventor.components.runtime.util.YailList
+import com.google.appinventor.components.runtime.ComponentContainer
+import com.google.appinventor.components.runtime.errors.YailRuntimeError
+import com.google.appinventor.components.runtime.AndroidNonvisibleComponent
 
-class $name(container: ComponentContainer) : AndroidNonvisibleComponent(container.`\$form`()) {
+@Meta(
+    name = "$name",
+    description = "Extension component for $name. Built with <3 and Rush.",
+    icon = "icon.png"
+)
+class $name(
+    private val container: ComponentContainer
+) : AndroidNonvisibleComponent(container.`\$form`()) {
 
-  @SimpleFunction(description = "Returns the sum of the given list of integers.")
-  fun SumAll(integers: YailList): Int {
-    return integers.sumBy {
-      it.toString().toIntOrNull() ?: 0
+    @SimpleFunction(description = "Returns the sum of the given list of integers.")
+    fun SumAll(integers: YailList): Int {
+        return integers.sumBy {
+            it.toString().toIntOrNull() ?: 0
+        }
     }
-  }
 }
 ''';
 }

@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/utils/build_utils.dart';
 import 'package:rush_cli/commands/build/models/rush_lock/rush_lock.dart';
 import 'package:rush_cli/commands/build/models/rush_yaml/rush_yaml.dart';
+import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
@@ -15,100 +16,88 @@ class Generator {
   Generator(this._fs, this._rushYaml);
 
   /// Generates required extension files.
-  Future<void> generate(String org, BuildStep step, RushLock? rushLock) async {
+  Future<void> generate(BuildStep step, RushLock? rushLock) async {
     await Future.wait([
-      _generateInfoFiles(org),
-      _copyAssets(org, step),
-      _copyLicense(org),
-      _copyRequiredClasses(org, step, rushLock),
+      _generateInfoFiles(),
+      _copyAssets(step),
+      _copyLicense(),
+      _copyRequiredClasses(step, rushLock),
     ]);
   }
 
   /// Generates the components info, build, and the properties file.
-  Future<void> _generateInfoFiles(String org) async {
-    final rawDirX =
-        Directory(p.join(_fs.workspacesDir, org, 'raw', 'x', org));
-    await rawDirX.create(recursive: true);
-
-    final filesDirPath = p.join(_fs.workspacesDir, org, 'files');
+  Future<void> _generateInfoFiles() async {
+    final filesDirPath = p.join(_fs.buildDir, 'files');
+    final rawDir = Directory(p.join(_fs.buildDir, 'raw'));
+    await rawDir.create(recursive: true);
 
     // Copy the components.json file to the raw dir.
-    final simpleCompJson = File(p.join(filesDirPath, 'components.json'));
-    await simpleCompJson.copy(p.join(rawDirX.path, 'components.json'));
+    File(p.join(filesDirPath, 'components.json'))
+        .copy(p.join(rawDir.path, 'components.json'));
 
     // Copy the component_build_infos.json file to the raw dir.
-    final buildInfoJson =
-        File(p.join(filesDirPath, 'component_build_infos.json'));
-
-    final rawFilesDir = Directory(p.join(rawDirX.path, 'files'));
+    final rawFilesDir = Directory(p.join(rawDir.path, 'files'));
     await rawFilesDir.create(recursive: true);
-
-    await buildInfoJson
+    await File(p.join(filesDirPath, 'component_build_infos.json'))
         .copy(p.join(rawFilesDir.path, 'component_build_infos.json'));
 
     // Write the extension.properties file
-    await File(p.join(rawDirX.path, 'extension.properties')).writeAsString('''
+    await File(p.join(rawDir.path, 'extension.properties')).writeAsString('''
 type=external
 rush-version=$rushVersion
 ''');
   }
 
   /// Copies extension's assets to the raw directory.
-  Future<void> _copyAssets(String org, BuildStep step) async {
-    final assets = _rushYaml.assets.other ?? [];
+  Future<void> _copyAssets(BuildStep step) async {
+    final assets = _rushYaml.assets ?? [];
 
     if (assets.isNotEmpty) {
       final assetsDir = p.join(_fs.cwd, 'assets');
-      final assetsDestDirX = Directory(
-          p.join(_fs.workspacesDir, org, 'raw', 'x', org, 'assets'));
-      await assetsDestDirX.create(recursive: true);
+      final assetsDestDir = Directory(p.join(_fs.buildDir, 'raw', 'assets'));
+      await assetsDestDir.create(recursive: true);
 
       for (final el in assets) {
         final asset = File(p.join(assetsDir, el));
 
-        if (asset.existsSync()) {
-          await asset.copy(p.join(assetsDestDirX.path, el));
+        if (await asset.exists()) {
+          await asset.copy(p.join(assetsDestDir.path, el));
         } else {
-          step.log(LogType.warn, 'Unable to find asset "${p.basename(el)}"; skipped.');
+          step.log(LogType.warn,
+              'Unable to find asset "${p.basename(el)}"; skipped.');
         }
       }
     }
 
-    // Pattern to match URL
-    final urlPattern = RegExp(
-        r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_\+.~#?&\/\/=]*)',
-        dotAll: true);
+    // If the icons are not URLs, the annotation processor copies them to the
+    // files/aiwebres dir. Check if that dir exists, if it does, copy the icon
+    // files from there.
+    final aiwebres = Directory(p.join(_fs.buildDir, 'files', 'aiwebres'));
+    if (await aiwebres.exists()) {
+      final dest = Directory(p.join(_fs.buildDir, 'raw', 'aiwebres'));
+      await dest.create(recursive: true);
 
-    final iconName = _rushYaml.assets.icon;
-
-    if (!urlPattern.hasMatch(iconName) && iconName != '') {
-      final icon = File(p.join(_fs.cwd, 'assets', iconName));
-      final iconDestDir = Directory(
-          p.join(_fs.workspacesDir, org, 'raw', 'x', org, 'aiwebres'));
-
-      await iconDestDir.create(recursive: true);
-      await icon.copy(p.join(iconDestDir.path, iconName));
+      CmdUtils.copyDir(aiwebres, dest);
+      await aiwebres.delete(recursive: true);
     }
   }
 
   /// Unjars extension dependencies into the classes dir.
-  Future<void> _copyRequiredClasses(
-      String org, BuildStep step, RushLock? rushLock) async {
-    final implDeps =
-        BuildUtils.getDepJarPaths(_fs.cwd, _rushYaml, DepScope.implement, rushLock);
+  Future<void> _copyRequiredClasses(BuildStep step, RushLock? rushLock) async {
+    final implDeps = BuildUtils.getDepJarPaths(
+        _fs.cwd, _rushYaml, DepScope.implement, rushLock);
 
-    final artDir = Directory(p.join(_fs.workspacesDir, org, 'art'))
+    final artDir = Directory(p.join(_fs.buildDir, 'art'))
       ..createSync(recursive: true);
 
     if (implDeps.isNotEmpty) {
-      final desugarStore =
-          p.join(_fs.workspacesDir, org, 'files', 'desugar');
+      final desugarStore = p.join(_fs.buildDir, 'files', 'desugar');
       final isArtDirEmpty = artDir.listSync().isEmpty;
 
       for (final el in implDeps) {
         final File dep;
 
-        if (_rushYaml.build?.desugar?.desugar_deps ?? false) {
+        if (_rushYaml.desugar?.deps ?? false) {
           dep = File(p.join(desugarStore, el));
         } else {
           dep = File(p.join(_fs.cwd, 'deps', el));
@@ -132,7 +121,7 @@ rush-version=$rushVersion
       }
     }
 
-    final kotlinEnabled = _rushYaml.build?.kotlin?.enable ?? false;
+    final kotlinEnabled = _rushYaml.kotlin?.enable ?? false;
     // If Kotlin is enabled, unjar Kotlin std. lib as well. This step won't be
     //needed once MIT merges the Kotlin support PR [#2323].
     if (kotlinEnabled) {
@@ -141,8 +130,7 @@ rush-version=$rushVersion
       BuildUtils.unzip(ktStdLib.path, artDir.path);
     }
 
-    final classesDir =
-        Directory(p.join(_fs.workspacesDir, org, 'classes'));
+    final classesDir = Directory(p.join(_fs.buildDir, 'classes'));
 
     classesDir.listSync(recursive: true).whereType<File>().forEach((el) {
       final newPath =
@@ -153,7 +141,7 @@ rush-version=$rushVersion
   }
 
   /// Copies LICENSE file if there's any.
-  Future<void> _copyLicense(String org) async {
+  Future<void> _copyLicense() async {
     // Pattern to match URL
     final urlPattern = RegExp(
         r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_\+.~#?&\/\/=]*)',
@@ -166,8 +154,7 @@ rush-version=$rushVersion
       return;
     }
 
-    final dest = Directory(
-        p.join(_fs.workspacesDir, org, 'raw', 'x', org, 'aiwebres'));
+    final dest = Directory(p.join(_fs.buildDir, 'raw', 'aiwebres'));
     await dest.create(recursive: true);
 
     if (license.existsSync()) {

@@ -5,8 +5,8 @@ import 'package:rush_cli/commands/build/utils/build_utils.dart';
 import 'package:rush_cli/commands/build/utils/compute.dart';
 import 'package:rush_cli/commands/build/models/rush_lock/rush_lock.dart';
 import 'package:rush_cli/commands/build/models/rush_yaml/rush_yaml.dart';
-import 'package:rush_cli/helpers/cmd_utils.dart';
-import 'package:rush_cli/helpers/process_streamer.dart';
+import 'package:rush_cli/utils/cmd_utils.dart';
+import 'package:rush_cli/utils/process_streamer.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
@@ -15,7 +15,6 @@ import 'package:rush_prompt/rush_prompt.dart';
 /// in an [Isolate], we can only pass one arg to it.
 class _DesugarArgs {
   final FileService fs;
-  final String org;
   final String input;
   final String output;
   final RushYaml rushYaml;
@@ -25,7 +24,6 @@ class _DesugarArgs {
     required this.fs,
     required this.input,
     required this.output,
-    required this.org,
     required this.rushYaml,
     required this.rushLock,
   });
@@ -39,13 +37,11 @@ class Desugarer {
 
   /// Desugars the extension files and dependencies making them compatible with
   /// Android API level < 26.
-  Future<void> run(String org, BuildStep step, RushLock? rushLock) async {
-    final shouldDesugarDeps = _rushYaml.build?.desugar?.desugar_deps ?? false;
+  Future<void> run(BuildStep step, RushLock? rushLock) async {
+    final shouldDesugarDeps = _rushYaml.desugar?.deps ?? false;
     final implDeps = shouldDesugarDeps
-        ? _depsToBeDesugared(
-            org,
-            BuildUtils.getDepJarPaths(
-                fs.cwd, _rushYaml, DepScope.implement, rushLock))
+        ? _depsToBeDesugared(BuildUtils.getDepJarPaths(
+            fs.cwd, _rushYaml, DepScope.implement, rushLock))
         : <String>[];
 
     // Here, all the desugar process' futures are stored for them to get executed
@@ -54,9 +50,8 @@ class Desugarer {
 
     // This is where all previously desugared deps of the extension are stored.
     // They are reused between builds.
-    final desugarStore =
-        Directory(p.join(fs.workspacesDir, org, 'files', 'desugar'))
-          ..createSync(recursive: true);
+    final desugarStore = Directory(p.join(fs.buildDir, 'files', 'desugar'))
+      ..createSync(recursive: true);
 
     for (final el in implDeps) {
       final output = p.join(desugarStore.path, p.basename(el));
@@ -64,7 +59,6 @@ class Desugarer {
         fs: fs,
         input: el,
         output: output,
-        org: org,
         rushYaml: _rushYaml,
         rushLock: rushLock,
       );
@@ -72,14 +66,13 @@ class Desugarer {
     }
 
     // Desugar extension classes
-    final classesDir = p.join(fs.workspacesDir, org, 'classes');
+    final classesDir = p.join(fs.buildDir, 'classes');
     desugarFutures.add(compute(
         _desugar,
         _DesugarArgs(
           fs: fs,
           input: classesDir,
           output: classesDir,
-          org: org,
           rushYaml: _rushYaml,
           rushLock: rushLock,
         )));
@@ -99,9 +92,9 @@ class Desugarer {
   }
 
   /// Returns a list of extension dependencies that are to be desugared.
-  List<String> _depsToBeDesugared(String org, List<String> deps) {
+  List<String> _depsToBeDesugared(List<String> deps) {
     final res = <String>[];
-    final store = Directory(p.join(fs.workspacesDir, org, 'files', 'desugar'))
+    final store = Directory(p.join(fs.buildDir, 'files', 'desugar'))
       ..createSync(recursive: true);
 
     for (final el in deps) {
@@ -150,8 +143,8 @@ class Desugarer {
         contents.addAll(['--classpath_entry', '\'$el\'']);
       });
 
-      final file = File(p.join(args.fs.workspacesDir, args.org, 'files',
-          'desugar', p.basenameWithoutExtension(args.input) + '.rsh'));
+      final file = File(p.join(args.fs.buildDir, 'files', 'desugar',
+          p.basenameWithoutExtension(args.input) + '.rsh'));
 
       file.writeAsStringSync(contents.join('\n'));
 

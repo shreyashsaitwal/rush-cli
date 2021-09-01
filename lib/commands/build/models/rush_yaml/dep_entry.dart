@@ -16,21 +16,21 @@ extension DepScopeExt on DepScope {
   checked: true,
   disallowUnrecognizedKeys: true,
 )
-class Deps {
+class DepEntry {
   @JsonKey(name: 'compile_only')
   final String? compileOnly;
   final String? implement;
   final List<String>? exclude;
 
-  Deps({this.implement, this.compileOnly, this.exclude}) {
+  DepEntry({this.implement, this.compileOnly, this.exclude}) {
     if (implement != null && compileOnly != null) {
       throw Exception('Can\'t implement and compile at the same time');
     }
   }
 
-  factory Deps.fromJson(Map<String, dynamic> json) => _$DepsFromJson(json);
+  factory DepEntry.fromJson(Map<String, dynamic> json) => _$DepEntryFromJson(json);
 
-  Map<String, dynamic> toJson() => _$DepsToJson(this);
+  Map<String, dynamic> toJson() => _$DepEntryToJson(this);
 
   String value() {
     if (implement != null) {

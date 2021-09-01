@@ -1,9 +1,10 @@
 import 'package:json_annotation/json_annotation.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-part 'assets.dart';
-part 'build.dart';
-part 'deps.dart';
+part 'android.dart';
+part 'dep_entry.dart';
+part 'desugar.dart';
+part 'kotlin.dart';
 
 part 'rush_yaml.g.dart';
 
@@ -14,49 +15,39 @@ part 'rush_yaml.g.dart';
 )
 class RushYaml {
   @JsonKey(required: true)
-  String name;
+  final String version;
 
-  @JsonKey(required: true)
-  String description;
+  @JsonKey(defaultValue: '')
+  final String? homepage;
 
-  @JsonKey(required: true)
-  Assets assets;
+  @JsonKey(defaultValue: '')
+  final String? license;
 
-  @JsonKey(required: true)
-  String version;
+  @JsonKey(defaultValue: [])
+  final List<String>? assets;
 
-  @JsonKey(includeIfNull: false)
-  Build? build;
+  @JsonKey(defaultValue: [])
+  final List<String>? authors;
 
-  @JsonKey(includeIfNull: false)
-  List<Deps>? deps;
+  @JsonKey(defaultValue: [])
+  final List<DepEntry>? deps;
 
-  @JsonKey(includeIfNull: false)
-  List<String>? authors;
-
-  @JsonKey(includeIfNull: false)
-  String? license;
-
-  @JsonKey(includeIfNull: false, name: 'min_sdk')
-  int? minSdk;
-
-  @JsonKey(includeIfNull: false)
-  String? homepage;
+  final Android? android;
+  final Kotlin? kotlin;
+  final Desugar? desugar;
 
   RushYaml({
-    required this.name,
-    required this.description,
-    required this.assets,
     required this.version,
-    this.build,
+    this.homepage,
+    this.license,
+    this.assets,
     this.authors,
     this.deps,
-    this.license,
-    this.minSdk,
-    this.homepage,
+    this.android,
+    this.kotlin,
+    this.desugar,
   });
 
-  // Because `YamlMap` can't be casted to Map<String, dynamic>
   // ignore: strict_raw_type
   factory RushYaml.fromJson(Map json, BuildStep step) =>
       _$RushYamlFromJson(json);

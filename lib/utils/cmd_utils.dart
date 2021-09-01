@@ -4,12 +4,23 @@ import 'package:path/path.dart' as p;
 
 class CmdUtils {
   // Returns the package name in com.example form
-  static String getPackage(String extName, String srcDirPath) {
-    final mainSrcFile = Directory(srcDirPath)
-        .listSync(recursive: true)
-        .whereType<File>()
-        .singleWhere(
-            (file) => p.basenameWithoutExtension(file.path) == extName);
+  static String getPackage(String srcDirPath, {String? extName}) {
+    final mainSrcFile = () {
+      if (extName != null) {
+        return Directory(srcDirPath)
+            .listSync(recursive: true)
+            .whereType<File>()
+            .singleWhere(
+                (file) => p.basenameWithoutExtension(file.path) == extName);
+      } else {
+        return Directory(srcDirPath)
+            .listSync(recursive: true)
+            .whereType<File>()
+            .firstWhere((el) =>
+                p.extension(el.path) == '.java' ||
+                p.extension(el.path) == '.kt');
+      }
+    }();
 
     final path = p.relative(mainSrcFile.path, from: srcDirPath);
 
@@ -24,16 +35,16 @@ class CmdUtils {
 
   /// Copies the contents of [source] dir to the [dest] dir.
   static void copyDir(Directory source, Directory dest,
-      {List<FileSystemEntity>? ignore}) {
+      {List<String>? ignorePaths}) {
     var files = source.listSync();
 
     for (final entity in files) {
-      if (ignore != null && ignore.contains(entity)) {
+      if (ignorePaths != null && ignorePaths.contains(entity.path)) {
         continue;
       }
       if (entity is File) {
         entity.copySync(p.join(dest.path, p.basename(entity.path)));
-      } else if (entity is Directory) {
+      } else if (entity is Directory && entity.listSync().isNotEmpty) {
         var newDest =
             Directory(p.join(dest.path, entity.path.split(p.separator).last));
         newDest.createSync();

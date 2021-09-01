@@ -3,9 +3,9 @@ import 'dart:io' show File, Directory, exit;
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/helpers/casing.dart';
-import 'package:rush_cli/helpers/cmd_utils.dart';
-import 'package:rush_cli/helpers/process_streamer.dart';
+import 'package:rush_cli/utils/casing.dart';
+import 'package:rush_cli/utils/cmd_utils.dart';
+import 'package:rush_cli/utils/process_streamer.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
 import 'package:rush_cli/templates/intellij_files.dart';
@@ -46,7 +46,7 @@ class MigrateCommand extends Command<void> {
 
   @override
   Future<void> run() async {
-    final dir = Directory(_fs.workspacesDir)..createSync();
+    final dir = Directory(p.join(_fs.dataDir, 'workspaces'))..createSync();
     final outputDir = Directory(dir.path).createTempSync();
 
     final compStep = BuildStep('Introspecting the sources')..init();
@@ -102,7 +102,7 @@ class MigrateCommand extends Command<void> {
         .basenameWithoutExtension(genFiles['rushYml']!.first.path)
         .split('rush-')
         .last;
-    final org = CmdUtils.getPackage(extName, _fs.srcDir);
+    final org = CmdUtils.getPackage(_fs.srcDir, extName: extName);
 
     final projectDir =
         Directory(p.join(p.dirname(_fs.cwd), Casing.kebabCase(extName) + '-rush'))
@@ -140,9 +140,9 @@ class MigrateCommand extends Command<void> {
         Directory(p.joinAll([projectDirPath, 'src', ...package.split('.')]))
           ..createSync(recursive: true);
 
-    CmdUtils.copyDir(baseDir, dest, ignore: [
-      Directory(p.join(baseDir.path, 'assets')),
-      Directory(p.join(baseDir.path, 'aiwebres')),
+    CmdUtils.copyDir(baseDir, dest, ignorePaths: [
+      p.join(baseDir.path, 'assets'),
+      p.join(baseDir.path, 'aiwebres'),
     ]);
 
     step.log(LogType.info, 'Copied source files');

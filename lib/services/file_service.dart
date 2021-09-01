@@ -7,7 +7,7 @@ class FileService {
   FileService(this.cwd, this.dataDir);
 
   String get srcDir => p.join(cwd, 'src');
-  String get workspacesDir => p.join(dataDir, 'workspaces');
+  String get buildDir => p.join(cwd, '.rush', 'build');
   String get toolsDir => p.join(dataDir, 'tools');
   String get devDepsDir => p.join(dataDir, 'dev-deps');
 }

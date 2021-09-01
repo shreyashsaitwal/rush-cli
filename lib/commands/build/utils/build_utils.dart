@@ -8,27 +8,12 @@ import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
 import 'package:rush_cli/commands/build/models/rush_lock/rush_lock.dart';
 import 'package:rush_cli/commands/build/models/rush_yaml/rush_yaml.dart';
-import 'package:rush_cli/helpers/cmd_utils.dart';
+import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/templates/intellij_files.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 class BuildUtils {
-  /// Cleans workspace dir for the given [org].
-  static void cleanWorkspaceDir(String dataDir, String org) {
-    final dir = Directory(p.join(dataDir, 'workspaces', org));
-
-    if (dir.existsSync()) {
-      try {
-        dir.deleteSync(recursive: true);
-      } catch (e) {
-        Logger.log(LogType.erro,
-            'Something went wrong while invalidating build caches.\n${e.toString()}');
-        exit(1);
-      }
-    }
-  }
-
   /// Gets time difference between the given two `DateTime`s.
   static String getTimeDifference(DateTime timeOne, DateTime timeTwo) {
     final diff = timeTwo.difference(timeOne).inMilliseconds;
@@ -52,17 +37,8 @@ class BuildUtils {
   }
 
   /// Returns `true` if the current extension needs to be optimized.
-  static bool needsOptimization(
-      bool isRelease, ArgResults args, RushYaml yaml) {
-    if (args['no-optimize'] as bool) {
-      return false;
-    }
-
+  static bool needsOptimization(ArgResults args) {
     if (args['optimize'] as bool) {
-      return true;
-    }
-
-    if (isRelease && (yaml.build?.release?.optimize ?? false)) {
       return true;
     }
 
@@ -120,7 +96,8 @@ class BuildUtils {
   /// to point to the correct location of dev deps.
   static void updateDevDepsXml(String projectRoot, String dataDir) {
     final devDepsXmlFile = () {
-      final file = File(p.join(projectRoot, '.idea', 'libraries', 'dev-deps.xml'));
+      final file =
+          File(p.join(projectRoot, '.idea', 'libraries', 'dev-deps.xml'));
       if (file.existsSync()) {
         return file;
       } else {
@@ -174,7 +151,7 @@ class BuildUtils {
       ...getDepJarPaths(fs.cwd, rushYaml, DepScope.compileOnly, rushLock)
     ];
 
-    final devDepsDir = Directory(p.join(fs.cwd, 'dev-deps'));
+    final devDepsDir = Directory(p.join(fs.dataDir, 'dev-deps'));
     for (final el in devDepsDir.listSync(recursive: true)) {
       if (el is File) {
         depJars.add(el.path);

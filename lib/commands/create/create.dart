@@ -2,11 +2,9 @@ import 'dart:io' show Directory, File, exit;
 
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
-import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/commands/build/hive_adapters/data_box.dart';
-import 'package:rush_cli/helpers/casing.dart';
-import 'package:rush_cli/helpers/cmd_utils.dart';
+import 'package:rush_cli/utils/casing.dart';
+import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/templates/android_manifest.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
@@ -149,18 +147,6 @@ class CreateCommand extends Command<void> {
     // Copy icon
     File(p.join(_fs.toolsDir, 'other', 'icon-rush.png'))
         .copySync(p.join(projectDir, 'assets', 'icon.png'));
-
-    Hive
-      ..init(p.join(projectDir, '.rush'))
-      ..registerAdapter(DataBoxAdapter());
-    final box = await Hive.openBox<DataBox>('data');
-    await box.put(
-        'data',
-        DataBox(
-          name: pascalCasedName,
-          org: orgName,
-          version: 1,
-        ));
 
     Console()
       ..setForegroundColor(ConsoleColor.green)

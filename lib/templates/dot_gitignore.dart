@@ -1,6 +1,6 @@
 String getDotGitignore() {
   return '''
-# Output directory
-out
+/out/
+/.rush/
 ''';
 }

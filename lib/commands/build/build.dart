@@ -10,14 +10,12 @@ import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/utils/build_utils.dart';
 import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
-import 'package:rush_cli/commands/build/hive_adapters/data_box.dart';
 import 'package:rush_cli/commands/build/models/rush_lock/rush_lock.dart';
 import 'package:rush_cli/commands/build/models/rush_yaml/rush_yaml.dart';
 import 'package:rush_cli/commands/build/tools/compiler.dart';
 import 'package:rush_cli/commands/build/tools/desugarer.dart';
 import 'package:rush_cli/commands/build/tools/executor.dart';
 import 'package:rush_cli/commands/build/tools/generator.dart';
-import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
@@ -26,7 +24,6 @@ class BuildCommand extends Command<void> {
 
   late final DateTime _startTime;
   late final RushYaml _rushYaml;
-  late final Box<DataBox> _dataBox;
   late final Box<BuildBox> _buildBox;
 
   BuildCommand(this._fs) {
@@ -124,8 +121,7 @@ class BuildCommand extends Command<void> {
 
     Hive
       ..init(p.join(_fs.cwd, '.rush'))
-      ..registerAdapter(BuildBoxAdapter())
-      ..registerAdapter(DataBoxAdapter());
+      ..registerAdapter(BuildBoxAdapter());
 
     _buildBox = await Hive.openBox<BuildBox>('build');
     if (_buildBox.isEmpty || _buildBox.getAt(0) == null) {
@@ -141,27 +137,12 @@ class BuildCommand extends Command<void> {
       );
     }
 
-    _dataBox = await Hive.openBox<DataBox>('data');
-    if (_dataBox.isEmpty || _dataBox.get(0) == null) {
-      _dataBox.put(
-        'data',
-        DataBox(
-            name: _rushYaml.name,
-            org: CmdUtils.getPackage(_rushYaml.name, p.join(_fs.cwd, 'src')),
-            version: 1),
-      );
-    }
-
-    // Increment version number if this is a production build.
-    final isRelease = argResults!['release'] as bool;
-    if (isRelease) {
-      final val = _dataBox.getAt(0)!;
-      _dataBox.updateVersion(val.version + 1);
-      BuildUtils.cleanWorkspaceDir(_fs.dataDir, val.org);
-    }
-
-    final optimize =
-        BuildUtils.needsOptimization(isRelease, argResults!, _rushYaml);
+    final optimize = () {
+      if (argResults!['optimize'] as bool) {
+        return true;
+      }
+      return false;
+    }();
 
     final rushLock = await _resolveRemoteDeps();
     await _compile(optimize, rushLock);
@@ -233,7 +214,7 @@ class BuildCommand extends Command<void> {
         !lockFile.existsSync() ||
         lockFile.lastModifiedSync().isAfter(boxVal.lastResolution)) {
       try {
-        await Executor(_fs).execResolver();
+        await Executor.execResolver(_fs);
       } catch (e) {
         step.finishNotOk();
         BuildUtils.printFailMsg(_startTime);
@@ -264,7 +245,7 @@ class BuildCommand extends Command<void> {
     final compileStep = BuildStep('Compiling sources')..init();
 
     if (rushLock != null) {
-      _mergeManifests(rushLock, compileStep, _rushYaml.minSdk ?? 7);
+      _mergeManifests(rushLock, compileStep, _rushYaml.android?.minSdk ?? 7);
     }
 
     final srcFiles =
@@ -281,8 +262,8 @@ class BuildCommand extends Command<void> {
     compileStep.log(
         LogType.info, 'Picked $count source file' + (count > 1 ? 's' : ''));
 
-    final compiler = Compiler(_fs, _rushYaml, _dataBox, _buildBox);
-    final isKtEnabled = _rushYaml.build?.kotlin?.enable ?? false;
+    final compiler = Compiler(_fs, _rushYaml, _buildBox);
+    final isKtEnabled = _rushYaml.kotlin?.enable ?? false;
 
     try {
       if (ktFiles.isNotEmpty) {
@@ -304,10 +285,7 @@ class BuildCommand extends Command<void> {
       BuildUtils.printFailMsg(_startTime);
     }
     compileStep.finishOk();
-
-    final org = _dataBox.getAt(0)!.org;
-    final deJet = argResults!['support-lib'] as bool;
-    await _process(org, optimize, deJet, rushLock);
+    await _process(optimize, rushLock);
   }
 
   Future<void> _mergeManifests(
@@ -341,8 +319,7 @@ class BuildCommand extends Command<void> {
     });
 
     final mainManifest = File(p.join(_fs.srcDir, 'AndroidManifest.xml'));
-    final output = File(p.join(_fs.workspacesDir, _dataBox.getAt(0)!.org,
-        'files', 'MergedManifest.xml'));
+    final output = File(p.join(_fs.buildDir, 'files', 'MergedManifest.xml'));
 
     final conditions = !output.existsSync() ||
         mainManifest.lastModifiedSync().isAfter(lastMerge) ||
@@ -351,8 +328,8 @@ class BuildCommand extends Command<void> {
       step.log(LogType.info, 'Merging Android manifests');
 
       try {
-        await Executor(_fs).execManifMerger(
-            minSdk, mainManifest.path, depManifests, output.path);
+        await Executor.execManifMerger(
+            _fs, minSdk, mainManifest.path, depManifests);
       } catch (e) {
         step.finishNotOk();
         BuildUtils.printFailMsg(_startTime);
@@ -364,8 +341,7 @@ class BuildCommand extends Command<void> {
 
   /// Further process the extension by generating extension files, adding
   /// libraries and jaring the extension.
-  Future<void> _process(
-      String org, bool optimize, bool deJet, RushLock? rushLock) async {
+  Future<void> _process(bool optimize, RushLock? rushLock) async {
     final BuildStep processStep;
     final rulesPro = File(p.join(_fs.srcDir, 'proguard-rules.pro'));
 
@@ -376,12 +352,12 @@ class BuildCommand extends Command<void> {
       optimize = false;
     }
 
-    if (_rushYaml.build?.desugar?.enable ?? false) {
+    if (_rushYaml.desugar?.srcFiles ?? false) {
       processStep.log(LogType.info, 'Desugaring Java 8 language features');
       final desugarer = Desugarer(_fs, _rushYaml);
       try {
         _buildBox.close();
-        await desugarer.run(org, processStep, rushLock);
+        await desugarer.run(processStep, rushLock);
       } catch (e) {
         processStep.finishNotOk();
         BuildUtils.printFailMsg(_startTime);
@@ -396,17 +372,16 @@ class BuildCommand extends Command<void> {
           LogType.info, 'Linking extension assets and dependencies');
     }
 
-    await Generator(_fs, _rushYaml).generate(org, processStep, rushLock);
+    await Generator(_fs, _rushYaml).generate(processStep, rushLock);
 
     // Create a JAR containing the contents of extension's dependencies and
     // compiled source files
-    final artJar = await _generateArtJar(org, processStep, optimize, rushLock);
+    final artJar = await _generateArtJar(processStep, optimize, rushLock);
 
     // Copy ART to raw dir
     if (artJar.existsSync()) {
-      final destDir =
-          Directory(p.join(_fs.workspacesDir, org, 'raw', 'x', org, 'files'))
-            ..createSync(recursive: true);
+      final destDir = Directory(p.join(_fs.buildDir, 'raw', 'files'))
+        ..createSync(recursive: true);
 
       artJar.copySync(p.join(destDir.path, 'AndroidRuntime.jar'));
     } else {
@@ -417,74 +392,46 @@ class BuildCommand extends Command<void> {
       BuildUtils.printFailMsg(_startTime);
     }
 
-    var needDeJet = deJet;
-    if (deJet) {
-      processStep.log(LogType.info, 'De-jetifing the extension');
-
-      try {
-        needDeJet = await Executor(_fs).execDeJetifier(org, processStep);
-      } catch (e) {
-        processStep.finishNotOk();
-        BuildUtils.printFailMsg(_startTime);
-      }
-
-      if (!needDeJet && deJet) {
-        // Delete the raw/sup directory so that support version of the extension
-        // isn't generated.
-        Directory(p.join(_fs.workspacesDir, org, 'raw', 'sup'))
-            .deleteSync(recursive: true);
-
-        processStep.log(LogType.warn,
-            'No references to AndroidX packages were found. You don\'t need to pass the `-s` flag for now.');
-      }
-    }
-
     processStep.log(LogType.info, 'Generating DEX bytecode');
     try {
-      await _dex(org, needDeJet, processStep);
+      await Executor.execD8(_fs, processStep);
     } catch (e) {
       processStep.finishNotOk();
       BuildUtils.printFailMsg(_startTime);
     }
 
     processStep.finishOk();
-    _assemble(org);
+    _assemble();
   }
 
   /// JAR the compiled class files and third-party dependencies into a single JAR.
-  Future<File> _generateArtJar(String org, BuildStep processStep, bool optimize,
-      RushLock? rushLock) async {
-    final artDir = Directory(p.join(_fs.workspacesDir, org, 'art'));
+  Future<File> _generateArtJar(
+      BuildStep processStep, bool optimize, RushLock? rushLock) async {
+    final artDir = Directory(p.join(_fs.buildDir, 'art'));
 
     final artJar =
         File(p.join(artDir.path, 'ART.jar')); // ART == Android Runtime
 
     final zipEncoder = ZipFileEncoder()..open(artJar.path);
 
-    artDir.listSync(recursive: true)
-      ..whereType<File>()
-          .where((el) => p.extension(el.path) == '.kotlin_module')
-          .forEach((el) {
-        el.deleteSync();
-      })
-      ..whereType<Directory>()
-          .where((el) => el.path.endsWith(p.join('META-INF', 'versions')))
-          .forEach((el) {
-        el.deleteSync(recursive: true);
-      });
+    final pathEndToIgnore = [
+      '.kotlin_module',
+      'META-INF/versions',
+      '.jar',
+    ];
 
-    for (final entity in artDir.listSync()) {
-      if (entity is File && p.extension(entity.path) == '.class') {
-        zipEncoder.addFile(entity);
-      } else if (entity is Directory) {
-        zipEncoder.addDirectory(entity);
+    for (final entity in artDir.listSync(recursive: true)) {
+      if (!pathEndToIgnore.any((el) => entity.path.endsWith(el)) &&
+          entity is File) {
+        final path = p.relative(entity.path, from: artDir.path);
+        zipEncoder.addFile(entity, path);
       }
     }
     zipEncoder.close();
 
     try {
       if (optimize) {
-        await _optimizeArt(artJar, org, processStep, rushLock);
+        await _optimizeArt(artJar, processStep, rushLock);
       }
     } catch (e) {
       processStep.finishNotOk();
@@ -494,57 +441,48 @@ class BuildCommand extends Command<void> {
     return artJar;
   }
 
-  Future<void> _optimizeArt(File artJar, String org, BuildStep processStep,
-      RushLock? rushLock) async {
-    final executor = Executor(_fs);
-
+  Future<void> _optimizeArt(
+      File artJar, BuildStep processStep, RushLock? rushLock) async {
     processStep.log(LogType.info, 'Optimizing the extension');
-    await executor.execProGuard(org, processStep, _rushYaml, rushLock);
+    await Executor.execProGuard(_fs, processStep, _rushYaml, rushLock);
 
     // Delete the old non-optimized JAR...
     artJar.deleteSync();
-
     // ...and rename the optimized JAR with old JAR's name
     File(p.join(p.dirname(artJar.path), 'ART.opt.jar'))
       ..copySync(artJar.path)
       ..deleteSync(recursive: true);
   }
 
-  /// Convert generated extension JAR file from previous step into DEX bytecode.
-  Future<void> _dex(String org, bool deJet, BuildStep processStep) async {
-    final executor = Executor(_fs);
-
-    if (deJet) {
-      await Future.wait([
-        executor.execD8(org, processStep, deJet: true),
-        executor.execD8(org, processStep),
-      ]);
-    } else {
-      await executor.execD8(org, processStep);
-    }
-  }
-
   /// Finalize the build.
-  void _assemble(String org) {
+  void _assemble() {
     final assembleStep = BuildStep('Finalizing the build')..init();
 
-    final rawDirX = Directory(p.join(_fs.workspacesDir, org, 'raw', 'x'));
-    final rawDirSup = Directory(p.join(_fs.workspacesDir, org, 'raw', 'sup'));
+    final org = () {
+      final componentsJsonFile =
+          File(p.join(_fs.buildDir, 'files', 'components.json'));
 
+      final json = jsonDecode(componentsJsonFile.readAsStringSync());
+      final type = json[0]['type'] as String;
+
+      final split = type.split('.')..removeLast();
+      return split.join('.');
+    }();
+
+    final rawDir = Directory(p.join(_fs.buildDir, 'raw'));
     final outputDir = Directory(p.join(_fs.cwd, 'out'))
       ..createSync(recursive: true);
 
     final zipEncoder = ZipFileEncoder();
+    zipEncoder.create(p.join(outputDir.path, '$org.aix'));
 
+    assembleStep.log(LogType.info, 'Packing $org.aix');
     try {
-      assembleStep.log(LogType.info, 'Packing $org.aix');
-      zipEncoder.zipDirectory(rawDirX,
-          filename: p.join(outputDir.path, '$org.aix'));
-
-      if (rawDirSup.existsSync()) {
-        assembleStep.log(LogType.info, 'Packing $org.support.aix');
-        zipEncoder.zipDirectory(rawDirSup,
-            filename: p.join(outputDir.path, '$org.support.aix'));
+      for (final file in rawDir.listSync(recursive: true)) {
+        if (file is File) {
+          final name = p.relative(file.path, from: rawDir.path);
+          zipEncoder.addFile(file, p.join(org, name));
+        }
       }
     } catch (e) {
       assembleStep
@@ -553,6 +491,8 @@ class BuildCommand extends Command<void> {
         ..log(LogType.erro, e.toString(), addPrefix: false)
         ..finishNotOk();
       exit(1);
+    } finally {
+      zipEncoder.close();
     }
 
     assembleStep.finishOk();
