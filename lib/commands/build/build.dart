@@ -309,7 +309,7 @@ class BuildCommand extends Command<void> {
       }
 
       // If the file still doesn't exist, then it means this AAR doesn't contain
-      // any manifest file. Strange.
+      // any manifest file. Strange, but anyways.
       if (file.existsSync()) {
         return file.lastModifiedSync().isAfter(lastMerge);
       } else {

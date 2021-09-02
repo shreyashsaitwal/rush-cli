@@ -24,6 +24,7 @@ class Executor {
         'com.android.tools.r8.D8',
         ...['--lib', p.join(fs.devDepsDir, 'android.jar')],
         '--release',
+        '--no-desugaring',
         '--output',
         p.join(rawDir.path, 'classes.jar'),
         p.join(rawDir.path, 'files', 'AndroidRuntime.jar'),
@@ -32,7 +33,7 @@ class Executor {
     }();
 
     final result = await ProcessStreamer.stream(args, fs.cwd);
-    if (result.result == Result.error) {
+    if (!result.success) {
       throw Exception();
     }
   }
@@ -64,7 +65,7 @@ class Executor {
     }();
 
     final result = await ProcessStreamer.stream(args, fs.cwd);
-    if (result.result == Result.error) {
+    if (!result.success) {
       throw Exception();
     }
   }
@@ -85,7 +86,7 @@ class Executor {
       fs.cwd,
     ], fs.cwd, printNormalOutput: true);
 
-    if (res.result == Result.error) {
+    if (!res.success) {
       throw Exception();
     }
   }
@@ -117,7 +118,7 @@ class Executor {
 
     final res =
         await ProcessStreamer.stream(args, fs.cwd, printNormalOutput: true);
-    if (res.result == Result.error) {
+    if (!res.success) {
       throw Exception();
     }
   }

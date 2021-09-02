@@ -37,7 +37,7 @@ class Compiler {
     final args = await _getJavacArgs(rushLock);
     final result = await _startProcess(
         _StartProcessArgs(projectRoot: _fs.cwd, cmdArgs: args));
-    if (result.result == Result.error) {
+    if (!result.success) {
       throw Exception();
     }
   }
@@ -79,7 +79,7 @@ class Compiler {
       store.incWarnings(result.store.getWarnings);
     }
 
-    if (results.any((el) => el.result == Result.error)) {
+    if (results.any((el) => !el.success)) {
       throw Exception();
     }
   }

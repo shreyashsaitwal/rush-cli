@@ -244,7 +244,7 @@ class MigrateCommand extends Command<void> {
     }();
 
     final result = await ProcessStreamer.stream(args, _fs.cwd);
-    if (result.result == Result.error) {
+    if (!result.success) {
       throw Exception();
     }
   }

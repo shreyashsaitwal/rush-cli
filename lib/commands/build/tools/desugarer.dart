@@ -86,7 +86,7 @@ class Desugarer {
     }
     BuildUtils.deletePreviouslyLoggedFromBuildBox();
 
-    if (results.any((el) => el.result == Result.error)) {
+    if (results.any((el) => !el.success)) {
       throw Exception();
     }
   }
@@ -165,7 +165,7 @@ class Desugarer {
         workingDirectory: Directory(p.dirname(argFile.path)),
         trackPreviouslyLogged: true);
 
-    if (result.result == Result.error) {
+    if (!result.success) {
       throw Exception();
     }
 
