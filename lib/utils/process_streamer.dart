@@ -46,6 +46,9 @@ class ProcessStreamer {
       await for (final chunk in process.stdout) {
         await _printChunkToTheConsole(chunk, cwd, step, trackPreviouslyLogged);
       }
+    } else {
+      // Drain the stdout stream otherwise it'd block the process till completion.
+      process.stdout.drain();
     }
 
     await for (final chunk in process.stderr) {

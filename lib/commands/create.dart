@@ -30,20 +30,20 @@ class CreateCommand extends Command<void> {
   @override
   void printUsage() {
     PrintArt();
-
     Console()
       ..setForegroundColor(ConsoleColor.cyan)
-      ..write(' create: ')
+      ..write(' create ')
       ..resetColorAttributes()
       ..writeLine(description)
       ..writeLine()
-      ..writeLine(' Usage: ')
+      ..write(' Usage: ')
       ..setForegroundColor(ConsoleColor.brightBlue)
-      ..write('   rush ')
+      ..write('rush ')
       ..setForegroundColor(ConsoleColor.cyan)
       ..write('create ')
-      ..resetColorAttributes()
-      ..writeLine('<extension_name>');
+      ..setForegroundColor(ConsoleColor.yellow)
+      ..writeLine('<extension_name>')
+      ..resetColorAttributes();
   }
 
   /// Creates a new extension project in the current directory.

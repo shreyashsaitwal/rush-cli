@@ -33,26 +33,6 @@ class CmdUtils {
     return org;
   }
 
-  /// Copies the contents of [source] dir to the [dest] dir.
-  static void copyDir(Directory source, Directory dest,
-      {List<String>? ignorePaths}) {
-    var files = source.listSync();
-
-    for (final entity in files) {
-      if (ignorePaths != null && ignorePaths.contains(entity.path)) {
-        continue;
-      }
-      if (entity is File) {
-        entity.copySync(p.join(dest.path, p.basename(entity.path)));
-      } else if (entity is Directory && entity.listSync().isNotEmpty) {
-        var newDest =
-            Directory(p.join(dest.path, entity.path.split(p.separator).last));
-        newDest.createSync();
-        copyDir(entity, newDest);
-      }
-    }
-  }
-
   /// Returns a ";" or ":" separated string of dependencies.
   static String classpathString(List<FileSystemEntity> locations,
       {List<String> exclude = const []}) {

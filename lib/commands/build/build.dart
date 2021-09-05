@@ -28,17 +28,6 @@ class BuildCommand extends Command<void> {
 
   BuildCommand(this._fs) {
     argParser
-      ..addFlag('release',
-          abbr: 'r',
-          defaultsTo: false,
-          help: 'Marks this build as a release build.')
-      ..addFlag('support-lib',
-          abbr: 's',
-          defaultsTo: false,
-          help:
-              'Generates two flavors of extensions, one that uses AndroidX libraries, '
-              'and other that uses support libraries. The later is supposed to '
-              'be used with builders that haven\'t yet migrated to AndroidX.')
       ..addFlag('optimize',
           abbr: 'o',
           defaultsTo: false,
@@ -62,36 +51,28 @@ class BuildCommand extends Command<void> {
 
     console
       ..setForegroundColor(ConsoleColor.cyan)
-      ..write(' build: ')
+      ..write(' build ')
+      ..resetColorAttributes()
       ..writeLine(description)
       ..writeLine()
-      ..writeLine(' Usage: ')
+      ..write(' Usage: ')
       ..setForegroundColor(ConsoleColor.brightBlue)
-      ..write('   rush ')
+      ..write('rush ')
       ..setForegroundColor(ConsoleColor.cyan)
-      ..writeLine('build')
-      ..resetColorAttributes()
-      ..writeLine();
+      ..write('build')
+      ..setForegroundColor(ConsoleColor.yellow)
+      ..writeLine(' <flags>')
+      ..resetColorAttributes();
 
     // Print available flags
     console
       ..writeLine(' Available flags:')
       ..setForegroundColor(ConsoleColor.yellow)
-      ..write('   -r, --release')
-      ..resetColorAttributes()
-      ..writeLine(' ' * 9 + 'Marks this build as a release build.')
-      ..setForegroundColor(ConsoleColor.yellow)
-      ..write('   -s, --support-lib')
-      ..resetColorAttributes()
-      ..writeLine(' ' * 5 +
-          'Generates two flavors of extensions, one that uses AndroidX libraries, '
-              'and other that uses support libraries.')
-      ..setForegroundColor(ConsoleColor.yellow)
       ..write('   -o, --[no-]optimize')
       ..resetColorAttributes()
-      ..writeLine(' ' * 3 +
+      ..writeLine('  ' +
           'Optimize, obfuscates and shrinks your code with a set of ProGuard '
-              'rules defined in proguard-rules.pro rules file.')
+              'rules defined in `proguard-rules.pro` rules file.')
       ..resetColorAttributes()
       ..writeLine();
   }
@@ -149,7 +130,7 @@ class BuildCommand extends Command<void> {
   }
 
   Future<void> _loadRushYaml(BuildStep valStep) async {
-    File yamlFile = () {
+    final yamlFile = () {
       final yml = File(p.join(_fs.cwd, 'rush.yml'));
 
       if (yml.existsSync()) {
@@ -191,7 +172,12 @@ class BuildCommand extends Command<void> {
   Future<RushLock?> _resolveRemoteDeps() async {
     final containsRemoteDeps =
         _rushYaml.deps?.any((el) => el.value().contains(':')) ?? false;
+    final lockFile = File(p.join(_fs.cwd, '.rush', 'rush.lock'));
+
     if (!containsRemoteDeps) {
+      if (lockFile.existsSync()) {
+        lockFile.deleteSync();
+      }
       return null;
     }
 
@@ -208,12 +194,13 @@ class BuildCommand extends Command<void> {
     final areDepsUpToDate = DeepCollectionEquality.unordered()
         .equals(lastResolvedDeps, currentRemoteDeps);
 
-    final lockFile = File(p.join(_fs.cwd, '.rush', 'rush.lock'));
-
     if (!areDepsUpToDate ||
         !lockFile.existsSync() ||
         lockFile.lastModifiedSync().isAfter(boxVal.lastResolution)) {
       try {
+        if (lockFile.existsSync()) {
+          lockFile.deleteSync();
+        }
         await Executor.execResolver(_fs);
       } catch (e) {
         step.finishNotOk();

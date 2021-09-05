@@ -4,8 +4,8 @@ import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/utils/build_utils.dart';
 import 'package:rush_cli/commands/build/models/rush_lock/rush_lock.dart';
 import 'package:rush_cli/commands/build/models/rush_yaml/rush_yaml.dart';
-import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_cli/services/file_service.dart';
+import 'package:rush_cli/utils/dir_utils.dart';
 import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
@@ -77,7 +77,7 @@ rush-version=$rushVersion
       final dest = Directory(p.join(_fs.buildDir, 'raw', 'aiwebres'));
       await dest.create(recursive: true);
 
-      CmdUtils.copyDir(aiwebres, dest);
+      DirUtils.copyDir(aiwebres, dest);
       await aiwebres.delete(recursive: true);
     }
   }

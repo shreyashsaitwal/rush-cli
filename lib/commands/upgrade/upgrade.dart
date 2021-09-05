@@ -42,15 +42,24 @@ class UpgradeCommand extends Command<void> {
     PrintArt();
     Console()
       ..setForegroundColor(ConsoleColor.cyan)
-      ..write('upgrade: ')
+      ..write(' upgrade ')
       ..resetColorAttributes()
       ..writeLine(description)
       ..writeLine()
-      ..writeLine(' Usage: ')
+      ..write(' Usage: ')
       ..setForegroundColor(ConsoleColor.brightBlue)
-      ..write('   rush ')
+      ..write('rush ')
       ..setForegroundColor(ConsoleColor.cyan)
-      ..write('upgrade ')
+      ..writeLine('upgrade')
+      ..resetColorAttributes()
+      ..writeLine()
+      ..writeLine(' Available flags:')
+      ..setForegroundColor(ConsoleColor.yellow)
+      ..write('   -f, --force')
+      ..resetColorAttributes()
+      ..writeLine('  ' +
+          'Forcefully upgrades Rush to the latest version. This downloads and '
+              'replaces even the unchanged files.')
       ..resetColorAttributes();
   }
 

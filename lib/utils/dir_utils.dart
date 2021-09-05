@@ -1,4 +1,4 @@
-import 'dart:io' show Directory, Platform, exit;
+import 'dart:io' show Directory, File, Platform, exit;
 
 import 'package:path/path.dart' as p;
 import 'package:rush_prompt/rush_prompt.dart';
@@ -30,5 +30,25 @@ class DirUtils {
       exit(1);
     }
     return dataDir.path;
+  }
+
+  /// Copies the contents of [source] dir to the [dest] dir.
+  static void copyDir(Directory source, Directory dest,
+      {List<String>? ignorePaths}) {
+    var files = source.listSync();
+
+    for (final entity in files) {
+      if (ignorePaths != null && ignorePaths.contains(entity.path)) {
+        continue;
+      }
+      if (entity is File) {
+        entity.copySync(p.join(dest.path, p.basename(entity.path)));
+      } else if (entity is Directory && entity.listSync().isNotEmpty) {
+        var newDest =
+            Directory(p.join(dest.path, entity.path.split(p.separator).last));
+        newDest.createSync();
+        copyDir(entity, newDest);
+      }
+    }
   }
 }

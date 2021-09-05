@@ -3,8 +3,9 @@ import 'dart:io' show Directory, exit;
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:rush_cli/commands/build/build.dart';
-import 'package:rush_cli/commands/create/create.dart';
-import 'package:rush_cli/commands/migrate/migrate.dart';
+import 'package:rush_cli/commands/clean.dart';
+import 'package:rush_cli/commands/create.dart';
+import 'package:rush_cli/commands/migrate.dart';
 import 'package:rush_cli/commands/upgrade/upgrade.dart';
 import 'package:rush_cli/utils/dir_utils.dart';
 import 'package:rush_cli/services/file_service.dart';
@@ -28,7 +29,8 @@ void main(List<String> args) {
     ..addCommand(CreateCommand(fs))
     ..addCommand(BuildCommand(fs))
     ..addCommand(MigrateCommand(fs))
-    ..addCommand(UpgradeCommand(fs.dataDir));
+    ..addCommand(UpgradeCommand(fs.dataDir))
+    ..addCommand(CleanCommand(fs));
 
   runner.run(args).catchError((Object err) {
     if (err is UsageException) {
@@ -53,7 +55,7 @@ void _printVersion() {
   exit(0);
 }
 
-class RushCommandRunner extends CommandRunner {
+class RushCommandRunner extends CommandRunner<void> {
   RushCommandRunner(String executableName, String description)
       : super(executableName, description);
 
@@ -87,29 +89,17 @@ class RushCommandRunner extends CommandRunner {
       ..resetColorAttributes()
       ..writeLine();
 
-    // Print available commands
-    console
-      ..writeLine(' Available commands:')
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..write('    build')
-      ..resetColorAttributes()
-      ..writeLine(
-          '  Identifies and builds the extension project in current working directory.')
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..write('   create')
-      ..resetColorAttributes()
-      ..writeLine(
-          '  Scaffolds a new extension project in current working directory.')
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..write('  migrate')
-      ..resetColorAttributes()
-      ..writeLine(
-          '  Introspects and migrates the extension-template project in CWD to Rush.')
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..write('  upgrade')
-      ..resetColorAttributes()
-      ..writeLine(
-          '  Upgrades Rush and all it\'s components to the latest available version.')
-      ..resetColorAttributes();
+    final cmdNamesSorted = commands.keys.toList()..sort();
+    final width = cmdNamesSorted.last.length;
+
+    console.writeLine(' Available commands:');
+    for (final command in commands.values) {
+      console
+        ..setForegroundColor(ConsoleColor.cyan)
+        ..write(command.name.padLeft(width))
+        ..resetColorAttributes()
+        ..write('  ')
+        ..writeLine(command.description);
+    }
   }
 }

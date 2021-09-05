@@ -5,6 +5,7 @@ import 'package:dart_console/dart_console.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/utils/casing.dart';
 import 'package:rush_cli/utils/cmd_utils.dart';
+import 'package:rush_cli/utils/dir_utils.dart';
 import 'package:rush_cli/utils/process_streamer.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
@@ -32,15 +33,17 @@ class MigrateCommand extends Command<void> {
 
     Console()
       ..setForegroundColor(ConsoleColor.cyan)
-      ..write(' migrate: ')
+      ..write(' migrate ')
       ..resetColorAttributes()
       ..writeLine(description)
       ..writeLine()
-      ..writeLine(' Usage: ')
+      ..write(' Usage: ')
       ..setForegroundColor(ConsoleColor.brightBlue)
-      ..write('   rush ')
+      ..write('rush ')
       ..setForegroundColor(ConsoleColor.cyan)
-      ..write('migrate ')
+      ..write('migrate')
+      ..setForegroundColor(ConsoleColor.yellow)
+      ..writeLine('<flags>')
       ..resetColorAttributes();
   }
 
@@ -140,7 +143,7 @@ class MigrateCommand extends Command<void> {
         Directory(p.joinAll([projectDirPath, 'src', ...package.split('.')]))
           ..createSync(recursive: true);
 
-    CmdUtils.copyDir(baseDir, dest, ignorePaths: [
+    DirUtils.copyDir(baseDir, dest, ignorePaths: [
       p.join(baseDir.path, 'assets'),
       p.join(baseDir.path, 'aiwebres'),
     ]);
@@ -158,12 +161,12 @@ class MigrateCommand extends Command<void> {
       ..createSync();
 
     if (assetsDir.existsSync() && assetsDir.listSync().isNotEmpty) {
-      CmdUtils.copyDir(assetsDir, assetsDest);
+      DirUtils.copyDir(assetsDir, assetsDest);
     }
 
     final aiwebres = Directory(p.join(baseDir.path, 'aiwebres'));
     if (aiwebres.existsSync() && aiwebres.listSync().isNotEmpty) {
-      CmdUtils.copyDir(aiwebres, assetsDest);
+      DirUtils.copyDir(aiwebres, assetsDest);
     } else {
       File(p.join(_fs.toolsDir, 'other', 'icon-rush.png'))
           .copySync(p.join(projectDirPath, 'assets', 'icon.png'));
@@ -178,7 +181,7 @@ class MigrateCommand extends Command<void> {
     final depsDest = Directory(p.join(projectDir, 'deps'))..createSync();
 
     if (deps.existsSync() && deps.listSync().isNotEmpty) {
-      CmdUtils.copyDir(deps, depsDest);
+      DirUtils.copyDir(deps, depsDest);
     } else {
       CmdUtils.writeFile(p.join(depsDest.path, '.placeholder'),
           'This directory stores your extension\'s dependencies.');
