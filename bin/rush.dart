@@ -13,10 +13,10 @@ import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 void main(List<String> args) {
-  final runner = RushCommandRunner(
+  final commandRunner = RushCommandRunner(
       'rush', 'A new and improved way of building App Inventor 2 extensions.');
 
-  runner.argParser.addFlag('version', abbr: 'v', negatable: false,
+  commandRunner.argParser.addFlag('version', abbr: 'v', negatable: false,
       callback: (val) {
     if (val) {
       _printVersion();
@@ -25,16 +25,16 @@ void main(List<String> args) {
 
   final fs = FileService(Directory.current.path, DirUtils.dataDir()!);
 
-  runner
+  commandRunner
     ..addCommand(CreateCommand(fs))
     ..addCommand(BuildCommand(fs))
     ..addCommand(MigrateCommand(fs))
     ..addCommand(UpgradeCommand(fs.dataDir))
     ..addCommand(CleanCommand(fs));
 
-  runner.run(args).catchError((Object err) {
+  commandRunner.run(args).catchError((Object err) {
     if (err is UsageException) {
-      runner.printUsage();
+      commandRunner.printUsage();
     } else {
       throw err;
     }
@@ -62,7 +62,6 @@ class RushCommandRunner extends CommandRunner<void> {
   @override
   void printUsage() {
     PrintArt();
-
     final console = Console();
     // Print description
     console..writeLine(' ' + description)..writeLine();
@@ -85,7 +84,7 @@ class RushCommandRunner extends CommandRunner<void> {
       ..setForegroundColor(ConsoleColor.yellow)
       ..write('   -h, --help')
       ..resetColorAttributes()
-      ..writeLine('     Prints usage information.')
+      ..writeLine('  Prints usage information.')
       ..resetColorAttributes()
       ..writeLine();
 
@@ -93,13 +92,13 @@ class RushCommandRunner extends CommandRunner<void> {
     final width = cmdNamesSorted.last.length;
 
     console.writeLine(' Available commands:');
-    for (final command in commands.values) {
+    for (final command in commands.values.toList(growable: true)
+      ..removeWhere((el) => el.name == 'help')) {
       console
         ..setForegroundColor(ConsoleColor.cyan)
-        ..write(command.name.padLeft(width))
+        ..write(' ' + command.name.padLeft(width))
         ..resetColorAttributes()
-        ..write('  ')
-        ..writeLine(command.description);
+        ..writeLine('  ' + command.description);
     }
   }
 }

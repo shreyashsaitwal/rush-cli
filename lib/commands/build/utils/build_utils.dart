@@ -112,8 +112,12 @@ class BuildUtils {
     }
   }
 
-  static List<String> getDepJarPaths(String projectRoot, RushYaml rushYaml,
-      DepScope scope, RushLock? rushLock) {
+  static List<String> getDepJarPaths(
+    String projectRoot,
+    RushYaml rushYaml,
+    DepScope scope,
+    RushLock? rushLock,
+  ) {
     final allEntries = rushYaml.deps?.where((el) => el.scope() == scope);
     final localJars = allEntries
             ?.where((el) => !el.value().contains(':'))
@@ -145,7 +149,10 @@ class BuildUtils {
   }
 
   static String classpathStringForDeps(
-      FileService fs, RushYaml rushYaml, RushLock? rushLock) {
+    FileService fs,
+    RushYaml rushYaml,
+    RushLock? rushLock,
+  ) {
     final depJars = [
       ...getDepJarPaths(fs.cwd, rushYaml, DepScope.implement, rushLock),
       ...getDepJarPaths(fs.cwd, rushYaml, DepScope.compileOnly, rushLock)

@@ -7,13 +7,12 @@ import 'package:rush_cli/commands/build/models/rush_yaml/rush_yaml.dart';
 import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_cli/utils/process_streamer.dart';
 import 'package:rush_cli/services/file_service.dart';
-import 'package:rush_prompt/rush_prompt.dart';
 
 enum ExeType { d8, proguard }
 
 class Executor {
   /// Executes the D8 tool which is required for dexing the extension.
-  static Future<void> execD8(FileService fs, step) async {
+  static Future<void> execD8(FileService fs) async {
     final args = () {
       final d8 = File(p.join(fs.toolsDir, 'other', 'd8.jar'));
       final rawDir = Directory(p.join(fs.buildDir, 'raw'));
@@ -39,17 +38,19 @@ class Executor {
   }
 
   /// Executes ProGuard which is used to optimize and obfuscate the code.
-  static Future<void> execProGuard(FileService fs, BuildStep step,
-      RushYaml rushYaml, RushLock? rushLock) async {
+  static Future<void> execProGuard(
+    FileService fs,
+    RushYaml rushYaml,
+    RushLock? rushLock,
+  ) async {
     final args = () {
       final proguardJar = File(p.join(fs.toolsDir, 'other', 'proguard.jar'));
 
       final libraryJars =
           BuildUtils.classpathStringForDeps(fs, rushYaml, rushLock);
-      final artDir = Directory(p.join(fs.buildDir, 'art'));
 
-      final injar = File(p.join(artDir.path, 'ART.jar'));
-      final outjar = File(p.join(artDir.path, 'ART.opt.jar'));
+      final injar = File(p.join(fs.buildDir, 'ART.jar'));
+      final outjar = File(p.join(fs.buildDir, 'ART.opt.jar'));
 
       final pgRules = File(p.join(fs.srcDir, 'proguard-rules.pro'));
 

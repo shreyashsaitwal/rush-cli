@@ -352,36 +352,42 @@ class BuildCommand extends Command<void> {
     }
 
     // Generate the extension files
-    if (_rushYaml.deps?.isEmpty ?? true) {
-      processStep.log(LogType.info, 'Linking extension assets');
-    } else {
-      processStep.log(
-          LogType.info, 'Linking extension assets and dependencies');
-    }
-
     await Generator(_fs, _rushYaml).generate(processStep, rushLock);
 
     // Create a JAR containing the contents of extension's dependencies and
     // compiled source files
-    final artJar = await _generateArtJar(processStep, optimize, rushLock);
+    final File artJar;
+    try {
+      artJar = await _generateArtJar(processStep, rushLock, optimize);
+    } catch (e) {
+      if (e.toString().isNotEmpty) {
+        processStep.log(LogType.erro, 'Something went wrong:');
+        for (final line in LineSplitter.split(e.toString())) {
+          processStep.log(LogType.erro, line, addPrefix: false);
+        }
+      }
+      processStep.finishNotOk();
+      BuildUtils.printFailMsg(_startTime);
+      exit(1);
+    }
 
     // Copy ART to raw dir
     if (artJar.existsSync()) {
       final destDir = Directory(p.join(_fs.buildDir, 'raw', 'files'))
         ..createSync(recursive: true);
-
-      artJar.copySync(p.join(destDir.path, 'AndroidRuntime.jar'));
+      artJar
+        ..copySync(p.join(destDir.path, 'AndroidRuntime.jar'))
+        ..deleteSync();
     } else {
       processStep
         ..log(LogType.erro, 'File not found: ' + artJar.path)
         ..finishNotOk();
-
       BuildUtils.printFailMsg(_startTime);
     }
 
     processStep.log(LogType.info, 'Generating DEX bytecode');
     try {
-      await Executor.execD8(_fs, processStep);
+      await Executor.execD8(_fs);
     } catch (e) {
       processStep.finishNotOk();
       BuildUtils.printFailMsg(_startTime);
@@ -393,46 +399,82 @@ class BuildCommand extends Command<void> {
 
   /// JAR the compiled class files and third-party dependencies into a single JAR.
   Future<File> _generateArtJar(
-      BuildStep processStep, bool optimize, RushLock? rushLock) async {
-    final artDir = Directory(p.join(_fs.buildDir, 'art'));
-
-    final artJar =
-        File(p.join(artDir.path, 'ART.jar')); // ART == Android Runtime
-
-    final zipEncoder = ZipFileEncoder()..open(artJar.path);
-
-    final pathEndToIgnore = [
+    BuildStep processStep,
+    RushLock? rushLock,
+    bool needOptimize,
+  ) async {
+    final pathEndsToIgnore = [
       '.kotlin_module',
       'META-INF/versions',
       '.jar',
     ];
+    final artJarEncoder = ZipFileEncoder()
+      ..create(p.join(_fs.buildDir, 'ART.jar'));
 
-    for (final entity in artDir.listSync(recursive: true)) {
-      if (!pathEndToIgnore.any((el) => entity.path.endsWith(el)) &&
-          entity is File) {
-        final path = p.relative(entity.path, from: artDir.path);
-        zipEncoder.addFile(entity, path);
-      }
-    }
-    zipEncoder.close();
+    final implDeps = BuildUtils.getDepJarPaths(
+        _fs.cwd, _rushYaml, DepScope.implement, rushLock);
 
-    try {
-      if (optimize) {
-        await _optimizeArt(artJar, processStep, rushLock);
-      }
-    } catch (e) {
-      processStep.finishNotOk();
-      BuildUtils.printFailMsg(_startTime);
+    // Add Kotlin Stdlib. to implDeps if Kotlin is enabled for the project.
+    if (_rushYaml.kotlin?.enable ?? false) {
+      implDeps.add(p.join(_fs.devDepsDir, 'kotlin', 'kotlin-stdlib.jar'));
     }
 
+    // Add class files from all required impl deps into the ART.jar
+    if (implDeps.isNotEmpty) {
+      processStep.log(LogType.info, 'Attaching dependencies');
+      final desugarStore = p.join(_fs.buildDir, 'files', 'desugar');
+
+      for (final jarPath in implDeps) {
+        final jar = () {
+          if (!(_rushYaml.desugar?.deps ?? false)) {
+            return File(jarPath);
+          } else {
+            return File(p.join(desugarStore, p.basename(jarPath)));
+          }
+        }();
+
+        if (!jar.existsSync()) {
+          processStep
+            ..log(LogType.erro,
+                'Unable to find required library \'${p.basename(jar.path)}\'')
+            ..finishNotOk();
+          exit(1);
+        }
+
+        final decodedJar =
+            ZipDecoder().decodeBytes(jar.readAsBytesSync()).files;
+        for (final file in decodedJar) {
+          if (!pathEndsToIgnore.any((el) => file.name.endsWith(el))) {
+            file.decompress();
+            artJarEncoder.addArchiveFile(file);
+          }
+        }
+      }
+    }
+
+    // Add extension classes to ART.jar
+    final extensionClasses =
+        Directory(p.join(_fs.buildDir, 'classes')).listSync(recursive: true);
+    for (final entity in extensionClasses) {
+      if (entity is File &&
+          !pathEndsToIgnore.any((el) => entity.path.endsWith(el))) {
+        final path =
+            p.relative(entity.path, from: p.join(_fs.buildDir, 'classes'));
+        artJarEncoder.addFile(entity, path);
+      }
+    }
+    artJarEncoder.close();
+
+    final artJar = File(p.join(_fs.buildDir, 'ART.jar'));
+    if (needOptimize) {
+      processStep.log(LogType.info, 'Optimizing the extension');
+      await _optimizeArt(artJar, rushLock);
+    }
     return artJar;
   }
 
-  Future<void> _optimizeArt(
-      File artJar, BuildStep processStep, RushLock? rushLock) async {
-    processStep.log(LogType.info, 'Optimizing the extension');
-    await Executor.execProGuard(_fs, processStep, _rushYaml, rushLock);
-
+  Future<void> _optimizeArt(File artJar, RushLock? rushLock) async {
+    await Executor.execProGuard(_fs, _rushYaml, rushLock);
     // Delete the old non-optimized JAR...
     artJar.deleteSync();
     // ...and rename the optimized JAR with old JAR's name
