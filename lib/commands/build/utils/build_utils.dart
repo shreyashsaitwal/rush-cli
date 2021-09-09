@@ -128,21 +128,21 @@ class BuildUtils {
       return localJars.toList();
     }
 
-    final remoteJars = rushLock.resolvedDeps
+    final remoteJars = rushLock.resolvedArtifacts
         .where((el) => el.scope == scope.value())
         .map((el) {
       if (el.type == 'aar') {
         final outputDir = Directory(p.join(
-            p.dirname(el.localPath), p.basenameWithoutExtension(el.localPath)))
+            p.dirname(el.path), p.basenameWithoutExtension(el.path)))
           ..createSync(recursive: true);
         final classesJar = File(p.join(outputDir.path, 'classes.jar'));
 
         if (!classesJar.existsSync()) {
-          unzip(el.localPath, outputDir.path);
+          unzip(el.path, outputDir.path);
         }
         return classesJar.path;
       }
-      return el.localPath;
+      return el.path;
     });
 
     return [...localJars, ...remoteJars];

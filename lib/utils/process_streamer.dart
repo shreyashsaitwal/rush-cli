@@ -67,7 +67,7 @@ class ProcessStreamer {
   ) async {
     final logTypePatterns = <LogType, RegExp>{
       LogType.erro: RegExp(r'\s*(error:){1}\s?', caseSensitive: false),
-      LogType.warn: RegExp(r'\s*(warning:){1}\s?', caseSensitive: false),
+      LogType.warn: RegExp(r'\s*(warn(ing)?:){1}\s?', caseSensitive: false),
       LogType.info: RegExp(r'\s*(info:){1}\s?', caseSensitive: false),
       LogType.note: RegExp(r'\s*(note:){1}\s?', caseSensitive: false),
     };

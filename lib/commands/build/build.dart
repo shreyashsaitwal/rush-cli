@@ -206,8 +206,9 @@ class BuildCommand extends Command<void> {
         step.finishNotOk();
         BuildUtils.printFailMsg(_startTime);
       } finally {
-        _buildBox.updateLastResolution(DateTime.now());
-        _buildBox.updateLastResolvedDeps(currentRemoteDeps);
+        _buildBox
+          ..updateLastResolution(DateTime.now())
+          ..updateLastResolvedDeps(currentRemoteDeps);
       }
     } else {
       step.log(LogType.info, 'Everything is up-to-date!');
@@ -219,8 +220,36 @@ class BuildCommand extends Command<void> {
           File(p.join(_fs.cwd, '.rush', 'rush.lock')).readAsStringSync(),
           (json) => RushLock.fromJson(json!));
     } catch (e) {
-      step.log(LogType.erro, e.toString());
+      step
+        ..log(LogType.erro, e.toString())
+        ..finishNotOk();
+      BuildUtils.printFailMsg(_startTime);
       exit(1);
+    }
+
+    if (rushLock.skippedArtifacts.isNotEmpty) {
+      step.log(
+          LogType.warn,
+          'The following artifacts were up/down-graded to the versions that were'
+          ' already available as dev-dependencies:');
+
+      final longestCoordLen =
+          rushLock.skippedArtifacts.map((el) => el.coordinate).max.length + 1;
+      final longestScopeLen =
+          rushLock.skippedArtifacts.map((el) => el.scope).max.length;
+
+      for (final el in rushLock.skippedArtifacts) {
+        step.log(
+            LogType.warn,
+            ' ' * 5 +
+                '- ${el.coordinate.padRight(longestCoordLen)}  ==>  ${el.availableVer}  (${el.scope.padLeft(longestScopeLen)})',
+            addPrefix: false);
+      }
+
+      step.log(
+          LogType.note,
+          'If you don\'t want the above artifact(s) to get up/down-graded,'
+          ' consider explicitly declaring them in rush.yml');
     }
 
     step.finishOk();
@@ -280,9 +309,9 @@ class BuildCommand extends Command<void> {
     final lastMerge = _buildBox.getAt(0)!.lastManifMerge;
 
     final depManifests =
-        rushLock.resolvedDeps.where((el) => el.type == 'aar').map((el) {
-      final outputDir = Directory(p.join(
-          p.dirname(el.localPath), p.basenameWithoutExtension(el.localPath)))
+        rushLock.resolvedArtifacts.where((el) => el.type == 'aar').map((el) {
+      final outputDir = Directory(
+          p.join(p.dirname(el.path), p.basenameWithoutExtension(el.path)))
         ..createSync(recursive: true);
       return p.join(outputDir.path, 'AndroidManifest.xml');
     }).toList();
@@ -360,7 +389,7 @@ class BuildCommand extends Command<void> {
     try {
       artJar = await _generateArtJar(processStep, rushLock, optimize);
     } catch (e) {
-      if (e.toString().isNotEmpty) {
+      if (e.toString().isNotEmpty && e.toString() != 'Exception') {
         processStep.log(LogType.erro, 'Something went wrong:');
         for (final line in LineSplitter.split(e.toString())) {
           processStep.log(LogType.erro, line, addPrefix: false);

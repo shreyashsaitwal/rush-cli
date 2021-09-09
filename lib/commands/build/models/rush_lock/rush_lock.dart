@@ -8,12 +8,16 @@ part 'rush_lock.g.dart';
   disallowUnrecognizedKeys: true,
 )
 class RushLock {
-  @JsonKey(name: 'resolved_deps')
-  final List<ResolvedDep> resolvedDeps;
+  @JsonKey(name: 'resolved_artifacts')
+  final List<ResolvedArtifact> resolvedArtifacts;
 
-  RushLock({required this.resolvedDeps});
+  @JsonKey(name: 'skipped_artifacts')
+  final List<SkippedArtifact> skippedArtifacts;
 
-  factory RushLock.fromJson(Map<dynamic, dynamic> json) => _$RushLockFromJson(json);
+  RushLock({required this.resolvedArtifacts, required this.skippedArtifacts});
+
+  factory RushLock.fromJson(Map<dynamic, dynamic> json) =>
+      _$RushLockFromJson(json);
 
   Map<String, dynamic> toJson() => _$RushLockToJson(this);
 }
@@ -23,22 +27,48 @@ class RushLock {
   checked: true,
   disallowUnrecognizedKeys: true,
 )
-class ResolvedDep {
+class ResolvedArtifact {
   @JsonKey(name: 'coord')
   final String coordinate;
   final String type;
   final String scope;
-  @JsonKey(name: 'local_path')
-  final String localPath;
+  final String path;
 
-  ResolvedDep({
+  ResolvedArtifact({
     required this.coordinate,
     required this.type,
     required this.scope,
-    required this.localPath,
+    required this.path,
   });
 
-  factory ResolvedDep.fromJson(Map<String, dynamic> json) => _$ResolvedDepFromJson(json);
+  factory ResolvedArtifact.fromJson(Map<String, dynamic> json) =>
+      _$ResolvedArtifactFromJson(json);
 
-  Map<String, dynamic> toJson() => _$ResolvedDepToJson(this);
+  Map<String, dynamic> toJson() => _$ResolvedArtifactToJson(this);
+}
+
+@JsonSerializable(
+  anyMap: true,
+  checked: true,
+  disallowUnrecognizedKeys: true,
+)
+class SkippedArtifact {
+  @JsonKey(name: 'coord')
+  final String coordinate;
+
+  @JsonKey(name: 'available_version')
+  final String availableVer;
+
+  final String scope;
+
+  SkippedArtifact({
+    required this.coordinate,
+    required this.availableVer,
+    required this.scope,
+  });
+
+  factory SkippedArtifact.fromJson(Map<String, dynamic> json) =>
+      _$SkippedArtifactFromJson(json);
+
+  Map<String, dynamic> toJson() => _$SkippedArtifactToJson(this);
 }

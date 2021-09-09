@@ -8,42 +8,77 @@ part of 'rush_lock.dart';
 
 RushLock _$RushLockFromJson(Map json) {
   return $checkedNew('RushLock', json, () {
-    $checkKeys(json, allowedKeys: const ['resolved_deps']);
+    $checkKeys(json,
+        allowedKeys: const ['resolved_artifacts', 'skipped_artifacts']);
     final val = RushLock(
-      resolvedDeps: $checkedConvert(
+      resolvedArtifacts: $checkedConvert(
           json,
-          'resolved_deps',
+          'resolved_artifacts',
+          (v) => (v as List<dynamic>)
+              .map((e) => ResolvedArtifact.fromJson(
+                  Map<String, dynamic>.from(e as Map)))
+              .toList()),
+      skippedArtifacts: $checkedConvert(
+          json,
+          'skipped_artifacts',
           (v) => (v as List<dynamic>)
               .map((e) =>
-                  ResolvedDep.fromJson(Map<String, dynamic>.from(e as Map)))
+                  SkippedArtifact.fromJson(Map<String, dynamic>.from(e as Map)))
               .toList()),
     );
     return val;
-  }, fieldKeyMap: const {'resolvedDeps': 'resolved_deps'});
+  }, fieldKeyMap: const {
+    'resolvedArtifacts': 'resolved_artifacts',
+    'skippedArtifacts': 'skipped_artifacts'
+  });
 }
 
 Map<String, dynamic> _$RushLockToJson(RushLock instance) => <String, dynamic>{
-      'resolved_deps': instance.resolvedDeps,
+      'resolved_artifacts': instance.resolvedArtifacts,
+      'skipped_artifacts': instance.skippedArtifacts,
     };
 
-ResolvedDep _$ResolvedDepFromJson(Map json) {
-  return $checkedNew('ResolvedDep', json, () {
-    $checkKeys(json,
-        allowedKeys: const ['coord', 'type', 'scope', 'local_path']);
-    final val = ResolvedDep(
+ResolvedArtifact _$ResolvedArtifactFromJson(Map json) {
+  return $checkedNew('ResolvedArtifact', json, () {
+    $checkKeys(json, allowedKeys: const ['coord', 'type', 'scope', 'path']);
+    final val = ResolvedArtifact(
       coordinate: $checkedConvert(json, 'coord', (v) => v as String),
       type: $checkedConvert(json, 'type', (v) => v as String),
       scope: $checkedConvert(json, 'scope', (v) => v as String),
-      localPath: $checkedConvert(json, 'local_path', (v) => v as String),
+      path: $checkedConvert(json, 'path', (v) => v as String),
     );
     return val;
-  }, fieldKeyMap: const {'coordinate': 'coord', 'localPath': 'local_path'});
+  }, fieldKeyMap: const {'coordinate': 'coord'});
 }
 
-Map<String, dynamic> _$ResolvedDepToJson(ResolvedDep instance) =>
+Map<String, dynamic> _$ResolvedArtifactToJson(ResolvedArtifact instance) =>
     <String, dynamic>{
       'coord': instance.coordinate,
       'type': instance.type,
       'scope': instance.scope,
-      'local_path': instance.localPath,
+      'path': instance.path,
+    };
+
+SkippedArtifact _$SkippedArtifactFromJson(Map json) {
+  return $checkedNew('SkippedArtifact', json, () {
+    $checkKeys(json,
+        allowedKeys: const ['coord', 'available_version', 'scope']);
+    final val = SkippedArtifact(
+      coordinate: $checkedConvert(json, 'coord', (v) => v as String),
+      availableVer:
+          $checkedConvert(json, 'available_version', (v) => v as String),
+      scope: $checkedConvert(json, 'scope', (v) => v as String),
+    );
+    return val;
+  }, fieldKeyMap: const {
+    'coordinate': 'coord',
+    'availableVer': 'available_version'
+  });
+}
+
+Map<String, dynamic> _$SkippedArtifactToJson(SkippedArtifact instance) =>
+    <String, dynamic>{
+      'coord': instance.coordinate,
+      'available_version': instance.availableVer,
+      'scope': instance.scope,
     };
