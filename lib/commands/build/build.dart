@@ -30,11 +30,10 @@ class BuildCommand extends Command<void> {
     argParser
       ..addFlag('optimize',
           abbr: 'o',
-          defaultsTo: false,
           negatable: false,
           help:
               'Optimizes, shrinks and obfuscates extension\'s Java bytecode using ProGuard.')
-      ..addFlag('no-optimize', negatable: false, defaultsTo: false);
+      ..addFlag('no-optimize', negatable: false);
   }
 
   @override
@@ -70,9 +69,9 @@ class BuildCommand extends Command<void> {
       ..setForegroundColor(ConsoleColor.yellow)
       ..write('   -o, --[no-]optimize')
       ..resetColorAttributes()
-      ..writeLine('  ' +
+      ..writeLine('  '
           'Optimize, obfuscates and shrinks your code with a set of ProGuard '
-              'rules defined in `proguard-rules.pro` rules file.')
+          'rules defined in `proguard-rules.pro` rules file.')
       ..resetColorAttributes()
       ..writeLine();
   }
@@ -88,7 +87,7 @@ class BuildCommand extends Command<void> {
     final valStep = BuildStep('Checking project files')..init();
 
     valStep.log(LogType.info, 'Checking metadata file (rush.yml)');
-    await _loadRushYaml(valStep);
+    _loadRushYaml(valStep);
 
     valStep.log(LogType.info, 'Checking AndroidManifest.xml file');
     final manifestFile = File(p.join(_fs.cwd, 'src', 'AndroidManifest.xml'));
@@ -106,7 +105,7 @@ class BuildCommand extends Command<void> {
 
     _buildBox = await Hive.openBox<BuildBox>('build');
     if (_buildBox.isEmpty || _buildBox.getAt(0) == null) {
-      _buildBox.put(
+      await _buildBox.put(
         'build',
         BuildBox(
           lastResolvedDeps: [],
@@ -129,7 +128,7 @@ class BuildCommand extends Command<void> {
     await _compile(optimize, rushLock);
   }
 
-  Future<void> _loadRushYaml(BuildStep valStep) async {
+  void _loadRushYaml(BuildStep valStep) {
     final yamlFile = () {
       final yml = File(p.join(_fs.cwd, 'rush.yml'));
 
@@ -151,7 +150,7 @@ class BuildCommand extends Command<void> {
     try {
       _rushYaml = checkedYamlDecode(
         yamlFile.readAsStringSync(),
-        (json) => RushYaml.fromJson(json!, valStep),
+        (json) => RushYaml.fromJson(json!),
       );
     } catch (e) {
       valStep.log(LogType.erro,
@@ -261,7 +260,7 @@ class BuildCommand extends Command<void> {
     final compileStep = BuildStep('Compiling sources')..init();
 
     if (rushLock != null) {
-      _mergeManifests(rushLock, compileStep, _rushYaml.android?.minSdk ?? 7);
+      await _mergeManifests(rushLock, compileStep, _rushYaml.android?.minSdk ?? 7);
     }
 
     final srcFiles =
@@ -372,7 +371,7 @@ class BuildCommand extends Command<void> {
       processStep.log(LogType.info, 'Desugaring Java 8 language features');
       final desugarer = Desugarer(_fs, _rushYaml);
       try {
-        _buildBox.close();
+        await _buildBox.close();
         await desugarer.run(processStep, rushLock);
       } catch (e) {
         processStep.finishNotOk();

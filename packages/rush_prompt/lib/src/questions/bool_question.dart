@@ -16,8 +16,8 @@ class BoolQuestion extends Question {
 
   @override
   List<dynamic> ask() {
-    var suffix = '(Y/N)';
-    var answer;
+    final suffix = '(Y/N)';
+    bool answer;
 
     console
       ..setForegroundColor(ConsoleColor.green)
@@ -26,7 +26,7 @@ class BoolQuestion extends Question {
       ..write('$_question $suffix ')
       ..setForegroundColor(ConsoleColor.cyan);
 
-    var input = stdin.readLineSync();
+    final input = stdin.readLineSync();
     final validYesAnswers = ['y', 'yes', 'yeah', 'yep', 'ya', 'ye'];
     final validNoAnswers = ['n', 'no', 'nope', 'nah', 'never'];
 

@@ -8,6 +8,7 @@ class Logger {
   static final _errWarnStore = ErrWarnStore();
 
   static void log(LogType type, String msg, {bool addPrefix = true}) {
+    // ignore: prefer_function_declarations_over_variables
     final printPrefix = (ConsoleColor clr, String prefix) {
       _console
         ..setForegroundColor(clr)

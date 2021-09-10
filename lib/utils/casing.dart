@@ -49,7 +49,7 @@ class Casing {
   static List<String> _process(String input) {
     final words = <String>[];
 
-    final capital = RegExp(r'[A-Z]');
+    final capital = RegExp('[A-Z]');
     final separator = RegExp(r'[\s-_]');
 
     var isFirst = true;

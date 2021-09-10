@@ -84,7 +84,7 @@ class Desugarer {
       store.incErrors(result.store.getErrors);
       store.incWarnings(result.store.getWarnings);
     }
-    BuildUtils.deletePreviouslyLoggedFromBuildBox();
+    await BuildUtils.deletePreviouslyLoggedFromBuildBox();
 
     if (results.any((el) => !el.success)) {
       throw Exception();

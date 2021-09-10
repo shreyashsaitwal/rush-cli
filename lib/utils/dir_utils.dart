@@ -5,7 +5,7 @@ import 'package:rush_prompt/rush_prompt.dart';
 
 class DirUtils {
   static String? dataDir() {
-    var os = Platform.operatingSystem;
+    final os = Platform.operatingSystem;
     late String appDataDir;
 
     switch (os) {
@@ -35,7 +35,7 @@ class DirUtils {
   /// Copies the contents of [source] dir to the [dest] dir.
   static void copyDir(Directory source, Directory dest,
       {List<String>? ignorePaths}) {
-    var files = source.listSync();
+    final files = source.listSync();
 
     for (final entity in files) {
       if (ignorePaths != null && ignorePaths.contains(entity.path)) {
@@ -44,7 +44,7 @@ class DirUtils {
       if (entity is File) {
         entity.copySync(p.join(dest.path, p.basename(entity.path)));
       } else if (entity is Directory && entity.listSync().isNotEmpty) {
-        var newDest =
+        final newDest =
             Directory(p.join(dest.path, entity.path.split(p.separator).last));
         newDest.createSync();
         copyDir(entity, newDest);

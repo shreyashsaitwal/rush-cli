@@ -11,7 +11,9 @@ class RushPrompt {
 
   List askAll() {
     final answers = [];
-    _questions.forEach((ques) => answers.add(ques.ask()));
+    for (final ques in _questions) {
+      answers.add(ques.ask());
+    }
     return answers;
   }
 

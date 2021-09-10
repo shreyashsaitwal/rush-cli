@@ -31,7 +31,7 @@ class SimpleQuestion extends Question {
         ..write('($_default) ');
     }
     console.setForegroundColor(ConsoleColor.cyan);
-    var answer = stdin.readLineSync();
+    final answer = stdin.readLineSync();
 
     console.resetColorAttributes();
 

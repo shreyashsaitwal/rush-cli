@@ -25,24 +25,24 @@ class MultipleChoiceQuestion extends Question {
   }
 
   void _renderList(int activeIndex) {
-    _options.forEach((option) {
+    for (final option in _options) {
       if (activeIndex == _options.indexOf(option)) {
         console
           ..setForegroundColor(ConsoleColor.cyan)
           ..writeLine(' › $option')
           ..resetColorAttributes();
       } else {
-        console.writeLine(' ' * 3 + '$option');
+        console.writeLine(' ' * 3 + option);
       }
-    });
+    }
   }
 
   void _clearList() {
-    _options.forEach((element) {
+    for (final _ in _options) {
       console
         ..cursorUp()
         ..eraseLine();
-    });
+    }
   }
 
   @override

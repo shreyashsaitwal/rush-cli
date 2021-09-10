@@ -22,9 +22,8 @@ class UpgradeCommand extends Command<void> {
           abbr: 'f',
           help:
               'Forcefully upgrades Rush to the latest version. This downloads '
-              'and replaces even the unchanged files.',
-          defaultsTo: false)
-      ..addFlag('safe', abbr: 's', hide: true, defaultsTo: false);
+              'and replaces even the unchanged files.')
+      ..addFlag('safe', abbr: 's', hide: true);
 
     final dir = Directory(p.join(_dataDir, '.installer'))
       ..createSync(recursive: true);
@@ -57,9 +56,9 @@ class UpgradeCommand extends Command<void> {
       ..setForegroundColor(ConsoleColor.yellow)
       ..write('   -f, --force')
       ..resetColorAttributes()
-      ..writeLine('  ' +
+      ..writeLine('  '
           'Forcefully upgrades Rush to the latest version. This downloads and '
-              'replaces even the unchanged files.')
+          'replaces even the unchanged files.')
       ..resetColorAttributes();
   }
 
@@ -96,7 +95,7 @@ class UpgradeCommand extends Command<void> {
         return p.join(_dataDir, el.path);
       }();
 
-      await Dio().download(el.downloadUrl!, savePath, deleteOnError: true);
+      await Dio().download(el.downloadUrl!, savePath);
       await _updateInitBox(initDataBox, el, savePath);
       pb.incr();
     }
@@ -106,7 +105,7 @@ class UpgradeCommand extends Command<void> {
     if (!(argResults?['safe'] as bool)) {
       await _removeRedundantFiles(initDataBox, allContent);
     }
-    _swapExe(binDir);
+    await _swapExe(binDir);
 
     Logger.log(LogType.info,
         'Done! Rush was successfully upgraded to ${releaseInfo.name}');
@@ -236,7 +235,7 @@ class UpgradeCommand extends Command<void> {
     } else {
       old.deleteSync();
       _new.renameSync(old.path);
-      _chmodExe(old.path);
+      await _chmodExe(old.path);
     }
   }
 

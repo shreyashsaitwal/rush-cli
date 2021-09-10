@@ -32,7 +32,7 @@ class Generator {
     await rawDir.create(recursive: true);
 
     // Copy the components.json file to the raw dir.
-    File(p.join(filesDirPath, 'components.json'))
+    await File(p.join(filesDirPath, 'components.json'))
         .copy(p.join(rawDir.path, 'components.json'));
 
     // Copy the component_build_infos.json file to the raw dir.

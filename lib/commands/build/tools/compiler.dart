@@ -55,7 +55,7 @@ class Compiler {
     // therefore, to keep the OS happy by freeing the `build.lock` file so that
     // other Hive instances from different isolates can access it, we need to
     // close this instance of build box.
-    _buildBox.close();
+    await _buildBox.close();
     final results = await Future.wait([
       compute(
           _startProcess,
@@ -71,7 +71,7 @@ class Compiler {
 
     // Clean the previously logged messages from build box so that they don't
     // affect next build.
-    BuildUtils.deletePreviouslyLoggedFromBuildBox();
+    await BuildUtils.deletePreviouslyLoggedFromBuildBox();
 
     final store = ErrWarnStore();
     for (final result in results) {

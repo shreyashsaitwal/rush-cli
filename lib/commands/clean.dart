@@ -67,7 +67,7 @@ class CleanCommand extends Command<void> {
     Hive
       ..init(p.join(_fs.cwd, '.rush'))
       ..registerAdapter(BuildBoxAdapter());
-    final buildBox = await Hive.openBox('build');
+    final buildBox = await Hive.openBox<BuildBox>('build');
     await buildBox.clear();
 
     final rushLock = File(p.join(_fs.cwd, '.rush', 'rush.lock'));

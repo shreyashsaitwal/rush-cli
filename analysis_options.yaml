@@ -7,3 +7,19 @@ analyzer:
   language:
     strict-raw-types: true
     strict-inference: true
+
+linter:
+  rules:
+    - always_declare_return_types
+    - avoid_empty_else
+    - avoid_print
+    - avoid_redundant_argument_values
+    - only_throw_errors
+    - prefer_final_fields
+    - prefer_final_in_for_each
+    - prefer_final_locals
+    - prefer_single_quotes
+    - prefer_typing_uninitialized_variables
+    - unawaited_futures
+    - unnecessary_raw_strings
+    - valid_regexps

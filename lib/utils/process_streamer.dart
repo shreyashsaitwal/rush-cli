@@ -48,6 +48,7 @@ class ProcessStreamer {
       }
     } else {
       // Drain the stdout stream otherwise it'd block the process till completion.
+      // ignore: unawaited_futures
       process.stdout.drain();
     }
 
