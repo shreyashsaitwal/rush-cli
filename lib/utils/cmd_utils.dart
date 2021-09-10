@@ -1,6 +1,9 @@
 import 'dart:io' show Directory, File, FileSystemEntity, Platform;
 
+import 'package:checked_yaml/checked_yaml.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/models/rush_lock/rush_lock.dart';
+import 'package:rush_cli/models/rush_yaml/rush_yaml.dart';
 
 class CmdUtils {
   // Returns the package name in com.example form
@@ -83,5 +86,52 @@ class CmdUtils {
     File(path)
       ..createSync(recursive: true)
       ..writeAsStringSync(content);
+  }
+
+  static RushYaml loadRushYaml(String cwd) {
+    final yamlFile = () {
+      final yml = File(p.join(cwd, 'rush.yml'));
+
+      if (yml.existsSync()) {
+        return yml;
+      } else {
+        final yaml = File(p.join(cwd, 'rush.yaml'));
+        if (yaml.existsSync()) {
+          return yaml;
+        }
+      }
+
+      throw Exception('Metadata file (rush.yml) not found');
+    }();
+
+    final RushYaml rushYaml;
+    try {
+      rushYaml = checkedYamlDecode(
+        yamlFile.readAsStringSync(),
+        (json) => RushYaml.fromJson(json!),
+      );
+    } catch (e) {
+      rethrow;
+    }
+
+    return rushYaml;
+  }
+
+  static RushLock? loadRushLock(String cwd) {
+    final file = File(p.join(cwd, '.rush', 'rush.lock'));
+    if (!file.existsSync()) {
+      return null;
+    }
+
+    final RushLock rushLock;
+    try {
+      rushLock = checkedYamlDecode(
+          File(p.join(cwd, '.rush', 'rush.lock')).readAsStringSync(),
+          (json) => RushLock.fromJson(json!));
+    } catch (e) {
+      rethrow;
+    }
+
+    return rushLock;
   }
 }

@@ -22,7 +22,6 @@ class CleanCommand extends Command<void> {
 
   @override
   void printUsage() {
-    PrintArt();
     Console()
       ..setForegroundColor(ConsoleColor.cyan)
       ..write(' clean ')
@@ -39,7 +38,6 @@ class CleanCommand extends Command<void> {
 
   @override
   Future<void> run() async {
-    PrintArt();
     final step = BuildStep('Cleaning')..init();
 
     if (!isRushProject()) {
@@ -64,9 +62,6 @@ class CleanCommand extends Command<void> {
     }
     step.log(LogType.info, 'Cleaned the old build files');
 
-    Hive
-      ..init(p.join(_fs.cwd, '.rush'))
-      ..registerAdapter(BuildBoxAdapter());
     final buildBox = await Hive.openBox<BuildBox>('build');
     await buildBox.clear();
 

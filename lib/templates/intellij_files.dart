@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
 
 String getDevDepsXml(String _dataDir) {
@@ -31,7 +33,18 @@ String getDepsXml() {
 ''';
 }
 
-String getIml() {
+String getIml(String ideaDir) {
+  final libXmls = Directory(p.join(ideaDir, 'libraries'))
+      .listSync()
+      .whereType<File>()
+      .where((el) => p.extension(el.path) == '.xml');
+
+  final libBuf = StringBuffer();
+  for (final el in libXmls) {
+    libBuf.write(
+        '<orderEntry type="library" name="${p.basenameWithoutExtension(el.path)}" level="project" />');
+  }
+
   return '''
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="JAVA_MODULE" version="4">
@@ -42,8 +55,7 @@ String getIml() {
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="library" name="dev-deps" level="project" />
-    <orderEntry type="library" name="deps" level="project" />
+    ${libBuf.toString()}
   </component>
 </module>
 ''';
@@ -70,5 +82,41 @@ String getModulesXml(String name) {
     </modules>
   </component>
 </project>
+''';
+}
+
+String getLibXml(
+  String name,
+  List<String> classes,
+  List<String> javadocs,
+  List<String> sources,
+) {
+  final jarBuf = StringBuffer();
+  for (final el in classes) {
+    if (el.endsWith('.jar')) {
+      jarBuf.write('<root url="jar://$el!/" />');
+    } else {
+      jarBuf.write('<root url="file://$el!/" />');
+    }
+  }
+
+  final docBufs = StringBuffer();
+  for (final el in javadocs) {
+    docBufs.write('<root url="jar://$el!/" />');
+  }
+
+  final sourceBuf = StringBuffer();
+  for (final el in sources) {
+    sourceBuf.write('<root url="jar://$el!/" />');
+  }
+
+  return '''
+<component name="libraryTable">
+<library name="$name">
+  <CLASSES>${jarBuf.toString()}</CLASSES>
+  <JAVADOC>${docBufs.toString()}</JAVADOC>
+  <SOURCES>${sourceBuf.toString()}</SOURCES>
+</library>
+</component>
 ''';
 }

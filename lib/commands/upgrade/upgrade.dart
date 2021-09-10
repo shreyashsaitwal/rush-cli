@@ -38,7 +38,6 @@ class UpgradeCommand extends Command<void> {
 
   @override
   void printUsage() {
-    PrintArt();
     Console()
       ..setForegroundColor(ConsoleColor.cyan)
       ..write(' upgrade ')
@@ -49,8 +48,9 @@ class UpgradeCommand extends Command<void> {
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write('rush ')
       ..setForegroundColor(ConsoleColor.cyan)
-      ..writeLine('upgrade')
-      ..resetColorAttributes()
+      ..write('upgrade ')
+      ..setForegroundColor(ConsoleColor.yellow)
+      ..writeLine('<flags>')
       ..writeLine()
       ..writeLine(' Available flags:')
       ..setForegroundColor(ConsoleColor.yellow)

@@ -3,20 +3,20 @@ import 'dart:io' show File, Directory, exit;
 
 import 'package:archive/archive_io.dart';
 import 'package:args/command_runner.dart';
-import 'package:checked_yaml/checked_yaml.dart';
-import 'package:collection/collection.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/utils/build_utils.dart';
 import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
-import 'package:rush_cli/commands/build/models/rush_lock/rush_lock.dart';
-import 'package:rush_cli/commands/build/models/rush_yaml/rush_yaml.dart';
+import 'package:rush_cli/commands/deps/sync.dart';
+import 'package:rush_cli/models/rush_lock/rush_lock.dart';
+import 'package:rush_cli/models/rush_yaml/rush_yaml.dart';
 import 'package:rush_cli/commands/build/tools/compiler.dart';
 import 'package:rush_cli/commands/build/tools/desugarer.dart';
 import 'package:rush_cli/commands/build/tools/executor.dart';
 import 'package:rush_cli/commands/build/tools/generator.dart';
 import 'package:rush_cli/services/file_service.dart';
+import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 class BuildCommand extends Command<void> {
@@ -45,7 +45,6 @@ class BuildCommand extends Command<void> {
 
   @override
   void printUsage() {
-    PrintArt();
     final console = Console();
 
     console
@@ -58,10 +57,11 @@ class BuildCommand extends Command<void> {
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write('rush ')
       ..setForegroundColor(ConsoleColor.cyan)
-      ..write('build')
+      ..write('build ')
       ..setForegroundColor(ConsoleColor.yellow)
-      ..writeLine(' <flags>')
-      ..resetColorAttributes();
+      ..writeLine('<flags>')
+      ..resetColorAttributes()
+      ..writeLine();
 
     // Print available flags
     console
@@ -79,7 +79,6 @@ class BuildCommand extends Command<void> {
   /// Builds the extension in the current directory
   @override
   Future<void> run() async {
-    PrintArt();
     _startTime = DateTime.now();
 
     Logger.logCustom('Build initialized\n',
@@ -98,10 +97,6 @@ class BuildCommand extends Command<void> {
       BuildUtils.printFailMsg(_startTime);
     }
     valStep.finishOk();
-
-    Hive
-      ..init(p.join(_fs.cwd, '.rush'))
-      ..registerAdapter(BuildBoxAdapter());
 
     _buildBox = await Hive.openBox<BuildBox>('build');
     if (_buildBox.isEmpty || _buildBox.getAt(0) == null) {
@@ -124,35 +119,21 @@ class BuildCommand extends Command<void> {
       return false;
     }();
 
-    final rushLock = await _resolveRemoteDeps();
+    final rushLock = await DepsSyncCommand(_fs).run(syncIdeaFiles: false);
     await _compile(optimize, rushLock);
   }
 
   void _loadRushYaml(BuildStep valStep) {
-    final yamlFile = () {
-      final yml = File(p.join(_fs.cwd, 'rush.yml'));
-
-      if (yml.existsSync()) {
-        return yml;
-      } else {
-        final yaml = File(p.join(_fs.cwd, 'rush.yaml'));
-        if (yaml.existsSync()) {
-          return yaml;
-        }
+    try {
+      _rushYaml = CmdUtils.loadRushYaml(_fs.cwd);
+    } catch (e) {
+      if (e.toString().contains('(rush.yml) not found')) {
+        valStep
+          ..log(LogType.erro, 'Metadata file (rush.yml) not found')
+          ..finishNotOk();
+        BuildUtils.printFailMsg(_startTime);
       }
 
-      valStep
-        ..log(LogType.erro, 'Metadata file (rush.yml) not found')
-        ..finishNotOk();
-      BuildUtils.printFailMsg(_startTime);
-    }()!;
-
-    try {
-      _rushYaml = checkedYamlDecode(
-        yamlFile.readAsStringSync(),
-        (json) => RushYaml.fromJson(json!),
-      );
-    } catch (e) {
       valStep.log(LogType.erro,
           'The following error occurred while validating metadata file (rush.yml):');
       if (e.toString().contains('\n')) {
@@ -168,99 +149,13 @@ class BuildCommand extends Command<void> {
     }
   }
 
-  Future<RushLock?> _resolveRemoteDeps() async {
-    final containsRemoteDeps =
-        _rushYaml.deps?.any((el) => el.value().contains(':')) ?? false;
-    final lockFile = File(p.join(_fs.cwd, '.rush', 'rush.lock'));
-
-    if (!containsRemoteDeps) {
-      if (lockFile.existsSync()) {
-        lockFile.deleteSync();
-      }
-      return null;
-    }
-
-    final step = BuildStep('Resolving dependencies')..init();
-    final boxVal = _buildBox.getAt(0)!;
-
-    final lastResolvedDeps = boxVal.lastResolvedDeps;
-    final currentRemoteDeps = _rushYaml.deps
-            ?.where((el) => el.value().contains(':'))
-            .map((el) => el.value())
-            .toList() ??
-        <String>[];
-
-    final areDepsUpToDate = DeepCollectionEquality.unordered()
-        .equals(lastResolvedDeps, currentRemoteDeps);
-
-    if (!areDepsUpToDate ||
-        !lockFile.existsSync() ||
-        lockFile.lastModifiedSync().isAfter(boxVal.lastResolution)) {
-      try {
-        if (lockFile.existsSync()) {
-          lockFile.deleteSync();
-        }
-        await Executor.execResolver(_fs);
-      } catch (e) {
-        step.finishNotOk();
-        BuildUtils.printFailMsg(_startTime);
-      } finally {
-        _buildBox
-          ..updateLastResolution(DateTime.now())
-          ..updateLastResolvedDeps(currentRemoteDeps);
-      }
-    } else {
-      step.log(LogType.info, 'Everything is up-to-date!');
-    }
-
-    final RushLock rushLock;
-    try {
-      rushLock = checkedYamlDecode(
-          File(p.join(_fs.cwd, '.rush', 'rush.lock')).readAsStringSync(),
-          (json) => RushLock.fromJson(json!));
-    } catch (e) {
-      step
-        ..log(LogType.erro, e.toString())
-        ..finishNotOk();
-      BuildUtils.printFailMsg(_startTime);
-      exit(1);
-    }
-
-    if (rushLock.skippedArtifacts.isNotEmpty) {
-      step.log(
-          LogType.warn,
-          'The following artifacts were up/down-graded to the versions that were'
-          ' already available as dev-dependencies:');
-
-      final longestCoordLen =
-          rushLock.skippedArtifacts.map((el) => el.coordinate).max.length + 1;
-      final longestScopeLen =
-          rushLock.skippedArtifacts.map((el) => el.scope).max.length;
-
-      for (final el in rushLock.skippedArtifacts) {
-        step.log(
-            LogType.warn,
-            ' ' * 5 +
-                '- ${el.coordinate.padRight(longestCoordLen)}  ==>  ${el.availableVer}  (${el.scope.padLeft(longestScopeLen)})',
-            addPrefix: false);
-      }
-
-      step.log(
-          LogType.note,
-          'If you don\'t want the above artifact(s) to get up/down-graded,'
-          ' consider explicitly declaring them in rush.yml');
-    }
-
-    step.finishOk();
-    return rushLock;
-  }
-
   /// Compiles extension's source files.
   Future<void> _compile(bool optimize, RushLock? rushLock) async {
     final compileStep = BuildStep('Compiling sources')..init();
 
     if (rushLock != null) {
-      await _mergeManifests(rushLock, compileStep, _rushYaml.android?.minSdk ?? 7);
+      await _mergeManifests(
+          rushLock, compileStep, _rushYaml.android?.minSdk ?? 7);
     }
 
     final srcFiles =
@@ -341,6 +236,7 @@ class BuildCommand extends Command<void> {
         areDepManifestsMod;
     if (conditions) {
       step.log(LogType.info, 'Merging Android manifests');
+      output.createSync(recursive: true);
 
       try {
         await Executor.execManifMerger(

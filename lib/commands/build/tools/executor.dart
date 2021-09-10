@@ -2,8 +2,8 @@ import 'dart:io' show Directory, File;
 
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/utils/build_utils.dart';
-import 'package:rush_cli/commands/build/models/rush_lock/rush_lock.dart';
-import 'package:rush_cli/commands/build/models/rush_yaml/rush_yaml.dart';
+import 'package:rush_cli/models/rush_lock/rush_lock.dart';
+import 'package:rush_cli/models/rush_yaml/rush_yaml.dart';
 import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_cli/utils/process_streamer.dart';
 import 'package:rush_cli/services/file_service.dart';

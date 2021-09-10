@@ -22,23 +22,30 @@ class RushLock {
   Map<String, dynamic> toJson() => _$RushLockToJson(this);
 }
 
+abstract class Artifact {}
+
 @JsonSerializable(
   anyMap: true,
   checked: true,
   disallowUnrecognizedKeys: true,
 )
-class ResolvedArtifact {
+class ResolvedArtifact extends Artifact {
   @JsonKey(name: 'coord')
   final String coordinate;
   final String type;
   final String scope;
+  @JsonKey(name: 'direct')
+  final bool isDirect;
   final String path;
+  final List<String> deps;
 
   ResolvedArtifact({
     required this.coordinate,
     required this.type,
     required this.scope,
+    required this.isDirect,
     required this.path,
+    required this.deps,
   });
 
   factory ResolvedArtifact.fromJson(Map<String, dynamic> json) =>
@@ -52,7 +59,7 @@ class ResolvedArtifact {
   checked: true,
   disallowUnrecognizedKeys: true,
 )
-class SkippedArtifact {
+class SkippedArtifact extends Artifact {
   @JsonKey(name: 'coord')
   final String coordinate;
 

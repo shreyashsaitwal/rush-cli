@@ -29,7 +29,6 @@ class CreateCommand extends Command<void> {
 
   @override
   void printUsage() {
-    PrintArt();
     Console()
       ..setForegroundColor(ConsoleColor.cyan)
       ..write(' create ')
@@ -56,7 +55,6 @@ class CreateCommand extends Command<void> {
       printUsage();
       exit(64); // Exit code 64 indicates usage error
     }
-    PrintArt();
 
     final kebabCasedName = Casing.kebabCase(name);
     final projectDir = p.join(_fs.cwd, kebabCasedName);
@@ -122,16 +120,17 @@ class CreateCommand extends Command<void> {
           'This directory stores your extension\'s dependencies.');
 
       // IntelliJ IDEA files
-      CmdUtils.writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
+      final ideaDir = p.join(projectDir, '.idea');
+      CmdUtils.writeFile(p.join(ideaDir, 'misc.xml'), getMiscXml());
       CmdUtils.writeFile(
-          p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
+          p.join(ideaDir, 'libraries', 'dev-deps.xml'),
           getDevDepsXml(_fs.dataDir));
       CmdUtils.writeFile(
-          p.join(projectDir, '.idea', 'libraries', 'deps.xml'), getDepsXml());
-      CmdUtils.writeFile(p.join(projectDir, '.idea', 'modules.xml'),
+          p.join(ideaDir, 'libraries', 'deps.xml'), getDepsXml());
+      CmdUtils.writeFile(p.join(ideaDir, 'modules.xml'),
           getModulesXml(kebabCasedName));
       CmdUtils.writeFile(
-          p.join(projectDir, '.idea', '$kebabCasedName.iml'), getIml());
+          p.join(ideaDir, '$kebabCasedName.iml'), getIml(ideaDir));
     } catch (e) {
       Logger.log(LogType.erro, e.toString());
       exit(1);

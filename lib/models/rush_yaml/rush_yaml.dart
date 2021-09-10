@@ -1,5 +1,4 @@
 import 'package:json_annotation/json_annotation.dart';
-import 'package:rush_prompt/rush_prompt.dart';
 
 part 'android.dart';
 part 'dep_entry.dart';
@@ -49,8 +48,7 @@ class RushYaml {
   });
 
   // ignore: strict_raw_type
-  factory RushYaml.fromJson(Map json, BuildStep step) =>
-      _$RushYamlFromJson(json);
+  factory RushYaml.fromJson(Map json) => _$RushYamlFromJson(json);
 
   Map<String, dynamic> toJson() => _$RushYamlToJson(this);
 }

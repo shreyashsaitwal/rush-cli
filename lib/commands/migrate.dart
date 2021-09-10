@@ -21,16 +21,13 @@ class MigrateCommand extends Command<void> {
 
   @override
   String get description =>
-      'Introspects and migrates the extension-template project in the current '
-      'directory to Rush.';
+      'Migrates the extension-template project in the current directory to Rush.';
 
   @override
   String get name => 'migrate';
 
   @override
   void printUsage() {
-    PrintArt();
-
     Console()
       ..setForegroundColor(ConsoleColor.cyan)
       ..write(' migrate ')
@@ -41,7 +38,7 @@ class MigrateCommand extends Command<void> {
       ..setForegroundColor(ConsoleColor.brightBlue)
       ..write('rush ')
       ..setForegroundColor(ConsoleColor.cyan)
-      ..write('migrate')
+      ..write('migrate ')
       ..setForegroundColor(ConsoleColor.yellow)
       ..writeLine('<flags>')
       ..resetColorAttributes();
@@ -107,9 +104,9 @@ class MigrateCommand extends Command<void> {
         .last;
     final org = CmdUtils.getPackage(_fs.srcDir, extName: extName);
 
-    final projectDir =
-        Directory(p.join(p.dirname(_fs.cwd), Casing.kebabCase(extName) + '-rush'))
-          ..createSync(recursive: true);
+    final projectDir = Directory(
+        p.join(p.dirname(_fs.cwd), Casing.kebabCase(extName) + '-rush'))
+      ..createSync(recursive: true);
 
     final rushYmlDest = p.join(projectDir.path, 'rush.yml');
     genFiles['rushYml']!.first.copySync(rushYmlDest);
@@ -200,17 +197,18 @@ class MigrateCommand extends Command<void> {
     CmdUtils.writeFile(p.join(projectDirPath, '.gitignore'), getDotGitignore());
 
     // IntelliJ IDEA files
+    final ideaDir = p.join(projectDirPath, '.idea');
     CmdUtils.writeFile(
-        p.join(projectDirPath, '.idea', 'misc.xml'), getMiscXml());
+        p.join(ideaDir, 'misc.xml'), getMiscXml());
     CmdUtils.writeFile(
-        p.join(projectDirPath, '.idea', 'libraries', 'dev-deps.xml'),
+        p.join(ideaDir, 'libraries', 'dev-deps.xml'),
         getDevDepsXml(_fs.dataDir));
     CmdUtils.writeFile(
-        p.join(projectDirPath, '.idea', 'libraries', 'deps.xml'), getDepsXml());
-    CmdUtils.writeFile(p.join(projectDirPath, '.idea', 'modules.xml'),
+        p.join(ideaDir, 'libraries', 'deps.xml'), getDepsXml());
+    CmdUtils.writeFile(p.join(ideaDir, 'modules.xml'),
         getModulesXml(kebabCasedName));
     CmdUtils.writeFile(
-        p.join(projectDirPath, '.idea', '$kebabCasedName.iml'), getIml());
+        p.join(ideaDir, '$kebabCasedName.iml'), getIml(ideaDir));
   }
 
   Future<void> _compileJava(Directory output, BuildStep step) async {
@@ -230,8 +228,7 @@ class MigrateCommand extends Command<void> {
         '-AoutputDir=${output.path}',
       ];
 
-      final srcFiles =
-          CmdUtils.getJavaSourceFiles(Directory(_fs.srcDir));
+      final srcFiles = CmdUtils.getJavaSourceFiles(Directory(_fs.srcDir));
       final classesDir = Directory(p.join(output.path, 'classes'))
         ..createSync();
 

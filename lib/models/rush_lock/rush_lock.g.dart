@@ -40,15 +40,25 @@ Map<String, dynamic> _$RushLockToJson(RushLock instance) => <String, dynamic>{
 
 ResolvedArtifact _$ResolvedArtifactFromJson(Map json) {
   return $checkedNew('ResolvedArtifact', json, () {
-    $checkKeys(json, allowedKeys: const ['coord', 'type', 'scope', 'path']);
+    $checkKeys(json, allowedKeys: const [
+      'coord',
+      'type',
+      'scope',
+      'direct',
+      'path',
+      'deps'
+    ]);
     final val = ResolvedArtifact(
       coordinate: $checkedConvert(json, 'coord', (v) => v as String),
       type: $checkedConvert(json, 'type', (v) => v as String),
       scope: $checkedConvert(json, 'scope', (v) => v as String),
+      isDirect: $checkedConvert(json, 'direct', (v) => v as bool),
       path: $checkedConvert(json, 'path', (v) => v as String),
+      deps: $checkedConvert(json, 'deps',
+          (v) => (v as List<dynamic>).map((e) => e as String).toList()),
     );
     return val;
-  }, fieldKeyMap: const {'coordinate': 'coord'});
+  }, fieldKeyMap: const {'coordinate': 'coord', 'isDirect': 'direct'});
 }
 
 Map<String, dynamic> _$ResolvedArtifactToJson(ResolvedArtifact instance) =>
@@ -56,7 +66,9 @@ Map<String, dynamic> _$ResolvedArtifactToJson(ResolvedArtifact instance) =>
       'coord': instance.coordinate,
       'type': instance.type,
       'scope': instance.scope,
+      'direct': instance.isDirect,
       'path': instance.path,
+      'deps': instance.deps,
     };
 
 SkippedArtifact _$SkippedArtifactFromJson(Map json) {
