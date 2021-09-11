@@ -1,5 +1,5 @@
-import 'dart:convert';
-import 'dart:io';
+import 'dart:convert' show LineSplitter;
+import 'dart:io' show Directory, Process;
 
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
@@ -36,11 +36,22 @@ class ProcessStreamer {
     // method on it.
     final step = BuildStep('');
 
-    final process = await Process.start(
-      args[0],
-      args.sublist(1),
-      workingDirectory: workingDirectory?.path,
-    );
+    final Process process;
+    try {
+      process = await Process.start(
+        args[0],
+        args.sublist(1),
+        workingDirectory: workingDirectory?.path,
+      );
+    } catch (e) {
+      step.log(LogType.erro, 'Unable to invoke program: "${args[0]}"');
+      for (final el in LineSplitter.split(e.toString())) {
+        if (el.trim().isNotEmpty) {
+          step.log(LogType.erro, ' ' * 5 + el, addPrefix: false);
+        }
+      }
+      return ProcessResult._(false);
+    }
 
     if (printNormalOutput) {
       await for (final chunk in process.stdout) {
