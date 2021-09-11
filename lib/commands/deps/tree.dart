@@ -1,15 +1,15 @@
 import 'dart:io';
 
-import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/models/rush_lock/rush_lock.dart';
 import 'package:rush_cli/models/rush_yaml/rush_yaml.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-class DepsTreeCommand extends Command<void> {
+class DepsTreeCommand extends RushCommand {
   final FileService _fs;
 
   DepsTreeCommand(this._fs);

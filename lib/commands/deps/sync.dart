@@ -1,19 +1,19 @@
 import 'dart:io';
 
-import 'package:args/command_runner.dart';
 import 'package:collection/collection.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
 import 'package:rush_cli/commands/build/tools/executor.dart';
 import 'package:rush_cli/commands/build/utils/build_utils.dart';
+import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/models/rush_lock/rush_lock.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/templates/intellij_files.dart';
 import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-class DepsSyncCommand extends Command<void> {
+class DepsSyncCommand extends RushCommand {
   final FileService _fs;
 
   DepsSyncCommand(this._fs);

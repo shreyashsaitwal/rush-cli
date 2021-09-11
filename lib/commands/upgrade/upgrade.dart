@@ -1,18 +1,17 @@
 import 'dart:io'
     show Directory, File, Platform, Process, ProcessStartMode, exit;
 
-import 'package:args/command_runner.dart';
-import 'package:dart_console/dart_console.dart';
 import 'package:dio/dio.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_runner/process_runner.dart';
+import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/commands/upgrade/models/repo_content.dart';
 import 'package:rush_cli/commands/upgrade/models/gh_release.dart';
 import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-class UpgradeCommand extends Command<void> {
+class UpgradeCommand extends RushCommand {
   final String _dataDir;
   static const String _endpt = 'https://rush-api.shreyashsaitwal.repl.co';
 
@@ -35,32 +34,6 @@ class UpgradeCommand extends Command<void> {
 
   @override
   String get name => 'upgrade';
-
-  @override
-  void printUsage() {
-    Console()
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..write(' upgrade ')
-      ..resetColorAttributes()
-      ..writeLine(description)
-      ..writeLine()
-      ..write(' Usage: ')
-      ..setForegroundColor(ConsoleColor.brightBlue)
-      ..write('rush ')
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..write('upgrade ')
-      ..setForegroundColor(ConsoleColor.yellow)
-      ..writeLine('<flags>')
-      ..writeLine()
-      ..writeLine(' Available flags:')
-      ..setForegroundColor(ConsoleColor.yellow)
-      ..write('   -f, --force')
-      ..resetColorAttributes()
-      ..writeLine('  '
-          'Forcefully upgrades Rush to the latest version. This downloads and '
-          'replaces even the unchanged files.')
-      ..resetColorAttributes();
-  }
 
   @override
   Future<void> run() async {

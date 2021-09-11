@@ -2,13 +2,13 @@ import 'dart:convert';
 import 'dart:io' show File, Directory, exit;
 
 import 'package:archive/archive_io.dart';
-import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/utils/build_utils.dart';
 import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
 import 'package:rush_cli/commands/deps/sync.dart';
+import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/models/rush_lock/rush_lock.dart';
 import 'package:rush_cli/models/rush_yaml/rush_yaml.dart';
 import 'package:rush_cli/commands/build/tools/compiler.dart';
@@ -19,7 +19,7 @@ import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-class BuildCommand extends Command<void> {
+class BuildCommand extends RushCommand {
   final FileService _fs;
 
   late final DateTime _startTime;
@@ -27,13 +27,12 @@ class BuildCommand extends Command<void> {
   late final Box<BuildBox> _buildBox;
 
   BuildCommand(this._fs) {
-    argParser
-      ..addFlag('optimize',
-          abbr: 'o',
-          negatable: false,
-          help:
-              'Optimizes, shrinks and obfuscates extension\'s Java bytecode using ProGuard.')
-      ..addFlag('no-optimize', negatable: false);
+    argParser.addFlag(
+      'optimize',
+      abbr: 'o',
+      help:
+          'Optimizes, shrinks and obfuscates extension\'s Java bytecode using ProGuard.',
+    );
   }
 
   @override
@@ -42,39 +41,6 @@ class BuildCommand extends Command<void> {
 
   @override
   String get name => 'build';
-
-  @override
-  void printUsage() {
-    final console = Console();
-
-    console
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..write(' build ')
-      ..resetColorAttributes()
-      ..writeLine(description)
-      ..writeLine()
-      ..write(' Usage: ')
-      ..setForegroundColor(ConsoleColor.brightBlue)
-      ..write('rush ')
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..write('build ')
-      ..setForegroundColor(ConsoleColor.yellow)
-      ..writeLine('<flags>')
-      ..resetColorAttributes()
-      ..writeLine();
-
-    // Print available flags
-    console
-      ..writeLine(' Available flags:')
-      ..setForegroundColor(ConsoleColor.yellow)
-      ..write('   -o, --[no-]optimize')
-      ..resetColorAttributes()
-      ..writeLine('  '
-          'Optimize, obfuscates and shrinks your code with a set of ProGuard '
-          'rules defined in `proguard-rules.pro` rules file.')
-      ..resetColorAttributes()
-      ..writeLine();
-  }
 
   /// Builds the extension in the current directory
   @override

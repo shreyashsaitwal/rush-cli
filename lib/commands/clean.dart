@@ -1,14 +1,13 @@
 import 'dart:io' show Directory, File, exit;
 
-import 'package:args/command_runner.dart';
-import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
+import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-class CleanCommand extends Command<void> {
+class CleanCommand extends RushCommand {
   final FileService _fs;
 
   CleanCommand(this._fs);
@@ -19,22 +18,6 @@ class CleanCommand extends Command<void> {
 
   @override
   String get name => 'clean';
-
-  @override
-  void printUsage() {
-    Console()
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..write(' clean ')
-      ..resetColorAttributes()
-      ..writeLine(description)
-      ..writeLine()
-      ..write(' Usage: ')
-      ..setForegroundColor(ConsoleColor.brightBlue)
-      ..write('rush ')
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..writeLine('clean ')
-      ..resetColorAttributes();
-  }
 
   @override
   Future<void> run() async {

@@ -1,8 +1,8 @@
 import 'dart:io' show Directory, File, exit;
 
-import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/utils/casing.dart';
 import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_cli/services/file_service.dart';
@@ -15,7 +15,7 @@ import 'package:rush_cli/templates/rules_pro.dart';
 import 'package:rush_cli/templates/rush_yml.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-class CreateCommand extends Command<void> {
+class CreateCommand extends RushCommand {
   final FileService _fs;
 
   CreateCommand(this._fs);
@@ -26,24 +26,6 @@ class CreateCommand extends Command<void> {
 
   @override
   String get name => 'create';
-
-  @override
-  void printUsage() {
-    Console()
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..write(' create ')
-      ..resetColorAttributes()
-      ..writeLine(description)
-      ..writeLine()
-      ..write(' Usage: ')
-      ..setForegroundColor(ConsoleColor.brightBlue)
-      ..write('rush ')
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..write('create ')
-      ..setForegroundColor(ConsoleColor.yellow)
-      ..writeLine('<extension_name>')
-      ..resetColorAttributes();
-  }
 
   /// Creates a new extension project in the current directory.
   @override
@@ -122,13 +104,12 @@ class CreateCommand extends Command<void> {
       // IntelliJ IDEA files
       final ideaDir = p.join(projectDir, '.idea');
       CmdUtils.writeFile(p.join(ideaDir, 'misc.xml'), getMiscXml());
-      CmdUtils.writeFile(
-          p.join(ideaDir, 'libraries', 'dev-deps.xml'),
+      CmdUtils.writeFile(p.join(ideaDir, 'libraries', 'dev-deps.xml'),
           getDevDepsXml(_fs.dataDir));
       CmdUtils.writeFile(
           p.join(ideaDir, 'libraries', 'deps.xml'), getDepsXml());
-      CmdUtils.writeFile(p.join(ideaDir, 'modules.xml'),
-          getModulesXml(kebabCasedName));
+      CmdUtils.writeFile(
+          p.join(ideaDir, 'modules.xml'), getModulesXml(kebabCasedName));
       CmdUtils.writeFile(
           p.join(ideaDir, '$kebabCasedName.iml'), getIml(ideaDir));
     } catch (e) {

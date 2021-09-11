@@ -1,8 +1,8 @@
 import 'dart:io' show File, Directory, exit;
 
-import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/utils/casing.dart';
 import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_cli/utils/dir_utils.dart';
@@ -14,7 +14,7 @@ import 'package:rush_cli/templates/readme.dart';
 import 'package:rush_cli/templates/rules_pro.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-class MigrateCommand extends Command<void> {
+class MigrateCommand extends RushCommand {
   final FileService _fs;
 
   MigrateCommand(this._fs);
@@ -25,24 +25,6 @@ class MigrateCommand extends Command<void> {
 
   @override
   String get name => 'migrate';
-
-  @override
-  void printUsage() {
-    Console()
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..write(' migrate ')
-      ..resetColorAttributes()
-      ..writeLine(description)
-      ..writeLine()
-      ..write(' Usage: ')
-      ..setForegroundColor(ConsoleColor.brightBlue)
-      ..write('rush ')
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..write('migrate ')
-      ..setForegroundColor(ConsoleColor.yellow)
-      ..writeLine('<flags>')
-      ..resetColorAttributes();
-  }
 
   @override
   Future<void> run() async {
