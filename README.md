@@ -5,7 +5,7 @@
 Rush is a new, and probably, improved way of building App Inventor 2 extensions. It is a build tool, which aims to improve the developer experience by reducing the boilerplate code and making extension development feel more like Android development.
 
 Check out the [wiki section](https://github.com/ShreyashSaitwal/rush-cli/wiki) for a detailed overview and getting started with Rush.
-Watch video turial on [Youtube](https://youtu.be/ngMutIRWKbw).
+Watch video tutorial on [Youtube](https://youtu.be/ngMutIRWKbw).
 
 ## Building from sources
 1. Install [Dart SDK](https://dart.dev/get-dart).
