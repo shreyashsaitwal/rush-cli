@@ -36,13 +36,6 @@ class SimpleQuestion extends Question {
     console.resetColorAttributes();
 
     if (answer == null) {
-      console
-        ..writeLine()
-        ..writeLine()
-        ..setForegroundColor(ConsoleColor.yellow)
-        ..writeLine('Task aborted by user.')
-        ..resetColorAttributes();
-
       exit(1);
     } else if (answer == '') {
       ask();

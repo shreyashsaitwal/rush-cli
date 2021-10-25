@@ -21,7 +21,7 @@ class MultipleChoiceQuestion extends Question {
     _id = id;
     _options = options;
 
-    _hint = hint ?? '(Use arrow keys to navigate & press enter to select)';
+    _hint = hint ?? '(Use arrow or \'W\'/\'S\' keys to navigate & press enter to select)';
   }
 
   void _renderList(int activeIndex) {
@@ -29,10 +29,10 @@ class MultipleChoiceQuestion extends Question {
       if (activeIndex == _options.indexOf(option)) {
         console
           ..setForegroundColor(ConsoleColor.cyan)
-          ..writeLine(' › $option')
+          ..writeLine('❯ $option')
           ..resetColorAttributes();
       } else {
-        console.writeLine(' ' * 3 + option);
+        console.writeLine(' ' * 2 + option);
       }
     }
   }
@@ -59,29 +59,32 @@ class MultipleChoiceQuestion extends Question {
 
     _renderList(activeIndex);
 
-    var key = console.readKey().controlChar;
+    var key = console.readKey();
     while (true) {
-      if (key == ControlCharacter.arrowDown &&
-          activeIndex < _options.length - 1) {
+      if (_isDown(key) && activeIndex < _options.length - 1) {
         _clearList();
         activeIndex++;
         _renderList(activeIndex);
-      } else if (key == ControlCharacter.arrowUp && activeIndex > 0) {
+      } else if (_isUp(key) && activeIndex > 0) {
         _clearList();
         activeIndex--;
         _renderList(activeIndex);
-      } else if (key == ControlCharacter.ctrlC) {
-        console
-          ..writeLine()
-          ..writeLine()
-          ..setForegroundColor(ConsoleColor.yellow)
-          ..writeLine('Task aborted by user.')
-          ..resetColorAttributes();
+      } else if (key.controlChar == ControlCharacter.ctrlC) {
         exit(1);
-      } else if (key == ControlCharacter.enter) {
+      } else if (key.controlChar == ControlCharacter.enter) {
         return [_id, _options[activeIndex]];
       }
-      key = console.readKey().controlChar;
+      key = console.readKey();
     }
+  }
+
+  bool _isUp(Key key) {
+    return key.controlChar == ControlCharacter.arrowUp ||
+        key.char.toLowerCase() == 'w';
+  }
+
+  bool _isDown(Key key) {
+    return key.controlChar == ControlCharacter.arrowDown ||
+        key.char.toLowerCase() == 's';
   }
 }
