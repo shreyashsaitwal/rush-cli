@@ -26,6 +26,7 @@ dependencies:
   dart_console: ^1.0.0
   dio: ^4.0.0-beta5
   hive: ^2.0.0
+  http: ^0.13.4
   json_annotation: ^4.0.0
   meta: ^1.3.0
   path: ^1.8.0

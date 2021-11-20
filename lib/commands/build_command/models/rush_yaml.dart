@@ -35,6 +35,9 @@ class RushYaml {
   List<String>? deps;
 
   @JsonKey(includeIfNull: false)
+  List<String>? repos;
+
+  @JsonKey(includeIfNull: false)
   List<String>? authors;
 
   @JsonKey(defaultValue: null, includeIfNull: false)
@@ -60,6 +63,7 @@ class RushYaml {
     this.build,
     this.authors,
     this.deps,
+    this.repos,
     this.license,
     // ignore: non_constant_identifier_names
     this.min_sdk,

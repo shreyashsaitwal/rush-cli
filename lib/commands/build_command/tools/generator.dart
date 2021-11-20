@@ -1,11 +1,21 @@
-import 'dart:io' show Directory, File, exit;
+import 'dart:io'
+    show
+        Directory,
+        File,
+        HttpClient,
+        HttpClientRequest,
+        HttpClientResponse,
+        exit;
 
 import 'package:archive/archive.dart';
+import 'package:http/http.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build_command/helpers/compute.dart';
 import 'package:rush_cli/commands/build_command/models/rush_yaml.dart';
+import 'package:rush_cli/helpers/dir_utils.dart';
 import 'package:rush_cli/version.dart';
 import 'package:rush_prompt/rush_prompt.dart';
+import 'package:http/http.dart' as http;
 
 class Generator {
   final String _cd;
@@ -19,8 +29,12 @@ class Generator {
       _generateInfoFiles(org),
       _copyAssets(yaml, org, step),
       _copyLicense(org, yaml),
-      _copyRequiredClasses(yaml, org, step),
+      _copyRequiredClasses(yaml, org, step)
     ]);
+  }
+
+  Future<void> download(String org, BuildStep step, RushYaml yaml) async {
+    await Future.wait([_downloadDeps(yaml, org, step)]);
   }
 
   /// Generates the components info, build, and the properties file.
@@ -91,11 +105,110 @@ rush-version=$rushVersion
     }
   }
 
+  Future<void> _downloadDeps(
+      RushYaml rushYml, String org, BuildStep step) async {
+    final deps = rushYml.deps ?? [];
+
+    if (deps.isNotEmpty) {
+      String artId = "";
+      String version = "";
+      String packageName = "";
+      File dep;
+      String path;
+      File temp;
+      String tempPath;
+      for (String el in deps) {
+        if (el.contains(':')) {
+          final repos = [
+            "https://maven.google.com",
+            "https://jcenter.bintray.com",
+            "https://repo.maven.apache.org/maven2",
+            "https://repository.jboss.org/nexus/content/repositories/releases",
+            "https://repo.clojars.org"
+          ];
+          // print(repos);
+          final arr = el.split(':');
+          version = arr[2];
+          artId = arr[1];
+          packageName = arr[0];
+          path = p.join(_cd, 'deps', artId + "-" + version + ".aar");
+          tempPath = p.join(_dataDir, artId + "-" + version + ".aar");
+          temp = new File(tempPath);
+          temp.create(recursive: true);
+          for (var i = 0; i < repos.length; i++) {
+            final String url = repos[i] +
+                "/" +
+                packageName.replaceAll('.', '/') +
+                "/" +
+                artId +
+                "/" +
+                version +
+                "/" +
+                artId +
+                "-" +
+                version +
+                ".aar";
+
+            Response response = await get(Uri.parse(url));
+            if (response.statusCode == 200) {
+              await temp.writeAsBytes(response.bodyBytes);
+              break;
+            } else {
+              // step.log(LogType.warn, 'Unable to find AAR. Trying to Find JAR.');
+              final String url = repos[i] +
+                  "/" +
+                  packageName.replaceAll('.', '/') +
+                  "/" +
+                  artId +
+                  "/" +
+                  version +
+                  "/" +
+                  artId +
+                  "-" +
+                  version +
+                  ".jar";
+              String path = p.join(_cd, 'deps', artId + "-" + version + ".jar");
+              Response response = await get(Uri.parse(url));
+              if (response.statusCode == 200) {
+                new File(path).writeAsBytes(response.bodyBytes);
+                break;
+              } else {
+                String fName = artId + "-" + version + ".jar";
+                if (i == repos.length - 1) {
+                  step
+                    ..log(LogType.erro,
+                        'Unable to download required library \'${el}\'')
+                    ..finishNotOk();
+
+                  exit(1);
+                }
+              }
+            }
+          }
+
+          final bytes = temp.readAsBytesSync();
+          final archive = new ZipDecoder().decodeBytes(bytes);
+          for (var file in archive) {
+            final filename = path.replaceAll(".aar", ".jar");
+            if (file.isFile && file.name.endsWith(".jar")) {
+              var outFile = new File(filename);
+              outFile = await outFile.create(recursive: true);
+              await outFile.writeAsBytes(file.content);
+            }
+          }
+          temp.deleteSync();
+        }
+      }
+      step
+        ..log(LogType.info, 'Successfully Downloaded Dependencies')
+        ..finishOk();
+    }
+  }
+
   /// Unjars extension dependencies into the classes dir.
   Future<void> _copyRequiredClasses(
       RushYaml rushYml, String org, BuildStep step) async {
     final deps = rushYml.deps ?? [];
-
     final artDir = Directory(p.join(_dataDir, 'workspaces', org, 'art'))
       ..createSync(recursive: true);
 
@@ -106,13 +219,26 @@ rush-version=$rushVersion
           p.join(_dataDir, 'workspaces', org, 'files', 'desugar');
       final isArtDirEmpty = artDir.listSync().isEmpty;
 
-      for (final el in deps) {
-        final File dep;
-
+      for (String el in deps) {
+        // String artId = "";
+        // String version = "";
+        // String packageName = "";
+        File dep;
+        // String path;
+        // final temp;
+        // String tempPath;
+        String fName = el;
+        if (el.contains(':')) {
+          final arr = el.split(':');
+          String version = arr[2];
+          String artId = arr[1];
+          String packageName = arr[0];
+          fName = artId + "-" + version + ".jar";
+        }
         if (rushYml.build?.desugar?.desugar_deps ?? false) {
-          dep = File(p.join(desugarStore, el));
+          dep = File(p.join(desugarStore, fName));
         } else {
-          dep = File(p.join(_cd, 'deps', el));
+          dep = File(p.join(_cd, 'deps', fName));
         }
 
         if (!dep.existsSync()) {

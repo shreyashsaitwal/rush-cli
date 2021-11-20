@@ -1,3 +1,3 @@
 // Auto-generated; DO NOT modify
-const rushVersion = '1.2.3';
-const rushBuiltOn = '2021-08-14 18:12:40';
+const rushVersion = '1.2.4';
+const rushBuiltOn = '2021-11-20 23:11:30';

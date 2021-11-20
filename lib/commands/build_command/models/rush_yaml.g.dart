@@ -16,6 +16,7 @@ RushYaml _$RushYamlFromJson(Map json) {
       'release',
       'build',
       'deps',
+      'repos',
       'authors',
       'license_url',
       'license',
@@ -50,6 +51,8 @@ RushYaml _$RushYamlFromJson(Map json) {
           (v) => (v as List<dynamic>?)?.map((e) => e as String).toList()),
       deps: $checkedConvert(json, 'deps',
           (v) => (v as List<dynamic>?)?.map((e) => e as String).toList()),
+      repos: $checkedConvert(json, 'repos',
+          (v) => (v as List<dynamic>?)?.map((e) => e as String).toList()),
       license: $checkedConvert(json, 'license', (v) => v as String?),
       min_sdk: $checkedConvert(json, 'min_sdk', (v) => v as int?),
       homepage: $checkedConvert(json, 'homepage', (v) => v as String?),
@@ -76,6 +79,7 @@ Map<String, dynamic> _$RushYamlToJson(RushYaml instance) {
   writeNotNull('release', instance.release);
   writeNotNull('build', instance.build);
   writeNotNull('deps', instance.deps);
+  writeNotNull('repos', instance.repos);
   writeNotNull('authors', instance.authors);
   writeNotNull('license_url', instance.license_url);
   writeNotNull('license', instance.license);

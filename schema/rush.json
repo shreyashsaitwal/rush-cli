@@ -63,6 +63,11 @@
       "description": "JAR dependencies of the extension. Only add the JARs that are needed during runtime here. Compile-time dependencies are not required to be added; they should only be present in the `deps` directory.",
       "type": "array"
     },
+    "repos": {
+      "title": "Maven repositoiries",
+      "description": "Maven repositoiries to use for extension dependencies.",
+      "type": "array"
+    },
     "release": {
       "deprecated": true,
       "title": "release",

@@ -32,6 +32,14 @@ assets:
   # other:
   #   - my_awesome_asset.anything
 
+# Maven repositoiries to use for extension dependencies.
+repos:
+  - https://maven.google.com
+  - https://jcenter.bintray.com
+  - https://repo.maven.apache.org/maven2
+  - https://repository.jboss.org/nexus/content/repositories/releases
+  - https://repo.clojars.org
+
 # Extension dependencies (JAR).
 # deps:
 #   - my_awesome_library.jar

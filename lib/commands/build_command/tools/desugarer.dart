@@ -31,11 +31,18 @@ class Desugarer {
           ..createSync(recursive: true);
 
     for (final el in deps) {
-      final output = p.join(desugarStore.path, p.basename(el));
+      String fName = el;
+      // if (el.contains(':')) {
+      //   final arr = el.split(':');
+      //   String version = arr[2];
+      //   String artId = arr[1];
+      //   fName = artId + "-" + version + ".jar";
+      // }
+      final output = p.join(desugarStore.path, p.basename(fName));
       final args = _DesugarArgs(
         cd: _cd,
         dataDir: _dataDir,
-        input: el,
+        input: fName,
         output: output,
         org: org,
       );
@@ -77,8 +84,16 @@ class Desugarer {
     final depsDir = p.join(_cd, 'deps');
 
     for (final el in deps) {
-      final depDes = File(p.join(store.path, el));
-      final depOrig = File(p.join(depsDir, el));
+      String fName = el;
+      if (el.contains(':')) {
+        final arr = el.split(':');
+        String version = arr[2];
+        String artId = arr[1];
+        String packageName = arr[0];
+        fName = artId + "-" + version + ".jar";
+      }
+      final depDes = File(p.join(store.path, fName));
+      final depOrig = File(p.join(depsDir, fName));
 
       // Add the dep if it isn't already desugared
       if (!depDes.existsSync()) {
@@ -123,8 +138,8 @@ class Desugarer {
         ..addAll(['--input', '\'${args.input}\''])
         ..addAll(['--output', '\'${args.output}\'']);
 
-      classpath.split(CmdUtils.getSeparator()).forEach((el) {
-        contents.addAll(['--classpath_entry', '\'$el\'']);
+      classpath.split(CmdUtils.getSeparator()).forEach((fName) {
+        contents.addAll(['--classpath_entry', '\'$fName\'']);
       });
 
       final file = File(p.join(args.dataDir, 'workspaces', args.org, 'files',

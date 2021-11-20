@@ -124,7 +124,7 @@ class BuildCommand extends Command {
         yamlFile.readAsStringSync(),
         (json) => RushYaml.fromJson(json!, valStep),
         sourceUrl: Uri.tryParse(
-            'https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/schema/rush.json'),
+            './schema/rush.json'),
       );
 
       await BuildUtils.ensureBoxValues(_cd, dataBox, rushYaml);
@@ -261,6 +261,10 @@ class BuildCommand extends Command {
   Future<void> _process(
       String org, bool optimize, bool deJet, RushYaml rushYaml) async {
     final BuildStep processStep;
+    final BuildStep downloadDepsStep;
+    downloadDepsStep = BuildStep('Downloading Dependencies')..init();
+    await Generator(_cd, _dataDir).download(org, downloadDepsStep, rushYaml);
+
     final rulesPro = File(p.join(_cd, 'src', 'proguard-rules.pro'));
 
     processStep = BuildStep('Processing the extension')..init();
@@ -275,7 +279,9 @@ class BuildCommand extends Command {
       final desugarer = Desugarer(_cd, _dataDir);
       try {
         await desugarer.run(org, rushYaml, processStep);
-      } catch (e) {
+      } catch (e, stacktrace) {
+        print(e);
+        print(stacktrace.toString());
         processStep.finishNotOk();
         BuildUtils.printFailMsg(
             BuildUtils.getTimeDifference(_startTime, DateTime.now()));
