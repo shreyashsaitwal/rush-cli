@@ -154,7 +154,6 @@ rush-version=$rushVersion
               await temp.writeAsBytes(response.bodyBytes);
               break;
             } else {
-              // step.log(LogType.warn, 'Unable to find AAR. Trying to Find JAR.');
               final String url = repos[i] +
                   "/" +
                   packageName.replaceAll('.', '/') +
@@ -220,13 +219,7 @@ rush-version=$rushVersion
       final isArtDirEmpty = artDir.listSync().isEmpty;
 
       for (String el in deps) {
-        // String artId = "";
-        // String version = "";
-        // String packageName = "";
         File dep;
-        // String path;
-        // final temp;
-        // String tempPath;
         String fName = el;
         if (el.contains(':')) {
           final arr = el.split(':');

@@ -32,12 +32,6 @@ class Desugarer {
 
     for (final el in deps) {
       String fName = el;
-      // if (el.contains(':')) {
-      //   final arr = el.split(':');
-      //   String version = arr[2];
-      //   String artId = arr[1];
-      //   fName = artId + "-" + version + ".jar";
-      // }
       final output = p.join(desugarStore.path, p.basename(fName));
       final args = _DesugarArgs(
         cd: _cd,
