@@ -124,7 +124,11 @@ rush-version=$rushVersion
             "https://jcenter.bintray.com",
             "https://repo.maven.apache.org/maven2",
             "https://repository.jboss.org/nexus/content/repositories/releases",
-            "https://repo.clojars.org"
+            "https://repo.clojars.org",
+            "https://repo1.maven.org/maven2",
+            "https://repository.apache.org/content/repositories/releases",
+            "https://jitpack.io"
+
           ];
           // print(repos);
           final arr = el.split(':');
