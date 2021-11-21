@@ -124,7 +124,7 @@ class BuildCommand extends Command {
         yamlFile.readAsStringSync(),
         (json) => RushYaml.fromJson(json!, valStep),
         sourceUrl: Uri.tryParse(
-            './schema/rush.json'),
+            'https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/schema/rush.json'),
       );
 
       await BuildUtils.ensureBoxValues(_cd, dataBox, rushYaml);
