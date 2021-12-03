@@ -15,4 +15,5 @@ Check out the [wiki section](https://github.com/ShreyashSaitwal/rush-cli/wiki) f
 6. The generated executable can be found in `./build` directory.
 
 ## Helpful links
-1. [Video] [How to install Rush](https://youtu.be/ngMutIRWKbw) on YouTube.
+1. [How to install Rush](https://youtu.be/ngMutIRWKbw) on YouTube.
+2. [Tutorial en Español de Rush para Windows](http://kio4.com/appinventor/145_extension_rush.htm)
