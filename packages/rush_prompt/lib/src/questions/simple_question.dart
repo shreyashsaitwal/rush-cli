@@ -9,16 +9,14 @@ class SimpleQuestion extends Question {
 
   SimpleQuestion({
     required String question,
-    required String id,
     String? defaultAnswer,
   }) {
     _question = question;
-    this.id = id;
     _default = defaultAnswer;
   }
 
   @override
-  List<dynamic> ask() {
+  String ask() {
     console
       ..setForegroundColor(ConsoleColor.green)
       ..write('? ')
@@ -48,6 +46,6 @@ class SimpleQuestion extends Question {
       ask();
     }
 
-    return [id, answer];
+    return answer.trim();
   }
 }

@@ -10,7 +10,6 @@ import 'package:rush_cli/templates/rules_pro.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 import 'package:rush_cli/templates/intellij_files.dart';
 import 'package:rush_cli/helpers/casing.dart';
-import 'package:rush_cli/commands/create_command/questions.dart';
 import 'package:rush_cli/templates/android_manifest.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
 import 'package:rush_cli/templates/readme.dart';
@@ -32,11 +31,13 @@ class CreateCommand extends Command {
           abbr: 'a', help: 'The name of the extension\'s author.')
       ..addOption('version',
           abbr: 'v', help: 'The version number/name of the extension.')
-      ..addMultiOption('lang',
-          abbr: 'l',
-          help:
-              'The language in which the extension\'s starter template should be generated',
-          allowed: ['Java', 'Kotlin', 'java', 'kotlin', 'j', 'k']);
+      ..addMultiOption(
+        'lang',
+        abbr: 'l',
+        help:
+            'The language in which the extension\'s starter template should be generated',
+        allowed: ['Java', 'Kotlin'],
+      );
   }
 
   @override
@@ -93,28 +94,29 @@ class CreateCommand extends Command {
     final String versionName;
     final String lang;
 
-    final prompt = RushPrompt(questions: Questions.questions);
-
     if (argResults!['org'] == null) {
-      orgName = prompt.askQuestionAt('org')[1].toString().trim();
+      orgName = SimpleQuestion(question: 'Organisation (package name)').ask();
     } else {
       orgName = argResults!['org'].toString().trim();
     }
 
     if (argResults!['author'] == null) {
-      authorName = prompt.askQuestionAt('author')[1].toString().trim();
+      authorName = SimpleQuestion(question: 'Author').ask();
     } else {
       authorName = argResults!['author'].toString().trim();
     }
 
     if (argResults!['version'] == null) {
-      versionName = prompt.askQuestionAt('version')[1].toString().trim();
+      versionName = SimpleQuestion(question: 'Version name').ask();
     } else {
       versionName = argResults!['version'].toString().trim();
     }
 
-    if (argResults!['lang'] == null) {
-      lang = prompt.askQuestionAt('lang')[1].toString().trim();
+    if ((argResults!['lang'] as List).isEmpty) {
+      lang = MultipleChoiceQuestion(
+        question: 'Language',
+        options: ['Java', 'Kotlin'],
+      ).ask();
     } else {
       lang = argResults!['lang'].toString().trim();
     }
