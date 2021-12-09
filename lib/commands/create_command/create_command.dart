@@ -22,7 +22,22 @@ class CreateCommand extends Command {
   final String _dataDir;
   String? extName;
 
-  CreateCommand(this._cd, this._dataDir);
+  CreateCommand(this._cd, this._dataDir) {
+    argParser
+      ..addOption('org',
+          abbr: 'o',
+          help:
+              'The organization name in reverse domain name notation. This is used as extension\'s package name.')
+      ..addOption('author',
+          abbr: 'a', help: 'The name of the extension\'s author.')
+      ..addOption('version',
+          abbr: 'v', help: 'The version number/name of the extension.')
+      ..addMultiOption('lang',
+          abbr: 'l',
+          help:
+              'The language in which the extension\'s starter template should be generated',
+          allowed: ['Java', 'Kotlin', 'java', 'kotlin', 'j', 'k']);
+  }
 
   @override
   String get description =>
@@ -73,11 +88,36 @@ class CreateCommand extends Command {
       exit(1);
     }
 
-    final answers = RushPrompt(questions: Questions.questions).askAll();
-    final authorName = answers[1][1].toString().trim();
-    final versionName = answers[2][1].toString().trim();
-    final lang = answers[3][1].toString().trim();
-    var orgName = answers[0][1].toString().trim();
+    String orgName;
+    final String authorName;
+    final String versionName;
+    final String lang;
+
+    final prompt = RushPrompt(questions: Questions.questions);
+
+    if (argResults!['org'] == null) {
+      orgName = prompt.askQuestionAt('org')[1].toString().trim();
+    } else {
+      orgName = argResults!['org'].toString().trim();
+    }
+
+    if (argResults!['author'] == null) {
+      authorName = prompt.askQuestionAt('author')[1].toString().trim();
+    } else {
+      authorName = argResults!['author'].toString().trim();
+    }
+
+    if (argResults!['version'] == null) {
+      versionName = prompt.askQuestionAt('version')[1].toString().trim();
+    } else {
+      versionName = argResults!['version'].toString().trim();
+    }
+
+    if (argResults!['lang'] == null) {
+      lang = prompt.askQuestionAt('lang')[1].toString().trim();
+    } else {
+      lang = argResults!['lang'].toString().trim();
+    }
 
     final camelCasedName = Casing.camelCase(name);
     final pascalCasedName = Casing.pascalCase(name);
@@ -123,20 +163,23 @@ class CreateCommand extends Command {
           getRushYamlTemp(
               pascalCasedName, versionName, authorName, lang == 'Kotlin'));
 
-      CmdUtils.writeFile(p.join(projectDir, 'README.md'), getReadme(pascalCasedName));
+      CmdUtils.writeFile(
+          p.join(projectDir, 'README.md'), getReadme(pascalCasedName));
       CmdUtils.writeFile(p.join(projectDir, '.gitignore'), getDotGitignore());
       CmdUtils.writeFile(p.join(projectDir, 'deps', '.placeholder'),
           'This directory stores your extension\'s dependencies.');
 
       // IntelliJ IDEA files
       CmdUtils.writeFile(p.join(projectDir, '.idea', 'misc.xml'), getMiscXml());
-      CmdUtils.writeFile(p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
+      CmdUtils.writeFile(
+          p.join(projectDir, '.idea', 'libraries', 'dev-deps.xml'),
           getDevDepsXml(_dataDir));
       CmdUtils.writeFile(
           p.join(projectDir, '.idea', 'libraries', 'deps.xml'), getDepsXml());
       CmdUtils.writeFile(p.join(projectDir, '.idea', 'modules.xml'),
           getModulesXml(kebabCasedName));
-      CmdUtils.writeFile(p.join(projectDir, '.idea', '$kebabCasedName.iml'), getIml());
+      CmdUtils.writeFile(
+          p.join(projectDir, '.idea', '$kebabCasedName.iml'), getIml());
     } catch (e) {
       Logger.log(LogType.erro, e.toString());
       exit(1);
