@@ -1,16 +1,13 @@
 name: rush_cli
 description: A new and improved way of building MIT AI2 extensions.
 version: 1.2.1
-homepage: https://github.com/ShreyashSaitwal/rush-cli
+homepage: https://github.com/shreyashsaitwal/rush-cli
 
 executables:
   rush: rush.dart
 
-authors:
-  - Shreyash Saitwal
-
 environment:
-  sdk: ">=2.12.0 <3.0.0"
+  sdk: ">=2.15.0-268.18.beta <3.0.0"
 
 dev_dependencies:
   build_runner: ^2.0.0

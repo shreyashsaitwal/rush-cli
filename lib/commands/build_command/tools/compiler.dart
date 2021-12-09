@@ -132,6 +132,7 @@ class Compiler {
     final args = <String>[];
 
     args
+      ..addAll(['-encoding', 'UTF8'])
       ..addAll(['-d', classesDir.path])
       ..addAll(['-cp', classpath])
       ..addAll([...apArgs])
