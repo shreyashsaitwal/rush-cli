@@ -43,12 +43,12 @@ import com.google.appinventor.components.runtime.util.YailList
 
 class $name(container: ComponentContainer) : AndroidNonvisibleComponent(container.`\$form`()) {
 
-  @SimpleFunction(description = "Returns the sum of the given list of integers.")
-	fun SumAll(integers: YailList): Int {
-		return integers.sumBy {
-      it.toString().toIntOrNull() ?: 0
+    @SimpleFunction(description = "Returns the sum of the given list of integers.")
+    fun SumAll(integers: YailList): Int {
+        return integers.sumOf {
+          it.toString().toIntOrNull() ?: 0
+        }
     }
-	}
 }
 ''';
 }

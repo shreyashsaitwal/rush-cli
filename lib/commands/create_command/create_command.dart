@@ -35,8 +35,8 @@ class CreateCommand extends Command {
         'lang',
         abbr: 'l',
         help:
-            'The language in which the extension\'s starter template should be generated',
-        allowed: ['Java', 'Kotlin'],
+            'The language in which the extension\'s starter template should be generated. Allowed languages: Java & Kotlin.',
+        allowed: ['Java', 'Kotlin', 'java', 'kotlin', 'J', 'K', 'j', 'k'],
       );
   }
 
@@ -131,6 +131,8 @@ class CreateCommand extends Command {
     if (!isOrgAndNameSame) {
       orgName = orgName.toLowerCase() + '.' + camelCasedName.toLowerCase();
     }
+    final isLangJava =
+        lang.toLowerCase() == 'java' || lang.toLowerCase() == 'j';
 
     Logger.logCustom('Getting things ready...',
         prefix: '\n• ', prefixFG: ConsoleColor.yellow);
@@ -138,8 +140,7 @@ class CreateCommand extends Command {
     // Creates the required files for the extension.
     try {
       final extPath = p.joinAll([projectDir, 'src', ...orgName.split('.')]);
-
-      if (lang == 'Java') {
+      if (isLangJava) {
         CmdUtils.writeFile(
             p.join(extPath, '$pascalCasedName.java'),
             getExtensionTempJava(
@@ -163,7 +164,7 @@ class CreateCommand extends Command {
       CmdUtils.writeFile(
           p.join(projectDir, 'rush.yml'),
           getRushYamlTemp(
-              pascalCasedName, versionName, authorName, lang == 'Kotlin'));
+              pascalCasedName, versionName, authorName, !isLangJava));
 
       CmdUtils.writeFile(
           p.join(projectDir, 'README.md'), getReadme(pascalCasedName));
