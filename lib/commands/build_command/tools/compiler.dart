@@ -31,7 +31,7 @@ class Compiler {
       throw Exception();
     }
 
-    await _generateInfoFilesIfNoBlocks(org, version, instance, step);
+    await _generateInfoFilesIfNoBlocks(name, org, version, instance, step);
   }
 
   /// Compiles the Kotlin files for this extension project.
@@ -63,13 +63,13 @@ class Compiler {
       throw Exception();
     }
 
-    await _generateInfoFilesIfNoBlocks(
+    await _generateInfoFilesIfNoBlocks(await dataBox.get('name') as String,
         org, await dataBox.get('version') as int, instance, step);
   }
 
   /// Generates info files if no block annotations are declared.
   Future<void> _generateInfoFilesIfNoBlocks(
-      String org, int version, DateTime instance, BuildStep step) async {
+      String name, String org, int version, DateTime instance, BuildStep step) async {
     final filesDir = p.join(_dataDir, 'workspaces', org, 'files');
     final componentsJson = File(p.join(filesDir, 'components.json'));
 
@@ -87,7 +87,7 @@ class Compiler {
         'io.shreyash.rush.InfoFilesGeneratorKt',
         _cd,
         version.toString(),
-        org,
+        '$org.$name',
         filesDir,
       ];
 
