@@ -1,38 +1,37 @@
-import 'dart:io' show Directory, Link, Platform, exit;
+import 'dart:io' show Directory, Platform, exit;
 
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
 class DirUtils {
   static String? dataDir() {
     var os = Platform.operatingSystem;
-    late String appDataDir;
+    final String appDataDir;
 
-    switch (os) {
-      case 'windows':
-        appDataDir =
-            p.join(Platform.environment['UserProfile']!, 'AppData', 'Roaming');
-        break;
+    if (Platform.environment.containsKey('RUSH_DATA_DIR')) {
+      appDataDir = Platform.environment['RUSH_DATA_DIR']!;
+    } else {
+      switch (os) {
+        case 'windows':
+          appDataDir = p.join(
+              Platform.environment['UserProfile']!, 'AppData', 'Roaming', 'rush');
+          break;
 
-      case 'macos':
-        appDataDir = p.join(
-            Platform.environment['HOME']!, 'Library', 'Application Support');
-        break;
+        case 'macos':
+          appDataDir = p.join(
+              Platform.environment['HOME']!, 'Library', 'Application Support', 'rush');
+          break;
 
-      case 'linux':
-        appDataDir = p.join('home', Platform.environment['HOME']);
-        break;
-
-      default:
-        break;
+        default:
+          appDataDir = p.join(Platform.environment['HOME']!, 'rush');
+          break;
+      }
     }
 
-    final dataDir = Directory(p.join(appDataDir, 'rush'));
-    if (!dataDir.existsSync()) {
-      Logger.log(LogType.erro, 'Rush data directory doesn\'t exists');
+    if (!Directory(appDataDir).existsSync()) {
+      Logger.log(LogType.erro, 'Rush data directory $appDataDir doesn\'t exists');
       exit(1);
     }
-    return dataDir.path;
+    return appDataDir;
   }
 }
