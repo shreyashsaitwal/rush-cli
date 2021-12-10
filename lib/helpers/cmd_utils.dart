@@ -47,6 +47,12 @@ class CmdUtils {
       {List<String> exclude = const [''],
       Directory? classesDir,
       bool relative = true}) {
+    exclude.addAll([
+      'runtime-sources.jar',
+      'annotations-sources.jar',
+      'kotlin-stdlib-sources.jar',
+    ]);
+
     final jars = <String>[];
 
     for (final entity in entities) {
