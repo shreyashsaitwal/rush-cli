@@ -44,14 +44,15 @@ class CmdUtils {
 
   /// Returns a ";" or ":" separated string of dependencies.
   static String generateClasspath(List<FileSystemEntity> entities,
-      {List<String> exclude = const [''],
+      {List<String> exclude = const [],
       Directory? classesDir,
       bool relative = true}) {
-    exclude.addAll([
+    final List<String> excludeList = [
+      ...exclude,
       'runtime-sources.jar',
       'annotations-sources.jar',
       'kotlin-stdlib-sources.jar',
-    ]);
+    ];
 
     final jars = <String>[];
 
@@ -62,7 +63,7 @@ class CmdUtils {
             .whereType<File>()
             .where((el) =>
                 p.extension(el.path) == '.jar' &&
-                !exclude.contains(p.basename(el.path)))
+                !excludeList.contains(p.basename(el.path)))
             .forEach((el) {
           if (relative) {
             jars.add(p.relative(el.path));
