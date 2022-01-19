@@ -6,7 +6,6 @@ import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/helpers/cmd_utils.dart';
 import 'package:rush_cli/templates/rules_pro.dart';
-import 'package:rush_cli/templates/vscode_files.dart';
 
 import 'package:rush_prompt/rush_prompt.dart';
 import 'package:rush_cli/templates/intellij_files.dart';
@@ -191,11 +190,6 @@ class CreateCommand extends Command {
         getJsonSchemaForIdea(),
       );
 
-      // VS Code Path : .vscode/settings.json
-      CmdUtils.writeFile(
-        p.join(projectDir, '.vscode', 'settings.json'),
-        getJsonSchemaForVsCode(),
-      );
     } catch (e) {
       Logger.log(LogType.erro, e.toString());
       exit(1);
