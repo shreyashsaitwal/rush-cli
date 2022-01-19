@@ -92,6 +92,7 @@ String getJsonSchemaForIdea() => '''
                 <list>
                   <Item>
                     <option name="path" value="rush.yml" />
+                    <option name="path" value="rush.yaml" />
                   </Item>
                 </list>
               </option>
