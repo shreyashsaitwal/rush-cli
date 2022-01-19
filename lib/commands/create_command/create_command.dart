@@ -183,6 +183,13 @@ class CreateCommand extends Command {
           getModulesXml(kebabCasedName));
       CmdUtils.writeFile(
           p.join(projectDir, '.idea', '$kebabCasedName.iml'), getIml());
+
+      // Json Schema File (Adds supports for rush.yam file intellisense)
+      CmdUtils.writeFile(
+        p.join(projectDir, '.idea', 'jsonSchemas.xml'),
+        getJsonSchemaForIdea(),
+      );
+
     } catch (e) {
       Logger.log(LogType.erro, e.toString());
       exit(1);

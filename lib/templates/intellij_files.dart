@@ -76,3 +76,31 @@ String getModulesXml(String name) {
 </project>
 ''';
 }
+
+String getJsonSchemaForIdea() => '''
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="JsonSchemaMappingsProjectConfiguration">
+    <state>
+      <map>
+        <entry key="Rush YAML">
+          <value>
+            <SchemaInfo>
+              <option name="name" value="Rush YAML" />
+              <option name="relativePathToSchema" value="https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/schema/rush.json" />
+              <option name="patterns">
+                <list>
+                  <Item>
+                    <option name="path" value="rush.yml" />
+                    <option name="path" value="rush.yaml" />
+                  </Item>
+                </list>
+              </option>
+            </SchemaInfo>
+          </value>
+        </entry>
+      </map>
+    </state>
+  </component>
+</project>
+''';
