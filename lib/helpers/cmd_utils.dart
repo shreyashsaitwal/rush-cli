@@ -1,6 +1,7 @@
 import 'dart:io' show Directory, File, FileSystemEntity, Platform;
 
 import 'package:path/path.dart' as p;
+import 'package:collection/collection.dart';
 
 class CmdUtils {
   // Returns the package name in com.example form
@@ -8,11 +9,15 @@ class CmdUtils {
     final mainSrcFile = Directory(srcDirPath)
         .listSync(recursive: true)
         .whereType<File>()
-        .singleWhere(
+        .firstWhereOrNull(
             (file) => p.basenameWithoutExtension(file.path) == extName);
 
-    final path = p.relative(mainSrcFile.path, from: srcDirPath);
+    if (mainSrcFile == null) {
+      throw Exception(
+          'Could not find Java/Kotlin source file for `name: $extName`');
+    }
 
+    final path = p.relative(mainSrcFile.path, from: srcDirPath);
     final org = path
         .split(p.separator)
         .join('.')

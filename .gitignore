@@ -3,6 +3,7 @@
 .packages
 .idea
 pubspec.lock
+*.iml
 
 # Conventional directory for build outputs
 build/
@@ -13,5 +14,4 @@ doc/api/
 misc/
 temp/
 
-*.iml
-env.dart
+/.vscode
