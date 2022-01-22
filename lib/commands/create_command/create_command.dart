@@ -112,13 +112,14 @@ class CreateCommand extends Command {
       versionName = argResults!['version'].toString().trim();
     }
 
-    if ((argResults!['lang'] as List).isEmpty) {
+    final argLang = argResults!['lang'] as List;
+    if (argLang.isEmpty) {
       lang = MultipleChoiceQuestion(
         question: 'Language',
         options: ['Java', 'Kotlin'],
       ).ask();
     } else {
-      lang = argResults!['lang'].toString().trim();
+      lang = argLang.first.toString().trim();
     }
 
     final camelCasedName = Casing.camelCase(name);
@@ -189,7 +190,6 @@ class CreateCommand extends Command {
         p.join(projectDir, '.idea', 'jsonSchemas.xml'),
         getJsonSchemaForIdea(),
       );
-
     } catch (e) {
       Logger.log(LogType.erro, e.toString());
       exit(1);
