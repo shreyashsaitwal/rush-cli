@@ -350,7 +350,7 @@ class BuildCommand extends RushCommand {
           !pathEndsToIgnore.any((el) => entity.path.endsWith(el))) {
         final path =
             p.relative(entity.path, from: p.join(_fs.buildDir, 'classes'));
-        artJarEncoder.addFile(entity, path);
+        await artJarEncoder.addFile(entity, path);
       }
     }
     artJarEncoder.close();

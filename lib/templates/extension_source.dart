@@ -60,7 +60,7 @@ class $name(
 
     @SimpleFunction(description = "Returns the sum of the given list of integers.")
     fun SumAll(integers: YailList): Int {
-        return integers.sumBy {
+        return integers.sumOf {
             it.toString().toIntOrNull() ?: 0
         }
     }

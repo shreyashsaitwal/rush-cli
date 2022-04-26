@@ -6,30 +6,35 @@ import 'package:rush_prompt/rush_prompt.dart';
 class DirUtils {
   static String? dataDir() {
     final os = Platform.operatingSystem;
-    late String appDataDir;
+    final String appDataDir;
 
-    switch (os) {
-      case 'windows':
-        appDataDir =
-            p.join(Platform.environment['UserProfile']!, 'AppData', 'Roaming');
-        break;
-      case 'macos':
-        appDataDir = p.join(
-            Platform.environment['HOME']!, 'Library', 'Application Support');
-        break;
-      case 'linux':
-        appDataDir = p.join('home', Platform.environment['HOME']);
-        break;
-      default:
-        break;
+    if (Platform.environment.containsKey('RUSH_DATA_DIR')) {
+      appDataDir = Platform.environment['RUSH_DATA_DIR']!;
+    } else {
+      switch (os) {
+        // TODO: Data dir should be named `.rush` and should be created in the 
+        // user's home directory in all OSs.
+        case 'windows':
+          appDataDir = p.join(Platform.environment['UserProfile']!, 'AppData',
+              'Roaming', 'rush');
+          break;
+        case 'macos':
+          appDataDir = p.join(Platform.environment['HOME']!, 'Library',
+              'Application Support', 'rush');
+          break;
+        default:
+          appDataDir = p.join(Platform.environment['HOME']!, 'rush');
+          break;
+      }
     }
 
-    final dataDir = Directory(p.join(appDataDir, 'rush'));
-    if (!dataDir.existsSync()) {
-      Logger.log(LogType.erro, 'Rush data directory doesn\'t exists');
+    final dir = Directory(appDataDir);
+    if (!dir.existsSync() || dir.listSync().isEmpty) {
+      Logger.log(LogType.erro, 'Rush data directory $appDataDir doesn\'t exists or is empty');
       exit(1);
     }
-    return dataDir.path;
+
+    return appDataDir;
   }
 
   /// Copies the contents of [source] dir to the [dest] dir.

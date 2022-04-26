@@ -11,7 +11,11 @@ String getDevDepsXml(String _dataDir) {
       <root url="file://$devDepsPath" />
     </CLASSES>
     <JAVADOC />
-    <SOURCES />
+    <SOURCES>
+      <root url="jar://$devDepsPath/rush/runtime-sources.jar!/" />
+      <root url="jar://$devDepsPath/rush/annotations-sources.jar!/" />
+      <root url="jar://$devDepsPath/kotlin/kotlin-stdlib-sources.jar!/" />
+    </SOURCES>
     <jarDirectory url="file://$devDepsPath" recursive="true" />
   </library>
 </component>

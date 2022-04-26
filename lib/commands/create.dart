@@ -18,7 +18,18 @@ import 'package:rush_prompt/rush_prompt.dart';
 class CreateCommand extends RushCommand {
   final FileService _fs;
 
-  CreateCommand(this._fs);
+  CreateCommand(this._fs) {
+    argParser
+      ..addOption('org',
+          abbr: 'o',
+          help:
+              'The organization name in reverse domain name notation. This is used as extension\'s package name.')
+      ..addMultiOption('lang',
+          abbr: 'l',
+          help:
+              'The language in which the extension\'s starter template should be generated',
+          allowed: ['Java', 'Kotlin', 'java', 'kotlin', 'J', 'K', 'j', 'k']);
+  }
 
   @override
   String get description =>
@@ -41,17 +52,24 @@ class CreateCommand extends RushCommand {
     final kebabCasedName = Casing.kebabCase(name);
     final projectDir = p.join(_fs.cwd, kebabCasedName);
 
-    if (Directory(projectDir).existsSync()) {
-      Logger.log(
-          LogType.erro,
-          'A directory named "$kebabCasedName" already exists in ${_fs.cwd}. Please '
-          'choose a different name for the extension or move to different directory.');
+    if (Directory(projectDir).existsSync() &&
+        Directory(projectDir).listSync().isNotEmpty) {
+      Logger.log(LogType.erro,
+          'Cannot create "$projectDir" because it already exists and is not empty.');
       exit(1);
     }
 
-    final answers = RushPrompt(questions: _questions()).askAll();
-    var orgName = answers[0][1].toString().trim();
-    final lang = answers[1][1].toString().trim();
+    final prompt = RushPrompt(questions: _questions());
+
+    String orgName = argResults!['org'] as String;
+    if (orgName.isEmpty) {
+      orgName = prompt.askQuestionAt('org').last as String;
+    }
+
+    String lang = argResults!['lang'] as String;
+    if (lang.isEmpty) {
+      lang = prompt.askQuestionAt('lang') as String;
+    }
 
     final camelCasedName = Casing.camelCase(name);
     final pascalCasedName = Casing.pascalCase(name);
@@ -67,57 +85,44 @@ class CreateCommand extends RushCommand {
     Logger.logCustom('Getting things ready...',
         prefix: '\n• ', prefixFG: ConsoleColor.yellow);
 
-    // Creates the required files for the extension.
-    try {
-      final extPath = p.joinAll([projectDir, 'src', ...orgName.split('.')]);
-
-      if (lang == 'Java') {
-        CmdUtils.writeFile(
-            p.join(extPath, '$pascalCasedName.java'),
-            getExtensionTempJava(
-              pascalCasedName,
-              orgName,
-            ));
-      } else {
-        CmdUtils.writeFile(
-            p.join(extPath, '$pascalCasedName.kt'),
-            getExtensionTempKt(
-              pascalCasedName,
-              orgName,
-            ));
-      }
-
-      CmdUtils.writeFile(p.join(projectDir, 'src', 'AndroidManifest.xml'),
-          getManifestXml(orgName));
-      CmdUtils.writeFile(p.join(projectDir, 'src', 'proguard-rules.pro'),
-          getPgRules(orgName, pascalCasedName));
-
-      CmdUtils.writeFile(p.join(projectDir, 'rush.yml'),
-          getRushYamlTemp(pascalCasedName, lang == 'Kotlin'));
-
-      CmdUtils.writeFile(
-          p.join(projectDir, 'README.md'), getReadme(pascalCasedName));
-      CmdUtils.writeFile(p.join(projectDir, '.gitignore'), getDotGitignore());
-      CmdUtils.writeFile(p.join(projectDir, 'deps', '.placeholder'),
-          'This directory stores your extension\'s dependencies.');
+    final extPath = p.joinAll([projectDir, 'src', ...orgName.split('.')]);
+    final ideaDir = p.join(projectDir, '.idea');
+    
+    final filesToCreate = {
+      if (lang == 'Java')
+        p.join(extPath, '$pascalCasedName.java'): getExtensionTempJava(
+          pascalCasedName,
+          orgName,
+        )
+      else
+        p.join(extPath, '$pascalCasedName.kt'): getExtensionTempKt(
+          pascalCasedName,
+          orgName,
+        ),
+      p.join(projectDir, 'src', 'AndroidManifest.xml'): getManifestXml(orgName),
+      p.join(projectDir, 'src', 'proguard-rules.pro'):
+          getPgRules(orgName, pascalCasedName),
+      p.join(projectDir, 'rush.yml'):
+          getRushYamlTemp(pascalCasedName, lang == 'Kotlin'),
+      p.join(projectDir, 'README.md'): getReadme(pascalCasedName),
+      p.join(projectDir, '.gitignore'): getDotGitignore(),
+      p.join(projectDir, 'deps', '.placeholder'):
+          'This directory stores your extension\'s dependencies.',
 
       // IntelliJ IDEA files
-      final ideaDir = p.join(projectDir, '.idea');
-      CmdUtils.writeFile(p.join(ideaDir, 'misc.xml'), getMiscXml());
-      CmdUtils.writeFile(p.join(ideaDir, 'libraries', 'dev-deps.xml'),
-          getDevDepsXml(_fs.dataDir));
-      CmdUtils.writeFile(
-          p.join(ideaDir, 'libraries', 'deps.xml'), getDepsXml());
-      CmdUtils.writeFile(
-          p.join(ideaDir, 'modules.xml'), getModulesXml(kebabCasedName));
-      CmdUtils.writeFile(
-          p.join(ideaDir, '$kebabCasedName.iml'), getIml(ideaDir));
-    } catch (e) {
-      Logger.log(LogType.erro, e.toString());
-      exit(1);
-    }
+      p.join(ideaDir, 'misc.xml'): getMiscXml(),
+      p.join(ideaDir, 'libraries', 'dev-deps.xml'): getDevDepsXml(_fs.dataDir),
+      p.join(ideaDir, 'libraries', 'deps.xml'): getDepsXml(),
+      p.join(ideaDir, 'modules.xml'): getModulesXml(kebabCasedName),
+      p.join(ideaDir, '$kebabCasedName.iml'): getIml(ideaDir)
+    };
 
+    // Creates the required files for the extension.
     try {
+      filesToCreate.forEach((path, contents) {
+        CmdUtils.writeFile(path, contents);
+      });
+
       Directory(p.join(projectDir, 'assets')).createSync(recursive: true);
     } catch (e) {
       Logger.log(LogType.erro, e.toString());

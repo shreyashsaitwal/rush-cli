@@ -39,6 +39,13 @@ class CmdUtils {
   /// Returns a ";" or ":" separated string of dependencies.
   static String classpathString(List<FileSystemEntity> locations,
       {List<String> exclude = const []}) {
+    final excludeList = [
+      ...exclude,
+      'runtime-sources.jar',
+      'annotations-sources.jar',
+      'kotlin-stdlib-sources.jar',
+    ];
+
     final jarClassPattern = RegExp(r'^.(jar|class)$');
     final jars = <String>[];
 
@@ -48,13 +55,13 @@ class CmdUtils {
             .listSync(recursive: true)
             .whereType<File>()
             .where((el) =>
-                !exclude.contains(p.basename(el.path)) &&
+                !excludeList.contains(p.basename(el.path)) &&
                 jarClassPattern.hasMatch(p.extension(el.path)))
             .map((el) => el.path)
             .toList();
         jars.addAll(paths);
       } else if (el is File) {
-        if (!exclude.contains(p.basename(el.path)) &&
+        if (!excludeList.contains(p.basename(el.path)) &&
             jarClassPattern.hasMatch(p.extension(el.path))) {
           jars.add(el.path);
         }
