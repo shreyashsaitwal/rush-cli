@@ -7,26 +7,30 @@ import 'package:resolver/src/utils.dart';
 import 'model/artifact.dart';
 
 class ArtifactFetcher {
-  Future<bool> _fetch(FileSpec spec, Repository repository) async {
+  Future<File?> _fetch(http.Client client, FileSpec spec, Repository repository) async {
     final url = '${repository.url}/${spec.path.replaceAll('\\', '/')}';
-    final client = http.Client();
+    File? file;
     try {
       final response = await client.get(Uri.parse(url));
       if (response.statusCode == HttpStatus.ok) {
-        Utils.writeFile(spec.localFile, response.bodyBytes);
-        return true;
+        file = Utils.writeFile(spec.localFile, response.bodyBytes);
       }
     } catch (e) {
-      print(e);
+      rethrow;
     }
-    return false;
+    return file;
   }
 
-  Future<void> fetchFile(FileSpec spec, List<Repository> repositories) async {
+  Future<File?> fetchFile(FileSpec spec, List<Repository> repositories) async {
+    final client = http.Client();
+    File? file;
     for (final repo in repositories) {
-      if (await _fetch(spec, repo)) {
-        return;
+      if (await _fetch(client, spec, repo) != null) {
+        file = File(spec.localFile);
+        break;
       }
     }
+    client.close();
+    return file;
   }
 }

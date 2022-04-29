@@ -1,8 +1,12 @@
+import 'dart:convert';
+
 import 'package:resolver/src/model/artifact.dart';
 import 'package:resolver/src/repositories.dart';
 import 'package:resolver/src/utils.dart';
+import 'package:xml2json/xml2json.dart';
 
 import 'artifact_fetcher.dart';
+import 'model/maven/model.dart';
 import 'model/maven/repository.dart';
 
 class ArtifactResolver {
@@ -39,8 +43,14 @@ class ArtifactResolver {
     }
   }
 
-  Future<void> resolve(Artifact artifact) async {
-    fetcher.fetchFile(artifact.pom, _repositories);
-    print(artifact.pom.localFile);
+  Future<Model> resolve(Artifact artifact) async {
+    final pom = await fetcher.fetchFile(artifact.pom, _repositories);
+    final transformer = Xml2Json();
+    transformer.parse(pom!.readAsStringSync());
+    final json = transformer.toParker();
+    // print(jsonDecode(json));
+    final model = Model.fromJson(jsonDecode(json)['project']);
+    print('Done: ${model.artifactId}');
+    return model;
   }
 }
