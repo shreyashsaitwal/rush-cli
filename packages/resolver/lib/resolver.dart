@@ -3,6 +3,6 @@
 /// More dartdocs go here.
 library resolver;
 
-export 'src/artifact_resolver.dart';
+export 'src/resolver_base.dart';
 
 // TODO: Export any libraries intended for clients of this package.

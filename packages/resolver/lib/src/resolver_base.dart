@@ -1,12 +1,9 @@
-import 'dart:convert';
-
 import 'package:resolver/src/model/artifact.dart';
 import 'package:resolver/src/repositories.dart';
 import 'package:resolver/src/utils.dart';
-import 'package:xml2json/xml2json.dart';
 
-import 'artifact_fetcher.dart';
-import 'model/maven/model.dart';
+import 'fetcher.dart';
+import 'model/maven/pom_model.dart';
 import 'model/maven/repository.dart';
 
 class ArtifactResolver {
@@ -23,7 +20,7 @@ class ArtifactResolver {
     _cacheDir = cacheDir ?? Utils.defaultCacheDir;
   }
 
-  Artifact artifactFor(String spec) {
+  Artifact _artifactFor(String spec) {
     final parts = spec.split(':');
     if (parts.length == 3) {
       return Artifact(
@@ -39,18 +36,20 @@ class ArtifactResolver {
           version: parts[3],
           cacheDir: _cacheDir);
     } else {
-      throw 'Invalid artifact spec';
+      throw 'Invalid artifact spec: $spec';
     }
   }
 
-  Future<Model> resolve(Artifact artifact) async {
-    final pom = await fetcher.fetchFile(artifact.pom, _repositories);
-    final transformer = Xml2Json();
-    transformer.parse(pom!.readAsStringSync());
-    final json = transformer.toParker();
-    // print(jsonDecode(json));
-    final model = Model.fromJson(jsonDecode(json)['project']);
-    print('Done: ${model.artifactId}');
-    return model;
+  Future<PomModel> resolve(String spec) async {
+    final PomModel pom;
+    try {
+      final artifact = _artifactFor(spec);
+      final file = await fetcher.fetchFile(artifact.pom, _repositories);
+      final content = file.readAsStringSync();
+      pom = PomModel.fromXml(content);
+    } catch (e) {
+      rethrow;
+    }
+    return pom;
   }
 }

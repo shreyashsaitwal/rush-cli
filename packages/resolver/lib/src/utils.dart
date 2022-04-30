@@ -24,8 +24,15 @@ class Utils {
         return dir.path;
       }();
 
-  static File writeFile(String path, Uint8List content) {
-    Directory(p.dirname(path)).createSync(recursive: true);
-    return File(path)..writeAsBytesSync(content);
+  static File writeFile(
+    String path,
+    Uint8List content,
+  ) {
+    try {
+      Directory(p.dirname(path)).createSync(recursive: true);
+      return File(path)..writeAsBytesSync(content);
+    } catch (e) {
+      rethrow;
+    }
   }
 }

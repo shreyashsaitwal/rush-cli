@@ -6,7 +6,6 @@ version: 1.0.0
 environment:
   sdk: '>=2.16.2 <3.0.0'
 
-
 dependencies:
   freezed_annotation: ^2.0.1
   http: ^0.13.4

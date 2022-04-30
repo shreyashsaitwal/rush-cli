@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:resolver/resolver.dart';
 
 Future<void> main(List<String> args) async {
@@ -27,29 +25,15 @@ Future<void> main(List<String> args) async {
     'androidx.localbroadcastmanager:localbroadcastmanager:1.0.0',
     'androidx.print:print:1.0.0',
   ];
-  // final time = <int>[];
+  final res = ArtifactResolver();
+  final times = <int>[];
 
-  // final resolver = ArtifactResolver();
-  // for (final artifact in androidxArtifacts) {
-  //   final start = DateTime.now();
-  //   final model = await resolver.resolve(resolver.artifactFor(artifact));
-  //   time.add(DateTime.now().difference(start).inMilliseconds);
-  //   print('$artifact: ${time.last}');
-  // }
-
-  // // average time
-  // final average = time.reduce((a, b) => a + b) / time.length;
-  // print('Average time: ${average}ms');
-  // print('Total time: ${time.reduce((a, b) => a + b)}ms');
-
-  final futures = <Future>[];
-
-  final start = DateTime.now();
-  final resolver = ArtifactResolver();
-  for (final artifact in androidxArtifacts) {
-    futures.add(resolver.resolve(resolver.artifactFor(artifact)));
+  for (final spec in androidxArtifacts) {
+    final start = DateTime.now();
+    final _ = await res.resolve(spec);
+    times.add(DateTime.now().difference(start).inMilliseconds);
+    print('$spec ==> ${times.last}ms');
   }
 
-  await Future.wait(futures).whenComplete(() => print(
-      'Total time: ${DateTime.now().difference(start).inMilliseconds}ms'));
+  print('Average ==> ${times.reduce((a, b) => a + b) / times.length}ms');
 }

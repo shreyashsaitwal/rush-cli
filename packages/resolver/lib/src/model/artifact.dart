@@ -16,7 +16,7 @@ class Artifact with _$Artifact {
 
   String get spec => '$groupId:$artifactId:$version';
 
-  PomFile get pom => PomFile._(this, cacheDir);
+  PomFileSpec get pom => PomFileSpec._(this, cacheDir);
 }
 
 class FileSpec {
@@ -28,8 +28,8 @@ class FileSpec {
   FileSpec(this.artifact, this.cacheDir, this.path, this.localFile);
 }
 
-class PomFile implements FileSpec {
-  const PomFile._(this.artifact, this.cacheDir);
+class PomFileSpec implements FileSpec {
+  const PomFileSpec._(this.artifact, this.cacheDir);
 
   @override
   final Artifact artifact;

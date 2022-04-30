@@ -2,6 +2,6 @@
 // @freezed
 // class ResolvedArtifact with _$ResolvedArtifact {
 //   const factory ResolvedArtifact({
-    
+
 //   }) = _ResolvedArtifact;
 // }
