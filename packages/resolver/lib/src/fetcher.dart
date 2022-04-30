@@ -5,11 +5,12 @@ import 'package:resolver/src/errors.dart';
 import 'package:resolver/src/model/maven/repository.dart';
 import 'package:resolver/src/utils.dart';
 
-import 'model/artifact.dart';
+import 'model/file_spec.dart';
 
 class ArtifactFetcher {
   Future<void> _fetch(
       http.Client client, FileSpec spec, Repository repository) async {
+    // TODO: Check if the file already exists in cache.
     final url = '${repository.url}/${spec.path.replaceAll('\\', '/')}';
 
     try {

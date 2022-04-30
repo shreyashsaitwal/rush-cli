@@ -1,52 +1,45 @@
-import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:path/path.dart' as p;
+import 'file_spec.dart';
+import 'maven/pom_model.dart';
 
-part 'artifact.freezed.dart';
-
-@freezed
-class Artifact with _$Artifact {
-  const factory Artifact({
-    required String groupId,
-    required String artifactId,
-    required String version,
-    required String cacheDir,
-  }) = _Artifact;
-
-  const Artifact._();
-
-  String get spec => '$groupId:$artifactId:$version';
-
-  PomFileSpec get pom => PomFileSpec._(this, cacheDir);
-}
-
-class FileSpec {
-  final Artifact artifact;
-  final String cacheDir;
-  final String path;
-  final String localFile;
-
-  FileSpec(this.artifact, this.cacheDir, this.path, this.localFile);
-}
-
-class PomFileSpec implements FileSpec {
-  const PomFileSpec._(this.artifact, this.cacheDir);
-
-  @override
-  final Artifact artifact;
-
-  @override
+class Artifact {
+  final String groupId;
+  final String artifactId;
+  final String version;
   final String cacheDir;
 
-  @override
-  String get localFile => p.join(cacheDir, path);
+  const Artifact({
+    required this.groupId,
+    required this.artifactId,
+    required this.version,
+    required this.cacheDir,
+  });
 
-  @override
-  String get path => p.joinAll(
-        [
-          ...artifact.groupId.split('.'),
-          artifact.artifactId,
-          artifact.version,
-          '${artifact.artifactId}-${artifact.version}.pom'
-        ],
-      );
+  String get coordinate => '$groupId:$artifactId:$version';
+
+  PomFileSpec get pomSpec => PomFileSpec(this, cacheDir);
+}
+
+class ResolvedArtifact extends Artifact {
+  final PomModel pom;
+
+  ResolvedArtifact({required this.pom, required String cacheDir})
+      : super(
+            groupId: pom.groupId,
+            artifactId: pom.artifactId,
+            version: pom.version,
+            cacheDir: cacheDir);
+
+  String get suffix => () {
+        if (pom.packaging == 'bom') {
+          return 'pom';
+        } else if (pom.packaging == 'bundle') {
+          return 'jar';
+        } else {
+          return pom.packaging;
+        }
+      }();
+
+  ArtifactFileSpec get main => ArtifactFileSpec(this, cacheDir);
+
+  SourcesFileSpec get sources => SourcesFileSpec(this, cacheDir);
 }

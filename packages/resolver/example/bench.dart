@@ -30,7 +30,7 @@ Future<void> main(List<String> args) async {
 
   for (final spec in androidxArtifacts) {
     final start = DateTime.now();
-    final _ = await res.resolve(spec);
+    final _ = await res.resolvePom(spec);
     times.add(DateTime.now().difference(start).inMilliseconds);
     print('$spec ==> ${times.last}ms');
   }

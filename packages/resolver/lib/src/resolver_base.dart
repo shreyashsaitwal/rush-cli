@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:resolver/src/model/artifact.dart';
 import 'package:resolver/src/repositories.dart';
 import 'package:resolver/src/utils.dart';
@@ -20,8 +22,8 @@ class ArtifactResolver {
     _cacheDir = cacheDir ?? Utils.defaultCacheDir;
   }
 
-  Artifact _artifactFor(String spec) {
-    final parts = spec.split(':');
+  Artifact _artifactFor(String coordinate) {
+    final parts = coordinate.split(':');
     if (parts.length == 3) {
       return Artifact(
           groupId: parts[0],
@@ -36,20 +38,33 @@ class ArtifactResolver {
           version: parts[3],
           cacheDir: _cacheDir);
     } else {
-      throw 'Invalid artifact spec: $spec';
+      throw 'Invalid artifact coordinate: $coordinate';
     }
   }
 
-  Future<PomModel> resolve(String spec) async {
+  Future<ResolvedArtifact> resolvePom(String coordinate) async {
     final PomModel pom;
+    final Artifact artifact;
     try {
-      final artifact = _artifactFor(spec);
-      final file = await fetcher.fetchFile(artifact.pom, _repositories);
+      artifact = _artifactFor(coordinate);
+      final file = await fetcher.fetchFile(artifact.pomSpec, _repositories);
       final content = file.readAsStringSync();
       pom = PomModel.fromXml(content);
     } catch (e) {
       rethrow;
     }
-    return pom;
+    return ResolvedArtifact(pom: pom, cacheDir: artifact.cacheDir);
+  }
+
+  Future<void> download(ResolvedArtifact artifact, {bool downloadSources = true}) async {
+    try {
+      final futures = [
+        fetcher.fetchFile(artifact.main, _repositories),
+        if (downloadSources) fetcher.fetchFile(artifact.sources, _repositories),
+      ];
+      await Future.wait(futures);
+    } catch (e) {
+      rethrow;
+    }
   }
 }
