@@ -10,7 +10,11 @@ import 'model/file_spec.dart';
 class ArtifactFetcher {
   Future<void> _fetch(
       http.Client client, FileSpec spec, Repository repository) async {
-    // TODO: Check if the file already exists in cache.
+    // Return early if the file already exists in the cache.
+    if (await File(spec.localFile).exists()) {
+      return;
+    }
+
     final url = '${repository.url}/${spec.path.replaceAll('\\', '/')}';
 
     try {
