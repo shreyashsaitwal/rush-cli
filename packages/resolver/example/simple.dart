@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:resolver/resolver.dart';
 
 Future<void> main(List<String> args) async {
-  final coordinate = 'androidx.annotation:annotation:1.0.0';
+  final coordinate = 'org.hamcrest:hamcrest-core:1.3';
   final resolver = ArtifactResolver();
   final resolvedArtifact = await resolver.resolvePom(coordinate);
   await resolver.download(resolvedArtifact, downloadSources: true);

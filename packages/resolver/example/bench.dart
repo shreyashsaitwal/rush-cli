@@ -1,7 +1,8 @@
 import 'package:resolver/resolver.dart';
+import 'package:resolver/src/model/maven/pom_model.dart';
 
 Future<void> main(List<String> args) async {
-  final androidxArtifacts = [
+  final androidxArtifacts = {
     'androidx.annotation:annotation:1.0.0',
     'androidx.appcompat:appcompat:1.0.0',
     'androidx.asynclayoutinflater:asynclayoutinflater:1.0.0',
@@ -24,16 +25,31 @@ Future<void> main(List<String> args) async {
     'androidx.loader:loader:1.0.0',
     'androidx.localbroadcastmanager:localbroadcastmanager:1.0.0',
     'androidx.print:print:1.0.0',
-  ];
+  };
   final res = ArtifactResolver();
   final times = <int>[];
 
   for (final spec in androidxArtifacts) {
     final start = DateTime.now();
-    final _ = await res.resolvePom(spec);
+    await resolveTransitively(res, spec);
     times.add(DateTime.now().difference(start).inMilliseconds);
-    print('$spec ==> ${times.last}ms');
   }
 
   print('Average ==> ${times.reduce((a, b) => a + b) / times.length}ms');
+}
+
+Future<void> resolveTransitively(
+    ArtifactResolver resolver, String coordinate) async {
+  print(coordinate);
+  final resolved = await resolver.resolvePom(coordinate);
+  // print('Getting deps of $coordinate');
+  if (resolved.pom.dependencies.isNotEmpty) {
+    for (final dep in resolved.pom.dependencies.toSet().where((el) =>
+        !el.optional &&
+        (el.scope == DependencyScope.compile ||
+            el.scope == DependencyScope.runtime))) {
+      await resolveTransitively(
+          resolver, '${dep.groupId}:${dep.artifactId}:${dep.version}');
+    }
+  }
 }

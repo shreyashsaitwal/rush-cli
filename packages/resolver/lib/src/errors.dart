@@ -1,12 +1,13 @@
-import 'package:freezed_annotation/freezed_annotation.dart';
+class FetchError {
+  final String message;
+  final String repositoryId;
+  final int responseCode;
+  final String file;
 
-part 'errors.freezed.dart';
-
-@freezed
-class FetchError with _$FetchError {
-  const factory FetchError({
-    required String message,
-    required String repositoryId,
-    required int responseCode,
-  }) = _FetchError;
+  const FetchError({
+    required this.message,
+    required this.repositoryId,
+    required this.responseCode,
+    required this.file,
+  });
 }

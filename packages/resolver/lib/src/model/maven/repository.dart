@@ -1,12 +1,11 @@
-import 'package:freezed_annotation/freezed_annotation.dart';
+class Repository {
+  final String id;
+  final String name;
+  final String url;
 
-part 'repository.freezed.dart';
-
-@freezed
-class Repository with _$Repository {
-  const factory Repository({
-    required String id,
-    required String name,
-    required String url,
-  }) = _Repository;
+  const Repository({
+    required this.id,
+    required this.name,
+    required this.url,
+  });
 }

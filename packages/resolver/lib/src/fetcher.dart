@@ -26,7 +26,8 @@ class ArtifactFetcher {
         throw FetchError(
             message: response.reasonPhrase ?? 'Failed to fetch artifact',
             repositoryId: repository.id,
-            responseCode: response.statusCode);
+            responseCode: response.statusCode,
+            file: spec.path);
       }
     } catch (e) {
       rethrow;
