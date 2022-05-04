@@ -75,7 +75,7 @@ class SourcesFileSpec implements FileSpec {
           ...artifact.groupId.split('.'),
           artifact.artifactId,
           artifact.version,
-          '${artifact.artifactId}-${artifact.version}-sources.${artifact.suffix}',
+          '${artifact.artifactId}-${artifact.version}-sources.jar',
         ],
       );
 }
