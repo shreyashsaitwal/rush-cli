@@ -17,6 +17,7 @@ class ArtifactFetcher {
 
     final url = '${repository.url}/${spec.path.replaceAll('\\', '/')}';
 
+    // TODO: Implement hash validation
     try {
       final response = await client.get(Uri.parse(url));
 
@@ -27,7 +28,7 @@ class ArtifactFetcher {
             message: response.reasonPhrase ?? 'Failed to fetch artifact',
             repositoryId: repository.id,
             responseCode: response.statusCode,
-            file: spec.path);
+            fileSpec: spec);
       }
     } catch (e) {
       rethrow;
@@ -35,7 +36,7 @@ class ArtifactFetcher {
   }
 
   Future<File> fetchFile(
-      FileSpec fileSpec, List<Repository> repositories) async {
+      FileSpec fileSpec, Set<Repository> repositories) async {
     final client = http.Client();
     final expections = [];
 

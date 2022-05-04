@@ -1,10 +1,10 @@
 import 'package:resolver/src/model/maven/repository.dart';
 
 class Repositories {
-  static const List<Repository> defaultRepositories = [
+  static const Set<Repository> defaultRepositories = {
     Repositories.googleAndroid,
     Repositories.mavenCentral
-  ];
+  };
 
   static const Repository googleAndroid = Repository(
       id: 'google-android',

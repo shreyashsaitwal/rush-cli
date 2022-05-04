@@ -7,16 +7,18 @@ import 'model/maven/pom_model.dart';
 import 'model/maven/repository.dart';
 
 class ArtifactResolver {
-  late List<Repository> _repositories;
+  late Set<Repository> _repositories;
   late String _cacheDir;
 
   final fetcher = ArtifactFetcher();
 
   ArtifactResolver({
-    List<Repository> repositories = Repositories.defaultRepositories,
+    List<Repository>? repositories,
     String? cacheDir,
   }) {
-    _repositories = repositories;
+    _repositories = repositories != null
+        ? {...repositories.toSet(), ...Repositories.defaultRepositories}
+        : Repositories.defaultRepositories;
     _cacheDir = cacheDir ?? Utils.defaultCacheDir;
   }
 
@@ -71,7 +73,7 @@ class ArtifactResolver {
       });
   }
 
-  Future<ResolvedArtifact> resolvePom(String coordinate) async {
+  Future<ResolvedArtifact> resolve(String coordinate) async {
     final PomModel pom;
     final Artifact artifact;
     try {
@@ -81,7 +83,7 @@ class ArtifactResolver {
       pom = PomModel.fromXml(content);
 
       if (pom.parent != null) {
-        final parent = await resolvePom(pom.parent!.coordinate);
+        final parent = await resolve(pom.parent!.coordinate);
         pom.properties.addAll(parent.pom.properties);
       }
       _interpolateDependencyVersion(pom);
@@ -92,17 +94,26 @@ class ArtifactResolver {
     return ResolvedArtifact(pom: pom, cacheDir: artifact.cacheDir);
   }
 
-  Future<void> download(ResolvedArtifact artifact,
-      {bool downloadSources = true}) async {
-    // TODO: Implement hash validation of downloaded artifacts
+  Future<void> download(ResolvedArtifact artifact, {Function? onError}) async {
     try {
-      final futures = [
-        fetcher.fetchFile(artifact.main, _repositories),
-        if (downloadSources) fetcher.fetchFile(artifact.sources, _repositories),
-      ];
-      await Future.wait(futures);
+      await fetcher.fetchFile(artifact.main, _repositories);
     } catch (e) {
-      rethrow;
+      if (onError != null) {
+        onError(e);
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  Future<void> downloadSources(ResolvedArtifact artifact,
+      {Function? onError}) async {
+    try {
+      await fetcher.fetchFile(artifact.sources, _repositories);
+    } catch (e) {
+      if (onError != null) {
+        onError(e);
+      }
     }
   }
 }
