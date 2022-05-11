@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:resolver/src/model/artifact.dart';
 import 'package:resolver/src/repositories.dart';
 import 'package:resolver/src/utils.dart';
@@ -45,23 +46,22 @@ class ArtifactResolver {
   void _interpolateDependencyVersion(PomModel model) {
     model.dependencies
       ..where((el) => el.version == null).forEach((dep) {
-        final String prop;
+        dep.version = _findVersionInProperties(model, dep);
 
-        if (model.properties.containsKey('${dep.artifactId}.version')) {
-          prop = model.properties['${dep.artifactId}.version'];
-        } else if (model.properties.containsKey('version.${dep.artifactId}')) {
-          prop = model.properties['version.${dep.artifactId}'];
-        } else if (model.properties.containsKey('${dep.groupId}.version')) {
-          prop = model.properties['${dep.groupId}.version'];
-        } else if (model.properties.containsKey('${dep.groupId}.version')) {
-          prop = model.properties['version.${dep.groupId}'];
-        } else {
-          throw 'Version not defined for ${dep.coordinate}';
+        if (dep.version != null) {
+          return;
         }
 
-        dep.version = prop;
+        if (model.parent != null) {
+          dep.version = _findVersionFromParentsDeps(
+              model.parent!, dep.groupId, dep.groupId);
+        } else {
+          throw 'Unable to figure which version of ${dep.groupId}:${dep.artifactId} to use';
+        }
       })
-      ..where((el) => el.version!.startsWith('\${')).forEach((dep) {
+      ..whereNot((el) => el.version == null)
+          .where((el) => el.version!.startsWith('\${'))
+          .forEach((dep) {
         final propName = dep.version!.substring(2, dep.version!.length - 1);
 
         if (model.properties.containsKey(propName)) {
@@ -73,8 +73,37 @@ class ArtifactResolver {
       });
   }
 
-  Future<ResolvedArtifact> resolve(String coordinate,
-      DependencyScope? scope) async {
+  String? _findVersionInProperties(PomModel model, Dependency dep) {
+    final String prop;
+
+    if (model.properties.containsKey('${dep.artifactId}.version')) {
+      prop = model.properties['${dep.artifactId}.version'];
+    } else if (model.properties.containsKey('version.${dep.artifactId}')) {
+      prop = model.properties['version.${dep.artifactId}'];
+    } else if (model.properties.containsKey('${dep.groupId}.version')) {
+      prop = model.properties['${dep.groupId}.version'];
+    } else if (model.properties.containsKey('${dep.groupId}.version')) {
+      prop = model.properties['version.${dep.groupId}'];
+    } else {
+      return null;
+    }
+    return prop;
+  }
+
+  String? _findVersionFromParentsDeps(
+      Parent parent, String groupId, String artifactId) {
+    final matchingDeps = parent.dependencies
+        .where((el) => el.groupId == groupId && el.artifactId == artifactId);
+
+    if (matchingDeps.isEmpty) {
+      return null;
+    }
+
+    return matchingDeps.first.version;
+  }
+
+  Future<ResolvedArtifact> resolve(
+      String coordinate, DependencyScope? scope) async {
     final PomModel pom;
     final Artifact artifact;
     try {
@@ -85,11 +114,14 @@ class ArtifactResolver {
 
       if (pom.parent != null) {
         final parent = await resolve(pom.parent!.coordinate, scope);
+        pom.parent!.dependencies =
+            pom.parent!.dependencies + parent.pom.dependencies;
         pom.properties.addAll(parent.pom.properties);
       }
       _interpolateDependencyVersion(pom);
-    } catch (e) {
+    } catch (e, s) {
       print(e);
+      print(s);
       rethrow;
     }
 

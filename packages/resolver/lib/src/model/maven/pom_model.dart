@@ -46,24 +46,22 @@ class PomModel {
         dependencies: json['dependencies'] == null
             ? const []
             : PomModel._depFromJson(
-                json['dependencies'] as Map<String, dynamic>,
-                json['properties']),
-        parent: json['parent'] != null ? Parent._fromJson(json['parent']) : null,
+                json['dependencies'] as Map<String, dynamic>),
+        parent:
+            json['parent'] != null ? Parent._fromJson(json['parent']) : null,
       );
 
-  static List<Dependency> _depFromJson(
-      Map<String, dynamic> json, Map<String, dynamic>? properties) {
+  static List<Dependency> _depFromJson(Map<String, dynamic> json) {
     final deps = <Dependency>[];
     final jsonDeps = json['dependency'];
 
     // If the artifact has only one dep, it will be decoded as a map instead of
     // a list.
     if (jsonDeps is Map) {
-      deps.add(
-          Dependency._fromJson(jsonDeps as Map<String, dynamic>, properties));
+      deps.add(Dependency._fromJson(jsonDeps as Map<String, dynamic>));
     } else {
       for (final dep in jsonDeps) {
-        deps.add(Dependency._fromJson(dep, properties));
+        deps.add(Dependency._fromJson(dep));
       }
     }
     return deps;
@@ -94,12 +92,14 @@ class Parent {
   final String artifactId;
   final String version;
   final List<Map<String, String>> properties;
+  List<Dependency> dependencies;
 
   Parent({
     required this.groupId,
     required this.artifactId,
     required this.version,
     required this.properties,
+    required this.dependencies,
   });
 
   factory Parent._fromJson(Map<String, dynamic> json) => Parent(
@@ -107,6 +107,10 @@ class Parent {
         artifactId: json['artifactId'] as String,
         version: json['version'] as String,
         properties: json['properties'] ?? const [],
+        dependencies: json['dependencies'] == null
+            ? const []
+            : PomModel._depFromJson(
+                json['dependencies'] as Map<String, dynamic>),
       );
 
   String get coordinate => '$groupId:$artifactId:$version';
@@ -141,9 +145,7 @@ class Dependency {
     required this.optional,
   });
 
-  factory Dependency._fromJson(Map<String, dynamic> json,
-          [Map<String, dynamic>? properties]) =>
-      Dependency(
+  factory Dependency._fromJson(Map<String, dynamic> json) => Dependency(
         groupId: json['groupId'] as String,
         artifactId: json['artifactId'] as String,
         version: json['version'] as String?,
@@ -185,7 +187,8 @@ class Dependency {
   }
 
   @override
-  int get hashCode => Object.hash(artifactId, groupId, version, scope, optional);
+  int get hashCode =>
+      Object.hash(artifactId, groupId, version, scope, optional);
 }
 
 enum DependencyScope {
