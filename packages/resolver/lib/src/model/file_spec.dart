@@ -52,7 +52,7 @@ class ArtifactFileSpec implements FileSpec {
           ...artifact.groupId.split('.'),
           artifact.artifactId,
           artifact.version,
-          '${artifact.artifactId}-${artifact.version}.${artifact.suffix}',
+          '${artifact.artifactId}-${artifact.version}.${artifact.packaging}',
         ],
       );
 }

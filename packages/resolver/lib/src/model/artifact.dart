@@ -17,6 +17,21 @@ class Artifact {
   String get coordinate => '$groupId:$artifactId:$version';
 
   PomFileSpec get pomSpec => PomFileSpec(this, cacheDir);
+
+  @override
+  bool operator ==(Object other) {
+    return other is Artifact &&
+        other.artifactId == artifactId &&
+        other.groupId == groupId &&
+        other.version == version &&
+        other.cacheDir == cacheDir;
+  }
+
+  @override
+  int get hashCode => Object.hash(artifactId, groupId, version, cacheDir);
+
+  @override
+  String toString() => coordinate;
 }
 
 class ResolvedArtifact extends Artifact {
@@ -31,7 +46,7 @@ class ResolvedArtifact extends Artifact {
             version: pom.version,
             cacheDir: cacheDir);
 
-  String get suffix => () {
+  String get packaging => () {
         if (pom.packaging == 'bom') {
           return 'pom';
         } else if (pom.packaging == 'bundle') {
@@ -44,4 +59,23 @@ class ResolvedArtifact extends Artifact {
   ArtifactFileSpec get main => ArtifactFileSpec(this, cacheDir);
 
   SourcesFileSpec get sources => SourcesFileSpec(this, cacheDir);
+
+  @override
+  bool operator ==(Object other) {
+    return other is ResolvedArtifact &&
+        other.pom == pom &&
+        other.scope == scope &&
+        other.cacheDir == cacheDir;
+  }
+
+  @override
+  int get hashCode => Object.hash(pom, scope, cacheDir);
+
+  @override
+  String toString() => '''
+ResolvedArtifact(
+  pom: $pom,
+  scope: $scope,
+  cacheDir: $cacheDir,
+)''';
 }

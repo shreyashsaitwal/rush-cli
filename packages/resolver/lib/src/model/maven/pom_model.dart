@@ -68,6 +68,25 @@ class PomModel {
     }
     return deps;
   }
+
+  @override
+  bool operator ==(Object other) {
+    return other is PomModel &&
+        other.artifactId == artifactId &&
+        other.groupId == groupId &&
+        other.version == version;
+  }
+
+  @override
+  int get hashCode => Object.hash(artifactId, groupId, version);
+
+  @override
+  String toString() => '''
+PomModel(
+  coordinate: $groupId:$artifactId:$version,
+  url: $url,
+  properties: $properties,
+)''';
 }
 
 class Parent {
@@ -91,6 +110,18 @@ class Parent {
       );
 
   String get coordinate => '$groupId:$artifactId:$version';
+
+  @override
+  bool operator ==(Object other) {
+    return other is Parent &&
+        other.artifactId == artifactId &&
+        other.groupId == groupId &&
+        other.version == version &&
+        other.properties == properties;
+  }
+
+  @override
+  int get hashCode => Object.hash(artifactId, groupId, version, properties);
 }
 
 class Dependency {
@@ -142,6 +173,19 @@ class Dependency {
   }
 
   String get coordinate => '$groupId:$artifactId:$version';
+
+  @override
+  bool operator ==(Object other) {
+    return other is Dependency &&
+        other.artifactId == artifactId &&
+        other.groupId == groupId &&
+        other.version == version &&
+        other.scope == scope &&
+        other.optional == optional;
+  }
+
+  @override
+  int get hashCode => Object.hash(artifactId, groupId, version, scope, optional);
 }
 
 enum DependencyScope {
