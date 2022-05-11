@@ -21,8 +21,10 @@ class Artifact {
 
 class ResolvedArtifact extends Artifact {
   final PomModel pom;
+  final DependencyScope scope;
 
-  ResolvedArtifact({required this.pom, required String cacheDir})
+  ResolvedArtifact(
+      {required this.pom, required this.scope, required String cacheDir})
       : super(
             groupId: pom.groupId,
             artifactId: pom.artifactId,

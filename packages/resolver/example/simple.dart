@@ -5,7 +5,8 @@ import 'package:resolver/resolver.dart';
 Future<void> main(List<String> args) async {
   final coordinate = 'androidx.work:work-runtime:2.7.0';
   final resolver = ArtifactResolver(cacheDir: './cache');
-  final resolvedArtifact = await resolver.resolve(coordinate);
+  final resolvedArtifact =
+      await resolver.resolve(coordinate, DependencyScope.runtime);
   await resolver.download(resolvedArtifact);
   await resolver.downloadSources(resolvedArtifact);
 

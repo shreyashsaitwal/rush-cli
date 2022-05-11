@@ -10,7 +10,7 @@ class ArtifactResolver {
   late Set<Repository> _repositories;
   late String _cacheDir;
 
-  final fetcher = ArtifactFetcher();
+  final _fetcher = ArtifactFetcher();
 
   ArtifactResolver({
     List<Repository>? repositories,
@@ -73,17 +73,18 @@ class ArtifactResolver {
       });
   }
 
-  Future<ResolvedArtifact> resolve(String coordinate) async {
+  Future<ResolvedArtifact> resolve(String coordinate,
+      DependencyScope? scope) async {
     final PomModel pom;
     final Artifact artifact;
     try {
       artifact = _artifactFor(coordinate);
-      final file = await fetcher.fetchFile(artifact.pomSpec, _repositories);
+      final file = await _fetcher.fetchFile(artifact.pomSpec, _repositories);
       final content = file.readAsStringSync();
       pom = PomModel.fromXml(content);
 
       if (pom.parent != null) {
-        final parent = await resolve(pom.parent!.coordinate);
+        final parent = await resolve(pom.parent!.coordinate, scope);
         pom.properties.addAll(parent.pom.properties);
       }
       _interpolateDependencyVersion(pom);
@@ -91,12 +92,15 @@ class ArtifactResolver {
       rethrow;
     }
 
-    return ResolvedArtifact(pom: pom, cacheDir: artifact.cacheDir);
+    return ResolvedArtifact(
+        pom: pom,
+        scope: scope ?? DependencyScope.compile,
+        cacheDir: artifact.cacheDir);
   }
 
   Future<void> download(ResolvedArtifact artifact, {Function? onError}) async {
     try {
-      await fetcher.fetchFile(artifact.main, _repositories);
+      await _fetcher.fetchFile(artifact.main, _repositories);
     } catch (e) {
       if (onError != null) {
         onError(e);
@@ -109,7 +113,7 @@ class ArtifactResolver {
   Future<void> downloadSources(ResolvedArtifact artifact,
       {Function? onError}) async {
     try {
-      await fetcher.fetchFile(artifact.sources, _repositories);
+      await _fetcher.fetchFile(artifact.sources, _repositories);
     } catch (e) {
       if (onError != null) {
         onError(e);
