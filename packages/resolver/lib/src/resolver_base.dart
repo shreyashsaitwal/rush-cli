@@ -28,14 +28,14 @@ class ArtifactResolver {
       return Artifact(
           groupId: parts[0],
           artifactId: parts[1],
-          version: parts[2],
+          version: parts[2].replaceAll(RegExp(r'(\[|\])'), ''),
           cacheDir: _cacheDir);
     } else if (parts.length == 4) {
       return Artifact(
           groupId: parts[0],
           artifactId: parts[1],
           // parts[2] is the packaging of the artifact. We extract it from pom.xml
-          version: parts[3],
+          version: parts[3].replaceAll(RegExp(r'(\[|\])'), ''),
           cacheDir: _cacheDir);
     } else {
       throw 'Invalid artifact coordinate: $coordinate';
@@ -89,6 +89,7 @@ class ArtifactResolver {
       }
       _interpolateDependencyVersion(pom);
     } catch (e) {
+      print(e);
       rethrow;
     }
 
