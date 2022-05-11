@@ -2,13 +2,12 @@ import 'dart:io' show Directory, File;
 
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/utils/build_utils.dart';
-import 'package:rush_cli/models/rush_lock/rush_lock.dart';
 import 'package:rush_cli/models/rush_yaml/rush_yaml.dart';
 import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_cli/utils/process_streamer.dart';
 import 'package:rush_cli/services/file_service.dart';
 
-enum ExeType { d8, proguard }
+import '../hive_adapters/remote_dep_index.dart';
 
 class Executor {
   /// Executes the D8 tool which is required for dexing the extension.
@@ -41,13 +40,13 @@ class Executor {
   static Future<void> execProGuard(
     FileService fs,
     RushYaml rushYaml,
-    RushLock? rushLock,
+    Set<RemoteDepIndex> depIndex,
   ) async {
     final args = () {
       final proguardJar = File(p.join(fs.toolsDir, 'other', 'proguard.jar'));
 
       final libraryJars =
-          BuildUtils.classpathStringForDeps(fs, rushYaml, rushLock);
+          BuildUtils.classpathStringForDeps(fs, rushYaml, depIndex);
 
       final injar = File(p.join(fs.buildDir, 'ART.jar'));
       final outjar = File(p.join(fs.buildDir, 'ART.opt.jar'));
@@ -71,32 +70,11 @@ class Executor {
     }
   }
 
-  /// Executes the rush-resolver.jar.
-  static Future<void> execResolver(FileService fs) async {
-    final classpath = CmdUtils.classpathString([
-      Directory(p.join(fs.toolsDir, 'resolver')),
-      Directory(p.join(fs.toolsDir, 'processor')),
-      Directory(p.join(fs.devDepsDir)),
-      File(p.join(fs.toolsDir, 'kotlinc', 'lib', 'kotlin-reflect.jar'))
-    ]);
-
-    final res = await ProcessStreamer.stream([
-      'java',
-      ...['-cp', classpath],
-      'io.shreyash.rush.resolver.MainKt',
-      fs.cwd,
-    ], fs.cwd, printNormalOutput: true);
-
-    if (!res.success) {
-      throw Exception();
-    }
-  }
-
   static Future<void> execManifMerger(
     FileService fs,
     int minSdk,
     String mainManifest,
-    List<String> depManifests,
+    Set<String> depManifests,
   ) async {
     final classpath = CmdUtils.classpathString([
       Directory(p.join(fs.toolsDir, 'merger')),

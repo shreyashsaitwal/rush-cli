@@ -5,11 +5,11 @@ import 'package:archive/archive_io.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
+import 'package:resolver/resolver.dart';
 import 'package:rush_cli/commands/build/utils/build_utils.dart';
 import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
 import 'package:rush_cli/commands/deps/sync.dart';
 import 'package:rush_cli/commands/rush_command.dart';
-import 'package:rush_cli/models/rush_lock/rush_lock.dart';
 import 'package:rush_cli/models/rush_yaml/rush_yaml.dart';
 import 'package:rush_cli/commands/build/tools/compiler.dart';
 import 'package:rush_cli/commands/build/tools/desugarer.dart';
@@ -18,6 +18,8 @@ import 'package:rush_cli/commands/build/tools/generator.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_prompt/rush_prompt.dart';
+
+import 'hive_adapters/remote_dep_index.dart';
 
 class BuildCommand extends RushCommand {
   final FileService _fs;
@@ -65,17 +67,9 @@ class BuildCommand extends RushCommand {
     valStep.finishOk();
 
     _buildBox = await Hive.openBox<BuildBox>('build');
+
     if (_buildBox.isEmpty || _buildBox.getAt(0) == null) {
-      await _buildBox.put(
-        'build',
-        BuildBox(
-          lastResolvedDeps: [],
-          lastResolution: DateTime.now(),
-          kaptOpts: {'': ''},
-          previouslyLogged: [],
-          lastManifMerge: DateTime.now(),
-        ),
-      );
+      await _buildBox.put('build', BuildBox.newInstance());
     }
 
     final optimize = () {
@@ -85,8 +79,8 @@ class BuildCommand extends RushCommand {
       return false;
     }();
 
-    final rushLock = await DepsSyncCommand(_fs).run(syncIdeaFiles: false);
-    await _compile(optimize, rushLock);
+    final cachedDepIndex = await DepsSyncCommand(_fs).run();
+    await _compile(optimize, cachedDepIndex);
   }
 
   void _loadRushYaml(BuildStep valStep) {
@@ -116,12 +110,16 @@ class BuildCommand extends RushCommand {
   }
 
   /// Compiles extension's source files.
-  Future<void> _compile(bool optimize, RushLock? rushLock) async {
+  Future<void> _compile(bool optimize, Set<RemoteDepIndex> depIndex) async {
     final compileStep = BuildStep('Compiling sources')..init();
 
-    if (rushLock != null) {
-      await _mergeManifests(
-          rushLock, compileStep, _rushYaml.android?.minSdk ?? 7);
+    if (depIndex.isNotEmpty) {
+      try {
+        await _mergeManifests(
+            compileStep, _rushYaml.android?.minSdk ?? 7, depIndex);
+      } catch (e) {
+        print(e);
+      }
     }
 
     final srcFiles =
@@ -151,62 +149,67 @@ class BuildCommand extends RushCommand {
           exit(1);
         }
 
-        await compiler.compileKt(compileStep, rushLock);
+        await compiler.compileKt(compileStep, depIndex);
       }
       if (javaFiles.isNotEmpty) {
-        await compiler.compileJava(compileStep, rushLock);
+        await compiler.compileJava(compileStep, depIndex);
       }
     } catch (e) {
       compileStep.finishNotOk();
       BuildUtils.printFailMsg(_startTime);
     }
     compileStep.finishOk();
-    await _process(optimize, rushLock);
+    await _process(optimize, depIndex);
   }
 
   Future<void> _mergeManifests(
-      RushLock rushLock, BuildStep step, int minSdk) async {
-    final lastMerge = _buildBox.getAt(0)!.lastManifMerge;
+      BuildStep step, int minSdk, Set<RemoteDepIndex> depIndex) async {
+    final lastMergeTime = _buildBox.getAt(0)!.lastManifestMergeTime;
 
-    final depManifests =
-        rushLock.resolvedArtifacts.where((el) => el.type == 'aar').map((el) {
-      final outputDir = Directory(
-          p.join(p.dirname(el.path), p.basenameWithoutExtension(el.path)))
+    final manifestPaths = depIndex
+        .where((el) => p.extension(el.artifactFile) == '.aar')
+        .map((el) {
+      final outputDir = Directory(p.withoutExtension(el.artifactFile))
         ..createSync(recursive: true);
       return p.join(outputDir.path, 'AndroidManifest.xml');
-    }).toList();
+    }).toSet();
 
-    final areDepManifestsMod = depManifests.any((el) {
+    if (manifestPaths.isEmpty) {
+      return;
+    }
+
+    final areDepManifestsModified = manifestPaths.any((el) {
       final file = File(el);
-      // If the file doesn't exist, chances are it was deleted. Just to be sure,
-      // unzip the AAR again.
+
+      // If the manifest file doen't exist, unzip the AAR again to get it.
       if (!file.existsSync()) {
         BuildUtils.unzip(p.dirname(el) + '.aar', p.dirname(el));
+        return true;
       }
 
-      // If the file still doesn't exist, then it means this AAR doesn't contain
-      // any manifest file. Strange, but anyways.
-      if (file.existsSync()) {
-        return file.lastModifiedSync().isAfter(lastMerge);
-      } else {
-        depManifests.remove(el);
+      // If the file still doesn't exist, ignore it and move on.
+      if (!file.existsSync()) {
+        manifestPaths.remove(el);
+        return false;
       }
-      return false;
+
+      return file.lastModifiedSync().isAfter(lastMergeTime);
     });
 
     final mainManifest = File(p.join(_fs.srcDir, 'AndroidManifest.xml'));
-    final output = File(p.join(_fs.buildDir, 'files', 'MergedManifest.xml'));
+    final outputManifest =
+        File(p.join(_fs.buildDir, 'files', 'MergedManifest.xml'));
 
-    final conditions = !output.existsSync() ||
-        mainManifest.lastModifiedSync().isAfter(lastMerge) ||
-        areDepManifestsMod;
+    final conditions = !outputManifest.existsSync() ||
+        mainManifest.lastModifiedSync().isAfter(lastMergeTime) ||
+        areDepManifestsModified;
     if (conditions) {
       step.log(LogType.info, 'Merging Android manifests');
-      output.createSync(recursive: true);
+      outputManifest.createSync(recursive: true);
 
       try {
         await Executor.execManifMerger(
-            _fs, minSdk, mainManifest.path, depManifests);
+            _fs, minSdk, mainManifest.path, manifestPaths);
       } catch (e) {
         step.finishNotOk();
         BuildUtils.printFailMsg(_startTime);
@@ -218,7 +221,7 @@ class BuildCommand extends RushCommand {
 
   /// Further process the extension by generating extension files, adding
   /// libraries and jaring the extension.
-  Future<void> _process(bool optimize, RushLock? rushLock) async {
+  Future<void> _process(bool optimize, Set<RemoteDepIndex> depIndex) async {
     final BuildStep processStep;
     final rulesPro = File(p.join(_fs.srcDir, 'proguard-rules.pro'));
 
@@ -234,7 +237,7 @@ class BuildCommand extends RushCommand {
       final desugarer = Desugarer(_fs, _rushYaml);
       try {
         await _buildBox.close();
-        await desugarer.run(processStep, rushLock);
+        await desugarer.run(processStep, depIndex);
       } catch (e) {
         processStep.finishNotOk();
         BuildUtils.printFailMsg(_startTime);
@@ -242,13 +245,13 @@ class BuildCommand extends RushCommand {
     }
 
     // Generate the extension files
-    await Generator(_fs, _rushYaml).generate(processStep, rushLock);
+    await Generator(_fs, _rushYaml).generate(processStep);
 
     // Create a JAR containing the contents of extension's dependencies and
     // compiled source files
     final File artJar;
     try {
-      artJar = await _generateArtJar(processStep, rushLock, optimize);
+      artJar = await _generateArtJar(processStep, depIndex, optimize);
     } catch (e) {
       if (e.toString().isNotEmpty && e.toString() != 'Exception') {
         processStep.log(LogType.erro, 'Something went wrong:');
@@ -290,7 +293,7 @@ class BuildCommand extends RushCommand {
   /// JAR the compiled class files and third-party dependencies into a single JAR.
   Future<File> _generateArtJar(
     BuildStep processStep,
-    RushLock? rushLock,
+    Set<RemoteDepIndex> depIndex,
     bool needOptimize,
   ) async {
     final pathEndsToIgnore = [
@@ -301,20 +304,20 @@ class BuildCommand extends RushCommand {
     final artJarEncoder = ZipFileEncoder()
       ..create(p.join(_fs.buildDir, 'ART.jar'));
 
-    final implDeps = BuildUtils.getDepJarPaths(
-        _fs.cwd, _rushYaml, DepScope.implement, rushLock);
+    final runtimeDeps = BuildUtils.depJarFiles(
+        _fs.cwd, _rushYaml, DependencyScope.runtime, depIndex);
 
     // Add Kotlin Stdlib. to implDeps if Kotlin is enabled for the project.
     if (_rushYaml.kotlin?.enable ?? false) {
-      implDeps.add(p.join(_fs.devDepsDir, 'kotlin', 'kotlin-stdlib.jar'));
+      runtimeDeps.add(p.join(_fs.devDepsDir, 'kotlin', 'kotlin-stdlib.jar'));
     }
 
     // Add class files from all required impl deps into the ART.jar
-    if (implDeps.isNotEmpty) {
+    if (runtimeDeps.isNotEmpty) {
       processStep.log(LogType.info, 'Attaching dependencies');
       final desugarStore = p.join(_fs.buildDir, 'files', 'desugar');
 
-      for (final jarPath in implDeps) {
+      for (final jarPath in runtimeDeps) {
         final jar = () {
           if (!(_rushYaml.desugar?.deps ?? false)) {
             return File(jarPath);
@@ -325,8 +328,7 @@ class BuildCommand extends RushCommand {
 
         if (!jar.existsSync()) {
           processStep
-            ..log(LogType.erro,
-                'Unable to find required library \'${p.basename(jar.path)}\'')
+            ..log(LogType.erro, 'Unable to find required library \'$jar)\'')
             ..finishNotOk();
           exit(1);
         }
@@ -358,13 +360,13 @@ class BuildCommand extends RushCommand {
     final artJar = File(p.join(_fs.buildDir, 'ART.jar'));
     if (needOptimize) {
       processStep.log(LogType.info, 'Optimizing the extension');
-      await _optimizeArt(artJar, rushLock);
+      await _optimizeArt(artJar, depIndex);
     }
     return artJar;
   }
 
-  Future<void> _optimizeArt(File artJar, RushLock? rushLock) async {
-    await Executor.execProGuard(_fs, _rushYaml, rushLock);
+  Future<void> _optimizeArt(File artJar, Set<RemoteDepIndex> depIndex) async {
+    await Executor.execProGuard(_fs, _rushYaml, depIndex);
     // Delete the old non-optimized JAR...
     artJar.deleteSync();
     // ...and rename the optimized JAR with old JAR's name

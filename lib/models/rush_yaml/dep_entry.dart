@@ -1,48 +1,30 @@
 part of 'rush_yaml.dart';
 
-enum DepScope { implement, compileOnly }
-
-extension DepScopeExt on DepScope {
-  String value() {
-    if (this == DepScope.implement) {
-      return 'runtime';
-    }
-    return 'compile';
-  }
-}
-
 @JsonSerializable(
   anyMap: true,
   checked: true,
   disallowUnrecognizedKeys: true,
 )
 class DepEntry {
-  @JsonKey(name: 'compile_only')
-  final String? compileOnly;
-  final String? implement;
-  final List<String>? exclude;
+  final String? compile;
+  final String? runtime;
+  final List<String>? ignore;
 
-  DepEntry({this.implement, this.compileOnly, this.exclude}) {
-    if (implement != null && compileOnly != null) {
-      throw Exception('Can\'t implement and compile at the same time');
+  DepEntry({this.runtime, this.compile, this.ignore}) {
+    if (runtime != null && compile != null) {
+      throw Exception('Both compile and runtime are defined');
     }
   }
 
-  factory DepEntry.fromJson(Map<String, dynamic> json) => _$DepEntryFromJson(json);
+  factory DepEntry.fromJson(Map<String, dynamic> json) =>
+      _$DepEntryFromJson(json);
 
   Map<String, dynamic> toJson() => _$DepEntryToJson(this);
 
-  String value() {
-    if (implement != null) {
-      return implement!;
-    }
-    return compileOnly!;
-  }
+  String get value => runtime ?? compile!;
 
-  DepScope scope() {
-    if (implement != null) {
-      return DepScope.implement;
-    }
-    return DepScope.compileOnly;
-  }
+  DependencyScope get scope =>
+      runtime != null ? DependencyScope.runtime : DependencyScope.compile;
+
+  bool get isRemote => value.contains(':');
 }

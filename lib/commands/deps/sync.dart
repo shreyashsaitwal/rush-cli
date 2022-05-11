@@ -3,15 +3,14 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
-import 'package:rush_cli/commands/build/tools/executor.dart';
-import 'package:rush_cli/commands/build/utils/build_utils.dart';
-import 'package:rush_cli/commands/rush_command.dart';
-import 'package:rush_cli/models/rush_lock/rush_lock.dart';
-import 'package:rush_cli/services/file_service.dart';
-import 'package:rush_cli/templates/intellij_files.dart';
-import 'package:rush_cli/utils/cmd_utils.dart';
-import 'package:rush_prompt/rush_prompt.dart';
+import 'package:resolver/resolver.dart';
+import 'package:rush_cli/commands/build/hive_adapters/remote_dep_index.dart';
+
+import '../../commands/rush_command.dart';
+import '../../services/file_service.dart';
+import '../../utils/cmd_utils.dart';
+import '../../templates/intellij_files.dart';
+import '../build/utils/build_utils.dart';
 
 class DepsSyncCommand extends RushCommand {
   final FileService _fs;
@@ -26,156 +25,137 @@ class DepsSyncCommand extends RushCommand {
   String get name => 'sync';
 
   @override
-  Future<RushLock?> run({bool syncIdeaFiles = true}) async {
-    final startTime = DateTime.now();
+  Future<Set<RemoteDepIndex>> run({bool updateIdeaFiles = true}) async {
+    // TODO: Console output
     final rushYaml = CmdUtils.loadRushYaml(_fs.cwd);
 
-    final containsRemoteDeps =
-        rushYaml.deps?.any((el) => el.value().contains(':')) ?? false;
-    final lockFile = File(p.join(_fs.cwd, '.rush', 'rush.lock'));
+    final remoteDeps = rushYaml.deps?.where((el) => el.isRemote) ?? [];
+    if (remoteDeps.isEmpty) return {};
 
-    if (!containsRemoteDeps) {
-      if (lockFile.existsSync()) {
-        lockFile.deleteSync();
-      }
-      return null;
-    }
+    final toResolve = {for (var el in remoteDeps) el.value: el.scope};
 
-    final buildBox = await Hive.openBox<BuildBox>('build');
+    // TODO: Add ability to add extra repositories and change cache dir
+    final resolver = ArtifactResolver();
 
-    final step = BuildStep('Resolving dependencies')..init();
-    final boxVal = buildBox.getAt(0)!;
+    final resolvedArtifacts = (await Future.wait({
+      for (final el in toResolve.entries)
+        _resolveDep(resolver, el.key, el.value)
+    }))
+        .flattened
+        .toSet();
 
-    final lastResolvedDeps = boxVal.lastResolvedDeps;
-    final currentRemoteDeps = rushYaml.deps
-            ?.where((el) => el.value().contains(':'))
-            .map((el) => el.value())
-            .toList() ??
-        <String>[];
+    // TODO: Handle the artifacts that are already available as dev-deps
+    // TODO: Handle different versions of of same artifacts
 
-    final areDepsUpToDate = DeepCollectionEquality.unordered()
-        .equals(lastResolvedDeps, currentRemoteDeps);
+    // Download all the resolved artifacts
+    await Future.wait([
+      // TODO: Remove the unimplemented error
+      ...resolvedArtifacts.map(
+          (el) => resolver.download(el, onError: () => UnimplementedError())),
+      ...resolvedArtifacts.map((el) => resolver.downloadSources(el)),
+    ]);
 
-    if (!areDepsUpToDate ||
-        !lockFile.existsSync() ||
-        lockFile.lastModifiedSync().isAfter(boxVal.lastResolution)) {
-      try {
-        if (lockFile.existsSync()) {
-          lockFile.deleteSync();
-        }
-        await Executor.execResolver(_fs);
-      } catch (e) {
-        step.finishNotOk();
-        BuildUtils.printFailMsg(startTime);
-      } finally {
-        buildBox
-          ..updateLastResolution(DateTime.now())
-          ..updateLastResolvedDeps(currentRemoteDeps);
-      }
-    } else {
-      step.log(LogType.info, 'Everything is up-to-date!');
-    }
-
-    final RushLock rushLock;
-    try {
-      rushLock = CmdUtils.loadRushLock(_fs.cwd)!;
-    } catch (e) {
-      step
-        ..log(LogType.erro, e.toString())
-        ..finishNotOk();
-      BuildUtils.printFailMsg(startTime);
-      exit(1);
-    }
-
-    if (rushLock.skippedArtifacts.isNotEmpty) {
-      step.log(
-          LogType.warn,
-          'The following dependencies were up/down-graded to the versions that were'
-          ' already available as dev-dependencies:');
-
-      final longestCoordLen =
-          rushLock.skippedArtifacts.map((el) => el.coordinate).max.length + 1;
-      final longestScopeLen =
-          rushLock.skippedArtifacts.map((el) => el.scope).max.length;
-
-      for (final el in rushLock.skippedArtifacts) {
-        step.log(
-            LogType.warn,
-            ' ' * 5 +
-                '- ${el.coordinate.padRight(longestCoordLen)}  -->  ${el.availableVer}  (${el.scope.padLeft(longestScopeLen)})',
-            addPrefix: false);
-      }
-
-      step.log(
-          LogType.note,
-          'If you don\'t want the above artifact(s) to get up/down-graded,'
-          ' consider explicitly declaring them in rush.yml');
-
-      if (syncIdeaFiles) {
-        for (final el in rushLock.resolvedArtifacts) {
-          _updateLibXml(el, rushLock);
-        }
-
-        var imlFile = Directory(p.join(_fs.cwd, '.idea'))
-            .listSync()
-            .whereType<File>()
-            .firstWhereOrNull((el) => p.extension(el.path) == '.iml');
-        imlFile ??= File(p.join(_fs.cwd, '.idea', p.basename(_fs.cwd) + '.iml'))
-          ..createSync(recursive: true);
-        imlFile.writeAsStringSync(getIml(p.dirname(imlFile.path)));
+    if (updateIdeaFiles) {
+      print('Updating library files');
+      for (final artifact in resolvedArtifacts) {
+        _updateLibXml(artifact);
       }
     }
 
-    step.finishOk();
-    return rushLock;
+    return await _storeCache(resolvedArtifacts);
   }
 
-  void _updateLibXml(ResolvedArtifact artifact, RushLock rushLock) {
+  Future<Set<ResolvedArtifact>> _resolveDep(
+    ArtifactResolver resolver,
+    String coordinate,
+    DependencyScope scope,
+  ) async {
+    // TODO: Handle "ignore" deps. 
+
+    print('Resolving $coordinate');
+    final resolved = await resolver.resolve(coordinate, scope);
+
+    // Only take the deps if they are:
+    // * not optional
+    // * of compile scope when the current scope is compile
+    // * of runtime / compile scope when the current scope is runtime
+    final deps =
+        resolved.pom.dependencies.whereNot((el) => el.optional).where((el) {
+      if (scope == DependencyScope.compile) {
+        return el.scope == DependencyScope.compile;
+      } else if (scope == DependencyScope.runtime) {
+        return el.scope == DependencyScope.compile ||
+            el.scope == DependencyScope.runtime;
+      }
+
+      return false;
+    });
+
+    final depResolveFutures = <Future<Set<ResolvedArtifact>>>{};
+    for (final el in deps) {
+      depResolveFutures.add(_resolveDep(resolver, el.coordinate, el.scope));
+    }
+    final resolvedDeps = (await Future.wait(depResolveFutures)).flattened;
+
+    return {resolved, ...resolvedDeps};
+  }
+
+  Future<Set<RemoteDepIndex>> _storeCache(
+      Set<ResolvedArtifact> resolvedArtifacts) async {
+    final indexBox = await Hive.openBox<RemoteDepIndex>('index');
+
+    if (indexBox.isNotEmpty) {
+      await indexBox.clear();
+    }
+
+    final index = {
+      for (final el in resolvedArtifacts)
+        RemoteDepIndex(
+          el.coordinate,
+          el.cacheDir,
+          el.scope.name,
+          el.pom.dependencies.map((el) => el.coordinate).toList(),
+          el.packaging,
+        )
+    };
+
+    try {
+      await indexBox.addAll(index.toList());
+    } catch (e) {
+      print(e);
+      rethrow;
+    }
+
+    return index;
+  }
+
+  void _updateLibXml(ResolvedArtifact artifact) {
     final classes = <String>[];
 
-    if (artifact.type == 'aar') {
-      final outputDir = Directory(p.join(
-          p.dirname(artifact.path), p.basenameWithoutExtension(artifact.path)))
+    if (artifact.packaging == 'aar') {
+      final outputDir = Directory(p.withoutExtension(artifact.main.localFile))
         ..createSync(recursive: true);
 
       final classesJarFile = File(p.join(outputDir.path, 'classes.jar'));
       final manifestXml = File(p.join(outputDir.path, 'AndroidManifest.xml'));
+
       if (!classesJarFile.existsSync()) {
-        BuildUtils.unzip(artifact.path, outputDir.path);
+        BuildUtils.unzip(artifact.main.localFile, outputDir.path);
       }
 
       classes
         ..add(classesJarFile.path)
         ..add(manifestXml.path);
     } else {
-      classes.add(artifact.path);
+      classes.add(artifact.main.localFile);
     }
 
-    final javadocs = Directory(p.dirname(artifact.path))
-        .listSync()
-        .whereType<File>()
-        .where((el) => el.path.endsWith('javadoc.jar'))
-        .map((el) => el.path)
-        .toList();
+    final xmlFileName =
+        artifact.coordinate.replaceAll(':', '-') + '-' + artifact.packaging;
 
-    final sources = Directory(p.dirname(artifact.path))
-        .listSync()
-        .whereType<File>()
-        .where((el) => el.path.endsWith('sources.jar'))
-        .map((el) => el.path)
-        .toList();
-
-    final name = () {
-      final common = artifact.coordinate.replaceAll(':', '-');
-      if (artifact.type == 'aar') {
-        return 'rush-$common-aar';
-      } else {
-        return 'rush-$common-jar';
-      }
-    }();
-    final libXml = File(p.join(_fs.cwd, '.idea', 'libraries', '$name.xml'));
-    libXml
-      ..createSync()
-      ..writeAsStringSync(getLibXml(name, classes, javadocs, sources));
+    CmdUtils.writeFile(
+      p.join(_fs.cwd, '.idea', 'libraries', '$xmlFileName.xml'),
+      getLibXml(xmlFileName, classes, artifact.sources.localFile),
+    );
   }
 }

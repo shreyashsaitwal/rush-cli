@@ -24,7 +24,7 @@ class CreateCommand extends RushCommand {
           abbr: 'o',
           help:
               'The organization name in reverse domain name notation. This is used as extension\'s package name.')
-      ..addMultiOption('lang',
+      ..addOption('lang',
           abbr: 'l',
           help:
               'The language in which the extension\'s starter template should be generated',
@@ -61,15 +61,10 @@ class CreateCommand extends RushCommand {
 
     final prompt = RushPrompt(questions: _questions());
 
-    String orgName = argResults!['org'] as String;
-    if (orgName.isEmpty) {
-      orgName = prompt.askQuestionAt('org').last as String;
-    }
-
-    String lang = argResults!['lang'] as String;
-    if (lang.isEmpty) {
-      lang = prompt.askQuestionAt('lang') as String;
-    }
+    var orgName =
+        (argResults!['org'] ?? prompt.askQuestionAt('org').last) as String;
+    final lang =
+        (argResults!['lang'] ?? prompt.askQuestionAt('lang').last) as String;
 
     final camelCasedName = Casing.camelCase(name);
     final pascalCasedName = Casing.pascalCase(name);
@@ -87,9 +82,9 @@ class CreateCommand extends RushCommand {
 
     final extPath = p.joinAll([projectDir, 'src', ...orgName.split('.')]);
     final ideaDir = p.join(projectDir, '.idea');
-    
+
     final filesToCreate = {
-      if (lang == 'Java')
+      if (['j', 'java'].contains(lang.toLowerCase()))
         p.join(extPath, '$pascalCasedName.java'): getExtensionTempJava(
           pascalCasedName,
           orgName,
@@ -114,7 +109,8 @@ class CreateCommand extends RushCommand {
       p.join(ideaDir, 'libraries', 'dev-deps.xml'): getDevDepsXml(_fs.dataDir),
       p.join(ideaDir, 'libraries', 'deps.xml'): getDepsXml(),
       p.join(ideaDir, 'modules.xml'): getModulesXml(kebabCasedName),
-      p.join(ideaDir, '$kebabCasedName.iml'): getIml(ideaDir)
+      p.join(ideaDir, '$kebabCasedName.iml'):
+          getIml(ideaDir, ['dev-deps', 'deps'])
     };
 
     // Creates the required files for the extension.

@@ -2,7 +2,6 @@ import 'dart:io' show Directory, File, FileSystemEntity, Platform;
 
 import 'package:checked_yaml/checked_yaml.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/models/rush_lock/rush_lock.dart';
 import 'package:rush_cli/models/rush_yaml/rush_yaml.dart';
 
 class CmdUtils {
@@ -122,23 +121,5 @@ class CmdUtils {
     }
 
     return rushYaml;
-  }
-
-  static RushLock? loadRushLock(String cwd) {
-    final file = File(p.join(cwd, '.rush', 'rush.lock'));
-    if (!file.existsSync()) {
-      return null;
-    }
-
-    final RushLock rushLock;
-    try {
-      rushLock = checkedYamlDecode(
-          File(p.join(cwd, '.rush', 'rush.lock')).readAsStringSync(),
-          (json) => RushLock.fromJson(json!));
-    } catch (e) {
-      rethrow;
-    }
-
-    return rushLock;
   }
 }

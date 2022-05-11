@@ -11,8 +11,8 @@ ${enableKt ? _getKtField() : ''}
 #  deps: false
 
 # deps:
-#   - implement: 'example.jar'
-#   - implement: 'com.example:foo-bar:1.2.3'
+#   - runtime: 'example.jar'
+#   - runtime: 'com.example:foo-bar:1.2.3'
 ''';
 }
 

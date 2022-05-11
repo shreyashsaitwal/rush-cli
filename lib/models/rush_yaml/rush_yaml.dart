@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'package:resolver/resolver.dart';
 
 part 'android.dart';
 part 'dep_entry.dart';

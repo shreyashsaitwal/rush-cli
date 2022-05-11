@@ -5,13 +5,15 @@ import 'package:args/args.dart';
 import 'package:dart_console/dart_console.dart' show ConsoleColor;
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
+import 'package:resolver/resolver.dart';
 import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
-import 'package:rush_cli/models/rush_lock/rush_lock.dart';
+import 'package:rush_cli/commands/build/hive_adapters/remote_dep_index.dart';
 import 'package:rush_cli/models/rush_yaml/rush_yaml.dart';
 import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/templates/intellij_files.dart';
 import 'package:rush_prompt/rush_prompt.dart';
+import 'package:collection/collection.dart';
 
 class BuildUtils {
   /// Gets time difference between the given two `DateTime`s.
@@ -86,7 +88,8 @@ class BuildUtils {
   /// Deletes the list of previously logged messages from build box.
   static Future<void> deletePreviouslyLoggedFromBuildBox() async {
     final buildBox = await Hive.openBox<BuildBox>('build');
-    buildBox.updatePreviouslyLogged([]);
+    final updated = buildBox.get(0)!.update();
+    await buildBox.putAt(0, updated);
   }
 
   /// Checks whether the .idea/libraries/dev_deps.xml file defines the correct
@@ -112,60 +115,59 @@ class BuildUtils {
     }
   }
 
-  static List<String> getDepJarPaths(
+  static Set<String> depJarFiles(
     String projectRoot,
     RushYaml rushYaml,
-    DepScope scope,
-    RushLock? rushLock,
+    DependencyScope scope,
+    Set<RemoteDepIndex> remoteDepIndex,
   ) {
-    final allEntries = rushYaml.deps?.where((el) => el.scope() == scope);
-    final localJars = allEntries
-            ?.where((el) => !el.value().contains(':'))
-            .map((el) => p.join(projectRoot, 'deps', el.value())) ??
-        [];
+    final allEntries = rushYaml.deps?.where((el) => el.scope == scope);
+    final localJars =
+        allEntries?.whereNot((el) => el.isRemote).map((el) => el.value).toSet();
 
-    if (rushLock == null) {
-      return localJars.toList();
+    if (remoteDepIndex.isEmpty) {
+      return localJars ?? {};
     }
 
-    final remoteJars = rushLock.resolvedArtifacts
-        .where((el) => el.scope == scope.value())
-        .map((el) {
-      if (el.type == 'aar') {
-        final outputDir = Directory(p.join(
-            p.dirname(el.path), p.basenameWithoutExtension(el.path)))
-          ..createSync(recursive: true);
-        final classesJar = File(p.join(outputDir.path, 'classes.jar'));
-
-        if (!classesJar.existsSync()) {
-          unzip(el.path, outputDir.path);
-        }
-        return classesJar.path;
+    final remoteJars =
+        remoteDepIndex.where((el) => el.scope == scope).map((el) {
+      if (el.packaging == 'jar') {
+        return el.artifactFile;
       }
-      return el.path;
-    });
 
-    return [...localJars, ...remoteJars];
+      final outputDir = Directory(p.withoutExtension(el.artifactFile))
+        ..createSync(recursive: true);
+
+      final classesJar = File(p.join(outputDir.path, 'classes.jar'));
+
+      if (!classesJar.existsSync()) {
+        unzip(el.artifactFile, outputDir.path);
+      }
+
+      return classesJar.path;
+    }).toSet();
+
+    return {...?localJars, ...remoteJars};
   }
 
   static String classpathStringForDeps(
     FileService fs,
     RushYaml rushYaml,
-    RushLock? rushLock,
+    Set<RemoteDepIndex> depIndex,
   ) {
-    final depJars = [
-      ...getDepJarPaths(fs.cwd, rushYaml, DepScope.implement, rushLock),
-      ...getDepJarPaths(fs.cwd, rushYaml, DepScope.compileOnly, rushLock)
-    ];
+    final allDepJars = {
+      ...depJarFiles(fs.cwd, rushYaml, DependencyScope.runtime, depIndex),
+      ...depJarFiles(fs.cwd, rushYaml, DependencyScope.compile, depIndex),
+    };
 
     final devDepsDir = Directory(p.join(fs.dataDir, 'dev-deps'));
     for (final el in devDepsDir.listSync(recursive: true)) {
       if (el is File) {
-        depJars.add(el.path);
+        allDepJars.add(el.path);
       }
     }
 
-    return depJars.join(CmdUtils.cpSeparator());
+    return allDepJars.join(CmdUtils.cpSeparator());
   }
 
   static void unzip(String zipFilePath, String outputDirPath) {

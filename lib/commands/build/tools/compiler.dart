@@ -3,10 +3,10 @@ import 'dart:io' show Directory, File, Platform, exit;
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_runner/process_runner.dart';
+import 'package:rush_cli/commands/build/hive_adapters/remote_dep_index.dart';
 import 'package:rush_cli/commands/build/utils/build_utils.dart';
 import 'package:rush_cli/commands/build/utils/compute.dart';
 import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
-import 'package:rush_cli/models/rush_lock/rush_lock.dart';
 import 'package:rush_cli/models/rush_yaml/rush_yaml.dart';
 import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_cli/utils/process_streamer.dart';
@@ -33,8 +33,8 @@ class Compiler {
   Compiler(this._fs, this._rushYaml, this._buildBox);
 
   /// Compiles the Java files for this extension project.
-  Future<void> compileJava(BuildStep step, RushLock? rushLock) async {
-    final args = await _getJavacArgs(rushLock);
+  Future<void> compileJava(BuildStep step, Set<RemoteDepIndex> depIndex) async {
+    final args = await _getJavacArgs(depIndex);
     final result = await _startProcess(
         _StartProcessArgs(projectRoot: _fs.cwd, cmdArgs: args));
     if (!result.success) {
@@ -43,9 +43,9 @@ class Compiler {
   }
 
   /// Compiles the Kotlin files for this extension project.
-  Future<void> compileKt(BuildStep step, RushLock? rushLock) async {
-    final ktcArgs = _getKtcArgs(rushLock);
-    final kaptArgs = await _getKaptArgs(rushLock);
+  Future<void> compileKt(BuildStep step, Set<RemoteDepIndex> depIndex) async {
+    final ktcArgs = _getKtcArgs(depIndex);
+    final kaptArgs = await _getKaptArgs(depIndex);
 
     // [ProcessStreamer] uses the build box to track the messages that were
     // logged previously during this build. This is done only when at least two
@@ -85,7 +85,7 @@ class Compiler {
   }
 
   /// Returns the command line args required for compiling sources.
-  Future<List<String>> _getJavacArgs(RushLock? rushLock) async {
+  Future<List<String>> _getJavacArgs(Set<RemoteDepIndex> depIndex) async {
     final filesDir = Directory(p.join(_fs.buildDir, 'files'))
       ..createSync(recursive: true);
 
@@ -100,7 +100,7 @@ class Compiler {
       ..createSync(recursive: true);
 
     final classpath =
-        BuildUtils.classpathStringForDeps(_fs, _rushYaml, rushLock) +
+        BuildUtils.classpathStringForDeps(_fs, _rushYaml, depIndex) +
             CmdUtils.cpSeparator() +
             CmdUtils.classpathString(
                 [Directory(p.join(_fs.toolsDir, 'processor')), classesDir]);
@@ -125,7 +125,7 @@ class Compiler {
   }
 
   /// Returns command line args required for compiling Kotlin sources.
-  List<String> _getKtcArgs(RushLock? rushLock) {
+  List<String> _getKtcArgs(Set<RemoteDepIndex> depIndex) {
     final kotlinc = p.join(_fs.toolsDir, 'kotlinc', 'bin',
         'kotlinc' + (Platform.isWindows ? '.bat' : ''));
 
@@ -133,7 +133,7 @@ class Compiler {
       ..createSync(recursive: true);
 
     final classpath =
-        BuildUtils.classpathStringForDeps(_fs, _rushYaml, rushLock);
+        BuildUtils.classpathStringForDeps(_fs, _rushYaml, depIndex);
 
     final args = <String>[];
     args
@@ -148,11 +148,11 @@ class Compiler {
   /// Returns command line args required for running the Kapt compiler plugin.
   /// Kapt is required for processing annotations in Kotlin sources and needs
   /// to be invoked separately.
-  Future<List<String>> _getKaptArgs(RushLock? rushLock) async {
+  Future<List<String>> _getKaptArgs(Set<RemoteDepIndex> depIndex) async {
     final apDir = Directory(p.join(_fs.toolsDir, 'processor'));
 
     final classpath =
-        BuildUtils.classpathStringForDeps(_fs, _rushYaml, rushLock) +
+        BuildUtils.classpathStringForDeps(_fs, _rushYaml, depIndex) +
             CmdUtils.cpSeparator() +
             CmdUtils.classpathString([
               Directory(p.join(_fs.toolsDir, 'processor')),
@@ -234,7 +234,10 @@ class Compiler {
     ]);
 
     if (res.exitCode == 0) {
-      _buildBox.updateKaptOpts({'raw': opts, 'encoded': res.stdout.trim()});
+      final updated = _buildBox
+          .get(0)!
+          .update(kaptOpts: {'raw': opts, 'encoded': res.stdout.trim()});
+      await _buildBox.putAt(0, updated);
       return res.stdout.trim();
     } else {
       Logger.log(LogType.erro, 'Something went wrong...');

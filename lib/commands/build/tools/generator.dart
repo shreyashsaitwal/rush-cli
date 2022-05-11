@@ -1,7 +1,6 @@
 import 'dart:io' show Directory, File;
 
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/models/rush_lock/rush_lock.dart';
 import 'package:rush_cli/models/rush_yaml/rush_yaml.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/utils/dir_utils.dart';
@@ -15,7 +14,7 @@ class Generator {
   Generator(this._fs, this._rushYaml);
 
   /// Generates required extension files.
-  Future<void> generate(BuildStep step, RushLock? rushLock) async {
+  Future<void> generate(BuildStep step) async {
     await Future.wait([
       _generateInfoFiles(step),
       _copyAssets(step),

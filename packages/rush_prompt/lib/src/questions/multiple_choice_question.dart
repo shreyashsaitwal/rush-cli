@@ -21,7 +21,8 @@ class MultipleChoiceQuestion extends Question {
     _id = id;
     _options = options;
 
-    _hint = hint ?? '(Use arrow or \'W\'/\'S\' keys to navigate & press enter to select)';
+    _hint = hint ??
+        '(Use arrow or \'W\'/\'S\' keys to navigate & press enter to select)';
   }
 
   void _renderList(int activeIndex) {

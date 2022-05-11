@@ -12,7 +12,7 @@ class DirUtils {
       appDataDir = Platform.environment['RUSH_DATA_DIR']!;
     } else {
       switch (os) {
-        // TODO: Data dir should be named `.rush` and should be created in the 
+        // TODO: Data dir should be named `.rush` and should be created in the
         // user's home directory in all OSs.
         case 'windows':
           appDataDir = p.join(Platform.environment['UserProfile']!, 'AppData',
@@ -30,7 +30,8 @@ class DirUtils {
 
     final dir = Directory(appDataDir);
     if (!dir.existsSync() || dir.listSync().isEmpty) {
-      Logger.log(LogType.erro, 'Rush data directory $appDataDir doesn\'t exists or is empty');
+      Logger.log(LogType.erro,
+          'Rush data directory $appDataDir doesn\'t exists or is empty');
       exit(1);
     }
 

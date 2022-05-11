@@ -180,17 +180,14 @@ class MigrateCommand extends RushCommand {
 
     // IntelliJ IDEA files
     final ideaDir = p.join(projectDirPath, '.idea');
-    CmdUtils.writeFile(
-        p.join(ideaDir, 'misc.xml'), getMiscXml());
-    CmdUtils.writeFile(
-        p.join(ideaDir, 'libraries', 'dev-deps.xml'),
+    CmdUtils.writeFile(p.join(ideaDir, 'misc.xml'), getMiscXml());
+    CmdUtils.writeFile(p.join(ideaDir, 'libraries', 'dev-deps.xml'),
         getDevDepsXml(_fs.dataDir));
+    CmdUtils.writeFile(p.join(ideaDir, 'libraries', 'deps.xml'), getDepsXml());
     CmdUtils.writeFile(
-        p.join(ideaDir, 'libraries', 'deps.xml'), getDepsXml());
-    CmdUtils.writeFile(p.join(ideaDir, 'modules.xml'),
-        getModulesXml(kebabCasedName));
-    CmdUtils.writeFile(
-        p.join(ideaDir, '$kebabCasedName.iml'), getIml(ideaDir));
+        p.join(ideaDir, 'modules.xml'), getModulesXml(kebabCasedName));
+    CmdUtils.writeFile(p.join(ideaDir, '$kebabCasedName.iml'),
+        getIml(ideaDir, ['dev-deps', 'deps']));
   }
 
   Future<void> _compileJava(Directory output, BuildStep step) async {

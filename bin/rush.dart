@@ -6,6 +6,7 @@ import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/build.dart';
 import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
+import 'package:rush_cli/commands/build/hive_adapters/remote_dep_index.dart';
 import 'package:rush_cli/commands/clean.dart';
 import 'package:rush_cli/commands/create.dart';
 import 'package:rush_cli/commands/deps/deps.dart';
@@ -32,9 +33,11 @@ void main(List<String> args) {
 
   final fs = FileService(Directory.current.path, DirUtils.dataDir()!);
 
+  print(fs.cwd);
   Hive
     ..init(p.join(fs.cwd, '.rush'))
-    ..registerAdapter(BuildBoxAdapter());
+    ..registerAdapter(BuildBoxAdapter())
+    ..registerAdapter(RemoteDepIndexAdapter());
 
   commandRunner
     ..addCommand(CreateCommand(fs))
@@ -51,6 +54,13 @@ void main(List<String> args) {
       throw Exception(err);
     }
   });
+
+  try {
+    commandRunner.run(args);
+  } catch (e, s) {
+    print(s);
+    rethrow;
+  }
 }
 
 void _printVersion() {

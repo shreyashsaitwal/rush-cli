@@ -123,7 +123,7 @@ class ProcessStreamer {
 
       final List<String> previouslyLogged;
       if (trackPreviouslyLogged) {
-        previouslyLogged = buildBox!.getAt(0)!.previouslyLogged;
+        previouslyLogged = buildBox!.getAt(0)!.previouslyLoggedLines;
         if (previouslyLogged.contains(line)) {
           skipThisErrStack = true;
           continue;
@@ -145,7 +145,10 @@ class ProcessStreamer {
         skipThisErrStack = false;
 
         if (trackPreviouslyLogged && buildBox != null) {
-          buildBox.updatePreviouslyLogged([...previouslyLogged, line]);
+          final updated = buildBox
+              .get(0)!
+              .update(previouslyLoggedLines: [...previouslyLogged, line]);
+          await buildBox.putAt(0, updated);
         }
       } else if (!skipThisErrStack) {
         if (line.startsWith(cwd)) {

@@ -4,93 +4,51 @@ part 'build_box.g.dart';
 
 @HiveType(typeId: 0)
 class BuildBox extends HiveObject {
+  // This field stores the last time when the Andriud manifests from all the
+  // AAR dependencies were successfully merged with the main manifest.
   @HiveField(0)
-  final List<String> lastResolvedDeps;
+  DateTime _lastManifestMergeTime = DateTime.now();
 
+  // The arguments passed to the Kotlin annotation processor tool, kapt, need to
+  // be obtained from a Kotlin program. This process is expensive and so we
+  // cache the result for the subsequent builds.
   @HiveField(1)
-  final DateTime lastResolution;
+  Map<String, String> _kaptOpts = {};
 
+  // We run Kapt in parallel with kotlinc to reduce the build time. When the
+  // extension source code has errors/warnings, they get printed twice, so, we
+  // keep track of the already printed messages, and skip them if they show up
+  // again during the same build.
   @HiveField(2)
-  final Map<String, String> kaptOpts;
+  List<String> _previouslyLoggedLines = [];
 
-  @HiveField(3)
-  final List<String> previouslyLogged;
+  DateTime get lastManifestMergeTime => _lastManifestMergeTime;
+  Map<String, String> get kaptOpts => _kaptOpts;
+  List<String> get previouslyLoggedLines => _previouslyLoggedLines;
 
-  @HiveField(4)
-  final DateTime lastManifMerge;
+  BuildBox();
 
-  BuildBox({
-    required this.lastResolvedDeps,
-    required this.lastResolution,
-    required this.kaptOpts,
-    required this.previouslyLogged,
-    required this.lastManifMerge,
-  });
-}
+  BuildBox.newInstance();
 
-extension BuildBoxExtension on Box<BuildBox> {
-  void updateLastResolvedDeps(List<String> newVal) {
-    final old = getAt(0);
-    putAt(
-        0,
-        BuildBox(
-          lastResolvedDeps: newVal,
-          lastResolution: old?.lastResolution ?? DateTime.now(),
-          kaptOpts: old?.kaptOpts ?? <String, String>{'': ''},
-          previouslyLogged: old?.previouslyLogged ?? <String>[''],
-          lastManifMerge: old?.lastManifMerge ?? DateTime.now(),
-        ));
-  }
+  BuildBox update({
+    DateTime? lastResolutionTime,
+    Set<String>? dependencyPaths,
+    DateTime? lastManifestMergeTime,
+    Map<String, String>? kaptOpts,
+    List<String>? previouslyLoggedLines,
+  }) {
+    if (lastManifestMergeTime != null) {
+      _lastManifestMergeTime = lastManifestMergeTime;
+    }
 
-  void updateLastResolution(DateTime newVal) {
-    final old = getAt(0);
-    putAt(
-        0,
-        BuildBox(
-          lastResolvedDeps: old?.lastResolvedDeps ?? <String>[''],
-          lastResolution: newVal,
-          kaptOpts: old?.kaptOpts ?? <String, String>{'': ''},
-          previouslyLogged: old?.previouslyLogged ?? <String>[''],
-          lastManifMerge: old?.lastManifMerge ?? DateTime.now(),
-        ));
-  }
+    if (kaptOpts != null) {
+      _kaptOpts = kaptOpts;
+    }
 
-  void updateKaptOpts(Map<String, String> newVal) {
-    final old = getAt(0);
-    putAt(
-        0,
-        BuildBox(
-          lastResolvedDeps: old?.lastResolvedDeps ?? <String>[''],
-          lastResolution: old?.lastResolution ?? DateTime.now(),
-          kaptOpts: newVal,
-          previouslyLogged: old?.previouslyLogged ?? <String>[''],
-          lastManifMerge: old?.lastManifMerge ?? DateTime.now(),
-        ));
-  }
+    if (previouslyLoggedLines != null) {
+      _previouslyLoggedLines = previouslyLoggedLines;
+    }
 
-  void updatePreviouslyLogged(List<String> newVal) {
-    final old = getAt(0);
-    putAt(
-        0,
-        BuildBox(
-          lastResolvedDeps: old?.lastResolvedDeps ?? <String>[''],
-          lastResolution: old?.lastResolution ?? DateTime.now(),
-          kaptOpts: old?.kaptOpts ?? <String, String>{'': ''},
-          previouslyLogged: newVal,
-          lastManifMerge: old?.lastManifMerge ?? DateTime.now(),
-        ));
-  }
-
-  void updateLastManifMerge(DateTime newVal) {
-    final old = getAt(0);
-    putAt(
-        0,
-        BuildBox(
-          lastResolvedDeps: old?.lastResolvedDeps ?? <String>[''],
-          lastResolution: old?.lastResolution ?? DateTime.now(),
-          kaptOpts: old?.kaptOpts ?? <String, String>{'': ''},
-          previouslyLogged: old?.previouslyLogged ?? <String>[''],
-          lastManifMerge: newVal,
-        ));
+    return this;
   }
 }

@@ -37,16 +37,10 @@ String getDepsXml() {
 ''';
 }
 
-String getIml(String ideaDir) {
-  final libXmls = Directory(p.join(ideaDir, 'libraries'))
-      .listSync()
-      .whereType<File>()
-      .where((el) => p.extension(el.path) == '.xml');
-
+String getIml(String ideaDir, List<String> libXmls) {
   final libBuf = StringBuffer();
   for (final el in libXmls) {
-    libBuf.write(
-        '<orderEntry type="library" name="${p.basenameWithoutExtension(el.path)}" level="project" />');
+    libBuf.write('<orderEntry type="library" name="$el" level="project" />');
   }
 
   return '''
@@ -92,34 +86,22 @@ String getModulesXml(String name) {
 String getLibXml(
   String name,
   List<String> classes,
-  List<String> javadocs,
-  List<String> sources,
+  String sources,
 ) {
-  final jarBuf = StringBuffer();
+  final buf = StringBuffer();
   for (final el in classes) {
     if (el.endsWith('.jar')) {
-      jarBuf.write('<root url="jar://$el!/" />');
+      buf.write('<root url="jar://$el!/" />');
     } else {
-      jarBuf.write('<root url="file://$el!/" />');
+      buf.write('<root url="file://$el!/" />');
     }
-  }
-
-  final docBufs = StringBuffer();
-  for (final el in javadocs) {
-    docBufs.write('<root url="jar://$el!/" />');
-  }
-
-  final sourceBuf = StringBuffer();
-  for (final el in sources) {
-    sourceBuf.write('<root url="jar://$el!/" />');
   }
 
   return '''
 <component name="libraryTable">
 <library name="$name">
-  <CLASSES>${jarBuf.toString()}</CLASSES>
-  <JAVADOC>${docBufs.toString()}</JAVADOC>
-  <SOURCES>${sourceBuf.toString()}</SOURCES>
+  <CLASSES>${buf.toString()}</CLASSES>
+  <SOURCES><root url="jar://$sources!/" /></SOURCES>
 </library>
 </component>
 ''';
