@@ -23,10 +23,6 @@ class UpgradeCommand extends RushCommand {
               'Forcefully upgrades Rush to the latest version. This downloads '
               'and replaces even the unchanged files.')
       ..addFlag('safe', abbr: 's', hide: true);
-
-    final dir = Directory(p.join(_dataDir, '.installer'))
-      ..createSync(recursive: true);
-    Hive.init(dir.path);
   }
 
   @override
@@ -37,6 +33,10 @@ class UpgradeCommand extends RushCommand {
 
   @override
   Future<void> run() async {
+    final dir = Directory(p.join(_dataDir, '.installer'))
+      ..createSync(recursive: true);
+    Hive.init(dir.path);
+
     final isForce = argResults?['force'] as bool;
     final initDataBox = await Hive.openBox('data.init');
 

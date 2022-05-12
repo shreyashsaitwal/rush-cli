@@ -47,6 +47,11 @@ class BuildCommand extends RushCommand {
   /// Builds the extension in the current directory
   @override
   Future<void> run() async {
+    Hive
+      ..init(p.join(_fs.cwd, '.rush'))
+      ..registerAdapter(BuildBoxAdapter())
+      ..registerAdapter(RemoteDepIndexAdapter());
+
     _startTime = DateTime.now();
 
     Logger.logCustom('Build initialized\n',
@@ -69,7 +74,7 @@ class BuildCommand extends RushCommand {
     _buildBox = await Hive.openBox<BuildBox>('build');
 
     if (_buildBox.isEmpty || _buildBox.getAt(0) == null) {
-      await _buildBox.put('build', BuildBox.newInstance());
+      await _buildBox.put('build', BuildBox());
     }
 
     final optimize = () {
