@@ -89,7 +89,7 @@ class Executor {
       ...['-cp', classpath],
       'com.android.manifmerger.Merger',
       ...['--main', mainManifest],
-      ...['--libs', depManifests.join(CmdUtils.cpSeparator())],
+      ...['--libs', depManifests.join(CmdUtils.cpSeparator)],
       ...['--property', 'MIN_SDK_VERSION=${minSdk.toString()}'],
       ...['--out', output],
       ...['--log', 'INFO'],

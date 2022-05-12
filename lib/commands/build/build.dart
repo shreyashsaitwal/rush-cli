@@ -278,7 +278,7 @@ class BuildCommand extends RushCommand {
         ..deleteSync();
     } else {
       processStep
-        ..log(LogType.erro, 'File not found: ' + artJar.path)
+        ..log(LogType.erro, 'File not found: ${artJar.path}')
         ..finishNotOk();
       BuildUtils.printFailMsg(_startTime);
     }
@@ -320,7 +320,7 @@ class BuildCommand extends RushCommand {
     // Add class files from all required impl deps into the ART.jar
     if (runtimeDeps.isNotEmpty) {
       processStep.log(LogType.info, 'Attaching dependencies');
-      final desugarStore = p.join(_fs.buildDir, 'files', 'desugar');
+      final desugarStore = p.join(_fs.buildDir, 'files', 'desugar'); 
 
       for (final jarPath in runtimeDeps) {
         final jar = () {
@@ -446,6 +446,5 @@ class BuildCommand extends RushCommand {
 
     Logger.logCustom('Build successful $timestamp $warn',
         prefix: '\n• ', prefixFG: ConsoleColor.brightGreen);
-    exit(0);
   }
 }

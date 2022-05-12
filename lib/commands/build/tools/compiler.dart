@@ -101,7 +101,7 @@ class Compiler {
 
     final classpath =
         BuildUtils.classpathStringForDeps(_fs, _rushYaml, depIndex) +
-            CmdUtils.cpSeparator() +
+            CmdUtils.cpSeparator +
             CmdUtils.classpathString(
                 [Directory(p.join(_fs.toolsDir, 'processor')), classesDir]);
     final srcDir = Directory(_fs.srcDir);
@@ -153,7 +153,7 @@ class Compiler {
 
     final classpath =
         BuildUtils.classpathStringForDeps(_fs, _rushYaml, depIndex) +
-            CmdUtils.cpSeparator() +
+            CmdUtils.cpSeparator +
             CmdUtils.classpathString([
               Directory(p.join(_fs.toolsDir, 'processor')),
             ], exclude: [

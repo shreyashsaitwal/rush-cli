@@ -162,12 +162,12 @@ class BuildUtils {
 
     final devDepsDir = Directory(p.join(fs.dataDir, 'dev-deps'));
     for (final el in devDepsDir.listSync(recursive: true)) {
-      if (el is File) {
+      if (el is File && !p.basename(el.path).endsWith('-sources.jar')) {
         allDepJars.add(el.path);
       }
     }
 
-    return allDepJars.join(CmdUtils.cpSeparator());
+    return allDepJars.join(CmdUtils.cpSeparator);
   }
 
   static void unzip(String zipFilePath, String outputDirPath) {

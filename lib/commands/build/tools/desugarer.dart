@@ -141,7 +141,7 @@ class Desugarer {
         ..addAll(['--input', '\'${args.input}\''])
         ..addAll(['--output', '\'${args.output}\'']);
 
-      classpath.split(CmdUtils.cpSeparator()).forEach((el) {
+      classpath.split(CmdUtils.cpSeparator).forEach((el) {
         contents.addAll(['--classpath_entry', '\'$el\'']);
       });
 

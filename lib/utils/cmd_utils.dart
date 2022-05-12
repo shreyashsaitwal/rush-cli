@@ -67,10 +67,10 @@ class CmdUtils {
       }
     }
 
-    return jars.join(cpSeparator());
+    return jars.join(cpSeparator);
   }
 
-  static String cpSeparator() => Platform.isWindows ? ';' : ':';
+  static String get cpSeparator => Platform.isWindows ? ';' : ':';
 
   /// Returns a list of paths that represent Java sources files.
   static List<String> getJavaSourceFiles(Directory srcDir) {

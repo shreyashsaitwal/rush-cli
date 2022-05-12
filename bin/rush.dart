@@ -12,7 +12,7 @@ import 'package:rush_cli/utils/dir_utils.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/version.dart';
 
-void main(List<String> args) {
+Future<void> main(List<String> args) async {
   _printArt();
 
   final commandRunner = RushCommandRunner();
@@ -27,6 +27,7 @@ void main(List<String> args) {
   });
 
   final fs = FileService(Directory.current.path, DirUtils.dataDir()!);
+  print(fs.cwd);
 
   commandRunner
     ..addCommand(CreateCommand(fs))
@@ -37,7 +38,7 @@ void main(List<String> args) {
     ..addCommand(DepsCommand(fs));
 
   try {
-    commandRunner.run(args);
+    await commandRunner.run(args);
   } catch (e, s) {
     print(s);
     rethrow;
