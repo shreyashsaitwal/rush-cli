@@ -10,7 +10,7 @@ import 'package:rush_cli/utils/process_streamer.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-import '../hive_adapters/remote_dep_index.dart';
+import '../hive_adapters/remote_dep.dart';
 
 /// Arguments of the [Desugarer._desugar] method. This class is used instead of
 /// directly passing required args to that method because when running a method
@@ -20,7 +20,7 @@ class _DesugarArgs {
   final String input;
   final String output;
   final RushYaml rushYaml;
-  final Set<RemoteDepIndex> depIndex;
+  final Set<RemoteDep> depIndex;
 
   _DesugarArgs({
     required this.fs,
@@ -39,7 +39,7 @@ class Desugarer {
 
   /// Desugars the extension files and dependencies making them compatible with
   /// Android API level < 26.
-  Future<void> run(BuildStep step, Set<RemoteDepIndex> depIndex) async {
+  Future<void> run(BuildStep step, Set<RemoteDep> depIndex) async {
     final shouldDesugarDeps = _rushYaml.desugar?.deps ?? false;
     final implDeps = shouldDesugarDeps
         ? _depsToBeDesugared(BuildUtils.depJarFiles(

@@ -7,7 +7,7 @@ import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:resolver/resolver.dart';
 import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
-import 'package:rush_cli/commands/build/hive_adapters/remote_dep_index.dart';
+import 'package:rush_cli/commands/build/hive_adapters/remote_dep.dart';
 import 'package:rush_cli/models/rush_yaml/rush_yaml.dart';
 import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_cli/services/file_service.dart';
@@ -119,7 +119,7 @@ class BuildUtils {
     String projectRoot,
     RushYaml rushYaml,
     DependencyScope scope,
-    Set<RemoteDepIndex> remoteDepIndex,
+    Set<RemoteDep> remoteDepIndex,
   ) {
     final allEntries = rushYaml.deps?.where((el) => el.scope == scope);
     final localJars =
@@ -153,7 +153,7 @@ class BuildUtils {
   static String classpathStringForDeps(
     FileService fs,
     RushYaml rushYaml,
-    Set<RemoteDepIndex> depIndex,
+    Set<RemoteDep> depIndex,
   ) {
     final allDepJars = {
       ...depJarFiles(fs.cwd, rushYaml, DependencyScope.runtime, depIndex),

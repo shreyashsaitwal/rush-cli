@@ -19,7 +19,7 @@ import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_prompt/rush_prompt.dart';
 
-import 'hive_adapters/remote_dep_index.dart';
+import 'hive_adapters/remote_dep.dart';
 
 class BuildCommand extends RushCommand {
   final FileService _fs;
@@ -50,7 +50,7 @@ class BuildCommand extends RushCommand {
     Hive
       ..init(p.join(_fs.cwd, '.rush'))
       ..registerAdapter(BuildBoxAdapter())
-      ..registerAdapter(RemoteDepIndexAdapter());
+      ..registerAdapter(RemoteDepAdapter());
 
     _startTime = DateTime.now();
 
@@ -84,7 +84,7 @@ class BuildCommand extends RushCommand {
       return false;
     }();
 
-    final cachedDepIndex = await DepsSyncCommand(_fs).run();
+    final cachedDepIndex = await DepsSyncCommand(_fs).run(isHiveInit: true);
     await _compile(optimize, cachedDepIndex);
   }
 
@@ -115,7 +115,7 @@ class BuildCommand extends RushCommand {
   }
 
   /// Compiles extension's source files.
-  Future<void> _compile(bool optimize, Set<RemoteDepIndex> depIndex) async {
+  Future<void> _compile(bool optimize, Set<RemoteDep> depIndex) async {
     final compileStep = BuildStep('Compiling sources')..init();
 
     if (depIndex.isNotEmpty) {
@@ -168,7 +168,7 @@ class BuildCommand extends RushCommand {
   }
 
   Future<void> _mergeManifests(
-      BuildStep step, int minSdk, Set<RemoteDepIndex> depIndex) async {
+      BuildStep step, int minSdk, Set<RemoteDep> depIndex) async {
     final lastMergeTime = _buildBox.getAt(0)!.lastManifestMergeTime;
 
     final manifestPaths = depIndex
@@ -226,7 +226,7 @@ class BuildCommand extends RushCommand {
 
   /// Further process the extension by generating extension files, adding
   /// libraries and jaring the extension.
-  Future<void> _process(bool optimize, Set<RemoteDepIndex> depIndex) async {
+  Future<void> _process(bool optimize, Set<RemoteDep> depIndex) async {
     final BuildStep processStep;
     final rulesPro = File(p.join(_fs.srcDir, 'proguard-rules.pro'));
 
@@ -298,7 +298,7 @@ class BuildCommand extends RushCommand {
   /// JAR the compiled class files and third-party dependencies into a single JAR.
   Future<File> _generateArtJar(
     BuildStep processStep,
-    Set<RemoteDepIndex> depIndex,
+    Set<RemoteDep> depIndex,
     bool needOptimize,
   ) async {
     final pathEndsToIgnore = [
@@ -320,7 +320,7 @@ class BuildCommand extends RushCommand {
     // Add class files from all required impl deps into the ART.jar
     if (runtimeDeps.isNotEmpty) {
       processStep.log(LogType.info, 'Attaching dependencies');
-      final desugarStore = p.join(_fs.buildDir, 'files', 'desugar'); 
+      final desugarStore = p.join(_fs.buildDir, 'files', 'desugar');
 
       for (final jarPath in runtimeDeps) {
         final jar = () {
@@ -370,7 +370,7 @@ class BuildCommand extends RushCommand {
     return artJar;
   }
 
-  Future<void> _optimizeArt(File artJar, Set<RemoteDepIndex> depIndex) async {
+  Future<void> _optimizeArt(File artJar, Set<RemoteDep> depIndex) async {
     await Executor.execProGuard(_fs, _rushYaml, depIndex);
     // Delete the old non-optimized JAR...
     artJar.deleteSync();

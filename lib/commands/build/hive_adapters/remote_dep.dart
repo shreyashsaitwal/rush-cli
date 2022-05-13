@@ -2,10 +2,10 @@ import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:resolver/resolver.dart';
 
-part 'remote_dep_index.g.dart';
+part 'remote_dep.g.dart';
 
 @HiveType(typeId: 1)
-class RemoteDepIndex {
+class RemoteDep {
   @HiveField(0)
   final String coordinate;
 
@@ -21,8 +21,11 @@ class RemoteDepIndex {
   @HiveField(4)
   final String packaging;
 
-  RemoteDepIndex(this.coordinate, this.cacheDir, this._scope,
-      this.depCoordinates, this.packaging);
+  @HiveField(5)
+  final bool isDirectDep;
+
+  RemoteDep(this.coordinate, this.cacheDir, this._scope, this.depCoordinates,
+      this.packaging, this.isDirectDep);
 
   String get groupId => coordinate.split(':')[0];
   String get artifactId => coordinate.split(':')[1];
@@ -32,10 +35,10 @@ class RemoteDepIndex {
     switch (_scope) {
       case 'compile':
         return DependencyScope.compile;
-      case 'provided':
-        return DependencyScope.provided;
       case 'runtime':
         return DependencyScope.runtime;
+      case 'provided':
+        return DependencyScope.provided;
       case 'test':
         return DependencyScope.test;
       default:

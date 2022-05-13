@@ -7,7 +7,7 @@ import 'package:rush_cli/utils/cmd_utils.dart';
 import 'package:rush_cli/utils/process_streamer.dart';
 import 'package:rush_cli/services/file_service.dart';
 
-import '../hive_adapters/remote_dep_index.dart';
+import '../hive_adapters/remote_dep.dart';
 
 class Executor {
   /// Executes the D8 tool which is required for dexing the extension.
@@ -40,7 +40,7 @@ class Executor {
   static Future<void> execProGuard(
     FileService fs,
     RushYaml rushYaml,
-    Set<RemoteDepIndex> depIndex,
+    Set<RemoteDep> depIndex,
   ) async {
     final args = () {
       final proguardJar = File(p.join(fs.toolsDir, 'other', 'proguard.jar'));

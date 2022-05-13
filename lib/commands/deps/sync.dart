@@ -4,9 +4,10 @@ import 'package:collection/collection.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:resolver/resolver.dart';
-import 'package:rush_cli/commands/build/hive_adapters/remote_dep_index.dart';
+import 'package:rush_cli/commands/build/hive_adapters/remote_dep.dart';
 
 import '../../commands/rush_command.dart';
+import '../../models/rush_yaml/rush_yaml.dart';
 import '../../services/file_service.dart';
 import '../../utils/cmd_utils.dart';
 import '../../templates/intellij_files.dart';
@@ -25,7 +26,7 @@ class DepsSyncCommand extends RushCommand {
   String get name => 'sync';
 
   @override
-  Future<Set<RemoteDepIndex>> run({bool updateIdeaFiles = true}) async {
+  Future<Set<RemoteDep>> run({bool isHiveInit = false}) async {
     // TODO: Console output
     final rushYaml = CmdUtils.loadRushYaml(_fs.cwd);
 
@@ -44,7 +45,9 @@ class DepsSyncCommand extends RushCommand {
         .flattened
         .toSet();
 
+    
     // TODO: Handle the artifacts that are already available as dev-deps
+    // TODO: Handle ignored deps.
     // TODO: Handle different versions of of same artifacts
 
     // Download all the resolved artifacts
@@ -55,14 +58,12 @@ class DepsSyncCommand extends RushCommand {
       ...resolvedArtifacts.map((el) => resolver.downloadSources(el)),
     ]);
 
-    if (updateIdeaFiles) {
-      print('Updating library files');
-      for (final artifact in resolvedArtifacts) {
-        _updateLibXml(artifact);
-      }
+    print('Updating library files');
+    for (final artifact in resolvedArtifacts) {
+      _updateLibXml(artifact);
     }
 
-    return await _storeCache(resolvedArtifacts);
+    return await _storeCache(resolvedArtifacts, remoteDeps.toSet(), isHiveInit);
   }
 
   Future<Set<ResolvedArtifact>> _resolveDep(
@@ -70,24 +71,24 @@ class DepsSyncCommand extends RushCommand {
     String coordinate,
     DependencyScope scope,
   ) async {
-    // TODO: Handle "ignore" deps. 
-
     print('Resolving $coordinate');
     final resolved = await resolver.resolve(coordinate, scope);
 
-    // Only take the deps if they are:
-    // * not optional
-    // * of compile scope when the current scope is compile
-    // * of runtime / compile scope when the current scope is runtime
     final deps =
         resolved.pom.dependencies.whereNot((el) => el.optional).where((el) {
+      // If the parent's scope is compile, we don't need to take runtime scoped deps
       if (scope == DependencyScope.compile) {
         return el.scope == DependencyScope.compile;
-      } else if (scope == DependencyScope.runtime) {
+      } 
+      
+      // ...but when it's runtime, we need both compile and runtime scoped deps.
+      if (scope == DependencyScope.runtime) {
         return el.scope == DependencyScope.compile ||
             el.scope == DependencyScope.runtime;
       }
 
+      // No other case if possible since the resolver won't serialize other scopes
+      // at all.
       return false;
     });
 
@@ -100,9 +101,15 @@ class DepsSyncCommand extends RushCommand {
     return {resolved, ...resolvedDeps};
   }
 
-  Future<Set<RemoteDepIndex>> _storeCache(
-      Set<ResolvedArtifact> resolvedArtifacts) async {
-    final indexBox = await Hive.openBox<RemoteDepIndex>('index');
+  Future<Set<RemoteDep>> _storeCache(Set<ResolvedArtifact> resolvedArtifacts,
+      Set<DepEntry> remoteDeps, bool isHiveInit) async {
+    if (!isHiveInit) {
+      Hive
+        ..init(p.join(_fs.cwd, '.rush'))
+        ..registerAdapter(RemoteDepAdapter());
+    }
+
+    final indexBox = await Hive.openBox<RemoteDep>('index');
 
     if (indexBox.isNotEmpty) {
       await indexBox.clear();
@@ -110,12 +117,14 @@ class DepsSyncCommand extends RushCommand {
 
     final index = {
       for (final el in resolvedArtifacts)
-        RemoteDepIndex(
+        RemoteDep(
           el.coordinate,
           el.cacheDir,
           el.scope.name,
           el.pom.dependencies.map((el) => el.coordinate).toList(),
           el.packaging,
+          remoteDeps.any(
+              (dep) => dep.value == el.coordinate && dep.scope == el.scope),
         )
     };
 

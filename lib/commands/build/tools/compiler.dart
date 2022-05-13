@@ -3,7 +3,7 @@ import 'dart:io' show Directory, File, Platform, exit;
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_runner/process_runner.dart';
-import 'package:rush_cli/commands/build/hive_adapters/remote_dep_index.dart';
+import 'package:rush_cli/commands/build/hive_adapters/remote_dep.dart';
 import 'package:rush_cli/commands/build/utils/build_utils.dart';
 import 'package:rush_cli/commands/build/utils/compute.dart';
 import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
@@ -33,7 +33,7 @@ class Compiler {
   Compiler(this._fs, this._rushYaml, this._buildBox);
 
   /// Compiles the Java files for this extension project.
-  Future<void> compileJava(BuildStep step, Set<RemoteDepIndex> depIndex) async {
+  Future<void> compileJava(BuildStep step, Set<RemoteDep> depIndex) async {
     final args = await _getJavacArgs(depIndex);
     final result = await _startProcess(
         _StartProcessArgs(projectRoot: _fs.cwd, cmdArgs: args));
@@ -43,7 +43,7 @@ class Compiler {
   }
 
   /// Compiles the Kotlin files for this extension project.
-  Future<void> compileKt(BuildStep step, Set<RemoteDepIndex> depIndex) async {
+  Future<void> compileKt(BuildStep step, Set<RemoteDep> depIndex) async {
     final ktcArgs = _getKtcArgs(depIndex);
     final kaptArgs = await _getKaptArgs(depIndex);
 
@@ -85,7 +85,7 @@ class Compiler {
   }
 
   /// Returns the command line args required for compiling sources.
-  Future<List<String>> _getJavacArgs(Set<RemoteDepIndex> depIndex) async {
+  Future<List<String>> _getJavacArgs(Set<RemoteDep> depIndex) async {
     final filesDir = Directory(p.join(_fs.buildDir, 'files'))
       ..createSync(recursive: true);
 
@@ -125,7 +125,7 @@ class Compiler {
   }
 
   /// Returns command line args required for compiling Kotlin sources.
-  List<String> _getKtcArgs(Set<RemoteDepIndex> depIndex) {
+  List<String> _getKtcArgs(Set<RemoteDep> depIndex) {
     final kotlinc = p.join(_fs.toolsDir, 'kotlinc', 'bin',
         'kotlinc' + (Platform.isWindows ? '.bat' : ''));
 
@@ -148,7 +148,7 @@ class Compiler {
   /// Returns command line args required for running the Kapt compiler plugin.
   /// Kapt is required for processing annotations in Kotlin sources and needs
   /// to be invoked separately.
-  Future<List<String>> _getKaptArgs(Set<RemoteDepIndex> depIndex) async {
+  Future<List<String>> _getKaptArgs(Set<RemoteDep> depIndex) async {
     final apDir = Directory(p.join(_fs.toolsDir, 'processor'));
 
     final classpath =
