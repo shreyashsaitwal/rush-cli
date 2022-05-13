@@ -32,6 +32,17 @@ class PomFileSpec implements FileSpec {
           '${artifact.artifactId}-${artifact.version}.pom'
         ],
       );
+
+  @override
+  String toString() {
+    return '''
+PomFileSpec(
+  artifact: $artifact, 
+  cacheDir: $cacheDir, 
+  path: $path, 
+  localFile: $localFile,
+)''';
+  }
 }
 
 class ArtifactFileSpec implements FileSpec {
@@ -55,6 +66,17 @@ class ArtifactFileSpec implements FileSpec {
           '${artifact.artifactId}-${artifact.version}.${artifact.packaging}',
         ],
       );
+
+  @override
+  String toString() {
+    return '''
+ArtifactFileSpec(
+  artifact: $artifact, 
+  cacheDir: $cacheDir, 
+  path: $path, 
+  localFile: $localFile
+)''';
+  }
 }
 
 class SourcesFileSpec implements FileSpec {
@@ -78,4 +100,15 @@ class SourcesFileSpec implements FileSpec {
           '${artifact.artifactId}-${artifact.version}-sources.jar',
         ],
       );
+
+  @override
+  String toString() {
+    return '''
+SourcesFileSpec(
+  artifact: $artifact, 
+  cacheDir: $cacheDir, 
+  path: $path, 
+  localFile: $localFile
+)''';
+  }
 }

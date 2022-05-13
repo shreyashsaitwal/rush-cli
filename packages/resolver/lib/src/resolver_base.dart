@@ -29,21 +29,21 @@ class ArtifactResolver {
       return Artifact(
           groupId: parts[0],
           artifactId: parts[1],
-          version: parts[2].replaceAll(RegExp(r'(\[|\])'), ''),
+          version: parts[2],
           cacheDir: _cacheDir);
     } else if (parts.length == 4) {
       return Artifact(
           groupId: parts[0],
           artifactId: parts[1],
           // parts[2] is the packaging of the artifact. We extract it from pom.xml
-          version: parts[3].replaceAll(RegExp(r'(\[|\])'), ''),
+          version: parts[3],
           cacheDir: _cacheDir);
     } else {
       throw 'Invalid artifact coordinate: $coordinate';
     }
   }
 
-  void _interpolateDependencyVersion(PomModel model) {
+  void _interpolateDependencyVersions(PomModel model) {
     model.dependencies
       ..where((el) => el.version == null).forEach((dep) {
         dep.version = _findVersionInProperties(model, dep);
@@ -56,7 +56,9 @@ class ArtifactResolver {
           dep.version = _findVersionFromParentsDeps(
               model.parent!, dep.groupId, dep.groupId);
         } else {
-          throw 'Unable to figure which version of ${dep.groupId}:${dep.artifactId} to use';
+          throw '''
+Unable to interpolate dependency version for ${dep.coordinate}.
+This is not supposed to happen!!! Please report this to the maintainer of Rush.''';
         }
       })
       ..whereNot((el) => el.version == null)
@@ -68,26 +70,33 @@ class ArtifactResolver {
           final prop = model.properties[propName];
           dep.version = prop;
         } else {
-          throw 'Property $propName not found';
+          throw '''
+Unable to interpolate dependency version for ${dep.coordinate}.
+This is not supposed to happen!!! Please report this to the maintainer of Rush.''';
         }
+      })
+      ..forEach((el) {
+        el.version = el.version!.replaceAll(RegExp(r'(\[|\])'), '');
       });
   }
 
   String? _findVersionInProperties(PomModel model, Dependency dep) {
-    final String prop;
+    // This is not an exhaustive list of possible property names.
+    // TODO: Research and add more.
+    final possiblePropertyNames = [
+      '${dep.artifactId}.version',
+      'version.${dep.artifactId}',
+      '${dep.groupId}.version',
+      'version.${dep.groupId}',
+    ];
 
-    if (model.properties.containsKey('${dep.artifactId}.version')) {
-      prop = model.properties['${dep.artifactId}.version'];
-    } else if (model.properties.containsKey('version.${dep.artifactId}')) {
-      prop = model.properties['version.${dep.artifactId}'];
-    } else if (model.properties.containsKey('${dep.groupId}.version')) {
-      prop = model.properties['${dep.groupId}.version'];
-    } else if (model.properties.containsKey('${dep.groupId}.version')) {
-      prop = model.properties['version.${dep.groupId}'];
-    } else {
-      return null;
+    for (final name in possiblePropertyNames) {
+      if (model.properties.containsKey(name)) {
+        return model.properties[name];
+      }
     }
-    return prop;
+
+    return null;
   }
 
   String? _findVersionFromParentsDeps(
@@ -109,16 +118,25 @@ class ArtifactResolver {
     try {
       artifact = _artifactFor(coordinate);
       final file = await _fetcher.fetchFile(artifact.pomSpec, _repositories);
-      final content = file.readAsStringSync();
+      final content = await file.readAsString();
       pom = PomModel.fromXml(content);
 
       if (pom.parent != null) {
-        final parent = await resolve(pom.parent!.coordinate, scope);
+        // The <parent> tag doesn't contain the dependency info, therefore, we
+        // need to resolve the parent and add the dependencies manually.
+        final resolvedParent = await resolve(pom.parent!.coordinate, scope);
         pom.parent!.dependencies =
-            pom.parent!.dependencies + parent.pom.dependencies;
-        pom.properties.addAll(parent.pom.properties);
+            pom.parent!.dependencies + resolvedParent.pom.dependencies;
+
+        // ...same goes for the <properties> tag
+        pom.properties.addAll(resolvedParent.pom.properties);
       }
-      _interpolateDependencyVersion(pom);
+
+      // Sometimes, the dependency version are defined as properties, either in
+      // the current pom, or in parent. We need to interpolate them.
+      // If the versions are not defined as properties, we need to inherit the
+      // version from parent's dependencies.
+      _interpolateDependencyVersions(pom);
     } catch (e, s) {
       print(e);
       print(s);
@@ -133,6 +151,7 @@ class ArtifactResolver {
 
   Future<void> download(ResolvedArtifact artifact, {Function? onError}) async {
     try {
+      print(artifact.main);
       await _fetcher.fetchFile(artifact.main, _repositories);
     } catch (e) {
       if (onError != null) {

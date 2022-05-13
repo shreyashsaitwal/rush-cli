@@ -58,10 +58,18 @@ class PomModel {
     // If the artifact has only one dep, it will be decoded as a map instead of
     // a list.
     if (jsonDeps is Map) {
-      deps.add(Dependency._fromJson(jsonDeps as Map<String, dynamic>));
+      final dep = Dependency._fromJson(jsonDeps as Map<String, dynamic>);
+      if (dep.scope == DependencyScope.compile ||
+          dep.scope == DependencyScope.runtime) {
+        deps.add(dep);
+      }
     } else {
-      for (final dep in jsonDeps) {
-        deps.add(Dependency._fromJson(dep));
+      for (final el in jsonDeps) {
+        final dep = Dependency._fromJson(el as Map<String, dynamic>);
+        if (dep.scope == DependencyScope.compile ||
+            dep.scope == DependencyScope.runtime) {
+          deps.add(dep);
+        }
       }
     }
     return deps;
