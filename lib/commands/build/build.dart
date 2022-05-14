@@ -84,7 +84,7 @@ class BuildCommand extends RushCommand {
       return false;
     }();
 
-    final cachedDepIndex = await DepsSyncCommand(_fs).run(isHiveInit: true);
+    final cachedDepIndex = await SyncSubCommand(_fs).run(isHiveInit: true);
     await _compile(optimize, cachedDepIndex);
   }
 

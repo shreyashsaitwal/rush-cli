@@ -6,8 +6,7 @@ class DepsCommand extends RushCommand {
   final FileService _fs;
 
   DepsCommand(this._fs) {
-    // addSubcommand(DepsTreeCommand(_fs));
-    addSubcommand(DepsSyncCommand(_fs));
+    addSubcommand(SyncSubCommand(_fs));
   }
 
   @override

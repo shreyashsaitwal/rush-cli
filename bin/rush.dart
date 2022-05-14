@@ -27,7 +27,6 @@ Future<void> main(List<String> args) async {
   });
 
   final fs = FileService(Directory.current.path, DirUtils.dataDir()!);
-  print(fs.cwd);
 
   commandRunner
     ..addCommand(CreateCommand(fs))

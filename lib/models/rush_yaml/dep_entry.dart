@@ -27,4 +27,14 @@ class DepEntry {
       runtime != null ? DependencyScope.runtime : DependencyScope.compile;
 
   bool get isRemote => value.contains(':');
+
+  @override
+  String toString() => value;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DepEntry && other.value == value && other.scope == scope;
+
+  @override
+  int get hashCode => Object.hash(value, scope);
 }

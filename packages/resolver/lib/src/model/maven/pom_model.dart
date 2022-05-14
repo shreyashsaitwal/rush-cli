@@ -11,8 +11,8 @@ class PomModel {
   final String url;
   final Parent? parent;
   final String packaging;
-  final List<Dependency> dependencies;
   final Map<String, dynamic> properties;
+  List<Dependency> dependencies;
 
   PomModel({
     required this.artifactId,
@@ -57,6 +57,8 @@ class PomModel {
 
     // If the artifact has only one dep, it will be decoded as a map instead of
     // a list.
+    // Impl note: We take only runtime and compile scoped deps because those are
+    // the only scopes supported by Rush.
     if (jsonDeps is Map) {
       final dep = Dependency._fromJson(jsonDeps as Map<String, dynamic>);
       if (dep.scope == DependencyScope.compile ||

@@ -13,10 +13,10 @@ import '../../utils/cmd_utils.dart';
 import '../../templates/intellij_files.dart';
 import '../build/utils/build_utils.dart';
 
-class DepsSyncCommand extends RushCommand {
+class SyncSubCommand extends RushCommand {
   final FileService _fs;
 
-  DepsSyncCommand(this._fs);
+  SyncSubCommand(this._fs);
 
   @override
   String get description =>
@@ -45,7 +45,6 @@ class DepsSyncCommand extends RushCommand {
         .flattened
         .toSet();
 
-    
     // TODO: Handle the artifacts that are already available as dev-deps
     // TODO: Handle ignored deps.
     // TODO: Handle different versions of of same artifacts
@@ -74,26 +73,26 @@ class DepsSyncCommand extends RushCommand {
     print('Resolving $coordinate');
     final resolved = await resolver.resolve(coordinate, scope);
 
-    final deps =
-        resolved.pom.dependencies.whereNot((el) => el.optional).where((el) {
-      // If the parent's scope is compile, we don't need to take runtime scoped deps
-      if (scope == DependencyScope.compile) {
-        return el.scope == DependencyScope.compile;
-      } 
-      
-      // ...but when it's runtime, we need both compile and runtime scoped deps.
-      if (scope == DependencyScope.runtime) {
-        return el.scope == DependencyScope.compile ||
-            el.scope == DependencyScope.runtime;
-      }
+    // Remove the unnecessary dependencies
+    resolved.pom.dependencies = List.of(resolved.pom.dependencies)
+      ..removeWhere((el) => el.optional)
+      ..removeWhere((el) {
+        if (scope == DependencyScope.compile) {
+          return el.scope != DependencyScope.compile;
+        }
 
-      // No other case if possible since the resolver won't serialize other scopes
-      // at all.
-      return false;
-    });
+        if (scope == DependencyScope.runtime) {
+          return !(el.scope == DependencyScope.compile ||
+              el.scope == DependencyScope.runtime);
+        }
+
+        // Any other scope is not possible because the resolver will only resolve
+        // runtime or compile scoped dependencies.
+        return true;
+      });
 
     final depResolveFutures = <Future<Set<ResolvedArtifact>>>{};
-    for (final el in deps) {
+    for (final el in resolved.pom.dependencies) {
       depResolveFutures.add(_resolveDep(resolver, el.coordinate, el.scope));
     }
     final resolvedDeps = (await Future.wait(depResolveFutures)).flattened;
