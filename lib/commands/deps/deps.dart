@@ -1,14 +1,11 @@
 import 'package:rush_cli/commands/deps/info.dart';
 import 'package:rush_cli/commands/deps/sync.dart';
 import 'package:rush_cli/commands/rush_command.dart';
-import '../../services/file_service.dart';
 
 class DepsCommand extends RushCommand {
-  final FileService _fs;
-
-  DepsCommand(this._fs) {
-    addSubcommand(InfoSubCommand(_fs));
-    addSubcommand(SyncSubCommand(_fs));
+  DepsCommand() {
+    addSubcommand(InfoSubCommand());
+    addSubcommand(SyncSubCommand());
   }
 
   @override

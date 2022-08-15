@@ -151,7 +151,6 @@ This is not supposed to happen!!! Please report this to the maintainer of Rush.'
 
   Future<void> download(ResolvedArtifact artifact, {Function? onError}) async {
     try {
-      print(artifact.main);
       await _fetcher.fetchFile(artifact.main, _repositories);
     } catch (e) {
       if (onError != null) {

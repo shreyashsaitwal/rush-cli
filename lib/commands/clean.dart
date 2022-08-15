@@ -1,90 +1,61 @@
 import 'dart:io' show Directory, File, exit;
+import 'dart:math';
 
-import 'package:hive/hive.dart';
+import 'package:get_it/get_it.dart';
+import 'package:interact/interact.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
 import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/services/file_service.dart';
-import 'package:rush_prompt/rush_prompt.dart';
+import 'package:tint/tint.dart';
+
+import '../services/logger.dart';
 
 class CleanCommand extends RushCommand {
-  final FileService _fs;
-
-  CleanCommand(this._fs);
+  final _fs = GetIt.I<FileService>();
+  final _logger = GetIt.I<Logger>();
 
   @override
-  String get description =>
-      'Clears the build directory and other build indexes.';
+  String get description => 'Deletes old build files and caches.';
 
   @override
   String get name => 'clean';
 
   @override
   Future<void> run() async {
-    final step = BuildStep('Cleaning')..init();
-
-    if (!isRushProject()) {
-      step
-        ..log(LogType.erro, 'Current directory is not a Rush project')
-        ..finishNotOk();
+    if (!await _isRushProject()) {
+      _logger.error('Not a Rush project.');
       exit(1);
     }
 
-    final buildDir = Directory(_fs.buildDir);
-    if (buildDir.existsSync()) {
-      try {
-        buildDir.deleteSync(recursive: true);
-      } catch (e) {
-        step.log(LogType.erro, 'Unable to delete the build directory');
-        for (final line in e.toString().split('\n')) {
-          step.log(LogType.erro, line, addPrefix: false);
-        }
-        step.finishNotOk();
-        exit(1);
-      }
+    final spinner = Spinner(
+        icon: '\n✔'.green(),
+        rightPrompt: (done) => done
+            ? '${'Success!'.green()} Deleted build files and caches'
+            : 'Cleaning...').interact();
+    for (final file in _fs.dotRushDir.listSync()) {
+      file.deleteSync(recursive: true);
     }
-    step.log(LogType.info, 'Cleaned the old build files');
-
-    final buildBox = await Hive.openBox<BuildBox>('build');
-    await buildBox.clear();
-
-    final rushLock = File(p.join(_fs.cwd, '.rush', 'rush.lock'));
-    if (rushLock.existsSync()) {
-      try {
-        rushLock.deleteSync();
-      } catch (e) {
-        step.log(LogType.erro, 'Unable to delete rush.lock');
-        for (final line in e.toString().split('\n')) {
-          step.log(LogType.erro, line, addPrefix: false);
-        }
-        step.finishNotOk();
-        exit(1);
-      }
-    }
-
-    step
-      ..log(LogType.info, 'Cleaned other build indexes')
-      ..finishOk();
+    await Future.delayed(Duration(milliseconds: Random().nextInt(2000)));
+    spinner.done();
   }
 
-  bool isRushProject() {
-    final rushYaml = () {
+  Future<bool> _isRushProject() async {
+    final rushYaml = await () async {
       final yml = File(p.join(_fs.cwd, 'rush.yml'));
-
-      if (yml.existsSync()) {
+      if (await yml.exists()) {
         return yml;
       } else {
         return File(p.join(_fs.cwd, 'rush.yaml'));
       }
     }();
 
-    final srcDir = Directory(_fs.srcDir);
-    final androidManifest = File(p.join(srcDir.path, 'AndroidManifest.xml'));
+    final androidManifest =
+        File(p.join(_fs.srcDir.path, 'AndroidManifest.xml'));
     final dotRushDir = Directory(p.join(_fs.cwd, '.rush'));
 
-    return rushYaml.existsSync() &&
-        srcDir.existsSync() &&
-        androidManifest.existsSync() &&
-        dotRushDir.existsSync();
+    return await rushYaml.exists() &&
+        await _fs.srcDir.exists() &&
+        await androidManifest.exists() &&
+        await dotRushDir.exists();
   }
 }

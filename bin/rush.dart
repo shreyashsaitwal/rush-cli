@@ -1,16 +1,14 @@
-import 'dart:io' show Directory, exit;
+import 'dart:io' show exit;
 
-import 'package:dart_console/dart_console.dart';
+import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/build.dart';
 import 'package:rush_cli/commands/clean.dart';
 import 'package:rush_cli/commands/create.dart';
 import 'package:rush_cli/commands/deps/deps.dart';
-import 'package:rush_cli/commands/migrate.dart';
 import 'package:rush_cli/commands/rush_command.dart';
-import 'package:rush_cli/commands/upgrade/upgrade.dart';
-import 'package:rush_cli/utils/dir_utils.dart';
-import 'package:rush_cli/services/file_service.dart';
+import 'package:rush_cli/services/service_locator.dart';
 import 'package:rush_cli/version.dart';
+import 'package:tint/tint.dart';
 
 Future<void> main(List<String> args) async {
   _printArt();
@@ -26,15 +24,16 @@ Future<void> main(List<String> args) async {
     }
   });
 
-  final fs = FileService(Directory.current.path, DirUtils.dataDir()!);
+  setupServiceLocator(p.current);
 
   commandRunner
-    ..addCommand(CreateCommand(fs))
-    ..addCommand(BuildCommand(fs))
-    ..addCommand(MigrateCommand(fs))
-    ..addCommand(UpgradeCommand(fs.dataDir))
-    ..addCommand(CleanCommand(fs))
-    ..addCommand(DepsCommand(fs));
+    ..addCommand(CreateCommand())
+    ..addCommand(BuildCommand())
+    // TODO: Fix these two
+    // ..addCommand(MigrateCommand())
+    // ..addCommand(UpgradeCommand())
+    ..addCommand(CleanCommand())
+    ..addCommand(DepsCommand());
 
   try {
     await commandRunner.run(args);
@@ -45,15 +44,8 @@ Future<void> main(List<String> args) async {
 }
 
 void _printVersion() {
-  Console()
-    ..write('Version:   ')
-    ..setForegroundColor(ConsoleColor.cyan)
-    ..writeLine(rushVersion)
-    ..resetColorAttributes()
-    ..write('Built on:  ')
-    ..setForegroundColor(ConsoleColor.cyan)
-    ..writeLine(rushBuiltOn)
-    ..resetColorAttributes();
+  print('Version: ${rushVersion.toString().cyan()}');
+  print('Built on: ${rushBuiltOn.toString().cyan()}');
   exit(0);
 }
 
@@ -66,8 +58,5 @@ void _printArt() {
 /_/   \__,_/____/_/ /_/
 ''';
 
-  Console()
-    ..setForegroundColor(ConsoleColor.brightBlue)
-    ..writeLine(art)
-    ..resetColorAttributes();
+  print(art.blue());
 }

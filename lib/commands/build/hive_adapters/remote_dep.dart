@@ -1,6 +1,8 @@
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:resolver/resolver.dart';
+import 'package:rush_cli/commands/build/utils/build_utils.dart';
+import 'package:rush_cli/utils/file_extension.dart';
 
 part 'remote_dep.g.dart';
 
@@ -65,6 +67,23 @@ class RemoteDep {
           '$artifactId-$version-sources.jar'
         ],
       );
+
+  String get jarFile {
+    if (packaging == 'jar') {
+      return artifactFile;
+    }
+
+    final classesJar = p
+        .join(p.dirname(artifactFile), p.basenameWithoutExtension(artifactFile),
+            'classes.jar')
+        .asFile();
+    if (!classesJar.existsSync()) {
+      classesJar.path.parentDir().create(recursive: true);
+      BuildUtils.unzip(artifactFile, p.dirname(artifactFile));
+    }
+
+    return classesJar.path;
+  }
 
   @override
   String toString() => '''

@@ -23,3 +23,4 @@ linter:
     - unawaited_futures
     - unnecessary_raw_strings
     - valid_regexps
+    - await_only_futures

@@ -1,22 +1,21 @@
 import 'dart:io';
 
 import 'package:collection/collection.dart';
+import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:resolver/resolver.dart';
 import 'package:rush_cli/commands/build/hive_adapters/remote_dep.dart';
 
 import '../../commands/rush_command.dart';
-import '../../models/rush_yaml/rush_yaml.dart';
+import '../../config/rush_yaml.dart';
 import '../../services/file_service.dart';
-import '../../utils/cmd_utils.dart';
+import '../../utils/utils.dart';
 import '../../templates/intellij_files.dart';
 import '../build/utils/build_utils.dart';
 
 class SyncSubCommand extends RushCommand {
-  final FileService _fs;
-
-  SyncSubCommand(this._fs);
+  final FileService _fs = GetIt.I<FileService>();
 
   @override
   String get description =>
@@ -26,16 +25,16 @@ class SyncSubCommand extends RushCommand {
   String get name => 'sync';
 
   @override
-  Future<Set<RemoteDep>> run({bool isHiveInit = false}) async {
+  Future<Set<RemoteDep>> run(
+      {bool isHiveInitialized = false, RushYaml? rushYaml}) async {
     // TODO: Console output
-    final rushYaml = CmdUtils.loadRushYaml(_fs.cwd);
+    rushYaml ??= await RushYaml.load(_fs.cwd);
 
-    final remoteDeps = rushYaml.deps?.where((el) => el.isRemote) ?? [];
+    final remoteDeps = rushYaml.deps.where((el) => el.isRemote);
     if (remoteDeps.isEmpty) return {};
 
-    final toResolve = {for (var el in remoteDeps) el.value: el.scope};
-
     // TODO: Add ability to add extra repositories and change cache dir
+    final toResolve = {for (var el in remoteDeps) el.value: el.scope};
     final resolver = ArtifactResolver();
 
     final resolvedArtifacts = (await Future.wait({
@@ -57,12 +56,13 @@ class SyncSubCommand extends RushCommand {
       ...resolvedArtifacts.map((el) => resolver.downloadSources(el)),
     ]);
 
-    print('Updating library files');
+    print('Almost there...');
     for (final artifact in resolvedArtifacts) {
-      _updateLibXml(artifact);
+      await _updateLibXml(artifact);
     }
 
-    return await _storeCache(resolvedArtifacts, remoteDeps.toSet(), isHiveInit);
+    return await _storeCache(
+        resolvedArtifacts, remoteDeps.toSet(), isHiveInitialized);
   }
 
   Future<Set<ResolvedArtifact>> _resolveDep(
@@ -74,7 +74,7 @@ class SyncSubCommand extends RushCommand {
     final resolved = await resolver.resolve(coordinate, scope);
 
     // Remove the unnecessary dependencies
-    resolved.pom.dependencies = List.of(resolved.pom.dependencies)
+    resolved.pom.dependencies
       ..removeWhere((el) => el.optional)
       ..removeWhere((el) {
         if (scope == DependencyScope.compile) {
@@ -100,8 +100,11 @@ class SyncSubCommand extends RushCommand {
     return {resolved, ...resolvedDeps};
   }
 
-  Future<Set<RemoteDep>> _storeCache(Set<ResolvedArtifact> resolvedArtifacts,
-      Set<DepEntry> remoteDeps, bool isHiveInit) async {
+  Future<Set<RemoteDep>> _storeCache(
+    Set<ResolvedArtifact> resolvedArtifacts,
+    Set<DepEntry> remoteDeps,
+    bool isHiveInit,
+  ) async {
     if (!isHiveInit) {
       Hive
         ..init(p.join(_fs.cwd, '.rush'))
@@ -109,7 +112,6 @@ class SyncSubCommand extends RushCommand {
     }
 
     final indexBox = await Hive.openBox<RemoteDep>('index');
-
     if (indexBox.isNotEmpty) {
       await indexBox.clear();
     }
@@ -137,17 +139,17 @@ class SyncSubCommand extends RushCommand {
     return index;
   }
 
-  void _updateLibXml(ResolvedArtifact artifact) {
+  Future<void> _updateLibXml(ResolvedArtifact artifact) async {
     final classes = <String>[];
 
     if (artifact.packaging == 'aar') {
-      final outputDir = Directory(p.withoutExtension(artifact.main.localFile))
-        ..createSync(recursive: true);
+      final outputDir = Directory(p.withoutExtension(artifact.main.localFile));
+      await outputDir.create(recursive: true);
 
       final classesJarFile = File(p.join(outputDir.path, 'classes.jar'));
       final manifestXml = File(p.join(outputDir.path, 'AndroidManifest.xml'));
 
-      if (!classesJarFile.existsSync()) {
+      if (!(await classesJarFile.exists())) {
         BuildUtils.unzip(artifact.main.localFile, outputDir.path);
       }
 
@@ -161,7 +163,7 @@ class SyncSubCommand extends RushCommand {
     final xmlFileName =
         artifact.coordinate.replaceAll(':', '-') + '-' + artifact.packaging;
 
-    CmdUtils.writeFile(
+    await Utils.writeFile(
       p.join(_fs.cwd, '.idea', 'libraries', '$xmlFileName.xml'),
       getLibXml(xmlFileName, classes, artifact.sources.localFile),
     );

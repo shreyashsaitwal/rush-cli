@@ -1,104 +1,136 @@
 import 'dart:io' show Directory, File;
 
+import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/commands/build/utils/build_utils.dart';
-import 'package:rush_cli/models/rush_yaml/rush_yaml.dart';
-import 'package:rush_cli/utils/cmd_utils.dart';
-import 'package:rush_cli/utils/process_streamer.dart';
+import 'package:rush_cli/utils/file_extension.dart';
+import 'package:rush_cli/utils/process_runner.dart';
 import 'package:rush_cli/services/file_service.dart';
 
-import '../hive_adapters/remote_dep.dart';
+import '../utils/build_utils.dart';
 
 class Executor {
-  /// Executes the D8 tool which is required for dexing the extension.
-  static Future<void> execD8(FileService fs) async {
-    final args = () {
-      final d8 = File(p.join(fs.toolsDir, 'other', 'd8.jar'));
-      final rawDir = Directory(p.join(fs.buildDir, 'raw'));
+  static final _fs = GetIt.I<FileService>();
+  static final processRunner = ProcessRunner();
 
-      final res = [
-        'java',
-        ...['-cp', d8.path],
-        'com.android.tools.r8.D8',
-        ...['--lib', p.join(fs.devDepsDir, 'android.jar')],
-        '--release',
-        '--no-desugaring',
-        '--output',
-        p.join(rawDir.path, 'classes.jar'),
-        p.join(rawDir.path, 'files', 'AndroidRuntime.jar'),
-      ];
-      return res;
-    }();
+  static Future<void> execD8(String artJarPath) async {
+    final args = <String>[
+      ...['-cp', _fs.d8Jar.path],
+      'com.android.tools.r8.D8',
+      ...['--lib', p.join(_fs.devDepsDir.path, 'android.jar')],
+      '--release',
+      '--no-desugaring',
+      '--output',
+      p.join(_fs.buildRawDir.path, 'classes.jar'),
+      artJarPath
+    ];
 
-    final result = await ProcessStreamer.stream(args, fs.cwd);
-    if (!result.success) {
-      throw Exception();
+    try {
+      await processRunner.runExecutable(
+          'java', args.map((el) => el.replaceAll('\\', '/')).toList());
+    } catch (e) {
+      rethrow;
     }
   }
 
-  /// Executes ProGuard which is used to optimize and obfuscate the code.
   static Future<void> execProGuard(
-    FileService fs,
-    RushYaml rushYaml,
-    Set<RemoteDep> depIndex,
-  ) async {
-    final args = () {
-      final proguardJar = File(p.join(fs.toolsDir, 'other', 'proguard.jar'));
+      String artJarPath, Set<String> depJars) async {
+    final rulesPro = p.join(_fs.srcDir.path, 'proguard-rules.pro').asFile();
+    final optimizedJar =
+        p.join(p.dirname(artJarPath), 'AndroidRuntime.optimized.jar').asFile();
 
-      final libraryJars =
-          BuildUtils.classpathStringForDeps(fs, rushYaml, depIndex);
+    final args = <String>[
+      ...['-jar', _fs.pgJar.path],
+      ...['-injars', artJarPath],
+      ...['-outjars', optimizedJar.path],
+      ...['-libraryjars', depJars.join(BuildUtils.cpSeparator)],
+      '@${rulesPro.path}',
+    ];
 
-      final injar = File(p.join(fs.buildDir, 'ART.jar'));
-      final outjar = File(p.join(fs.buildDir, 'ART.opt.jar'));
-
-      final pgRules = File(p.join(fs.srcDir, 'proguard-rules.pro'));
-
-      final res = <String>[
-        'java',
-        ...['-jar', proguardJar.path],
-        ...['-injars', injar.path],
-        ...['-outjars', outjar.path],
-        ...['-libraryjars', libraryJars],
-        '@${pgRules.path}',
-      ];
-      return res;
-    }();
-
-    final result = await ProcessStreamer.stream(args, fs.cwd);
-    if (!result.success) {
-      throw Exception();
+    try {
+      await processRunner.runExecutable(
+          'java', args.map((el) => el.replaceAll('\\', '/')).toList());
+    } catch (e) {
+      rethrow;
     }
+
+    await optimizedJar.copy(artJarPath);
+    await optimizedJar.delete();
   }
 
   static Future<void> execManifMerger(
-    FileService fs,
     int minSdk,
     String mainManifest,
     Set<String> depManifests,
   ) async {
-    final classpath = CmdUtils.classpathString([
-      Directory(p.join(fs.toolsDir, 'merger')),
-      Directory(p.join(fs.devDepsDir, 'kotlin')),
-      File(p.join(fs.devDepsDir, 'android.jar')),
-      File(p.join(fs.devDepsDir, 'gson-2.1.jar')),
-    ]);
-    final output = p.join(fs.buildDir, 'files', 'MergedManifest.xml');
+    final mergerDepsDir = p.join(_fs.toolsDir.path, 'merger').asDir();
+    final kotlinDevDeps = p.join(_fs.devDepsDir.path, 'kotlin').asDir();
 
-    final args = [
-      'java',
+    final classpath = [
+      ...[
+        for (final file in mergerDepsDir.listSync())
+          if (file is File) file.path
+      ],
+      ...[
+        for (final dir in kotlinDevDeps.listSync())
+          if (dir is Directory) dir.path
+      ],
+      p.join(_fs.devDepsDir.path, 'android.jar'),
+      p.join(_fs.devDepsDir.path, 'gson-2.1.jar'),
+    ].join(BuildUtils.cpSeparator);
+
+    final output = p.join(_fs.buildFilesDir.path, 'AndroidManifest.xml');
+    final args = <String>[
       ...['-cp', classpath],
       'com.android.manifmerger.Merger',
       ...['--main', mainManifest],
-      ...['--libs', depManifests.join(CmdUtils.cpSeparator)],
+      ...['--libs', depManifests.join(BuildUtils.cpSeparator)],
       ...['--property', 'MIN_SDK_VERSION=${minSdk.toString()}'],
       ...['--out', output],
       ...['--log', 'INFO'],
     ];
 
-    final res =
-        await ProcessStreamer.stream(args, fs.cwd, printNormalOutput: true);
-    if (!res.success) {
-      throw Exception();
+    try {
+      await processRunner.runExecutable(
+          'java', args.map((el) => el.replaceAll('\\', '/')).toList());
+    } catch (e) {
+      rethrow;
     }
+  }
+
+  // TODO: This can be execed on JDK >8, see here:
+  // https://linear.app/shreyash/issue/RSH-51/toolsjar-and-rtjar-might-be-the-reason-for-desugaring-not-working-on
+  static Future<void> execDesugarer(
+      String artJarPath, Set<String> depJars) async {
+    final outputJar = p
+        .join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.desugared.jar')
+        .asFile();
+
+    final desugarerArgs = <String>[
+      '--emit_dependency_metadata_as_needed',
+      '--desugar_try_with_resources_if_needed',
+      '--copy_bridges_from_classpath',
+      ...['--bootclasspath_entry', '\'${_fs.jreRtJar.path}\''],
+      ...['--input', '\'$artJarPath\''],
+      ...['--output', '\'${outputJar.path}\''],
+      ...depJars.map((dep) => '--classpath_entry' '\n' '\'$dep\''),
+    ];
+    final argsFile =
+        p.join(_fs.buildFilesDir.path, 'desugar.args').asFile(true);
+    await argsFile.writeAsString(desugarerArgs.join('\n'));
+
+    final args = <String>[
+      ...['-cp', _fs.desugarJar.path],
+      'com.google.devtools.build.android.desugar.Desugar',
+      '@${argsFile.path}',
+    ];
+
+    try {
+      await processRunner.runExecutable('java', args);
+    } catch (e) {
+      rethrow;
+    }
+
+    await outputJar.copy(artJarPath);
+    await outputJar.delete();
   }
 }

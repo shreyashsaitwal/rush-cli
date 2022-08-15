@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-String getDevDepsXml(String _dataDir) {
-  final devDepsPath = p.join(_dataDir, 'dev-deps').replaceAll('\\', '/');
+String getDevDepsXml(String dataDir) {
+  final devDepsPath = p.join(dataDir, 'dev-deps').replaceAll('\\', '/');
   return '''
 <component name="libraryTable">
   <library name="dev-deps">

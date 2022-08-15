@@ -1,10 +1,12 @@
 import 'dart:io' show Directory, File, exit;
+import 'dart:math';
 
-import 'package:dart_console/dart_console.dart';
+import 'package:get_it/get_it.dart';
+import 'package:interact/interact.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/utils/casing.dart';
-import 'package:rush_cli/utils/cmd_utils.dart';
+import 'package:rush_cli/utils/utils.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/templates/android_manifest.dart';
 import 'package:rush_cli/templates/dot_gitignore.dart';
@@ -13,12 +15,12 @@ import 'package:rush_cli/templates/intellij_files.dart';
 import 'package:rush_cli/templates/readme.dart';
 import 'package:rush_cli/templates/rules_pro.dart';
 import 'package:rush_cli/templates/rush_yml.dart';
-import 'package:rush_prompt/rush_prompt.dart';
+import 'package:tint/tint.dart';
 
 class CreateCommand extends RushCommand {
-  final FileService _fs;
+  final FileService _fs = GetIt.I<FileService>();
 
-  CreateCommand(this._fs) {
+  CreateCommand() {
     argParser
       ..addOption('org',
           abbr: 'o',
@@ -52,19 +54,26 @@ class CreateCommand extends RushCommand {
     final kebabCasedName = Casing.kebabCase(name);
     final projectDir = p.join(_fs.cwd, kebabCasedName);
 
-    if (Directory(projectDir).existsSync() &&
-        Directory(projectDir).listSync().isNotEmpty) {
-      Logger.log(LogType.erro,
+    final dir = Directory(projectDir);
+    if (await dir.exists() && dir.listSync().isNotEmpty) {
+      throw Exception(
           'Cannot create "$projectDir" because it already exists and is not empty.');
-      exit(1);
     }
 
-    final prompt = RushPrompt(questions: _questions());
+    var orgName = (argResults!['org'] ??
+        Input(
+          prompt: 'Organisation (package name)',
+        ).interact()) as String;
 
-    var orgName =
-        (argResults!['org'] ?? prompt.askQuestionAt('org').last) as String;
-    final lang =
-        (argResults!['lang'] ?? prompt.askQuestionAt('lang').last) as String;
+    var lang = argResults!['lang'] as String?;
+    if (lang == null) {
+      final opts = ['Java', 'Kotlin'];
+      final index = Select(
+        prompt: 'Language',
+        options: opts,
+      ).interact();
+      lang = opts[index];
+    }
 
     final camelCasedName = Casing.camelCase(name);
     final pascalCasedName = Casing.pascalCase(name);
@@ -77,8 +86,17 @@ class CreateCommand extends RushCommand {
       orgName = orgName.toLowerCase() + '.' + camelCasedName.toLowerCase();
     }
 
-    Logger.logCustom('Getting things ready...',
-        prefix: '\n• ', prefixFG: ConsoleColor.yellow);
+    // TODO: Colorize the spinner output
+    final processing = Spinner(
+        icon: '\n✔'.green(),
+        rightPrompt: (done) => !done
+            ? 'Getting things ready...'
+            : '''
+${'Success!'.green()} Generated a new extension project in ${p.relative(projectDir).blue()}.
+  Next up,
+    - ${'cd'.yellow()} into ${p.relative(projectDir).blue()}, and
+    - run ${'rush build'.yellow()} to build your extension.
+''').interact();
 
     final extPath = p.joinAll([projectDir, 'src', ...orgName.split('.')]);
     final ideaDir = p.join(projectDir, '.idea');
@@ -106,7 +124,8 @@ class CreateCommand extends RushCommand {
 
       // IntelliJ IDEA files
       p.join(ideaDir, 'misc.xml'): getMiscXml(),
-      p.join(ideaDir, 'libraries', 'dev-deps.xml'): getDevDepsXml(_fs.dataDir),
+      p.join(ideaDir, 'libraries', 'dev-deps.xml'):
+          getDevDepsXml(_fs.dataDir.path),
       p.join(ideaDir, 'libraries', 'deps.xml'): getDepsXml(),
       p.join(ideaDir, 'modules.xml'): getModulesXml(kebabCasedName),
       p.join(ideaDir, '$kebabCasedName.iml'):
@@ -115,58 +134,22 @@ class CreateCommand extends RushCommand {
 
     // Creates the required files for the extension.
     try {
-      filesToCreate.forEach((path, contents) {
-        CmdUtils.writeFile(path, contents);
+      filesToCreate.forEach((path, contents) async {
+        await Utils.writeFile(path, contents);
       });
 
-      Directory(p.join(projectDir, 'assets')).createSync(recursive: true);
+      await Directory(p.join(projectDir, 'assets')).create(recursive: true);
     } catch (e) {
-      Logger.log(LogType.erro, e.toString());
-      exit(1);
+      rethrow;
     }
 
     // Copy icon
-    File(p.join(_fs.toolsDir, 'other', 'icon-rush.png'))
-        .copySync(p.join(projectDir, 'assets', 'icon.png'));
+    await File(p.join(_fs.toolsDir.path, 'other', 'icon-rush.png'))
+        .copy(p.join(projectDir, 'assets', 'icon.png'));
 
-    Console()
-      ..setForegroundColor(ConsoleColor.green)
-      ..write('• ')
-      ..setForegroundColor(ConsoleColor.brightGreen)
-      ..write('Success! ')
-      ..resetColorAttributes()
-      ..write('Generated a new AI2 extension project in: ')
-      ..setForegroundColor(ConsoleColor.cyan)
-      ..writeLine(projectDir)
-      ..writeLine()
-      ..resetColorAttributes()
-      ..write('Next up, \n' + ' ' * 2 + '-')
-      ..setForegroundColor(ConsoleColor.yellow)
-      ..write(' cd ')
-      ..resetColorAttributes()
-      ..write('into ')
-      ..setForegroundColor(ConsoleColor.brightBlue)
-      ..write(kebabCasedName + '/')
-      ..resetColorAttributes()
-      ..writeLine(', and')
-      ..write(' ' * 2 + '- run ')
-      ..setForegroundColor(ConsoleColor.brightBlue)
-      ..write('rush build ')
-      ..resetColorAttributes()
-      ..writeLine('to compile your extension.');
-  }
-
-  List<Question> _questions() {
-    return [
-      SimpleQuestion(
-        question: 'Organisation (package name)',
-        id: 'org',
-      ),
-      MultipleChoiceQuestion(
-        question: 'Language',
-        options: ['Java', 'Kotlin'],
-        id: 'lang',
-      ),
-    ];
+    // All the above operations are blazingly fast. Wait a couple of seconds
+    // to show that nice spinner. :P
+    await Future.delayed(Duration(milliseconds: Random().nextInt(2000)));
+    processing.done();
   }
 }

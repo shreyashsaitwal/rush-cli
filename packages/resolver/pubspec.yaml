@@ -11,4 +11,4 @@ dependencies:
   xml2json: ^5.3.2
 
 dev_dependencies:
-  lints: ^1.0.0
+  lints: ^2.0.0

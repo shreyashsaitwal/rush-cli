@@ -1,3 +1,4 @@
+import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
@@ -6,9 +7,7 @@ import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/services/file_service.dart';
 
 class InfoSubCommand extends RushCommand {
-  final FileService _fs;
-
-  InfoSubCommand(this._fs);
+  final FileService _fs = GetIt.I<FileService>();
 
   @override
   String get description =>
