@@ -1,4 +1,4 @@
-import 'dart:io' show exit;
+import 'dart:io' show Platform, exit;
 
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/build.dart';
@@ -24,7 +24,8 @@ Future<void> main(List<String> args) async {
     }
   });
 
-  setupServiceLocator(p.current);
+  final rushHomeDir = p.dirname(p.dirname(Platform.resolvedExecutable));
+  setupServiceLocator(p.current, rushHomeDir);
 
   commandRunner
     ..addCommand(CreateCommand())

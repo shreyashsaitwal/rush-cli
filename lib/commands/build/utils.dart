@@ -1,4 +1,4 @@
-import 'dart:io' show Directory, File, Platform, exit;
+import 'dart:io' show Directory, File, Platform;
 
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
@@ -8,7 +8,6 @@ class BuildUtils {
   static void unzip(String zipFilePath, String outputDirPath) {
     final archive =
         ZipDecoder().decodeBytes(File(zipFilePath).readAsBytesSync());
-
     for (final el in archive.files) {
       if (el.isFile) {
         final bytes = el.content as List<int>;
@@ -22,18 +21,6 @@ class BuildUtils {
         }
       }
     }
-  }
-
-  /// Returns a list of paths that represent Java sources files.
-  static List<String> getJavaSourceFiles(Directory srcDir) {
-    final files = <String>[];
-    final srcFiles = srcDir
-        .listSync(recursive: true)
-        .whereType<File>()
-        .where((el) => p.extension(el.path) == '.java')
-        .map((el) => el.path);
-    files.addAll(srcFiles);
-    return files;
   }
 
   /// Classpath string separator.

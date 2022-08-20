@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:collection/collection.dart';
 import 'package:resolver/src/model/artifact.dart';
 import 'package:resolver/src/repositories.dart';
@@ -6,6 +8,8 @@ import 'package:resolver/src/utils.dart';
 import 'fetcher.dart';
 import 'model/maven/pom_model.dart';
 import 'model/maven/repository.dart';
+
+enum DownloadType { cache, download }
 
 class ArtifactResolver {
   late Set<Repository> _repositories;
@@ -111,20 +115,20 @@ This is not supposed to happen!!! Please report this to the maintainer of Rush.'
     return matchingDeps.first.version;
   }
 
-  Future<ResolvedArtifact> resolve(
-      String coordinate, DependencyScope? scope) async {
+  Future<ResolvedArtifact> resolve(String coordinate) async {
     final PomModel pom;
     final Artifact artifact;
     try {
       artifact = _artifactFor(coordinate);
-      final file = await _fetcher.fetchFile(artifact.pomSpec, _repositories);
+      await _fetcher.fetchFile(artifact.pomSpec, _repositories);
+      final file = File(artifact.pomSpec.localFile);
       final content = await file.readAsString();
       pom = PomModel.fromXml(content);
 
       if (pom.parent != null) {
         // The <parent> tag doesn't contain the dependency info, therefore, we
         // need to resolve the parent and add the dependencies manually.
-        final resolvedParent = await resolve(pom.parent!.coordinate, scope);
+        final resolvedParent = await resolve(pom.parent!.coordinate);
         pom.parent!.dependencies =
             pom.parent!.dependencies + resolvedParent.pom.dependencies;
 
@@ -132,7 +136,7 @@ This is not supposed to happen!!! Please report this to the maintainer of Rush.'
         pom.properties.addAll(resolvedParent.pom.properties);
       }
 
-      // Sometimes, the dependency version are defined as properties, either in
+      // Sometimes, the dependency versions are defined as properties, either in
       // the current pom, or in parent. We need to interpolate them.
       // If the versions are not defined as properties, we need to inherit the
       // version from parent's dependencies.
@@ -143,32 +147,37 @@ This is not supposed to happen!!! Please report this to the maintainer of Rush.'
       rethrow;
     }
 
-    return ResolvedArtifact(
-        pom: pom,
-        scope: scope ?? DependencyScope.compile,
-        cacheDir: artifact.cacheDir);
+    return ResolvedArtifact(pom: pom, cacheDir: artifact.cacheDir);
   }
 
-  Future<void> download(ResolvedArtifact artifact, {Function? onError}) async {
-    try {
-      await _fetcher.fetchFile(artifact.main, _repositories);
-    } catch (e) {
-      if (onError != null) {
-        onError(e);
-      } else {
-        rethrow;
-      }
+  Future<Set<ResolvedArtifact>> resolveTransitively(
+    String coordinate, {
+    Set<DependencyScope> ignoreScopes = const {
+      DependencyScope.provided,
+      DependencyScope.test
+    },
+    bool ignoreOptional = true,
+  }) async {
+    final resolvedArtifact = await resolve(coordinate);
+    if (resolvedArtifact.pom.dependencies.isEmpty) {
+      return {resolvedArtifact};
     }
+
+    final dependencies = resolvedArtifact.pom.dependencies
+        .whereNot((el) => el.optional)
+        .whereNot((el) => ignoreScopes.contains(el.scope));
+    final resolvedDeps = await Future.wait([
+      for (final dep in dependencies)
+        resolveTransitively(dep.coordinate, ignoreScopes: ignoreScopes),
+    ]);
+    return {resolvedArtifact, ...resolvedDeps.flattened};
   }
 
-  Future<void> downloadSources(ResolvedArtifact artifact,
-      {Function? onError}) async {
-    try {
-      await _fetcher.fetchFile(artifact.sources, _repositories);
-    } catch (e) {
-      if (onError != null) {
-        onError(e);
-      }
-    }
+  Future<DownloadType> download(ResolvedArtifact artifact) async {
+    return await _fetcher.fetchFile(artifact.main, _repositories);
+  }
+
+  Future<DownloadType> downloadSources(ResolvedArtifact artifact) async {
+    return await _fetcher.fetchFile(artifact.sources, _repositories);
   }
 }

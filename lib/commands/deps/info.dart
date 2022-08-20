@@ -2,7 +2,7 @@ import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/commands/build/hive_adapters/remote_dep.dart';
+import 'package:rush_cli/commands/build/hive_adapters/library_box.dart';
 import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/services/file_service.dart';
 
@@ -20,9 +20,9 @@ class InfoSubCommand extends RushCommand {
   Future<void> run() async {
     Hive
       ..init(p.join(_fs.cwd, '.rush'))
-      ..registerAdapter(RemoteDepAdapter());
+      ..registerAdapter(ExtensionLibraryAdapter());
 
-    final remoteDepIndex = await Hive.openBox<RemoteDep>('index');
+    final remoteDepIndex = await Hive.openBox<ExtensionLibrary>('index');
     final directDeps = remoteDepIndex.values.where((el) => el.isDirectDep);
 
     // TODO: Colorize the output + print additional info like dep scope, etc.
@@ -38,8 +38,8 @@ class InfoSubCommand extends RushCommand {
   static const int branchGap = 3;
 
   String _printGraph(
-    Set<RemoteDep> remoteDepIndex,
-    RemoteDep dep,
+    Set<ExtensionLibrary> remoteDepIndex,
+    ExtensionLibrary dep,
     bool isLast, [
     String initial = '',
   ]) {

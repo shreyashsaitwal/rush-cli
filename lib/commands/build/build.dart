@@ -6,7 +6,7 @@ import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:resolver/resolver.dart';
-import 'package:rush_cli/commands/build/utils/build_utils.dart';
+import 'package:rush_cli/commands/build/utils.dart';
 import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
 import 'package:rush_cli/commands/deps/sync.dart';
 import 'package:rush_cli/commands/rush_command.dart';
@@ -15,15 +15,17 @@ import 'package:rush_cli/commands/build/tools/compiler.dart';
 import 'package:rush_cli/commands/build/tools/executor.dart';
 import 'package:rush_cli/commands/build/tools/generator.dart';
 import 'package:rush_cli/services/file_service.dart';
+import 'package:rush_cli/services/libs_service.dart';
 import 'package:rush_cli/utils/file_extension.dart';
 import 'package:tint/tint.dart';
 
 import '../../services/logger.dart';
-import 'hive_adapters/remote_dep.dart';
+import 'hive_adapters/library_box.dart';
 
 class BuildCommand extends RushCommand {
   final FileService _fs = GetIt.I<FileService>();
   final Logger _logger = GetIt.I<Logger>();
+  final LibService _libService = GetIt.I<LibService>();
 
   BuildCommand() {
     argParser.addFlag(
@@ -47,7 +49,7 @@ class BuildCommand extends RushCommand {
     Hive
       ..init(p.join(_fs.cwd, '.rush'))
       ..registerAdapter(BuildBoxAdapter())
-      ..registerAdapter(RemoteDepAdapter());
+      ..registerAdapter(ExtensionLibraryAdapter());
 
     _logger.initStep('Initializing build');
 
@@ -63,8 +65,17 @@ class BuildCommand extends RushCommand {
       rethrow;
     }
 
+    if (_libService.isCacheEmpty) {
+      _logger.info('Fetching build libraries');
+      final ktv = rushYaml.kotlin?.version ?? '1.7.10';
+      await Future.wait([
+        _libService.ensureDevDeps(kotlinVersion: ktv),
+        _libService.ensureBuildLibraries(kotlinVersion: ktv),
+      ]);
+    }
+
     final remoteDepIndex =
-        await SyncSubCommand().run(isHiveInitialized: true, rushYaml: rushYaml);
+        await SyncSubCommand().run(isHiveInit: true, rushYaml: rushYaml);
 
     final depAars = {
       for (final dep in remoteDepIndex)
@@ -80,17 +91,11 @@ class BuildCommand extends RushCommand {
 
     final depJars = {
       // Dev deps
-      ...[
-        for (final dep in _fs.devDepsDir.listSync(recursive: true))
-          if (dep is File && !p.basename(dep.path).endsWith('-sources.jar'))
-            dep.path
-      ],
+      ..._libService.devDepJars,
       // Local deps
-      ...[
-        for (final dep in rushYaml.deps)
-          if (!dep.isRemote && dep.value.endsWith('.jar'))
-            p.join(_fs.depsDir.path, dep.value)
-      ],
+      for (final dep in rushYaml.deps)
+        if (!dep.isRemote && dep.value.endsWith('.jar'))
+          p.join(_fs.depsDir.path, dep.value),
       // Remote deps
       for (final dep in remoteDepIndex) dep.jarFile,
     }.map((path) => path).toSet();
@@ -99,7 +104,7 @@ class BuildCommand extends RushCommand {
     await _compile(rushYaml, depJars);
     _logger.closeStep();
 
-    _logger.initStep('Almost there');
+    _logger.initStep('Processing');
     await Generator.generate(rushYaml);
     final artJarPath = await _createArtJar(rushYaml, remoteDepIndex);
 
@@ -199,11 +204,13 @@ class BuildCommand extends RushCommand {
           throw Exception('Kotlin support is not enabled in rush.yaml');
         }
 
-        await Compiler.compileKtFiles(depJars);
+        await Compiler.compileKtFiles(
+            depJars, rushYaml.kotlin?.version ?? '1.7.10');
       }
 
       if (javaFiles.isNotEmpty) {
-        await Compiler.compileJavaFiles(depJars);
+        await Compiler.compileJavaFiles(
+            depJars, rushYaml.kotlin?.version ?? '1.7.10');
       }
     } catch (e) {
       rethrow;
@@ -211,7 +218,7 @@ class BuildCommand extends RushCommand {
   }
 
   Future<String> _createArtJar(
-      RushYaml rushYaml, Set<RemoteDep> remoteDepIndex) async {
+      RushYaml rushYaml, Set<ExtensionLibrary> remoteDepIndex) async {
     final pathEndsToIgnore = [
       '.kotlin_module',
       'META-INF/versions',
@@ -235,7 +242,7 @@ class BuildCommand extends RushCommand {
     if (rushYaml.kotlin?.enable ?? false) {
       // TODO: Re-vist this when kotlin version changing is implemented.
       runtimeDepJars
-          .add(p.join(_fs.devDepsDir.path, 'kotlin', 'kotlin-stdlib.jar'));
+          .add(_libService.kotlinStdLib(rushYaml.kotlin?.version ?? '1.7.10'));
     }
 
     // Add class files from all required impl deps into the ART.jar

@@ -36,10 +36,9 @@ class Artifact {
 
 class ResolvedArtifact extends Artifact {
   final PomModel pom;
-  final DependencyScope scope;
 
   ResolvedArtifact(
-      {required this.pom, required this.scope, required String cacheDir})
+      {required this.pom, required String cacheDir})
       : super(
             groupId: pom.groupId,
             artifactId: pom.artifactId,
@@ -64,18 +63,16 @@ class ResolvedArtifact extends Artifact {
   bool operator ==(Object other) {
     return other is ResolvedArtifact &&
         other.pom == pom &&
-        other.scope == scope &&
         other.cacheDir == cacheDir;
   }
 
   @override
-  int get hashCode => Object.hash(pom, scope, cacheDir);
+  int get hashCode => Object.hash(pom, cacheDir);
 
   @override
   String toString() => '''
 ResolvedArtifact(
   pom: $pom,
-  scope: $scope,
   cacheDir: $cacheDir,
 )''';
 }

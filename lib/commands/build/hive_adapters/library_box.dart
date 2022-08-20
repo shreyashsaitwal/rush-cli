@@ -1,13 +1,30 @@
+import 'dart:io';
+
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:resolver/resolver.dart';
-import 'package:rush_cli/commands/build/utils/build_utils.dart';
+import 'package:rush_cli/commands/build/utils.dart';
 import 'package:rush_cli/utils/file_extension.dart';
 
-part 'remote_dep.g.dart';
+part 'library_box.g.dart';
 
 @HiveType(typeId: 1)
-class RemoteDep {
+class BuildLibrary {
+  @HiveField(0)
+  final String coordinate;
+  
+  @HiveField(1)
+  final String localFile;
+
+  @HiveField(2)
+  final Iterable<BuildLibrary> dependencies;
+
+  BuildLibrary(this.coordinate, this.localFile, this.dependencies);
+}
+
+// TODO: Re-implement this
+@HiveType(typeId: 2)
+class ExtensionLibrary {
   @HiveField(0)
   final String coordinate;
 
@@ -26,7 +43,7 @@ class RemoteDep {
   @HiveField(5)
   final bool isDirectDep;
 
-  RemoteDep(this.coordinate, this.cacheDir, this._scope, this.depCoordinates,
+  ExtensionLibrary(this.coordinate, this.cacheDir, this._scope, this.depCoordinates,
       this.packaging, this.isDirectDep);
 
   String get groupId => coordinate.split(':')[0];

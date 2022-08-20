@@ -1,22 +1,22 @@
-import 'dart:io' show Directory, File;
-
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/utils/file_extension.dart';
 import 'package:rush_cli/utils/process_runner.dart';
 import 'package:rush_cli/services/file_service.dart';
 
-import '../utils/build_utils.dart';
+import '../../../services/libs_service.dart';
+import '../utils.dart';
 
 class Executor {
   static final _fs = GetIt.I<FileService>();
+  static final _libService = GetIt.I<LibService>();
   static final processRunner = ProcessRunner();
 
   static Future<void> execD8(String artJarPath) async {
     final args = <String>[
-      ...['-cp', _fs.d8Jar.path],
+      ...['-cp', _libService.d8Jar],
       'com.android.tools.r8.D8',
-      ...['--lib', p.join(_fs.devDepsDir.path, 'android.jar')],
+      ...['--lib', p.join(_fs.libsDir.path, 'android.jar')],
       '--release',
       '--no-desugaring',
       '--output',
@@ -39,7 +39,11 @@ class Executor {
         p.join(p.dirname(artJarPath), 'AndroidRuntime.optimized.jar').asFile();
 
     final args = <String>[
-      ...['-jar', _fs.pgJar.path],
+      ...[
+        '-classpath',
+        _libService.pgJars.sublist(1).join(BuildUtils.cpSeparator)
+      ],
+      ...['-jar', _libService.pgJars.first],
       ...['-injars', artJarPath],
       ...['-outjars', optimizedJar.path],
       ...['-libraryjars', depJars.join(BuildUtils.cpSeparator)],
@@ -62,20 +66,10 @@ class Executor {
     String mainManifest,
     Set<String> depManifests,
   ) async {
-    final mergerDepsDir = p.join(_fs.toolsDir.path, 'merger').asDir();
-    final kotlinDevDeps = p.join(_fs.devDepsDir.path, 'kotlin').asDir();
-
     final classpath = [
-      ...[
-        for (final file in mergerDepsDir.listSync())
-          if (file is File) file.path
-      ],
-      ...[
-        for (final dir in kotlinDevDeps.listSync())
-          if (dir is Directory) dir.path
-      ],
-      p.join(_fs.devDepsDir.path, 'android.jar'),
-      p.join(_fs.devDepsDir.path, 'gson-2.1.jar'),
+      _libService.manifMergerJars,
+      _libService.devDepJars.firstWhere((el) => el.contains('gson-2.1.jar')),
+      p.join(_fs.libsDir.path, 'android.jar'),
     ].join(BuildUtils.cpSeparator);
 
     final output = p.join(_fs.buildFilesDir.path, 'AndroidManifest.xml');
@@ -119,7 +113,7 @@ class Executor {
     await argsFile.writeAsString(desugarerArgs.join('\n'));
 
     final args = <String>[
-      ...['-cp', _fs.desugarJar.path],
+      ...['-cp', p.join(_fs.libsDir.path, 'desugar.jar')],
       'com.google.devtools.build.android.desugar.Desugar',
       '@${argsFile.path}',
     ];

@@ -6,8 +6,9 @@ import 'package:rush_cli/utils/file_extension.dart';
 
 class FileService {
   final String cwd;
+  final String rushHomeDir;
 
-  FileService(this.cwd);
+  FileService(this.cwd, this.rushHomeDir);
 
   Directory get dataDir {
     final os = Platform.operatingSystem;
@@ -56,9 +57,11 @@ class FileService {
   Directory get buildFilesDir => p.join(buildDir.path, 'files').asDir(true);
   Directory get buildKaptDir => p.join(buildDir.path, 'kapt').asDir(true);
 
+  Directory get libsDir => p.join(rushHomeDir, 'libs').asDir();
+
   Directory get toolsDir => p.join(dataDir.path, 'tools').asDir();
-  Directory get devDepsDir => p.join(dataDir.path, 'dev-deps').asDir();
-  Directory get kotlincDir => p.join(toolsDir.path, 'kotlinc').asDir();
+  // Directory get devDepsDir => p.join(dataDir.path, 'dev-deps').asDir();
+  // Directory get kotlincDir => p.join(toolsDir.path, 'kotlinc').asDir();
 
   File get processorJar => p.join(toolsDir.path, 'processor-uber.jar').asFile();
   File get jreToolsJar => p.join(toolsDir.path, 'tools.jar').asFile();
@@ -71,13 +74,13 @@ class FileService {
       p.join(buildFilesDir.path, 'kotlinc.args').asFile(true);
   File get kaptArgsFile => p.join(buildFilesDir.path, 'kapt.args').asFile(true);
 
-  File get kotlincScript => p
-      .join(
-          kotlincDir.path, 'bin', 'kotlinc${Platform.isWindows ? '.bat' : ''}')
-      .asFile();
+  // File get kotlincScript => p
+  //     .join(
+  //         kotlincDir.path, 'bin', 'kotlinc${Platform.isWindows ? '.bat' : ''}')
+  //     .asFile();
 
-  // Executor files
-  File get d8Jar => p.join(toolsDir.path, 'd8.jar').asFile();
-  File get pgJar => p.join(toolsDir.path, 'proguard.jar').asFile();
-  File get desugarJar => p.join(toolsDir.path, 'desugar.jar').asFile();
+  // // Executor files
+  // File get d8Jar => p.join(toolsDir.path, 'd8.jar').asFile();
+  // File get pgJar => p.join(toolsDir.path, 'proguard.jar').asFile();
+  // File get desugarJar => p.join(toolsDir.path, 'desugar.jar').asFile();
 }

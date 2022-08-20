@@ -9,12 +9,12 @@ class Kotlin {
   @JsonKey(required: true)
   final bool enable;
 
-  @JsonKey(defaultValue: 'latest-stable')
-  final String? version;
+  @JsonKey(defaultValue: '1.7.10')
+  final String version;
 
   Kotlin({
     required this.enable,
-    this.version,
+    this.version = '1.7.10',
   });
 
   factory Kotlin.fromJson(Map<String, dynamic> json) => _$KotlinFromJson(json);
