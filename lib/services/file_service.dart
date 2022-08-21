@@ -6,45 +6,29 @@ import 'package:rush_cli/utils/file_extension.dart';
 
 class FileService {
   final String cwd;
-  final String rushHomeDir;
 
-  FileService(this.cwd, this.rushHomeDir);
+  FileService(this.cwd);
 
-  Directory get dataDir {
-    final os = Platform.operatingSystem;
-    final Directory appDataDir;
+  Directory get homeDir {
+    final Directory homeDir;
 
     if (Platform.environment.containsKey('RUSH_DATA_DIR')) {
-      appDataDir = Platform.environment['RUSH_DATA_DIR']!.asDir();
+      homeDir = Platform.environment['RUSH_DATA_DIR']!.asDir();
     } else {
-      switch (os) {
-        // TODO: Data dir should be named `.rush` and should be created in the
-        // user's home directory in all OSs.
-        case 'windows':
-          appDataDir = p
-              .join(Platform.environment['UserProfile']!, 'AppData', 'Roaming',
-                  'rush')
-              .asDir();
-          break;
-        case 'macos':
-          appDataDir = p
-              .join(Platform.environment['HOME']!, 'Library',
-                  'Application Support', 'rush')
-              .asDir();
-          break;
-        default:
-          appDataDir = p.join(Platform.environment['HOME']!, 'rush').asDir();
-          break;
+      if (Platform.operatingSystem == 'windows') {
+        homeDir = p.join(Platform.environment['UserProfile']!, '.rush').asDir();
+      } else {
+        homeDir = p.join(Platform.environment['HOME']!, 'rush').asDir();
       }
     }
 
-    if (!appDataDir.existsSync() || appDataDir.listSync().isEmpty) {
+    if (!homeDir.existsSync() || homeDir.listSync().isEmpty) {
       Logger().error(
-          'Could not find Rush data directory at $appDataDir.\nTry re-installing Rush.');
+          'Could not find Rush data directory at $homeDir.\nTry re-installing Rush.');
       exit(1);
     }
 
-    return appDataDir;
+    return homeDir;
   }
 
   Directory get srcDir => p.join(cwd, 'src').asDir();
@@ -57,15 +41,15 @@ class FileService {
   Directory get buildFilesDir => p.join(buildDir.path, 'files').asDir(true);
   Directory get buildKaptDir => p.join(buildDir.path, 'kapt').asDir(true);
 
-  Directory get libsDir => p.join(rushHomeDir, 'libs').asDir();
+  Directory get libsDir => p.join(homeDir.path, 'libs').asDir();
 
-  Directory get toolsDir => p.join(dataDir.path, 'tools').asDir();
+  // Directory get toolsDir => p.join(dataDir.path, 'tools').asDir();
   // Directory get devDepsDir => p.join(dataDir.path, 'dev-deps').asDir();
   // Directory get kotlincDir => p.join(toolsDir.path, 'kotlinc').asDir();
 
-  File get processorJar => p.join(toolsDir.path, 'processor-uber.jar').asFile();
-  File get jreToolsJar => p.join(toolsDir.path, 'tools.jar').asFile();
-  File get jreRtJar => p.join(toolsDir.path, 'rt.jar').asFile();
+  File get processorJar => p.join(libsDir.path, 'processor-uber.jar').asFile();
+  File get jreToolsJar => p.join(libsDir.path, 'tools.jar').asFile();
+  File get jreRtJar => p.join(libsDir.path, 'rt.jar').asFile();
 
   // Compiler files
   File get javacArgsFile =>

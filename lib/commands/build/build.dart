@@ -48,8 +48,7 @@ class BuildCommand extends RushCommand {
   Future<void> run() async {
     Hive
       ..init(p.join(_fs.cwd, '.rush'))
-      ..registerAdapter(BuildBoxAdapter())
-      ..registerAdapter(ExtensionLibraryAdapter());
+      ..registerAdapter(BuildBoxAdapter());
 
     _logger.initStep('Initializing build');
 

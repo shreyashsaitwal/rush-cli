@@ -5,6 +5,7 @@ import 'package:get_it/get_it.dart';
 import 'package:interact/interact.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/rush_command.dart';
+import 'package:rush_cli/services/libs_service.dart';
 import 'package:rush_cli/utils/casing.dart';
 import 'package:rush_cli/utils/utils.dart';
 import 'package:rush_cli/services/file_service.dart';
@@ -125,7 +126,7 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
       // IntelliJ IDEA files
       p.join(ideaDir, 'misc.xml'): getMiscXml(),
       p.join(ideaDir, 'libraries', 'dev-deps.xml'):
-          getDevDepsXml(_fs.dataDir.path),
+          getDevDepsXml(GetIt.I<LibService>().devDepJars),
       p.join(ideaDir, 'libraries', 'deps.xml'): getDepsXml(),
       p.join(ideaDir, 'modules.xml'): getModulesXml(kebabCasedName),
       p.join(ideaDir, '$kebabCasedName.iml'):
@@ -144,7 +145,7 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
     }
 
     // Copy icon
-    await File(p.join(_fs.toolsDir.path, 'other', 'icon-rush.png'))
+    await File(p.join(_fs.homeDir.path, 'icon.png'))
         .copy(p.join(projectDir, 'assets', 'icon.png'));
 
     // All the above operations are blazingly fast. Wait a couple of seconds

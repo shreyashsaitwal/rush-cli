@@ -1,9 +1,11 @@
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
+import 'package:path/path.dart';
 import 'package:resolver/resolver.dart';
 import 'package:rush_cli/commands/build/hive_adapters/library_box.dart';
 import 'package:collection/collection.dart';
 
+import 'file_service.dart';
 import 'logger.dart';
 import '../utils/file_extension.dart';
 
@@ -61,17 +63,19 @@ const _manifMergerCoord = 'com.android.tools.build:manifest-merger:30.2.2';
 const _kotlinGroupId = 'org.jetbrains.kotlin';
 
 class LibService {
-  LibService._(String cacheDir) {
+  final _fs = GetIt.I<FileService>();
+
+  LibService._() {
     Hive
-      ..init(cacheDir)
+      ..init(join(_fs.homeDir.path, 'cache'))
       ..registerAdapter(ExtensionLibraryAdapter())
       ..registerAdapter(BuildLibraryAdapter());
   }
 
-  static Future<LibService> instantiate(String cacheDir) async {
-    final instance = LibService._(cacheDir);
-    instance._devDepsBox = await Hive.openBox<ExtensionLibrary>('dev_deps');
-    instance._buildLibsBox = await Hive.openBox<BuildLibrary>('build_libs');
+  static Future<LibService> instantiate() async {
+    final instance = LibService._();
+    instance._devDepsBox = await Hive.openBox<ExtensionLibrary>('dev-deps');
+    instance._buildLibsBox = await Hive.openBox<BuildLibrary>('build-libs');
     return instance;
   }
 
@@ -80,7 +84,7 @@ class LibService {
 
   final _logger = GetIt.I<Logger>();
   final _resolver = ArtifactResolver();
-  
+
   bool get isCacheEmpty => _devDepsBox.isEmpty || _buildLibsBox.isEmpty;
 
   List<String> get devDepJars =>
@@ -102,7 +106,8 @@ class LibService {
   }
 
   List<String> kotlincJars(String kotlinVersion) {
-    final kotlincEmb = _buildLibsBox.get('$_kotlinGroupId:kotlin-compiler-embeddable:$kotlinVersion');
+    final kotlincEmb = _buildLibsBox
+        .get('$_kotlinGroupId:kotlin-compiler-embeddable:$kotlinVersion');
     return [
       kotlincEmb!.localFile,
       ...kotlincEmb.dependencies.map((el) => el.localFile)
@@ -110,11 +115,15 @@ class LibService {
   }
 
   String kotlinStdLib(String kotlinVersion) {
-    return _buildLibsBox.get('$_kotlinGroupId:kotlin-stdlib:$kotlinVersion')!.localFile;
+    return _buildLibsBox
+        .get('$_kotlinGroupId:kotlin-stdlib:$kotlinVersion')!
+        .localFile;
   }
 
   String kotlinAnnotationProc(String kotlinVersion) {
-    return _buildLibsBox.get('$_kotlinGroupId:kotlin-annotation-processor:$kotlinVersion')!.localFile;
+    return _buildLibsBox
+        .get('$_kotlinGroupId:kotlin-annotation-processor:$kotlinVersion')!
+        .localFile;
   }
 
   Future<void> ensureDevDeps({String? kotlinVersion}) async {

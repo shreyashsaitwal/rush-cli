@@ -1,22 +1,25 @@
-import 'dart:io';
+import 'package:rush_cli/utils/file_extension.dart';
 
-import 'package:path/path.dart' as p;
+String getDevDepsXml(List<String> devDepJars) {
+  final classes =
+      devDepJars.map((el) => '<root url="jar://$el!/"/>').join('\n');
+  final sources = devDepJars.map((el) {
+    final file = el.replaceRange(el.length - 4, null, '-sources.jar').asFile();
+    if (file.existsSync()) {
+      return '<root url="jar://$file!/"/>';
+    }
+  }).join('\n');
 
-String getDevDepsXml(String dataDir) {
-  final devDepsPath = p.join(dataDir, 'dev-deps').replaceAll('\\', '/');
   return '''
 <component name="libraryTable">
   <library name="dev-deps">
     <CLASSES>
-      <root url="file://$devDepsPath" />
+      $classes
     </CLASSES>
     <JAVADOC />
     <SOURCES>
-      <root url="jar://$devDepsPath/rush/runtime-sources.jar!/" />
-      <root url="jar://$devDepsPath/rush/annotations-sources.jar!/" />
-      <root url="jar://$devDepsPath/kotlin/kotlin-stdlib-sources.jar!/" />
+      $sources
     </SOURCES>
-    <jarDirectory url="file://$devDepsPath" recursive="true" />
   </library>
 </component>
 ''';

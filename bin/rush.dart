@@ -1,11 +1,13 @@
-import 'dart:io' show Platform, exit;
+import 'dart:io' show exit;
 
+import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/build.dart';
 import 'package:rush_cli/commands/clean.dart';
 import 'package:rush_cli/commands/create.dart';
 import 'package:rush_cli/commands/deps/deps.dart';
 import 'package:rush_cli/commands/rush_command.dart';
+import 'package:rush_cli/services/libs_service.dart';
 import 'package:rush_cli/services/service_locator.dart';
 import 'package:rush_cli/version.dart';
 import 'package:tint/tint.dart';
@@ -24,9 +26,9 @@ Future<void> main(List<String> args) async {
     }
   });
 
-  final rushHomeDir = p.dirname(p.dirname(Platform.resolvedExecutable));
-  setupServiceLocator(p.current, rushHomeDir);
-
+  setupServiceLocator(p.current);
+  await GetIt.I.isReady<LibService>();
+  
   commandRunner
     ..addCommand(CreateCommand())
     ..addCommand(BuildCommand())
