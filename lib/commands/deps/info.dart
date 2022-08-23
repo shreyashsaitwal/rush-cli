@@ -1,9 +1,8 @@
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
-import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/commands/build/hive_adapters/library_box.dart';
 import 'package:rush_cli/commands/rush_command.dart';
+import 'package:rush_cli/resolver/artifact.dart';
 import 'package:rush_cli/services/file_service.dart';
 
 class InfoSubCommand extends RushCommand {
@@ -20,15 +19,16 @@ class InfoSubCommand extends RushCommand {
   Future<void> run() async {
     Hive
       ..init(p.join(_fs.cwd, '.rush'))
-      ..registerAdapter(ExtensionLibraryAdapter());
+      ..registerAdapter(ArtifactAdapter())
+      ..registerAdapter(ScopeAdapter());
 
-    final remoteDepIndex = await Hive.openBox<ExtensionLibrary>('index');
-    final directDeps = remoteDepIndex.values.where((el) => el.isDirectDep);
+    final remoteDepIndex = await Hive.openBox<Artifact>('dep-index');
+    final remoteDeps = remoteDepIndex.values.toList();
 
     // TODO: Colorize the output + print additional info like dep scope, etc.
     final graph = {
-      for (final dep in directDeps)
-        _printGraph(remoteDepIndex.values.toSet(), dep, dep == directDeps.last)
+      for (final dep in remoteDeps)
+        _printGraph(remoteDeps, dep, dep == remoteDeps.last)
     }.join();
 
     print(p.basename(_fs.cwd) + newLine + graph);
@@ -38,8 +38,8 @@ class InfoSubCommand extends RushCommand {
   static const int branchGap = 3;
 
   String _printGraph(
-    Set<ExtensionLibrary> remoteDepIndex,
-    ExtensionLibrary dep,
+    List<Artifact> depList,
+    Artifact dep,
     bool isLast, [
     String initial = '',
   ]) {
@@ -47,23 +47,18 @@ class InfoSubCommand extends RushCommand {
     connector += isLast ? Connector.lastSibling : Connector.sibling;
     connector += Connector.horizontal * branchGap;
 
-    connector += dep.depCoordinates.isNotEmpty
+    connector += dep.dependencies.isNotEmpty
         ? Connector.childDeps
         : Connector.horizontal;
-    connector += Connector.empty + dep.coordinate + newLine;
+    connector +=
+        Connector.empty + dep.coordinate + ' (${dep.scope.name})' + newLine;
 
-    for (final el in dep.depCoordinates) {
-      final remoteDep =
-          remoteDepIndex.firstWhereOrNull((e) => e.coordinate == el);
-
+    for (final el in dep.dependencies) {
       final newInitial = initial +
           (isLast ? Connector.empty : Connector.vertical) +
           Connector.empty * branchGap;
-
-      if (remoteDep != null) {
-        connector += _printGraph(remoteDepIndex, remoteDep,
-            el == dep.depCoordinates.last, newInitial);
-      }
+      connector +=
+          _printGraph(depList, el, el == dep.dependencies.last, newInitial);
     }
 
     return connector;

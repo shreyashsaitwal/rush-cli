@@ -1,12 +1,11 @@
-
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:resolver/resolver.dart';
+import 'package:rush_cli/resolver/artifact.dart';
 
-import '../build/hive_adapters/library_box.dart';
 import '../../commands/rush_command.dart';
 import '../../config/rush_yaml.dart';
+import '../../resolver/resolver.dart';
 import '../../services/file_service.dart';
 
 class SyncSubCommand extends RushCommand {
@@ -20,43 +19,35 @@ class SyncSubCommand extends RushCommand {
   String get name => 'sync';
 
   @override
-  Future<Set<ExtensionLibrary>> run(
+  Future<List<Artifact>> run(
       {RushYaml? rushYaml, bool isHiveInit = false}) async {
-    rushYaml ??= await RushYaml.load(_fs.cwd);
     if (!isHiveInit) {
       Hive
         ..init(p.join(_fs.cwd, '.rush'))
-        ..registerAdapter(ExtensionLibraryAdapter());
+        ..registerAdapter(ArtifactAdapter())
+        ..registerAdapter(ScopeAdapter());
     }
-    final resolver = ArtifactResolver();
 
+    rushYaml ??= await RushYaml.load(_fs.cwd);
     final remoteDeps = rushYaml.deps.where((el) => el.isRemote);
-    final resolved = await Future.wait([
-      for (final dep in remoteDeps) resolver.resolveTransitively(dep.value)
+
+    final resolver = ArtifactResolver();
+    final resolvedArtifacts = await Future.wait([
+      for (final dep in remoteDeps)
+        resolver.resolveArtifact(dep.value, dep.scope)
     ]);
 
     await Future.wait([
-      for (final libSet in resolved)
-        for (final lib in libSet) resolver.download(lib),
-      for (final libSet in resolved)
-        for (final lib in libSet) resolver.downloadSources(lib),
+      for (final artifact in resolvedArtifacts)
+        resolver.downloadArtifact(artifact),
+      for (final artifact in resolvedArtifacts)
+        resolver.downloadSourceJar(artifact),
     ]);
 
-    final extensionLibs = resolved.map((el) {
-      final deps = el.toList().sublist(1);
-      return ExtensionLibrary(
-        el.first.coordinate,
-        el.first.cacheDir,
-        DependencyScope.runtime.name,
-        deps.map((e) => e.coordinate).toList(),
-        el.first.packaging,
-        true,
-      );
-    });
+    final depBox = await Hive.openBox<Artifact>('deps');
+    await depBox.clear();
+    await depBox.addAll(resolvedArtifacts);
 
-    final depBox = await Hive.openBox<ExtensionLibrary>('deps');
-    await depBox.addAll(extensionLibs);
-    
-    return extensionLibs.toSet();
+    return resolvedArtifacts;
   }
 }

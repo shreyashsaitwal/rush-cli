@@ -126,7 +126,7 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
       // IntelliJ IDEA files
       p.join(ideaDir, 'misc.xml'): getMiscXml(),
       p.join(ideaDir, 'libraries', 'dev-deps.xml'):
-          getDevDepsXml(GetIt.I<LibService>().devDepJars),
+          getDevDepsXml(GetIt.I<LibService>().devDepJars()),
       p.join(ideaDir, 'libraries', 'deps.xml'): getDepsXml(),
       p.join(ideaDir, 'modules.xml'): getModulesXml(kebabCasedName),
       p.join(ideaDir, '$kebabCasedName.iml'):

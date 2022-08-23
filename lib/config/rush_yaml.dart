@@ -2,8 +2,9 @@ import 'dart:io';
 
 import 'package:checked_yaml/checked_yaml.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:resolver/resolver.dart';
 import 'package:path/path.dart' as p;
+
+import '../resolver/artifact.dart';
 
 part 'android.dart';
 part 'dep_entry.dart';

@@ -15,7 +15,7 @@ class Generator {
   /// Generates required extension files.
   static Future<void> generate(RushYaml rushYaml) async {
     await Future.wait([
-      _generateInfoFiles(),
+      // _generateInfoFiles(),
       _copyAssets(rushYaml),
       _copyLicense(rushYaml),
     ]);

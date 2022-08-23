@@ -23,8 +23,7 @@ class DepEntry {
 
   String get value => runtime ?? compile!;
 
-  DependencyScope get scope =>
-      runtime != null ? DependencyScope.runtime : DependencyScope.compile;
+  Scope get scope => runtime != null ? Scope.runtime : Scope.compile;
 
   bool get isRemote => value.contains(':');
 

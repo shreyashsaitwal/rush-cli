@@ -14,7 +14,7 @@ class Executor {
 
   static Future<void> execD8(String artJarPath) async {
     final args = <String>[
-      ...['-cp', _libService.d8Jar],
+      ...['-cp', _libService.d8Jar()],
       'com.android.tools.r8.D8',
       ...['--lib', p.join(_fs.libsDir.path, 'android.jar')],
       '--release',
@@ -32,6 +32,7 @@ class Executor {
     }
   }
 
+// FIXME: We are using proguard-base.jar now
   static Future<void> execProGuard(
       String artJarPath, Set<String> depJars) async {
     final rulesPro = p.join(_fs.srcDir.path, 'proguard-rules.pro').asFile();
@@ -41,9 +42,9 @@ class Executor {
     final args = <String>[
       ...[
         '-classpath',
-        _libService.pgJars.sublist(1).join(BuildUtils.cpSeparator)
+        _libService.pgJars().sublist(1).join(BuildUtils.cpSeparator)
       ],
-      ...['-jar', _libService.pgJars.first],
+      ...['-jar', _libService.pgJars().first],
       ...['-injars', artJarPath],
       ...['-outjars', optimizedJar.path],
       ...['-libraryjars', depJars.join(BuildUtils.cpSeparator)],
@@ -61,14 +62,15 @@ class Executor {
     await optimizedJar.delete();
   }
 
+  // FIXME: It says it can't load main class com.android.manifmerger.Merger
   static Future<void> execManifMerger(
     int minSdk,
     String mainManifest,
     Set<String> depManifests,
   ) async {
     final classpath = [
-      _libService.manifMergerJars,
-      _libService.devDepJars.firstWhere((el) => el.contains('gson-2.1.jar')),
+      _libService.manifMergerJars(),
+      // _libService.devDepJars().firstWhere((el) => el.contains('gson-2.1.jar')),
       p.join(_fs.libsDir.path, 'android.jar'),
     ].join(BuildUtils.cpSeparator);
 

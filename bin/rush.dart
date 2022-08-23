@@ -1,7 +1,6 @@
-import 'dart:io' show exit;
+import 'dart:io' show Directory, exit;
 
 import 'package:get_it/get_it.dart';
-import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/build.dart';
 import 'package:rush_cli/commands/clean.dart';
 import 'package:rush_cli/commands/create.dart';
@@ -26,9 +25,9 @@ Future<void> main(List<String> args) async {
     }
   });
 
-  setupServiceLocator(p.current);
+  setupServiceLocator(Directory.current.path);
   await GetIt.I.isReady<LibService>();
-  
+
   commandRunner
     ..addCommand(CreateCommand())
     ..addCommand(BuildCommand())

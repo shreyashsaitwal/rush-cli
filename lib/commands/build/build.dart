@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'dart:io' show File, Directory, exit;
 
 import 'package:archive/archive_io.dart';
+import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:resolver/resolver.dart';
 import 'package:rush_cli/commands/build/utils.dart';
 import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
 import 'package:rush_cli/commands/deps/sync.dart';
@@ -14,18 +14,20 @@ import 'package:rush_cli/config/rush_yaml.dart';
 import 'package:rush_cli/commands/build/tools/compiler.dart';
 import 'package:rush_cli/commands/build/tools/executor.dart';
 import 'package:rush_cli/commands/build/tools/generator.dart';
+import 'package:rush_cli/resolver/artifact.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/services/libs_service.dart';
 import 'package:rush_cli/utils/file_extension.dart';
 import 'package:tint/tint.dart';
 
 import '../../services/logger.dart';
-import 'hive_adapters/library_box.dart';
 
 class BuildCommand extends RushCommand {
-  final FileService _fs = GetIt.I<FileService>();
   final Logger _logger = GetIt.I<Logger>();
+  final FileService _fs = GetIt.I<FileService>();
   final LibService _libService = GetIt.I<LibService>();
+
+  late final String _kotlinVersion;
 
   BuildCommand() {
     argParser.addFlag(
@@ -64,21 +66,22 @@ class BuildCommand extends RushCommand {
       rethrow;
     }
 
+    _kotlinVersion = rushYaml.kotlin?.version ?? '1.7.10';
+
     if (_libService.isCacheEmpty) {
       _logger.info('Fetching build libraries');
-      final ktv = rushYaml.kotlin?.version ?? '1.7.10';
       await Future.wait([
-        _libService.ensureDevDeps(kotlinVersion: ktv),
-        _libService.ensureBuildLibraries(kotlinVersion: ktv),
+        _libService.ensureDevDeps(_kotlinVersion),
+        _libService.ensureBuildLibraries(_kotlinVersion),
       ]);
     }
 
-    final remoteDepIndex =
+    final remoteArtifacts =
         await SyncSubCommand().run(isHiveInit: true, rushYaml: rushYaml);
 
     final depAars = {
-      for (final dep in remoteDepIndex)
-        if (dep.packaging == 'aar') dep.artifactFile,
+      for (final dep in remoteArtifacts)
+        if (dep.isAar) dep.artifactFile,
       for (final dep in rushYaml.deps)
         if (!dep.isRemote && dep.value.endsWith('.aar'))
           p.join(_fs.depsDir.path, dep.value)
@@ -90,14 +93,17 @@ class BuildCommand extends RushCommand {
 
     final depJars = {
       // Dev deps
-      ..._libService.devDepJars,
+      ..._libService.devDepJars(),
+      ..._fs.libsDir.listSync().where((file) => file.path.endsWith('.jar')).map(
+            (file) => file.path,
+          ),
+      // Remote deps
+      for (final dep in remoteArtifacts) ...dep.classpathJars(),
       // Local deps
       for (final dep in rushYaml.deps)
         if (!dep.isRemote && dep.value.endsWith('.jar'))
           p.join(_fs.depsDir.path, dep.value),
-      // Remote deps
-      for (final dep in remoteDepIndex) dep.jarFile,
-    }.map((path) => path).toSet();
+    };
 
     _logger.initStep('Compiling sources files');
     await _compile(rushYaml, depJars);
@@ -105,7 +111,7 @@ class BuildCommand extends RushCommand {
 
     _logger.initStep('Processing');
     await Generator.generate(rushYaml);
-    final artJarPath = await _createArtJar(rushYaml, remoteDepIndex);
+    final artJarPath = await _createArtJar(rushYaml, remoteArtifacts);
 
     if (argResults!['optimize'] as bool) {
       _logger.info('Optimizing and obfuscating the bytecode');
@@ -203,13 +209,11 @@ class BuildCommand extends RushCommand {
           throw Exception('Kotlin support is not enabled in rush.yaml');
         }
 
-        await Compiler.compileKtFiles(
-            depJars, rushYaml.kotlin?.version ?? '1.7.10');
+        await Compiler.compileKtFiles(depJars, _kotlinVersion);
       }
 
       if (javaFiles.isNotEmpty) {
-        await Compiler.compileJavaFiles(
-            depJars, rushYaml.kotlin?.version ?? '1.7.10');
+        await Compiler.compileJavaFiles(depJars);
       }
     } catch (e) {
       rethrow;
@@ -217,7 +221,7 @@ class BuildCommand extends RushCommand {
   }
 
   Future<String> _createArtJar(
-      RushYaml rushYaml, Set<ExtensionLibrary> remoteDepIndex) async {
+      RushYaml rushYaml, List<Artifact> remoteArtifacts) async {
     final pathEndsToIgnore = [
       '.kotlin_module',
       'META-INF/versions',
@@ -230,28 +234,26 @@ class BuildCommand extends RushCommand {
 
     final runtimeDepJars = {
       ...rushYaml.deps
-          .where((dep) => !dep.isRemote && dep.scope == DependencyScope.runtime)
+          .where((dep) => !dep.isRemote && dep.scope == Scope.runtime)
           .map((dep) => p.join(_fs.depsDir.path, dep.value)),
-      ...remoteDepIndex
-          .where((dep) => dep.scope == DependencyScope.runtime)
-          .map((dep) => dep.jarFile),
+      ...remoteArtifacts
+          .where((dep) => dep.scope == Scope.runtime)
+          .map((dep) => dep.classpathJars())
+          .flattened,
     };
 
-    // Add Kotlin Stdlib. to implDeps if Kotlin is enabled for the project.
+    // Add Kotlin Stdlib. to runtime deps if Kotlin is enabled for the project.
     if (rushYaml.kotlin?.enable ?? false) {
-      // TODO: Re-vist this when kotlin version changing is implemented.
-      runtimeDepJars
-          .add(_libService.kotlinStdLib(rushYaml.kotlin?.version ?? '1.7.10'));
+      runtimeDepJars.add(_libService.kotlinStdLib(_kotlinVersion));
     }
 
-    // Add class files from all required impl deps into the ART.jar
+    // Add class files from all required runtime deps into the ART.jar
     if (runtimeDepJars.isNotEmpty) {
       _logger.info('Attaching dependencies');
 
       for (final jarPath in runtimeDepJars) {
         final jar = jarPath.asFile();
-
-        if (!await jar.exists()) {
+        if (!jar.existsSync()) {
           _logger
             ..error('Unable to find required library \'$jar)\'')
             ..closeStep(fail: true);
@@ -278,16 +280,17 @@ class BuildCommand extends RushCommand {
         await zipEncoder.addFile(file, path);
       }
     }
+
     zipEncoder.close();
     return artJarPath;
   }
 
   Future<void> _assemble() async {
-    final org = await () async {
+    final org = () {
       final componentsJsonFile =
-          File(p.join(_fs.buildDir.path, 'files', 'components.json'));
+          p.join(_fs.buildDir.path, 'raw', 'components.json').asFile();
 
-      final json = jsonDecode(await componentsJsonFile.readAsString());
+      final json = jsonDecode(componentsJsonFile.readAsStringSync());
       final type = json[0]['type'] as String;
 
       final split = type.split('.')..removeLast();
@@ -295,7 +298,7 @@ class BuildCommand extends RushCommand {
     }();
 
     final outputDir = Directory(p.join(_fs.cwd, 'out'));
-    await outputDir.create(recursive: true);
+    outputDir.createSync(recursive: true);
 
     final zipEncoder = ZipFileEncoder();
     zipEncoder.create(p.join(outputDir.path, '$org.aix'));

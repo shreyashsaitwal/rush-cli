@@ -1,59 +1,26 @@
+
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart';
-import 'package:resolver/resolver.dart';
-import 'package:rush_cli/commands/build/hive_adapters/library_box.dart';
 import 'package:collection/collection.dart';
 
+import '../resolver/artifact.dart';
+import '../resolver/resolver.dart';
 import 'file_service.dart';
 import 'logger.dart';
 import '../utils/file_extension.dart';
 
 const _devDeps = {
-  // AI2 provided androidx libraries
-  'androidx.annotation:annotation:1.0.0',
   'androidx.appcompat:appcompat:1.0.0',
-  'androidx.asynclayoutinflater:asynclayoutinflater:1.0.0',
-  'androidx.collection:collection:1.0.0',
-  'androidx.constraintlayout:constraintlayout:1.1.0',
-  'androidx.constraintlayout:constraintlayout-solver:1.1.0',
-  'androidx.coordinatorlayout:coordinatorlayout:1.0.0',
-  'androidx.core:core:1.0.0',
-  'androidx.arch.core:core-common:2.0.0',
-  'androidx.arch.core:core-runtime:2.0.0',
-  'androidx.cursoradapter:cursoradapter:1.0.0',
-  'androidx.customview:customview:1.0.0',
-  'androidx.drawerlayout:drawerlayout:1.0.0',
-  'androidx.fragment:fragment:1.0.0',
-  'androidx.interpolator:interpolator:1.0.0',
-  'androidx.legacy:legacy-support-core-ui:1.0.0',
-  'androidx.legacy:legacy-support-core-utils:1.0.0',
-  'androidx.lifecycle:lifecycle-common:2.0.0',
-  'androidx.lifecycle:lifecycle-livedata:2.0.0',
-  'androidx.lifecycle:lifecycle-livedata-core:2.0.0',
-  'androidx.lifecycle:lifecycle-runtime:2.0.0',
-  'androidx.lifecycle:lifecycle-viewmodel:2.0.0',
-  'androidx.loader:loader:1.0.0',
-  'androidx.localbroadcastmanager:localbroadcastmanager:1.0.0',
-  'androidx.print:print:1.0.0',
-  'androidx.slidingpanelayout:slidingpanelayout:1.0.0',
-  'androidx.swiperefreshlayout:swiperefreshlayout:1.0.0',
-  'androidx.vectordrawable:vectordrawable:1.0.0',
-  'androidx.vectordrawable:vectordrawable-animated:1.0.0',
-  'androidx.versionedparcelable:versionedparcelable:1.0.0',
-  'androidx.viewpager:viewpager:1.0.0',
-
-  // Other AI2 provided libraries
   'ch.acra:acra:4.9.0',
+  'org.locationtech.jts:jts-core:1.16.1',
+  'org.osmdroid:osmdroid-android:6.1.0',
+  'redis.clients:jedis:3.1.0',
   'com.caverock:androidsvg:1.2.1',
   'com.firebase:firebase-client-android:2.5.2',
   'com.google.api-client:google-api-client:1.31.1',
   'com.google.api-client:google-api-client-android2:1.10.3-beta',
-  'org.locationtech.jts:jts-core:1.16.1',
-  'org.osmdroid:osmdroid-android:6.1.0',
   'org.webrtc:google-webrtc:1.0.23995',
-  'redis.clients:jedis:3.1.0',
-  'com.google.code.gson:gson:2.1'
 };
 
 const _d8Coord = 'com.android.tools:r8:3.3.28';
@@ -68,124 +35,105 @@ class LibService {
   LibService._() {
     Hive
       ..init(join(_fs.homeDir.path, 'cache'))
-      ..registerAdapter(ExtensionLibraryAdapter())
-      ..registerAdapter(BuildLibraryAdapter());
+      ..registerAdapter(ArtifactAdapter())
+      ..registerAdapter(ScopeAdapter());
   }
 
   static Future<LibService> instantiate() async {
     final instance = LibService._();
-    instance._devDepsBox = await Hive.openBox<ExtensionLibrary>('dev-deps');
-    instance._buildLibsBox = await Hive.openBox<BuildLibrary>('build-libs');
+    instance._devDepsBox = await Hive.openBox<Artifact>('dev-deps');
+    instance._buildLibsBox = await Hive.openBox<Artifact>('build-libs');
     return instance;
   }
 
-  late final Box<ExtensionLibrary> _devDepsBox;
-  late final Box<BuildLibrary> _buildLibsBox;
+  late final Box<Artifact> _devDepsBox;
+  late final Box<Artifact> _buildLibsBox;
 
   final _logger = GetIt.I<Logger>();
   final _resolver = ArtifactResolver();
 
   bool get isCacheEmpty => _devDepsBox.isEmpty || _buildLibsBox.isEmpty;
 
-  List<String> get devDepJars =>
-      [for (final lib in _devDepsBox.values) lib.jarFile];
+  List<String> devDepJars() =>
+      [for (final lib in _devDepsBox.values) lib.classesJar];
 
-  String get d8Jar => _buildLibsBox.get(_d8Coord)!.localFile;
+  String d8Jar() => _buildLibsBox.get(_d8Coord)!.classesJar;
 
-  List<String> get pgJars {
-    final pg = _buildLibsBox.get(_pgCoord);
-    return [pg!.localFile, ...pg.dependencies.map((el) => el.localFile)];
+  List<String> pgJars() => _buildLibsBox.get(_pgCoord)!.classpathJars();
+
+  List<String> manifMergerJars() =>
+      _buildLibsBox.get(_manifMergerCoord)!.classpathJars();
+
+  List<String> kotlincJars(String ktVersion) => _buildLibsBox
+      .get('$_kotlinGroupId:kotlin-compiler-embeddable:$ktVersion')!
+      .classpathJars();
+
+  String kotlinStdLib(String ktVersion) {
+    return _devDepsBox
+        .get('$_kotlinGroupId:kotlin-stdlib:$ktVersion')!
+        .classesJar;
   }
 
-  List<String> get manifMergerJars {
-    final manifMerger = _buildLibsBox.get(_manifMergerCoord);
-    return [
-      manifMerger!.localFile,
-      ...manifMerger.dependencies.map((el) => el.localFile)
-    ];
-  }
-
-  List<String> kotlincJars(String kotlinVersion) {
-    final kotlincEmb = _buildLibsBox
-        .get('$_kotlinGroupId:kotlin-compiler-embeddable:$kotlinVersion');
-    return [
-      kotlincEmb!.localFile,
-      ...kotlincEmb.dependencies.map((el) => el.localFile)
-    ];
-  }
-
-  String kotlinStdLib(String kotlinVersion) {
+  String kotlinAnnotationProc(String ktVersion) {
     return _buildLibsBox
-        .get('$_kotlinGroupId:kotlin-stdlib:$kotlinVersion')!
-        .localFile;
+        .get(
+            '$_kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion')!
+        .classesJar;
   }
 
-  String kotlinAnnotationProc(String kotlinVersion) {
-    return _buildLibsBox
-        .get('$_kotlinGroupId:kotlin-annotation-processor:$kotlinVersion')!
-        .localFile;
-  }
-
-  Future<void> ensureDevDeps({String? kotlinVersion}) async {
-    final Set<String> deps;
-    if (kotlinVersion != null) {
-      deps = {..._devDeps, '$_kotlinGroupId:kotlin-stdlib:$kotlinVersion'};
-    } else {
-      deps = _devDeps;
-    }
-
-    final List<ResolvedArtifact> resolvedDeps;
+  Future<void> ensureDevDeps(String ktVersion) async {
+    final deps = {..._devDeps, '$_kotlinGroupId:kotlin-stdlib:$ktVersion'};
+    final List<Artifact> resolvedDeps;
 
     _logger.debug('Resolving dev deps');
     if (_devDepsBox.isEmpty) {
-      resolvedDeps =
-          await Future.wait([for (final dep in deps) _resolver.resolve(dep)]);
+      resolvedDeps = await Future.wait([
+        for (final dep in deps) _resolver.resolveArtifact(dep, Scope.compile)
+      ]);
     } else {
       resolvedDeps = await Future.wait(_devDepsBox.values
-          .whereNot((el) => el.jarFile.asFile().existsSync())
-          .map((el) => _resolver.resolve(el.coordinate)));
+          .whereNot((el) => el.artifactFile.asFile().existsSync())
+          .map(
+              (el) => _resolver.resolveArtifact(el.coordinate, Scope.compile)));
     }
 
     _logger.debug('Downloading and caching dev deps');
     if (resolvedDeps.isNotEmpty) {
       await Future.wait([
-        for (final dep in resolvedDeps) _resolver.download(dep),
-        for (final dep in resolvedDeps) _resolver.downloadSources(dep),
+        for (final dep in resolvedDeps) _resolver.downloadArtifact(dep),
       ]);
       await Future.wait([
-        for (final dep in resolvedDeps)
-          _devDepsBox.put(
-              dep.coordinate,
-              ExtensionLibrary(dep.coordinate, dep.cacheDir,
-                  DependencyScope.provided.name, [], dep.packaging, false)),
+        for (final dep in resolvedDeps) _devDepsBox.put(dep.coordinate, dep),
       ]);
     }
   }
 
-  Future<void> ensureBuildLibraries({required String kotlinVersion}) async {
+  Future<void> ensureBuildLibraries(String ktVersion) async {
     final libs = {
-      '$_kotlinGroupId:kotlin-compiler-embeddable:$kotlinVersion',
-      '$_kotlinGroupId:kotlin-annotation-processing-embeddable:$kotlinVersion',
+      '$_kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
+      '$_kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
       _d8Coord,
       _pgCoord,
       _manifMergerCoord,
     };
 
-    final List<Set<ResolvedArtifact>> resolvedLibs;
+    final List<Artifact> resolvedLibs;
 
     _logger.debug('Resolving tools...');
     if (_buildLibsBox.isEmpty) {
       resolvedLibs = await Future.wait([
-        for (final lib in libs) _resolver.resolveTransitively(lib),
+        for (final lib in libs) _resolver.resolveArtifact(lib, Scope.runtime),
       ]);
     } else {
-      final resolveFuts = <Future<Set<ResolvedArtifact>>>[];
+      final resolveFuts = <Future<Artifact>>[];
       for (final lib in _buildLibsBox.values) {
         // If the library or any of its dependencies local file doesn't exist,
         // resolve it again.
-        if (!lib.localFile.asFile().existsSync() ||
-            lib.dependencies.any((el) => !el.localFile.asFile().existsSync())) {
-          resolveFuts.add(_resolver.resolveTransitively(lib.coordinate));
+        if (!lib.classesJar.asFile().existsSync() ||
+            lib.dependencies
+                .any((el) => !el.classesJar.asFile().existsSync())) {
+          resolveFuts
+              .add(_resolver.resolveArtifact(lib.coordinate, Scope.runtime));
         }
       }
 
@@ -195,15 +143,9 @@ class LibService {
     _logger.debug('Downloading and caching tools...');
     if (resolvedLibs.isNotEmpty) {
       await Future.wait([
-        for (final lib in resolvedLibs.flattened) _resolver.download(lib),
-        ...resolvedLibs.map((el) {
-          final deps = el
-              .toList()
-              .sublist(1)
-              .map((e) => BuildLibrary(e.coordinate, e.main.localFile, []));
-          return _buildLibsBox.put(el.first.coordinate,
-              BuildLibrary(el.first.coordinate, el.first.main.localFile, deps));
-        }),
+        ...resolvedLibs.map((el) => _resolver.downloadArtifact(el)),
+        ...resolvedLibs.map((el) => _resolver.downloadSourceJar(el)),
+        ...resolvedLibs.map((el) => _buildLibsBox.put(el.coordinate, el)),
       ]);
     }
   }

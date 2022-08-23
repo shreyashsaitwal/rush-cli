@@ -8,6 +8,5 @@ void setupServiceLocator(String cwd) {
   GetIt.I
     ..registerLazySingleton<FileService>(() => FileService(cwd))
     ..registerLazySingleton<Logger>(() => Logger())
-    ..registerLazySingletonAsync<LibService>(
-        () => LibService.instantiate());
+    ..registerLazySingletonAsync<LibService>(() => LibService.instantiate());
 }

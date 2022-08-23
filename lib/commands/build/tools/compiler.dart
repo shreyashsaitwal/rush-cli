@@ -8,14 +8,14 @@ import 'package:rush_cli/services/file_service.dart';
 import '../../../services/libs_service.dart';
 import '../utils.dart';
 
+// TODO
 class Compiler {
   static final _fs = GetIt.I<FileService>();
   static final _processRunner = ProcessRunner();
   static final _libService = GetIt.I<LibService>();
 
-  static Future<void> compileJavaFiles(
-      Set<String> depJars, String kotlinVersion) async {
-    final args = await _javacArgs(depJars, kotlinVersion);
+  static Future<void> compileJavaFiles(Set<String> depJars) async {
+    final args = await _javacArgs(depJars);
     try {
       await _fs.javacArgsFile.writeAsString(args.join('\n'));
       await _processRunner
@@ -25,12 +25,11 @@ class Compiler {
     }
   }
 
-  static Future<List<String>> _javacArgs(
-      Set<String> depJars, String kotlinVersion) async {
+  static Future<List<String>> _javacArgs(Set<String> depJars) async {
     final classpath = depJars.join(BuildUtils.cpSeparator);
     final procpath = [
-      _libService.kotlinStdLib(kotlinVersion),
-      p.join(_fs.libsDir.path, 'processor.jar'),
+      // _libService.kotlinStdLib(ktVersion: kotlinVersion),
+      _fs.processorJar.path,
     ].join(BuildUtils.cpSeparator);
 
     final javaFiles = _fs.srcDir
