@@ -14,8 +14,8 @@ class Compiler {
   static final _processRunner = ProcessRunner();
   static final _libService = GetIt.I<LibService>();
 
-  static Future<void> compileJavaFiles(Set<String> depJars) async {
-    final args = await _javacArgs(depJars);
+  static Future<void> compileJavaFiles(Set<String> depJars, bool supportJava8) async {
+    final args = await _javacArgs(depJars, supportJava8);
     try {
       await _fs.javacArgsFile.writeAsString(args.join('\n'));
       await _processRunner
@@ -25,7 +25,7 @@ class Compiler {
     }
   }
 
-  static Future<List<String>> _javacArgs(Set<String> depJars) async {
+  static Future<List<String>> _javacArgs(Set<String> depJars, bool supportJava8) async {
     final classpath = depJars.join(BuildUtils.cpSeparator);
     final javaFiles = _fs.srcDir
         .listSync(recursive: true)
@@ -34,7 +34,8 @@ class Compiler {
         .map((el) => el.path);
 
     final args = <String>[
-      ...['-target', '1.8'],
+      ...['-source', supportJava8 ? '1.8' : '1.7'],
+      ...['-target', supportJava8 ? '1.8' : '1.7'],
       ...['-encoding', 'UTF8'],
       ...['-d', _fs.buildClassesDir.path],
       ...['-cp', classpath],

@@ -215,7 +215,7 @@ class BuildCommand extends RushCommand {
       }
 
       if (javaFiles.isNotEmpty) {
-        await Compiler.compileJavaFiles(depJars);
+        await Compiler.compileJavaFiles(depJars, rushYaml.desugar);
       }
     } catch (e) {
       rethrow;
