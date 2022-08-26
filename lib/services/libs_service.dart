@@ -1,4 +1,3 @@
-
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart';
@@ -10,7 +9,7 @@ import 'file_service.dart';
 import 'logger.dart';
 import '../utils/file_extension.dart';
 
-const _devDeps = {
+const _devDeps = <String>{
   'androidx.appcompat:appcompat:1.0.0',
   'ch.acra:acra:4.9.0',
   'org.locationtech.jts:jts-core:1.16.1',
@@ -25,7 +24,11 @@ const _devDeps = {
 
 const _d8Coord = 'com.android.tools:r8:3.3.28';
 const _pgCoord = 'com.guardsquare:proguard-base:7.2.2';
-const _manifMergerCoord = 'com.android.tools.build:manifest-merger:30.2.2';
+const _manifMergerAndDeps = <String>[
+  'com.android.tools.build:manifest-merger:30.2.2',
+  'org.w3c:dom:2.3.0-jaxb-1.0.6',
+  'xml-apis:xml-apis:1.4.01',
+];
 
 const _kotlinGroupId = 'org.jetbrains.kotlin';
 
@@ -59,14 +62,18 @@ class LibService {
 
   String d8Jar() => _buildLibsBox.get(_d8Coord)!.classesJar;
 
-  List<String> pgJars() => _buildLibsBox.get(_pgCoord)!.classpathJars();
+  List<String> pgJars() =>
+      _buildLibsBox.get(_pgCoord)!.classpathJars().toList();
 
-  List<String> manifMergerJars() =>
-      _buildLibsBox.get(_manifMergerCoord)!.classpathJars();
+  List<String> manifMergerJars() => _manifMergerAndDeps
+      .map((el) => _buildLibsBox.get(el)!.classpathJars())
+      .flattened
+      .toList();
 
   List<String> kotlincJars(String ktVersion) => _buildLibsBox
       .get('$_kotlinGroupId:kotlin-compiler-embeddable:$ktVersion')!
-      .classpathJars();
+      .classpathJars()
+      .toList();
 
   String kotlinStdLib(String ktVersion) {
     return _devDepsBox
@@ -74,12 +81,10 @@ class LibService {
         .classesJar;
   }
 
-  String kotlinAnnotationProc(String ktVersion) {
-    return _buildLibsBox
+  List<String> kotlinAnnotationProc(String ktVersion) => _buildLibsBox
         .get(
             '$_kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion')!
-        .classesJar;
-  }
+        .classpathJars().toList();
 
   Future<void> ensureDevDeps(String ktVersion) async {
     final deps = {..._devDeps, '$_kotlinGroupId:kotlin-stdlib:$ktVersion'};
@@ -109,12 +114,12 @@ class LibService {
   }
 
   Future<void> ensureBuildLibraries(String ktVersion) async {
-    final libs = {
+    final libs = <String>{
       '$_kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
       '$_kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
       _d8Coord,
       _pgCoord,
-      _manifMergerCoord,
+      ..._manifMergerAndDeps,
     };
 
     final List<Artifact> resolvedLibs;
@@ -144,7 +149,6 @@ class LibService {
     if (resolvedLibs.isNotEmpty) {
       await Future.wait([
         ...resolvedLibs.map((el) => _resolver.downloadArtifact(el)),
-        ...resolvedLibs.map((el) => _resolver.downloadSourceJar(el)),
         ...resolvedLibs.map((el) => _buildLibsBox.put(el.coordinate, el)),
       ]);
     }

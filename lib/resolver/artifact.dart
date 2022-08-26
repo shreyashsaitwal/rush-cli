@@ -70,17 +70,26 @@ class Artifact {
   });
 
   String get classesJar {
-    if (!isAar) {
+    if (p.extension(artifactFile) == '.bundle') {
+      final jarFile = p
+          .join(
+              artifactFile.replaceRange(artifactFile.length - 7, null, '.jar'))
+          .asFile();
+      if (jarFile.existsSync()) {
+        return jarFile.path;
+      }
+    } else if (!isAar) {
       return artifactFile;
     }
+
     final basename = p.basenameWithoutExtension(artifactFile);
     final dist = p.join(p.dirname(artifactFile), basename).asDir(true);
     BuildUtils.unzip(artifactFile, dist.path);
     return p.join(dist.path, 'classes.jar');
   }
 
-  List<String> classpathJars() {
-    final classpath = <String>[classesJar];
+  Set<String> classpathJars() {
+    final classpath = <String>{classesJar};
     for (final dep in dependencies) {
       classpath.addAll(dep.classpathJars());
     }

@@ -32,7 +32,6 @@ class Executor {
     }
   }
 
-// FIXME: We are using proguard-base.jar now
   static Future<void> execProGuard(
       String artJarPath, Set<String> depJars) async {
     final rulesPro = p.join(_fs.srcDir.path, 'proguard-rules.pro').asFile();
@@ -40,11 +39,8 @@ class Executor {
         p.join(p.dirname(artJarPath), 'AndroidRuntime.optimized.jar').asFile();
 
     final args = <String>[
-      ...[
-        '-classpath',
-        _libService.pgJars().sublist(1).join(BuildUtils.cpSeparator)
-      ],
-      ...['-jar', _libService.pgJars().first],
+      ...['-cp', _libService.pgJars().join(BuildUtils.cpSeparator)],
+      'proguard.ProGuard',
       ...['-injars', artJarPath],
       ...['-outjars', optimizedJar.path],
       ...['-libraryjars', depJars.join(BuildUtils.cpSeparator)],
@@ -62,15 +58,13 @@ class Executor {
     await optimizedJar.delete();
   }
 
-  // FIXME: It says it can't load main class com.android.manifmerger.Merger
   static Future<void> execManifMerger(
     int minSdk,
     String mainManifest,
     Set<String> depManifests,
   ) async {
-    final classpath = [
-      _libService.manifMergerJars(),
-      // _libService.devDepJars().firstWhere((el) => el.contains('gson-2.1.jar')),
+    final classpath = <String>[
+      ..._libService.manifMergerJars(),
       p.join(_fs.libsDir.path, 'android.jar'),
     ].join(BuildUtils.cpSeparator);
 
@@ -102,7 +96,6 @@ class Executor {
         .asFile();
 
     final desugarerArgs = <String>[
-      '--emit_dependency_metadata_as_needed',
       '--desugar_try_with_resources_if_needed',
       '--copy_bridges_from_classpath',
       ...['--bootclasspath_entry', '\'${_fs.jreRtJar.path}\''],
@@ -115,7 +108,7 @@ class Executor {
     await argsFile.writeAsString(desugarerArgs.join('\n'));
 
     final args = <String>[
-      ...['-cp', p.join(_fs.libsDir.path, 'desugar.jar')],
+      ...['-cp', p.join(_fs.desugarJar.path)],
       'com.google.devtools.build.android.desugar.Desugar',
       '@${argsFile.path}',
     ];

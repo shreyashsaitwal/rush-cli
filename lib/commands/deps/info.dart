@@ -26,7 +26,7 @@ class InfoSubCommand extends RushCommand {
     final remoteDeps = remoteDepIndex.values.toList();
 
     // TODO: Colorize the output + print additional info like dep scope, etc.
-    final graph = {
+    final graph = <String>{
       for (final dep in remoteDeps)
         _printGraph(remoteDeps, dep, dep == remoteDeps.last)
     }.join();

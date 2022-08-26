@@ -79,7 +79,7 @@ class BuildCommand extends RushCommand {
     final remoteArtifacts =
         await SyncSubCommand().run(isHiveInit: true, rushYaml: rushYaml);
 
-    final depAars = {
+    final depAars = <String>{
       for (final dep in remoteArtifacts)
         if (dep.isAar) dep.artifactFile,
       for (final dep in rushYaml.deps)
@@ -91,12 +91,14 @@ class BuildCommand extends RushCommand {
     await _mergeManifests(buildBox, rushYaml.android?.minSdk ?? 21, depAars);
     _logger.closeStep();
 
-    final depJars = {
+    final depJars = <String>{
       // Dev deps
       ..._libService.devDepJars(),
-      ..._fs.libsDir.listSync().where((file) => file.path.endsWith('.jar')).map(
-            (file) => file.path,
-          ),
+      p.join(_fs.libsDir.path, 'android.jar'),
+      p.join(_fs.libsDir.path, 'annotations.jar'),
+      p.join(_fs.libsDir.path, 'runtime.jar'),
+      p.join(_fs.libsDir.path, 'kawa-1.11-modified.jar'),
+      p.join(_fs.libsDir.path, 'physicaloid-library.jar'),
       // Remote deps
       for (final dep in remoteArtifacts) ...dep.classpathJars(),
       // Local deps
@@ -222,17 +224,11 @@ class BuildCommand extends RushCommand {
 
   Future<String> _createArtJar(
       RushYaml rushYaml, List<Artifact> remoteArtifacts) async {
-    final pathEndsToIgnore = [
-      '.kotlin_module',
-      'META-INF/versions',
-      '.jar',
-    ];
-
     final artJarPath =
         p.join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.jar');
     final zipEncoder = ZipFileEncoder()..create(artJarPath);
 
-    final runtimeDepJars = {
+    final runtimeDepJars = <String>{
       ...rushYaml.deps
           .where((dep) => !dep.isRemote && dep.scope == Scope.runtime)
           .map((dep) => p.join(_fs.depsDir.path, dep.value)),
@@ -251,6 +247,7 @@ class BuildCommand extends RushCommand {
     if (runtimeDepJars.isNotEmpty) {
       _logger.info('Attaching dependencies');
 
+      final addedPaths = <String>{};
       for (final jarPath in runtimeDepJars) {
         final jar = jarPath.asFile();
         if (!jar.existsSync()) {
@@ -260,13 +257,20 @@ class BuildCommand extends RushCommand {
           exit(1);
         }
 
-        final decodedJar =
-            ZipDecoder().decodeBytes(await jar.readAsBytes()).files;
-        for (final file in decodedJar) {
-          if (!pathEndsToIgnore.any((el) => file.name.endsWith(el))) {
-            // file.decompress(); TODO: See if this works
-            zipEncoder.addArchiveFile(file);
+        final decodedJar = ZipDecoder()
+            .decodeBytes(jar.readAsBytesSync())
+            .files
+            .whereNot((el) => addedPaths.contains(el.name))
+            // Do not include files other than .class files.
+            .where((el) {
+          if (!el.isFile) {
+            return true;
           }
+          return p.extension(el.name) == '.class';
+        });
+        for (final file in decodedJar) {
+          zipEncoder.addArchiveFile(file);
+          addedPaths.add(file.name);
         }
       }
     }
@@ -274,8 +278,7 @@ class BuildCommand extends RushCommand {
     // Add extension classes to ART.jar
     final classFiles = _fs.buildClassesDir.listSync(recursive: true);
     for (final file in classFiles) {
-      if (file is File &&
-          !pathEndsToIgnore.any((el) => file.path.endsWith(el))) {
+      if (file is File && p.extension(file.path) == '.class') {
         final path = p.relative(file.path, from: _fs.buildClassesDir.path);
         await zipEncoder.addFile(file, path);
       }

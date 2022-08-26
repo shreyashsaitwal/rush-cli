@@ -35,7 +35,7 @@ class _ArtifactMetadata {
 }
 
 class ArtifactResolver {
-  static const defaultRepos = {
+  static const defaultRepos = <String>{
     'https://dl.google.com/dl/android/maven2',
     'https://repo.maven.apache.org/maven2',
     'https://maven-central.storage-download.googleapis.com/repos/central/data',
@@ -215,7 +215,7 @@ class ArtifactResolver {
       return false;
     });
 
-    final List<Artifact> resolvedDeps = [];
+    final resolvedDeps = <Artifact>[];
     for (final dep in deps) {
       dep.version = _resolveDepVersion(dep, pom, parentPom);
       resolvedDeps.add(await resolveArtifact(
@@ -235,12 +235,15 @@ class ArtifactResolver {
   Future<void> downloadArtifact(Artifact artifact) async {
     final metadata = _ArtifactMetadata(artifact.coordinate);
     await _fetchFile(metadata.artifactPath(artifact.isAar ? 'aar' : 'jar'));
+    await Future.wait(artifact.dependencies.map((el) => downloadArtifact(el)));
   }
 
   Future<void> downloadSourceJar(Artifact artifact) async {
     final metadata = _ArtifactMetadata(artifact.coordinate);
     try {
       await _fetchFile(metadata.sourceJarPath());
+      await Future.wait(
+          artifact.dependencies.map((el) => downloadSourceJar(el)));
     } catch (_) {}
   }
 }

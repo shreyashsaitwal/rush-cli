@@ -22,10 +22,7 @@ class SyncSubCommand extends RushCommand {
   Future<List<Artifact>> run(
       {RushYaml? rushYaml, bool isHiveInit = false}) async {
     if (!isHiveInit) {
-      Hive
-        ..init(p.join(_fs.cwd, '.rush'))
-        ..registerAdapter(ArtifactAdapter())
-        ..registerAdapter(ScopeAdapter());
+      Hive.init(p.join(_fs.cwd, '.rush'));
     }
 
     rushYaml ??= await RushYaml.load(_fs.cwd);

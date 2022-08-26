@@ -102,7 +102,7 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
     final extPath = p.joinAll([projectDir, 'src', ...orgName.split('.')]);
     final ideaDir = p.join(projectDir, '.idea');
 
-    final filesToCreate = {
+    final filesToCreate = <String, String>{
       if (['j', 'java'].contains(lang.toLowerCase()))
         p.join(extPath, '$pascalCasedName.java'): getExtensionTempJava(
           pascalCasedName,

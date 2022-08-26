@@ -23,8 +23,7 @@ class FileService {
     }
 
     if (!homeDir.existsSync() || homeDir.listSync().isEmpty) {
-      Logger().error(
-          'Could not find Rush data directory at $homeDir.\nTry re-installing Rush.');
+      Logger().error('Could not find Rush data directory at $homeDir.');
       exit(1);
     }
 
@@ -43,28 +42,12 @@ class FileService {
 
   Directory get libsDir => p.join(homeDir.path, 'libs').asDir();
 
-  // Directory get toolsDir => p.join(dataDir.path, 'tools').asDir();
-  // Directory get devDepsDir => p.join(dataDir.path, 'dev-deps').asDir();
-  // Directory get kotlincDir => p.join(toolsDir.path, 'kotlinc').asDir();
-
   File get processorJar => p.join(libsDir.path, 'processor-uber.jar').asFile();
+  File get desugarJar => p.join(libsDir.path, 'desugar.jar').asFile();
+
   File get jreToolsJar => p.join(libsDir.path, 'tools.jar').asFile();
   File get jreRtJar => p.join(libsDir.path, 'rt.jar').asFile();
 
-  // Compiler files
   File get javacArgsFile =>
       p.join(buildFilesDir.path, 'javac.args').asFile(true);
-  File get kotlincArgsFile =>
-      p.join(buildFilesDir.path, 'kotlinc.args').asFile(true);
-  File get kaptArgsFile => p.join(buildFilesDir.path, 'kapt.args').asFile(true);
-
-  // File get kotlincScript => p
-  //     .join(
-  //         kotlincDir.path, 'bin', 'kotlinc${Platform.isWindows ? '.bat' : ''}')
-  //     .asFile();
-
-  // // Executor files
-  // File get d8Jar => p.join(toolsDir.path, 'd8.jar').asFile();
-  // File get pgJar => p.join(toolsDir.path, 'proguard.jar').asFile();
-  // File get desugarJar => p.join(toolsDir.path, 'desugar.jar').asFile();
 }

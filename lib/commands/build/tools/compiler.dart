@@ -2,13 +2,13 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:get_it/get_it.dart';
+import 'package:rush_cli/utils/file_extension.dart';
 import 'package:rush_cli/utils/process_runner.dart';
 import 'package:rush_cli/services/file_service.dart';
 
 import '../../../services/libs_service.dart';
 import '../utils.dart';
 
-// TODO
 class Compiler {
   static final _fs = GetIt.I<FileService>();
   static final _processRunner = ProcessRunner();
@@ -27,11 +27,6 @@ class Compiler {
 
   static Future<List<String>> _javacArgs(Set<String> depJars) async {
     final classpath = depJars.join(BuildUtils.cpSeparator);
-    final procpath = [
-      // _libService.kotlinStdLib(ktVersion: kotlinVersion),
-      _fs.processorJar.path,
-    ].join(BuildUtils.cpSeparator);
-
     final javaFiles = _fs.srcDir
         .listSync(recursive: true)
         .whereType<File>()
@@ -43,65 +38,58 @@ class Compiler {
       ...['-encoding', 'UTF8'],
       ...['-d', _fs.buildClassesDir.path],
       ...['-cp', classpath],
-      ...['-processorpath', procpath],
+      ...['-processorpath', _fs.processorJar.path],
       ...javaFiles,
     ];
-
     return args.map((el) => el.replaceAll('\\', '/')).toList();
   }
 
-  // TODO: Run kapt and compiler in parallel
   static Future<void> compileKtFiles(
       Set<String> depJars, String kotlinVersion) async {
-    throw UnimplementedError('kotlin-compiler-embeddable');
-    // final kotlincArgs = await _kotlincArgs(depJars);
-    // try {
-    //   await _fs.kotlincArgsFile.writeAsString(kotlincArgs.join('\n'));
-    //   await _processRunner.runExecutable(
-    //       _fs.kotlincScript.path, ['@${_fs.kotlincArgsFile.path}']);
-    // } catch (e) {
-    //   rethrow;
-    // }
-
-    // final kaptArgs = await _kaptArgs(depJars);
-    // try {
-    //   await _fs.kaptArgsFile.writeAsString(kaptArgs.join('\n'));
-    //   await _processRunner
-    //       .runExecutable(_fs.kotlincScript.path, ['@${_fs.kaptArgsFile.path}']);
-    // } catch (e) {
-    //   rethrow;
-    // }
+    try {
+      final kotlincArgs = await _kotlincArgs(depJars, kotlinVersion);
+      await _processRunner.runExecutable('java', kotlincArgs);
+    } catch (e) {
+      rethrow;
+    }
   }
 
-  static Future<List<String>> _kotlincArgs(Set<String> depJars) async {
-    final classpath = depJars.join(BuildUtils.cpSeparator);
-    final args = <String>[
-      ...['-d', _fs.buildClassesDir.path],
-      ...['-cp', '"$classpath"'],
-      _fs.srcDir.path,
-    ];
-    return args.map((el) => el.replaceAll('\\', '/')).toList();
-  }
-
-  static Future<List<String>> _kaptArgs(
+  static Future<List<String>> _kotlincArgs(
       Set<String> depJars, String kotlinVersion) async {
-    final classpath = depJars.join(BuildUtils.cpSeparator);
-    final pluginPrefix = '-P "plugin:org.jetbrains.kotlin.kapt3:';
+    // Here, we are copying the kotlin-annotation-processing-embeddable jar
+    // in the it's own directory but with name: kotlin-annotation-processing.jar
+    // This is a bug in kapt, and for more details:
+    // https://youtrack.jetbrains.com/issue/KTIJ-22605/kotlin-annotation-processing-embeddable-isnt-actually-embeddable
+    final kaptJar = _libService.kotlinAnnotationProc(kotlinVersion).first;
+    final duplicateKaptJar =
+        p.join(p.dirname(kaptJar), 'kotlin-annotation-processing.jar');
+    kaptJar.asFile().copySync(duplicateKaptJar);
 
-    final args = <String>[
-      ...['-cp', '"$classpath"'],
-      // TODO: Use jmod on jdk >8
-      '-Xplugin="${_fs.jreToolsJar.path}"',
+    final pluginPrefix = '-P=plugin:org.jetbrains.kotlin.kapt3';
+    final kaptCliCp = [
+      ..._libService.kotlincJars(kotlinVersion),
+      ..._libService.kotlinAnnotationProc(kotlinVersion),
+      // TODO: Consider using JDK bundled tools.jar or similar
+      _fs.jreToolsJar.path,
+    ].join(BuildUtils.cpSeparator);
+
+    return <String>[
+      // This -cp flag belongs to the java cmdline tool, required to run the
+      // below KaptCli class
+      ...['-cp', kaptCliCp],
+      'org.jetbrains.kotlin.kapt.cli.KaptCli',
+      // And this -cp flag belongs to the above KaptCli class
+      ...['-cp', depJars.join(BuildUtils.cpSeparator)],
+      '-Xplugin=$kaptJar',
       ...[
-        '-Xplugin="${_libService.kotlinAnnotationProc(kotlinVersion)}"',
-        '${pluginPrefix}sources=${_fs.buildKaptDir.path}"',
-        '${pluginPrefix}classes=${_fs.buildKaptDir.path}"',
-        '${pluginPrefix}stubs=${_fs.buildKaptDir.path}"',
-        '${pluginPrefix}aptMode=stubsAndApt"',
-        '${pluginPrefix}apclasspath=${_fs.processorJar.path}"',
+        '$pluginPrefix:classes=${_fs.buildKaptDir.path}',
+        '$pluginPrefix:sources=${_fs.buildKaptDir.path}',
+        '$pluginPrefix:stubs=${_fs.buildKaptDir.path}',
+        '$pluginPrefix:apclasspath=${_fs.processorJar.path}',
       ],
+      ...['-d', _fs.buildClassesDir.path],
+      '-no-stdlib',
       _fs.srcDir.path,
-    ];
-    return args.map((el) => el.replaceAll('\\', '/')).toList();
+    ].map((el) => el.replaceAll('\\', '/')).toList();
   }
 }
