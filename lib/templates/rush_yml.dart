@@ -7,12 +7,12 @@ android:
   min_sdk: 7
 ${enableKt ? _getKtField() : ''}
 # desugar:
-#  src_files: false
-#  deps: false
+#   src_files: false
+#   deps: false
 
-# deps:
-#   - runtime: 'example.jar'
-#   - runtime: 'com.example:foo-bar:1.2.3'
+# dependencies:
+# - example.jar
+# - com.example:foo-bar:1.2.3
 ''';
 }
 
@@ -21,6 +21,6 @@ String _getKtField() {
 
 kotlin:
   enable: true
-  version: 'latest-stable'
+  version: '1.7.10'
 ''';
 }

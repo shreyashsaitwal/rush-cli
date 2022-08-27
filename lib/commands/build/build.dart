@@ -82,9 +82,8 @@ class BuildCommand extends RushCommand {
     final depAars = <String>{
       for (final dep in remoteArtifacts)
         if (dep.isAar) dep.artifactFile,
-      for (final dep in rushYaml.deps)
-        if (!dep.isRemote && dep.value.endsWith('.aar'))
-          p.join(_fs.depsDir.path, dep.value)
+      for (final dep in [...rushYaml.runtimeDeps, ...rushYaml.comptimeDeps])
+        if (dep.endsWith('.aar')) p.join(_fs.depsDir.path, dep)
     };
 
     _logger.debug('Dep aars: $depAars');
@@ -102,9 +101,8 @@ class BuildCommand extends RushCommand {
       // Remote deps
       for (final dep in remoteArtifacts) ...dep.classpathJars(),
       // Local deps
-      for (final dep in rushYaml.deps)
-        if (!dep.isRemote && dep.value.endsWith('.jar'))
-          p.join(_fs.depsDir.path, dep.value),
+      for (final dep in [...rushYaml.runtimeDeps, ...rushYaml.comptimeDeps])
+        if (dep.endsWith('.jar')) p.join(_fs.depsDir.path, dep),
     };
 
     _logger.initStep('Compiling sources files');
@@ -229,9 +227,9 @@ class BuildCommand extends RushCommand {
     final zipEncoder = ZipFileEncoder()..create(artJarPath);
 
     final runtimeDepJars = <String>{
-      ...rushYaml.deps
-          .where((dep) => !dep.isRemote && dep.scope == Scope.runtime)
-          .map((dep) => p.join(_fs.depsDir.path, dep.value)),
+      ...rushYaml.runtimeDeps
+          .where((dep) => !dep.endsWith('.jar') && !dep.endsWith('.aar'))
+          .map((dep) => p.join(_fs.depsDir.path, dep)),
       ...remoteArtifacts
           .where((dep) => dep.scope == Scope.runtime)
           .map((dep) => dep.classpathJars())

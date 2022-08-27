@@ -9,7 +9,7 @@ class Kotlin {
   @JsonKey(required: true)
   final bool enable;
 
-  @JsonKey(defaultValue: '1.7.10')
+  @JsonKey(required: true)
   final String version;
 
   Kotlin({

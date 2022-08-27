@@ -26,12 +26,15 @@ class SyncSubCommand extends RushCommand {
     }
 
     rushYaml ??= await RushYaml.load(_fs.cwd);
-    final remoteDeps = rushYaml.deps.where((el) => el.isRemote);
+    final remoteRuntimeDeps = rushYaml.runtimeDeps.where((el) => !el.endsWith('.jar') && !el.endsWith('.aar'));
+    final remoteComptimeDeps = rushYaml.comptimeDeps.where((el) => !el.endsWith('.jar') && !el.endsWith('.aar'));
 
     final resolver = ArtifactResolver();
     final resolvedArtifacts = await Future.wait([
-      for (final dep in remoteDeps)
-        resolver.resolveArtifact(dep.value, dep.scope)
+      for (final dep in remoteRuntimeDeps)
+        resolver.resolveArtifact(dep, Scope.runtime),
+      for (final dep in remoteComptimeDeps)
+        resolver.resolveArtifact(dep, Scope.compile)
     ]);
 
     await Future.wait([

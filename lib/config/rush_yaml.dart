@@ -4,10 +4,7 @@ import 'package:checked_yaml/checked_yaml.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:path/path.dart' as p;
 
-import '../resolver/artifact.dart';
-
 part 'android.dart';
-part 'dep_entry.dart';
 part 'kotlin.dart';
 
 part 'rush_yaml.g.dart';
@@ -20,13 +17,25 @@ part 'rush_yaml.g.dart';
 class RushYaml {
   @JsonKey(required: true)
   final String version;
+
+  @JsonKey(name: 'dependencies')
+  final List<String> runtimeDeps;
+
+  @JsonKey(name: 'comptime_dependencies')
+  final List<String> comptimeDeps;
+  
   final String homepage;
+  
   final String license;
+  
   final bool desugar;
+  
   final List<String> assets;
+  
   final List<String> authors;
-  final List<DepEntry> deps;
+  
   final Android? android;
+  
   final Kotlin? kotlin;
 
   RushYaml({
@@ -36,7 +45,8 @@ class RushYaml {
     this.desugar = false,
     this.assets = const [],
     this.authors = const [],
-    this.deps = const [],
+    this.runtimeDeps = const [],
+    this.comptimeDeps = const [],
     this.android,
     this.kotlin,
   });
