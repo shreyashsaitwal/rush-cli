@@ -2,6 +2,7 @@ import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/rush_command.dart';
+import 'package:rush_cli/config/rush_yaml.dart';
 import 'package:rush_cli/resolver/artifact.dart';
 import 'package:rush_cli/services/file_service.dart';
 
@@ -18,14 +19,18 @@ class InfoSubCommand extends RushCommand {
   @override
   Future<void> run() async {
     Hive.init(p.join(_fs.cwd, '.rush'));
+    final rushYaml = await RushYaml.load(_fs.cwd);
 
     final depsBox = await Hive.openBox<Artifact>('deps');
     final remoteDeps = depsBox.values.toList();
+    final directDeps = remoteDeps.where((el) =>
+        rushYaml.runtimeDeps.contains(el.coordinate) ||
+        rushYaml.comptimeDeps.contains(el.coordinate));
 
     // TODO: Colorize the output + print additional info like dep scope, etc.
     final graph = <String>{
-      for (final dep in remoteDeps)
-        _printGraph(remoteDeps, dep, dep == remoteDeps.last)
+      for (final dep in directDeps)
+        _printGraph(remoteDeps, dep, dep == directDeps.last)
     }.join();
 
     print(p.basename(_fs.cwd) + newLine + graph);
@@ -37,7 +42,7 @@ class InfoSubCommand extends RushCommand {
   final alreadyPrinted = <Artifact>{};
 
   String _printGraph(
-    List<Artifact> depList,
+    Iterable<Artifact> depList,
     Artifact dep,
     bool isLast, [
     String prefix = '',
@@ -51,8 +56,11 @@ class InfoSubCommand extends RushCommand {
     connector += dep.dependencies.isNotEmpty && !printed
         ? Connector.childDeps
         : Connector.horizontal;
-    connector += Connector.empty + dep.coordinate +' (${dep.scope.name})' +
-        (printed && dep.dependencies.isNotEmpty ? ' (*)' : '') + newLine;
+    connector += Connector.empty +
+        dep.coordinate +
+        ' (${dep.scope.name})' +
+        (printed && dep.dependencies.isNotEmpty ? ' (*)' : '') +
+        newLine;
 
     if (printed) {
       return connector;
