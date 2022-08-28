@@ -17,13 +17,10 @@ class InfoSubCommand extends RushCommand {
 
   @override
   Future<void> run() async {
-    Hive
-      ..init(p.join(_fs.cwd, '.rush'))
-      ..registerAdapter(ArtifactAdapter())
-      ..registerAdapter(ScopeAdapter());
+    Hive.init(p.join(_fs.cwd, '.rush'));
 
-    final remoteDepIndex = await Hive.openBox<Artifact>('dep-index');
-    final remoteDeps = remoteDepIndex.values.toList();
+    final depsBox = await Hive.openBox<Artifact>('deps');
+    final remoteDeps = depsBox.values.toList();
 
     // TODO: Colorize the output + print additional info like dep scope, etc.
     final graph = <String>{
@@ -35,32 +32,43 @@ class InfoSubCommand extends RushCommand {
   }
 
   static const String newLine = '\n';
-  static const int branchGap = 3;
+  static const int branchGap = 2;
+
+  final alreadyPrinted = <Artifact>{};
 
   String _printGraph(
     List<Artifact> depList,
     Artifact dep,
     bool isLast, [
-    String initial = '',
+    String prefix = '',
   ]) {
-    String connector = initial;
+    String connector = prefix;
     connector += isLast ? Connector.lastSibling : Connector.sibling;
     connector += Connector.horizontal * branchGap;
 
-    connector += dep.dependencies.isNotEmpty
+    final printed = alreadyPrinted
+        .any((el) => el.coordinate == dep.coordinate && el.scope == dep.scope);
+    connector += dep.dependencies.isNotEmpty && !printed
         ? Connector.childDeps
         : Connector.horizontal;
-    connector +=
-        Connector.empty + dep.coordinate + ' (${dep.scope.name})' + newLine;
+    connector += Connector.empty + dep.coordinate +' (${dep.scope.name})' +
+        (printed && dep.dependencies.isNotEmpty ? ' (*)' : '') + newLine;
 
-    for (final el in dep.dependencies) {
-      final newInitial = initial +
-          (isLast ? Connector.empty : Connector.vertical) +
-          Connector.empty * branchGap;
-      connector +=
-          _printGraph(depList, el, el == dep.dependencies.last, newInitial);
+    if (printed) {
+      return connector;
     }
 
+    for (final el in dep.dependencies) {
+      final newPrefix = prefix +
+          (isLast ? Connector.empty : Connector.vertical) +
+          Connector.empty * branchGap;
+      final artifact =
+          depList.firstWhere((element) => element.coordinate == el);
+      connector += _printGraph(
+          depList, artifact, el == dep.dependencies.last, newPrefix);
+    }
+
+    alreadyPrinted.add(dep);
     return connector;
   }
 }

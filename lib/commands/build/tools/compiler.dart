@@ -61,7 +61,7 @@ class Compiler {
     // in the it's own directory but with name: kotlin-annotation-processing.jar
     // This is a bug in kapt, and for more details:
     // https://youtrack.jetbrains.com/issue/KTIJ-22605/kotlin-annotation-processing-embeddable-isnt-actually-embeddable
-    final kaptJar = _libService.kotlinAnnotationProc(kotlinVersion).first;
+    final kaptJar = _libService.kaptJars(kotlinVersion).first;
     final duplicateKaptJar =
         p.join(p.dirname(kaptJar), 'kotlin-annotation-processing.jar');
     kaptJar.asFile().copySync(duplicateKaptJar);
@@ -69,7 +69,7 @@ class Compiler {
     final pluginPrefix = '-P=plugin:org.jetbrains.kotlin.kapt3';
     final kaptCliCp = [
       ..._libService.kotlincJars(kotlinVersion),
-      ..._libService.kotlinAnnotationProc(kotlinVersion),
+      ..._libService.kaptJars(kotlinVersion),
       // TODO: Consider using JDK bundled tools.jar or similar
       _fs.jreToolsJar.path,
     ].join(BuildUtils.cpSeparator);

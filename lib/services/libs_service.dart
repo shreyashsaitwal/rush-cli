@@ -53,7 +53,6 @@ class LibService {
   late final Box<Artifact> _buildLibsBox;
 
   final _logger = GetIt.I<Logger>();
-  final _resolver = ArtifactResolver();
 
   bool get isCacheEmpty => _devDepsBox.isEmpty || _buildLibsBox.isEmpty;
 
@@ -63,16 +62,16 @@ class LibService {
   String d8Jar() => _buildLibsBox.get(_d8Coord)!.classesJar;
 
   List<String> pgJars() =>
-      _buildLibsBox.get(_pgCoord)!.classpathJars().toList();
+      _buildLibsBox.get(_pgCoord)!.classpathJars(_buildLibsBox.values).toList();
 
   List<String> manifMergerJars() => _manifMergerAndDeps
-      .map((el) => _buildLibsBox.get(el)!.classpathJars())
+      .map((el) => _buildLibsBox.get(el)!.classpathJars(_buildLibsBox.values))
       .flattened
       .toList();
 
   List<String> kotlincJars(String ktVersion) => _buildLibsBox
       .get('$_kotlinGroupId:kotlin-compiler-embeddable:$ktVersion')!
-      .classpathJars()
+      .classpathJars(_buildLibsBox.values)
       .toList();
 
   String kotlinStdLib(String ktVersion) {
@@ -81,31 +80,38 @@ class LibService {
         .classesJar;
   }
 
-  List<String> kotlinAnnotationProc(String ktVersion) => _buildLibsBox
-        .get(
-            '$_kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion')!
-        .classpathJars().toList();
+  List<String> kaptJars(String ktVersion) => _buildLibsBox
+      .get(
+          '$_kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion')!
+      .classpathJars(_buildLibsBox.values)
+      .toList();
 
   Future<void> ensureDevDeps(String ktVersion) async {
     final deps = {..._devDeps, '$_kotlinGroupId:kotlin-stdlib:$ktVersion'};
+    final resolver = ArtifactResolver();
     final List<Artifact> resolvedDeps;
 
     _logger.debug('Resolving dev deps');
     if (_devDepsBox.isEmpty) {
-      resolvedDeps = await Future.wait([
-        for (final dep in deps) _resolver.resolveArtifact(dep, Scope.compile)
-      ]);
+      resolvedDeps = (await Future.wait([
+        for (final dep in deps) resolver.resolveArtifact(dep, Scope.compile)
+      ]))
+          .flattened
+          .toList();
     } else {
-      resolvedDeps = await Future.wait(_devDepsBox.values
-          .whereNot((el) => el.artifactFile.asFile().existsSync())
-          .map(
-              (el) => _resolver.resolveArtifact(el.coordinate, Scope.compile)));
+      resolvedDeps = (await Future.wait(_devDepsBox.values
+              .whereNot((el) => el.classesJar.asFile().existsSync())
+              .map((el) =>
+                  resolver.resolveArtifact(el.coordinate, Scope.compile))))
+          .flattened
+          .toList();
     }
 
     _logger.debug('Downloading and caching dev deps');
     if (resolvedDeps.isNotEmpty) {
+      await _devDepsBox.clear();
       await Future.wait([
-        for (final dep in resolvedDeps) _resolver.downloadArtifact(dep),
+        for (final dep in resolvedDeps) resolver.downloadArtifact(dep),
       ]);
       await Future.wait([
         for (final dep in resolvedDeps) _devDepsBox.put(dep.coordinate, dep),
@@ -122,34 +128,31 @@ class LibService {
       ..._manifMergerAndDeps,
     };
 
+    final resolver = ArtifactResolver();
     final List<Artifact> resolvedLibs;
 
     _logger.debug('Resolving tools...');
     if (_buildLibsBox.isEmpty) {
-      resolvedLibs = await Future.wait([
-        for (final lib in libs) _resolver.resolveArtifact(lib, Scope.runtime),
-      ]);
+      resolvedLibs = (await Future.wait([
+        for (final lib in libs) resolver.resolveArtifact(lib, Scope.runtime),
+      ]))
+          .flattened
+          .toList();
     } else {
-      final resolveFuts = <Future<Artifact>>[];
-      for (final lib in _buildLibsBox.values) {
-        // If the library or any of its dependencies local file doesn't exist,
-        // resolve it again.
-        if (!lib.classesJar.asFile().existsSync() ||
-            lib.dependencies
-                .any((el) => !el.classesJar.asFile().existsSync())) {
-          resolveFuts
-              .add(_resolver.resolveArtifact(lib.coordinate, Scope.runtime));
-        }
-      }
-
-      resolvedLibs = await Future.wait(resolveFuts);
+      resolvedLibs = (await Future.wait(_buildLibsBox.values
+              .whereNot((el) => el.classesJar.asFile().existsSync())
+              .map((el) =>
+                  resolver.resolveArtifact(el.coordinate, Scope.runtime))))
+          .flattened
+          .toList();
     }
 
     _logger.debug('Downloading and caching tools...');
     if (resolvedLibs.isNotEmpty) {
+      await _buildLibsBox.clear();
       await Future.wait([
-        ...resolvedLibs.map((el) => _resolver.downloadArtifact(el)),
-        ...resolvedLibs.map((el) => _buildLibsBox.put(el.coordinate, el)),
+        ...resolvedLibs.map((el) => resolver.downloadArtifact(el)),
+        _buildLibsBox.addAll(resolvedLibs),
       ]);
     }
   }

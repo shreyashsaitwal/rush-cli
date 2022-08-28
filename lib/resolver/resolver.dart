@@ -44,12 +44,15 @@ class ArtifactResolver {
 
   late final String cacheDir;
 
-  ArtifactResolver() {
-    if (Platform.isWindows) {
-      cacheDir =
+  ArtifactResolver({String? cacheDir}) {
+    if (cacheDir != null) {
+      this.cacheDir = cacheDir;
+    } else if (Platform.isWindows) {
+      this.cacheDir =
           p.join(Platform.environment['UserProfile']!, '.m2').asDir(true).path;
     } else {
-      cacheDir = p.join(Platform.environment['HOME']!, '.m2').asDir(true).path;
+      this.cacheDir =
+          p.join(Platform.environment['HOME']!, '.m2').asDir(true).path;
     }
   }
 
@@ -178,7 +181,7 @@ class ArtifactResolver {
   /// 5. After the versions of the dependencies are resolved, we resolve them
   ///     and their dependencies (and so on) recursively.
   /// 6. Finally, we wrap this nicely in an [Artifact] and return.
-  Future<Artifact> resolveArtifact(String coordinate, Scope scope) async {
+  Future<List<Artifact>> resolveArtifact(String coordinate, Scope scope) async {
     final metadata = _ArtifactMetadata(coordinate);
     final pomFile = await _fetchFile(metadata.pomPath());
 
@@ -190,10 +193,15 @@ class ArtifactResolver {
         throw Exception(
             'Artifact ${pom.coordinate} doesn\'t have a valid POM file (missing groupId and/or version)');
       } else {
-        final parentArtifact =
-            await resolveArtifact(pom.parent!.coordinate, scope);
-        final parentMetadata = _ArtifactMetadata(parentArtifact.coordinate);
+        // TODO: Investigate why I chose to resolve the parent here. I remember
+        // I did it for some reason, but don't remember what it was. :(
+        // final parentArtifact =
+        //     await resolveArtifact(pom.parent!.coordinate, scope);
+        // final parentMetadata =
+        //     _ArtifactMetadata(parentArtifact.first.coordinate);
 
+        final parentMetadata =
+            _ArtifactMetadata(pom.parent!.coordinate);
         parentPom = Pom.fromXml(
             (await _fetchFile(parentMetadata.pomPath())).readAsStringSync());
 
@@ -215,35 +223,36 @@ class ArtifactResolver {
       return false;
     });
 
-    final resolvedDeps = <Artifact>[];
+    final result = <Artifact>[];
     for (final dep in deps) {
       dep.version = _resolveDepVersion(dep, pom, parentPom);
-      resolvedDeps.add(await resolveArtifact(
+      result.addAll(await resolveArtifact(
           dep.coordinate, dep.scope?.toScope() ?? Scope.compile));
     }
 
-    return Artifact(
-      coordinate: coordinate,
-      scope: scope,
-      artifactFile: p.join(cacheDir, metadata.artifactPath(pom.packaging)),
-      sourceJar: p.join(cacheDir, metadata.sourceJarPath()),
-      dependencies: resolvedDeps,
-      isAar: pom.packaging == 'aar',
-    );
+    return result
+      ..insert(
+        0,
+        Artifact(
+          coordinate: coordinate,
+          scope: scope,
+          artifactFile: p.join(cacheDir, metadata.artifactPath(pom.packaging)),
+          sourceJar: p.join(cacheDir, metadata.sourceJarPath()),
+          dependencies: deps.map((el) => el.coordinate).toList(growable: true),
+          isAar: pom.packaging == 'aar',
+        ),
+      );
   }
 
   Future<void> downloadArtifact(Artifact artifact) async {
     final metadata = _ArtifactMetadata(artifact.coordinate);
     await _fetchFile(metadata.artifactPath(artifact.isAar ? 'aar' : 'jar'));
-    await Future.wait(artifact.dependencies.map((el) => downloadArtifact(el)));
   }
 
   Future<void> downloadSourceJar(Artifact artifact) async {
     final metadata = _ArtifactMetadata(artifact.coordinate);
     try {
       await _fetchFile(metadata.sourceJarPath());
-      await Future.wait(
-          artifact.dependencies.map((el) => downloadSourceJar(el)));
     } catch (_) {}
   }
 }

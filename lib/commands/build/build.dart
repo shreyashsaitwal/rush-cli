@@ -99,7 +99,7 @@ class BuildCommand extends RushCommand {
       p.join(_fs.libsDir.path, 'kawa-1.11-modified.jar'),
       p.join(_fs.libsDir.path, 'physicaloid-library.jar'),
       // Remote deps
-      for (final dep in remoteArtifacts) ...dep.classpathJars(),
+      for (final dep in remoteArtifacts) ...dep.classpathJars(remoteArtifacts),
       // Local deps
       for (final dep in [...rushYaml.runtimeDeps, ...rushYaml.comptimeDeps])
         if (dep.endsWith('.jar')) p.join(_fs.depsDir.path, dep),
@@ -232,7 +232,7 @@ class BuildCommand extends RushCommand {
           .map((dep) => p.join(_fs.depsDir.path, dep)),
       ...remoteArtifacts
           .where((dep) => dep.scope == Scope.runtime)
-          .map((dep) => dep.classpathJars())
+          .map((dep) => dep.classpathJars(remoteArtifacts))
           .flattened,
     };
 
