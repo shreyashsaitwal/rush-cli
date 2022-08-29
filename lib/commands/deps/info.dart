@@ -1,12 +1,13 @@
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/commands/rush_command.dart';
-import 'package:rush_cli/config/rush_yaml.dart';
-import 'package:rush_cli/resolver/artifact.dart';
-import 'package:rush_cli/services/file_service.dart';
 
-class InfoCommand extends RushCommand {
+import '../../commands/rush_command.dart';
+import '../../config/rush_yaml.dart';
+import '../../resolver/artifact.dart';
+import '../../services/file_service.dart';
+
+class InfoSubCommand extends RushCommand {
   final FileService _fs = GetIt.I<FileService>();
 
   @override
