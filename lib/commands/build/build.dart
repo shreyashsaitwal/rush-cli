@@ -51,19 +51,16 @@ class BuildCommand extends RushCommand {
 
     _logger.initStep('Initializing build');
 
-    final RushYaml rushYaml;
+    final RushYaml config;
     try {
-      rushYaml = await RushYaml.load(_fs.config);
+      config = await RushYaml.load(_fs.configFile);
     } catch (e) {
       rethrow;
     }
 
-    _kotlinVersion = rushYaml.kotlin?.version ?? '1.7.10';
+    _kotlinVersion = config.kotlin?.version ?? '1.7.10';
 
-    if (_libService.resolutionNeeded) {
-      _logger.info('Fetching dev deps');
-      await _libService.ensureDevDeps(_kotlinVersion);
-    }
+    await _libService.ensureDevDeps(_kotlinVersion);
 
     final timestampsBox = await Hive.openBox<DateTime>('timestamps');
     final depsBox = await Hive.openBox<Artifact>('deps');
@@ -72,16 +69,24 @@ class BuildCommand extends RushCommand {
     // or if the dep artifacts are missing
     final configFileModified = timestampsBox
             .get('rush.yaml')
-            ?.isBefore(_fs.config.lastModifiedSync()) ??
+            ?.isBefore(_fs.configFile.lastModifiedSync()) ??
         true;
     final everyDepExists = depsBox.isNotEmpty &&
         depsBox.values.every((el) => el.classesJar.asFile().existsSync());
 
     final Iterable<Artifact> remoteArtifacts;
     final needFetch = configFileModified || !everyDepExists;
+    
     if (needFetch) {
-      _logger.info('Fetching dependencies');
-      remoteArtifacts = await SyncSubCommand().run(depsBox, rushYaml);
+      _logger.info('Fetching dependencies...');
+      final remoteDeps = {
+        Scope.runtime: config.runtimeDeps
+            .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
+        Scope.compile: config.comptimeDeps
+            .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
+      };
+      remoteArtifacts = await SyncSubCommand()
+          .run(cacheBox: depsBox, coordinates: remoteDeps);
       await timestampsBox.put('rush.yaml', DateTime.now());
     } else {
       remoteArtifacts = depsBox.values.toList();
@@ -90,13 +95,13 @@ class BuildCommand extends RushCommand {
     final depAars = <String>{
       for (final dep in remoteArtifacts)
         if (dep.isAar) dep.artifactFile,
-      for (final dep in [...rushYaml.runtimeDeps, ...rushYaml.comptimeDeps])
+      for (final dep in [...config.runtimeDeps, ...config.comptimeDeps])
         if (dep.endsWith('.aar')) p.join(_fs.depsDir.path, dep)
     };
 
     _logger.debug('Dep aars: $depAars');
     await _mergeManifests(
-        timestampsBox, rushYaml.android?.minSdk ?? 21, depAars, needFetch);
+        timestampsBox, config.android?.minSdk ?? 21, depAars, needFetch);
     _logger.closeStep();
 
     final depJars = <String>{
@@ -110,24 +115,24 @@ class BuildCommand extends RushCommand {
       // Remote deps
       for (final dep in remoteArtifacts) ...dep.classpathJars(remoteArtifacts),
       // Local deps
-      for (final dep in [...rushYaml.runtimeDeps, ...rushYaml.comptimeDeps])
+      for (final dep in [...config.runtimeDeps, ...config.comptimeDeps])
         if (dep.endsWith('.jar')) p.join(_fs.depsDir.path, dep),
     };
 
     _logger.initStep('Compiling sources files');
-    await _compile(rushYaml, depJars);
+    await _compile(config, depJars);
     _logger.closeStep();
 
     _logger.initStep('Processing');
-    await Generator.generate(rushYaml);
-    final artJarPath = await _createArtJar(rushYaml, remoteArtifacts.toList());
+    await Generator.generate(config);
+    final artJarPath = await _createArtJar(config, remoteArtifacts.toList());
 
     if (argResults!['optimize'] as bool) {
       _logger.info('Optimizing and obfuscating the bytecode');
       await Executor.execProGuard(artJarPath, depJars);
     }
 
-    if (rushYaml.desugar) {
+    if (config.desugar) {
       _logger.info('Desugaring the bytecode');
       await Executor.execDesugarer(artJarPath, depJars);
     }

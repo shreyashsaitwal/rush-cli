@@ -92,7 +92,7 @@ class Artifact {
     return p.join(dist.path, 'classes.jar');
   }
 
-  Version get version => Version.parse(coordinate.split(':').last);
+  Version get version => Version.from(coordinate.split(':').last);
 
   String get groupId => coordinate.split(':')[0];
 
@@ -126,17 +126,23 @@ class Artifact {
 @HiveType(typeId: 3)
 class Version extends Comparable<Version> {
   @HiveField(0)
-  final String literal;
+  final String _versionSpec;
 
   @HiveField(1)
   final List<String> _elements;
 
   @HiveField(2)
-  String? rangeLiteral;
+  String? _originalSpec;
 
-  Version(this.literal, this._elements);
+  String get originalSpec => _originalSpec!;
 
-  Version.parse(String literal) : this(literal, literal.split('.'));
+  Version(this._versionSpec, [this._originalSpec])
+      : _elements = _versionSpec.split('.') {
+    _originalSpec ??= _versionSpec;
+  }
+
+  Version.from(String literal, {String? origialSpec})
+      : this(literal, origialSpec);
 
   int _stringOrNumComparison(String a, String b) {
     final aNum = int.tryParse(a);
@@ -149,7 +155,7 @@ class Version extends Comparable<Version> {
   }
 
   @override
-  String toString() => rangeLiteral ?? literal;
+  String toString() => _versionSpec;
 
   static RegExp rangeRegex =
       RegExp(r'([\[\(])(-?∞?.*)(?:\,|\.\.)?(-?∞?.*)([\]\)])');
@@ -159,20 +165,20 @@ class Version extends Comparable<Version> {
   // still handle them.
   // Below copy-pasta sauce: https://stackoverflow.com/a/45627598/12401482 :)
   Range<Version>? get range {
-    rangeLiteral ??= literal;
+    _originalSpec ??= _versionSpec;
 
-    if (!rangeRegex.hasMatch(rangeLiteral!)) {
+    if (!rangeRegex.hasMatch(_originalSpec!)) {
       return null;
     }
 
-    final matches = rangeRegex.allMatches(rangeLiteral!).first;
-    if (rangeRegex.hasMatch(rangeLiteral!)) {
+    final matches = rangeRegex.allMatches(_originalSpec!).first;
+    if (rangeRegex.hasMatch(_originalSpec!)) {
       final lowerBoundEndpoint = matches.group(2);
 
       // Singleton case (e.g. [1.0.0])
       final separator = matches.group(0);
       if (separator != ',') {
-        return Range.singleton(Version.parse(lowerBoundEndpoint!));
+        return Range.singleton(Version.from(lowerBoundEndpoint!));
       }
 
       final upperBoundEndpoint = matches.group(3);
@@ -187,47 +193,47 @@ class Version extends Comparable<Version> {
       // Lower infinity case (e.g. [, 1.0.0])
       if (lowerBoundEndpoint == null || lowerBoundEndpoint == '') {
         if (upperBoundInclusive) {
-          return Range.atMost(Version.parse(upperBoundEndpoint!));
+          return Range.atMost(Version.from(upperBoundEndpoint!));
         } else {
-          return Range.lessThan(Version.parse(upperBoundEndpoint!));
+          return Range.lessThan(Version.from(upperBoundEndpoint!));
         }
       }
 
       // Upper infinity case (e.g. [1.0.0, ])
       else if (upperBoundEndpoint == null || upperBoundEndpoint == '') {
         if (lowerBoundInclusive) {
-          return Range.atLeast(Version.parse(lowerBoundEndpoint));
+          return Range.atLeast(Version.from(lowerBoundEndpoint));
         } else {
-          return Range.greaterThan(Version.parse(lowerBoundEndpoint));
+          return Range.greaterThan(Version.from(lowerBoundEndpoint));
         }
       }
 
       // Non infinity case (e.g. [1.0.0, 2.0.0])
       if (lowerBoundInclusive) {
         if (upperBoundInclusive) {
-          return Range.closed(Version.parse(lowerBoundEndpoint),
-              Version.parse(upperBoundEndpoint));
+          return Range.closed(Version.from(lowerBoundEndpoint),
+              Version.from(upperBoundEndpoint));
         } else {
-          return Range.closedOpen(Version.parse(lowerBoundEndpoint),
-              Version.parse(upperBoundEndpoint));
+          return Range.closedOpen(Version.from(lowerBoundEndpoint),
+              Version.from(upperBoundEndpoint));
         }
       } else {
         if (upperBoundInclusive) {
-          return Range.openClosed(Version.parse(lowerBoundEndpoint),
-              Version.parse(upperBoundEndpoint));
+          return Range.openClosed(Version.from(lowerBoundEndpoint),
+              Version.from(upperBoundEndpoint));
         } else {
-          return Range.open(Version.parse(lowerBoundEndpoint),
-              Version.parse(upperBoundEndpoint));
+          return Range.open(Version.from(lowerBoundEndpoint),
+              Version.from(upperBoundEndpoint));
         }
       }
     } else {
-      throw Exception(rangeLiteral! + ' is not a valid range notation');
+      throw Exception(_originalSpec! + ' is not a valid range notation');
     }
   }
 
   @override
   int compareTo(Version other) {
-    if (literal == other.literal) return 0;
+    if (_versionSpec == other._versionSpec) return 0;
 
     final minLenght = min(_elements.length, other._elements.length);
     for (var i = 0; i < minLenght - 1; i++) {

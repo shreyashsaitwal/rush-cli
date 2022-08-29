@@ -3,10 +3,11 @@ import 'package:hive/hive.dart';
 import 'package:path/path.dart';
 import 'package:collection/collection.dart';
 
+import './file_service.dart';
 import '../resolver/artifact.dart';
 import '../resolver/resolver.dart';
-import 'file_service.dart';
 import '../utils/file_extension.dart';
+import '../commands/deps/sync.dart';
 
 const _devDeps = <String>{
   'androidx.appcompat:appcompat:1.0.0',
@@ -36,7 +37,7 @@ class LibService {
 
   LibService._() {
     Hive
-      ..init(join(_fs.homeDir.path, 'cache'))
+      ..init(join(_fs.rushHomeDir.path, 'cache'))
       ..registerAdapter(ArtifactAdapter())
       ..registerAdapter(ScopeAdapter());
   }
@@ -50,16 +51,6 @@ class LibService {
 
   late final Box<Artifact> _devDepsBox;
   late final Box<Artifact> _buildLibsBox;
-
-  bool get resolutionNeeded {
-    if (_devDepsBox.isEmpty || _buildLibsBox.isEmpty) {
-      return true;
-    }
-    return !(_devDepsBox.values
-            .every((element) => element.classesJar.asFile().existsSync()) &&
-        _buildLibsBox.values
-            .every((element) => element.classesJar.asFile().existsSync()));
-  }
 
   List<String> devDepJars() =>
       [for (final lib in _devDepsBox.values) lib.classesJar];
@@ -122,19 +113,35 @@ class LibService {
   }
 
   Future<void> ensureDevDeps(String ktVersion) async {
-    final deps = [..._devDeps, '$_kotlinGroupId:kotlin-stdlib:$ktVersion'];
-    final buildTools = <String>[
-      '$_kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
-      '$_kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
-      _d8Coord,
-      _pgCoord,
-      ..._manifMergerAndDeps,
-    ];
-    await _buildLibsBox.clear();
-    await _devDepsBox.clear();
-    await Future.wait([
-      _downloadAndCacheLibs(deps, _devDepsBox, Scope.compile, true),
-      _downloadAndCacheLibs(buildTools, _buildLibsBox, Scope.runtime, false),
-    ]);
+    final resolutionNeeded = () {
+      if (_devDepsBox.isEmpty || _buildLibsBox.isEmpty) {
+        return true;
+      }
+      return !(_devDepsBox.values
+              .every((el) => el.classesJar.asFile().existsSync()) &&
+          _buildLibsBox.values
+              .every((el) => el.classesJar.asFile().existsSync()));
+    }();
+    if (!resolutionNeeded) {
+      return;
+    }
+
+    print('Fetching build tools...');
+    await SyncSubCommand()
+        .run(cacheBox: _buildLibsBox, setKeysAsCoordinates: true, coordinates: {
+      Scope.runtime: [
+        '$_kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
+        '$_kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
+        _d8Coord,
+        _pgCoord,
+        ..._manifMergerAndDeps,
+      ],
+    });
+
+    print('Fetching dev dependencies...');
+    await SyncSubCommand()
+        .run(cacheBox: _devDepsBox, setKeysAsCoordinates: true, coordinates: {
+      Scope.compile: [..._devDeps, '$_kotlinGroupId:kotlin-stdlib:$ktVersion']
+    });
   }
 }

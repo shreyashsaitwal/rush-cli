@@ -92,11 +92,11 @@ class ArtifactResolver {
     // If the version is defined in a range, pick the upper endpoint if it is
     // upper bounded otherwise pick the lower endpoint for now.
     if (version != null && Version.rangeRegex.hasMatch(version)) {
-      final range = Version.parse(version).range;
+      final range = Version.from(version).range;
       if (!range!.upperBounded) {
-        return Version.parse(range.lower!.literal)..rangeLiteral = version;
+        return Version.from(range.lower!.toString(), origialSpec: version);
       }
-      return Version.parse(range.upper!.literal)..rangeLiteral = version;
+      return Version.from(range.upper!.toString(), origialSpec: version);
     }
 
     // If the version is null, then it should be stored in the [pom] or [parentPom]
@@ -147,7 +147,7 @@ class ArtifactResolver {
           // To me, this seems the only valid case. Why would someone set the
           // version to, say, something like ${project.artifactId}?
           case 'version':
-            return Version.parse(pom.version!);
+            return Version.from(pom.version!);
           default:
             throw exception;
         }
@@ -160,14 +160,14 @@ class ArtifactResolver {
       };
 
       if (properties.containsKey(variable)) {
-        return Version.parse(properties[variable]!.toString());
+        return Version.from(properties[variable]!.toString());
       } else {
         throw exception;
       }
     }
 
     // Version is likely a normal version literal.
-    return Version.parse(dependency.version!);
+    return Version.from(dependency.version!);
   }
 
   /// Resolve the [coordinate] artifact along with its dependencies.
@@ -191,8 +191,11 @@ class ArtifactResolver {
   /// 5. After the versions of the dependencies are resolved, we resolve them
   ///     and their dependencies (and so on) recursively.
   /// 6. Finally, we wrap this nicely in an [Artifact] and return.
-  Future<List<Artifact>> resolveArtifact(String coordinate, Scope scope,
-      [Version? version]) async {
+  Future<List<Artifact>> resolveArtifact(
+    String coordinate,
+    Scope scope, [
+    Version? version,
+  ]) async {
     print(coordinate);
     final metadata = _ArtifactMetadata(coordinate);
     final pomFile = await _fetchFile(metadata.pomPath());
@@ -237,16 +240,21 @@ class ArtifactResolver {
     final result = <Artifact>[];
     for (final dep in deps) {
       final resolvedVersion = _resolveDepVersion(dep, pom, parentPom);
-      dep.version = resolvedVersion.literal;
+      dep.version = resolvedVersion.toString();
       result.addAll(await resolveArtifact(
           dep.coordinate,
           dep.scope?.toScope() ?? Scope.compile,
-          resolvedVersion.rangeLiteral != null ? resolvedVersion : null));
+          // Only pass the version object if the original version spec is different
+          // than the spec used to resolved the artifact. This can happen in only
+          // one case and that is when the original spec was a version range.
+          resolvedVersion.originalSpec != resolvedVersion.toString()
+              ? resolvedVersion
+              : null));
     }
 
     coordinate = version == null
         ? coordinate
-        : [...coordinate.split(':').take(2), version.rangeLiteral].join(':');
+        : [...coordinate.split(':').take(2), version.originalSpec].join(':');
     return result
       ..insert(
         0,

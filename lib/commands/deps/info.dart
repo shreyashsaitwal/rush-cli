@@ -20,7 +20,7 @@ class InfoSubCommand extends RushCommand {
   @override
   Future<void> run() async {
     Hive.init(p.join(_fs.cwd, '.rush'));
-    final rushYaml = await RushYaml.load(_fs.config);
+    final rushYaml = await RushYaml.load(_fs.configFile);
 
     final depsBox = await Hive.openBox<Artifact>('deps');
     final remoteDeps = depsBox.values.toList();

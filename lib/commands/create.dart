@@ -145,7 +145,7 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
     }
 
     // Copy icon
-    await File(p.join(_fs.homeDir.path, 'icon.png'))
+    await File(p.join(_fs.rushHomeDir.path, 'icon.png'))
         .copy(p.join(projectDir, 'assets', 'icon.png'));
 
     // All the above operations are blazingly fast. Wait a couple of seconds

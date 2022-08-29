@@ -9,7 +9,7 @@ class FileService {
 
   FileService(this.cwd);
 
-  Directory get homeDir {
+  Directory get rushHomeDir {
     final Directory homeDir;
 
     if (Platform.environment.containsKey('RUSH_DATA_DIR')) {
@@ -40,9 +40,9 @@ class FileService {
   Directory get buildFilesDir => p.join(buildDir.path, 'files').asDir(true);
   Directory get buildKaptDir => p.join(buildDir.path, 'kapt').asDir(true);
 
-  Directory get libsDir => p.join(homeDir.path, 'libs').asDir();
+  Directory get libsDir => p.join(rushHomeDir.path, 'libs').asDir();
 
-  File get config {
+  File get configFile {
     if (p.join(cwd, 'rush.yml').asFile().existsSync()) {
       return p.join(cwd, 'rush.yml').asFile();
     } else if (p.join(cwd, 'rush.yaml').asFile().existsSync()) {
