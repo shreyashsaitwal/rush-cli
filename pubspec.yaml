@@ -30,3 +30,4 @@ dependencies:
   path: ^1.8.2
   tint: ^2.0.0
   xml2json: ^5.3.4
+  xrange: ^2.0.0

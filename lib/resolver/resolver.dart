@@ -84,10 +84,20 @@ class ArtifactResolver {
 
   /// For details on how this (roughly) works:
   /// https://maven.apache.org/guides/introduction/introduction-to-the-pom.html#project-interpolation-and-variables
-  String _resolveDepVersion(Dependency dependency, Pom pom, Pom? parentPom) {
+  Version _resolveDepVersion(Dependency dependency, Pom pom, Pom? parentPom) {
     var version = dependency.version;
     final exception = Exception(
         'Couldn\'t resolve version of dependency (${dependency.coordinate}) of artifact ${pom.coordinate}');
+
+    // If the version is defined in a range, pick the upper endpoint if it is
+    // upper bounded otherwise pick the lower endpoint for now.
+    if (version != null && Version.rangeRegex.hasMatch(version)) {
+      final range = Version.parse(version).range;
+      if (!range!.upperBounded) {
+        return Version.parse(range.lower!.literal)..rangeLiteral = version;
+      }
+      return Version.parse(range.upper!.literal)..rangeLiteral = version;
+    }
 
     // If the version is null, then it should be stored in the [pom] or [parentPom]
     // as a implicit value or as variable.
@@ -137,7 +147,7 @@ class ArtifactResolver {
           // To me, this seems the only valid case. Why would someone set the
           // version to, say, something like ${project.artifactId}?
           case 'version':
-            return pom.version!;
+            return Version.parse(pom.version!);
           default:
             throw exception;
         }
@@ -150,14 +160,14 @@ class ArtifactResolver {
       };
 
       if (properties.containsKey(variable)) {
-        return properties[variable]!.toString();
+        return Version.parse(properties[variable]!.toString());
       } else {
         throw exception;
       }
     }
 
     // Version is likely a normal version literal.
-    return dependency.version!;
+    return Version.parse(dependency.version!);
   }
 
   /// Resolve the [coordinate] artifact along with its dependencies.
@@ -181,7 +191,9 @@ class ArtifactResolver {
   /// 5. After the versions of the dependencies are resolved, we resolve them
   ///     and their dependencies (and so on) recursively.
   /// 6. Finally, we wrap this nicely in an [Artifact] and return.
-  Future<List<Artifact>> resolveArtifact(String coordinate, Scope scope) async {
+  Future<List<Artifact>> resolveArtifact(String coordinate, Scope scope,
+      [Version? version]) async {
+    print(coordinate);
     final metadata = _ArtifactMetadata(coordinate);
     final pomFile = await _fetchFile(metadata.pomPath());
 
@@ -200,8 +212,7 @@ class ArtifactResolver {
         // final parentMetadata =
         //     _ArtifactMetadata(parentArtifact.first.coordinate);
 
-        final parentMetadata =
-            _ArtifactMetadata(pom.parent!.coordinate);
+        final parentMetadata = _ArtifactMetadata(pom.parent!.coordinate);
         parentPom = Pom.fromXml(
             (await _fetchFile(parentMetadata.pomPath())).readAsStringSync());
 
@@ -225,11 +236,17 @@ class ArtifactResolver {
 
     final result = <Artifact>[];
     for (final dep in deps) {
-      dep.version = _resolveDepVersion(dep, pom, parentPom);
+      final resolvedVersion = _resolveDepVersion(dep, pom, parentPom);
+      dep.version = resolvedVersion.literal;
       result.addAll(await resolveArtifact(
-          dep.coordinate, dep.scope?.toScope() ?? Scope.compile));
+          dep.coordinate,
+          dep.scope?.toScope() ?? Scope.compile,
+          resolvedVersion.rangeLiteral != null ? resolvedVersion : null));
     }
 
+    coordinate = version == null
+        ? coordinate
+        : [...coordinate.split(':').take(2), version.rangeLiteral].join(':');
     return result
       ..insert(
         0,
