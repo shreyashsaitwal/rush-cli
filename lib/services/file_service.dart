@@ -42,6 +42,16 @@ class FileService {
 
   Directory get libsDir => p.join(homeDir.path, 'libs').asDir();
 
+  File get config {
+    if (p.join(cwd, 'rush.yml').asFile().existsSync()) {
+      return p.join(cwd, 'rush.yml').asFile();
+    } else if (p.join(cwd, 'rush.yaml').asFile().existsSync()) {
+      return p.join(cwd, 'rush.yaml').asFile();
+    } else {
+      throw Exception('Config file rush.yaml not found');
+    }
+  }
+
   File get processorJar => p.join(libsDir.path, 'processor-uber.jar').asFile();
   File get desugarJar => p.join(libsDir.path, 'desugar.jar').asFile();
 

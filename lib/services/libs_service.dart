@@ -6,7 +6,6 @@ import 'package:collection/collection.dart';
 import '../resolver/artifact.dart';
 import '../resolver/resolver.dart';
 import 'file_service.dart';
-import 'logger.dart';
 import '../utils/file_extension.dart';
 
 const _devDeps = <String>{
@@ -52,9 +51,15 @@ class LibService {
   late final Box<Artifact> _devDepsBox;
   late final Box<Artifact> _buildLibsBox;
 
-  final _logger = GetIt.I<Logger>();
-
-  bool get isCacheEmpty => _devDepsBox.isEmpty || _buildLibsBox.isEmpty;
+  bool get resolutionNeeded {
+    if (_devDepsBox.isEmpty || _buildLibsBox.isEmpty) {
+      return true;
+    }
+    return !(_devDepsBox.values
+            .every((element) => element.classesJar.asFile().existsSync()) &&
+        _buildLibsBox.values
+            .every((element) => element.classesJar.asFile().existsSync()));
+  }
 
   List<String> devDepJars() =>
       [for (final lib in _devDepsBox.values) lib.classesJar];
@@ -86,74 +91,50 @@ class LibService {
       .classpathJars(_buildLibsBox.values)
       .toList();
 
-  Future<void> ensureDevDeps(String ktVersion) async {
-    final deps = {..._devDeps, '$_kotlinGroupId:kotlin-stdlib:$ktVersion'};
+  Future<void> _downloadAndCacheLibs(
+    List<String> libCoords,
+    Box<Artifact> cacheBox,
+    Scope scope,
+    bool downloadSources,
+  ) async {
     final resolver = ArtifactResolver();
-    final List<Artifact> resolvedDeps;
 
-    _logger.debug('Resolving dev deps');
-    if (_devDepsBox.isEmpty) {
-      resolvedDeps = (await Future.wait([
-        for (final dep in deps) resolver.resolveArtifact(dep, Scope.compile)
-      ]))
-          .flattened
-          .toList();
-    } else {
-      resolvedDeps = (await Future.wait(_devDepsBox.values
-              .whereNot((el) => el.classesJar.asFile().existsSync())
-              .map((el) =>
-                  resolver.resolveArtifact(el.coordinate, Scope.compile))))
-          .flattened
-          .toList();
-    }
+    print('Resolving libs... (size ${libCoords.length})');
+    final resolvedLibs = (await Future.wait([
+      for (final lib in libCoords) resolver.resolveArtifact(lib, scope),
+    ]))
+        .flattened
+        .toSet()
+        .toList();
 
-    _logger.debug('Downloading and caching dev deps');
-    if (resolvedDeps.isNotEmpty) {
-      await _devDepsBox.clear();
-      await Future.wait([
-        for (final dep in resolvedDeps) resolver.downloadArtifact(dep),
-      ]);
-      await Future.wait([
-        for (final dep in resolvedDeps) _devDepsBox.put(dep.coordinate, dep),
-      ]);
-    }
+    print('Downloading resolved artifacts... (size ${resolvedLibs.length})');
+    await Future.wait([
+      for (final artifact in resolvedLibs) resolver.downloadArtifact(artifact),
+      if (downloadSources) ...[
+        for (final artifact in resolvedLibs)
+          resolver.downloadSourceJar(artifact)
+      ],
+    ]);
+
+    await cacheBox.putAll(resolvedLibs
+        .asMap()
+        .map((key, value) => MapEntry(value.coordinate, value)));
   }
 
-  Future<void> ensureBuildLibraries(String ktVersion) async {
-    final libs = <String>{
+  Future<void> ensureDevDeps(String ktVersion) async {
+    final deps = [..._devDeps, '$_kotlinGroupId:kotlin-stdlib:$ktVersion'];
+    final buildTools = <String>[
       '$_kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
       '$_kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
       _d8Coord,
       _pgCoord,
       ..._manifMergerAndDeps,
-    };
-
-    final resolver = ArtifactResolver();
-    final List<Artifact> resolvedLibs;
-
-    _logger.debug('Resolving tools...');
-    if (_buildLibsBox.isEmpty) {
-      resolvedLibs = (await Future.wait([
-        for (final lib in libs) resolver.resolveArtifact(lib, Scope.runtime),
-      ]))
-          .flattened
-          .toList();
-    } else {
-      resolvedLibs = (await Future.wait(_buildLibsBox.values
-              .whereNot((el) => el.classesJar.asFile().existsSync())
-              .map((el) =>
-                  resolver.resolveArtifact(el.coordinate, Scope.runtime))))
-          .flattened
-          .toList();
-    }
-
-    _logger.debug('Downloading and caching tools...');
-    if (resolvedLibs.isNotEmpty) {
-      await _buildLibsBox.clear();
-      await Future.wait([
-        ...resolvedLibs.map((el) => resolver.downloadArtifact(el)),
-        _buildLibsBox.addAll(resolvedLibs),
-      ]);
-    }
+    ];
+    await _buildLibsBox.clear();
+    await _devDepsBox.clear();
+    await Future.wait([
+      _downloadAndCacheLibs(deps, _devDepsBox, Scope.compile, true),
+      _downloadAndCacheLibs(buildTools, _buildLibsBox, Scope.runtime, false),
+    ]);
   }
 }

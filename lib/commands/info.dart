@@ -6,7 +6,7 @@ import 'package:rush_cli/config/rush_yaml.dart';
 import 'package:rush_cli/resolver/artifact.dart';
 import 'package:rush_cli/services/file_service.dart';
 
-class InfoSubCommand extends RushCommand {
+class InfoCommand extends RushCommand {
   final FileService _fs = GetIt.I<FileService>();
 
   @override
@@ -19,7 +19,7 @@ class InfoSubCommand extends RushCommand {
   @override
   Future<void> run() async {
     Hive.init(p.join(_fs.cwd, '.rush'));
-    final rushYaml = await RushYaml.load(_fs.cwd);
+    final rushYaml = await RushYaml.load(_fs.config);
 
     final depsBox = await Hive.openBox<Artifact>('deps');
     final remoteDeps = depsBox.values.toList();
@@ -51,18 +51,18 @@ class InfoSubCommand extends RushCommand {
     connector += isLast ? Connector.lastSibling : Connector.sibling;
     connector += Connector.horizontal * branchGap;
 
-    final printed = alreadyPrinted
+    final isPrinted = alreadyPrinted
         .any((el) => el.coordinate == dep.coordinate && el.scope == dep.scope);
-    connector += dep.dependencies.isNotEmpty && !printed
+    connector += dep.dependencies.isNotEmpty && !isPrinted
         ? Connector.childDeps
         : Connector.horizontal;
     connector += Connector.empty +
         dep.coordinate +
         ' (${dep.scope.name})' +
-        (printed && dep.dependencies.isNotEmpty ? ' (*)' : '') +
+        (isPrinted && dep.dependencies.isNotEmpty ? ' (*)' : '') +
         newLine;
 
-    if (printed) {
+    if (isPrinted) {
       return connector;
     }
 

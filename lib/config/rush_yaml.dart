@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:checked_yaml/checked_yaml.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:path/path.dart' as p;
 
 part 'android.dart';
 part 'kotlin.dart';
@@ -54,18 +53,10 @@ class RushYaml {
   // ignore: strict_raw_type
   factory RushYaml._fromJson(Map json) => _$RushYamlFromJson(json);
 
-  static Future<RushYaml> load(String projectRoot) async {
-    File file = File(p.join(projectRoot, 'rush.yml'));
-    if (!(await file.exists())) {
-      file = File(p.join(projectRoot, 'rush.yaml'));
-      if (!(await file.exists())) {
-        throw Exception('Config file rush.yaml not found');
-      }
-    }
-
+  static Future<RushYaml> load(File configFile) async {
     try {
       return checkedYamlDecode(
-          await file.readAsString(), (json) => RushYaml._fromJson(json!));
+          await configFile.readAsString(), (json) => RushYaml._fromJson(json!));
     } catch (e) {
       rethrow;
     }

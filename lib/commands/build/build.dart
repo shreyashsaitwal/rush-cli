@@ -7,8 +7,6 @@ import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/build/utils.dart';
-import 'package:rush_cli/commands/build/hive_adapters/build_box.dart';
-import 'package:rush_cli/commands/deps/sync.dart';
 import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/config/rush_yaml.dart';
 import 'package:rush_cli/commands/build/tools/compiler.dart';
@@ -20,6 +18,7 @@ import 'package:rush_cli/services/libs_service.dart';
 import 'package:rush_cli/utils/file_extension.dart';
 import 'package:tint/tint.dart';
 
+import '../../resolver/resolver.dart';
 import '../../services/logger.dart';
 
 class BuildCommand extends RushCommand {
@@ -48,36 +47,45 @@ class BuildCommand extends RushCommand {
   /// Builds the extension in the current directory
   @override
   Future<void> run() async {
-    Hive
-      ..init(p.join(_fs.cwd, '.rush'))
-      ..registerAdapter(BuildBoxAdapter());
+    Hive.init(p.join(_fs.cwd, '.rush'));
 
     _logger.initStep('Initializing build');
 
-    final buildBox = await Hive.openBox<BuildBox>('build');
-    if (buildBox.isEmpty) {
-      await buildBox.put(0, BuildBox());
-    }
-
     final RushYaml rushYaml;
     try {
-      rushYaml = await RushYaml.load(_fs.cwd);
+      rushYaml = await RushYaml.load(_fs.config);
     } catch (e) {
       rethrow;
     }
 
     _kotlinVersion = rushYaml.kotlin?.version ?? '1.7.10';
 
-    if (_libService.isCacheEmpty) {
-      _logger.info('Fetching build libraries');
-      await Future.wait([
-        _libService.ensureDevDeps(_kotlinVersion),
-        _libService.ensureBuildLibraries(_kotlinVersion),
-      ]);
+    if (_libService.resolutionNeeded) {
+      _logger.info('Fetching dev deps');
+      await _libService.ensureDevDeps(_kotlinVersion);
     }
 
-    final remoteArtifacts =
-        await SyncSubCommand().run(isHiveInit: true, rushYaml: rushYaml);
+    final timestampsBox = await Hive.openBox<DateTime>('timestamps');
+    final depsBox = await Hive.openBox<Artifact>('deps');
+
+    // Re-fetch deps if they are outdated, ie, if the config file is modified
+    // or if the dep artifacts are missing
+    final configFileModified = timestampsBox
+            .get('rush.yaml')
+            ?.isBefore(_fs.config.lastModifiedSync()) ??
+        true;
+    final everyDepExists = depsBox.isNotEmpty &&
+        depsBox.values.every((el) => el.classesJar.asFile().existsSync());
+
+    final Iterable<Artifact> remoteArtifacts;
+    final needFetch = configFileModified || !everyDepExists;
+    if (needFetch) {
+      _logger.info('Fetching dependencies');
+      remoteArtifacts = await _fetchRemoteDeps(rushYaml, depsBox);
+      await timestampsBox.put('rush.yaml', DateTime.now());
+    } else {
+      remoteArtifacts = depsBox.values.toList();
+    }
 
     final depAars = <String>{
       for (final dep in remoteArtifacts)
@@ -87,7 +95,8 @@ class BuildCommand extends RushCommand {
     };
 
     _logger.debug('Dep aars: $depAars');
-    await _mergeManifests(buildBox, rushYaml.android?.minSdk ?? 21, depAars);
+    await _mergeManifests(
+        timestampsBox, rushYaml.android?.minSdk ?? 21, depAars, needFetch);
     _logger.closeStep();
 
     final depJars = <String>{
@@ -111,7 +120,7 @@ class BuildCommand extends RushCommand {
 
     _logger.initStep('Processing');
     await Generator.generate(rushYaml);
-    final artJarPath = await _createArtJar(rushYaml, remoteArtifacts);
+    final artJarPath = await _createArtJar(rushYaml, remoteArtifacts.toList());
 
     if (argResults!['optimize'] as bool) {
       _logger.info('Optimizing and obfuscating the bytecode');
@@ -132,9 +141,69 @@ class BuildCommand extends RushCommand {
     _logger.closeStep();
   }
 
+  Future<Iterable<Artifact>> _fetchRemoteDeps(
+      RushYaml rushYaml, Box<Artifact> depsBox) async {
+    await depsBox.clear();
+
+    final remoteRuntimeDeps = rushYaml.runtimeDeps
+        .where((el) => !el.endsWith('.jar') && !el.endsWith('.aar'));
+    final remoteComptimeDeps = rushYaml.comptimeDeps
+        .where((el) => !el.endsWith('.jar') && !el.endsWith('.aar'));
+
+    final resolver = ArtifactResolver();
+    var resolvedDeps = (await Future.wait([
+      ...remoteRuntimeDeps
+          .map((el) => resolver.resolveArtifact(el, Scope.runtime)),
+      ...remoteComptimeDeps
+          .map((el) => resolver.resolveArtifact(el, Scope.compile)),
+    ]))
+        .flattened
+        .toList(growable: true);
+
+    // Resolve version conflicts
+    // FIXME: For now, we are just selecting the highest version.
+    resolvedDeps = resolvedDeps
+        .groupListsBy((el) => '${el.groupId}:${el.artifactId}')
+        .entries
+        .map((entry) {
+      if (entry.value.length == 1) return entry.value.first;
+      final sorted =
+          entry.value.sorted((a, b) => a.version.compareTo(b.version));
+      return sorted.last;
+    }).toList(growable: true);
+
+    // Update the versions of transitive dependencies once the version conflicts
+    // are resolved.
+    resolvedDeps = resolvedDeps.map((dep) {
+      dep.dependencies = List.of(dep.dependencies).map((el) {
+        final artifact = resolvedDeps.firstWhere((art) =>
+            '${art.groupId}:${art.artifactId}' ==
+            el.split(':').take(2).join(':'));
+        return artifact.coordinate;
+      }).toList();
+      return dep;
+    }).toList();
+
+    // Download the artifacts and then add them to the cache
+    await Future.wait([
+      for (final dep in resolvedDeps) resolver.downloadArtifact(dep),
+      depsBox.addAll(resolvedDeps),
+    ]);
+
+    return resolvedDeps;
+  }
+
   Future<void> _mergeManifests(
-      Box<BuildBox> buildBox, int minSdk, Set<String> depAars) async {
+    Box<DateTime> timestampBox,
+    int minSdk,
+    Set<String> depAars,
+    bool wereNewDepsAdded,
+  ) async {
     final depManifestPaths = depAars.map((path) {
+      if (wereNewDepsAdded) {
+        final dist = p.join(p.dirname(path), p.basenameWithoutExtension(path)).asDir(true);
+        BuildUtils.unzip(path, dist.path);
+      }
       final outputDir = p.withoutExtension(path).asDir(true);
       return p.join(outputDir.path, 'AndroidManifest.xml');
     }).toSet();
@@ -150,29 +219,12 @@ class BuildCommand extends RushCommand {
     final outputManifest =
         p.join(_fs.buildFilesDir.path, 'AndroidManifest.xml').asFile();
 
-    final lastMergeTime = buildBox.getAt(0)!.lastManifestMergeTime;
+    final lastMergeTime = timestampBox.get('AndroidManifest.xml');
     _logger.debug('Last manifest merge time: $lastMergeTime');
 
-    final hasNewManifests = depManifestPaths.any((path) {
-      final file = path.asFile();
-      // If the manifest file doen't exist, unzip the AAR again to get it.
-      if (!file.existsSync()) {
-        BuildUtils.unzip('${p.dirname(path)}.aar', p.dirname(path));
-      }
-
-      // If the file still doesn't exist, ignore it and move on.
-      if (!file.existsSync()) {
-        _logger.debug('Manifest file $path not found; skipping it');
-        depManifestPaths.remove(path);
-        return false;
-      }
-
-      return file.lastModifiedSync().isAfter(lastMergeTime);
-    });
-
     final needMerge = !await outputManifest.exists() ||
-        mainManifest.lastModifiedSync().isAfter(lastMergeTime) ||
-        hasNewManifests;
+        (lastMergeTime?.isBefore(mainManifest.lastModifiedSync()) ?? true) ||
+        wereNewDepsAdded;
 
     if (needMerge) {
       _logger.info('Merging Android manifests...');
@@ -183,6 +235,7 @@ class BuildCommand extends RushCommand {
       } catch (e) {
         rethrow;
       }
+      await timestampBox.put('AndroidManifest.xml', DateTime.now());
     } else {
       _logger.info('Merging Android manifests... ${'UP-TO-DATE'.green()}');
     }
@@ -228,7 +281,7 @@ class BuildCommand extends RushCommand {
 
     final runtimeDepJars = <String>{
       ...rushYaml.runtimeDeps
-          .where((dep) => !dep.endsWith('.jar') && !dep.endsWith('.aar'))
+          .where((dep) => dep.endsWith('.jar') || dep.endsWith('.aar'))
           .map((dep) => p.join(_fs.depsDir.path, dep)),
       ...remoteArtifacts
           .where((dep) => dep.scope == Scope.runtime)
@@ -258,7 +311,7 @@ class BuildCommand extends RushCommand {
         final decodedJar = ZipDecoder()
             .decodeBytes(jar.readAsBytesSync())
             .files
-            .whereNot((el) => addedPaths.contains(el.name))
+            .whereNot((el) => addedPaths.contains(el.name) || el.name.startsWith('META-INF'))
             // Do not include files other than .class files.
             .where((el) {
           if (!el.isFile) {
