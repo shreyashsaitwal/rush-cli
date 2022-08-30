@@ -50,7 +50,7 @@ class Artifact {
   String coordinate;
 
   @HiveField(1)
-  final Scope scope;
+  Scope scope;
 
   @HiveField(2)
   final String artifactFile;
@@ -136,8 +136,10 @@ class Version extends Comparable<Version> {
 
   String get originalSpec => _originalSpec!;
 
-  Version(this._versionSpec, [this._originalSpec])
-      : _elements = _versionSpec.split('.') {
+  Version(String versionSpec, [String? originalSpec])
+      : _versionSpec = versionSpec.trim(),
+        _elements = versionSpec.trim().split('.'),
+        _originalSpec = originalSpec {
     _originalSpec ??= _versionSpec;
   }
 
@@ -158,7 +160,7 @@ class Version extends Comparable<Version> {
   String toString() => _versionSpec;
 
   static RegExp rangeRegex =
-      RegExp(r'([\[\(])(-?∞?.*)(?:\,|\.\.)?(-?∞?.*)([\]\)])');
+      RegExp(r'([\[\(])(-?∞?[^,]*)(\,?|\.\.)?(-?∞?[^,]*)?([\]\)])');
 
   // FIXME: Currently, we are not handling ranges like this: [1,2),(4,6]. Although,
   // they are not very common (I have never seen them in the wild), we should
@@ -174,21 +176,20 @@ class Version extends Comparable<Version> {
     final matches = rangeRegex.allMatches(_originalSpec!).first;
     if (rangeRegex.hasMatch(_originalSpec!)) {
       final lowerBoundEndpoint = matches.group(2);
+      final separator = matches.group(3);
+      final upperBoundEndpoint = matches.group(4);
 
       // Singleton case (e.g. [1.0.0])
-      final separator = matches.group(0);
-      if (separator != ',') {
+      if (separator == null) {
         return Range.singleton(Version.from(lowerBoundEndpoint!));
       }
-
-      final upperBoundEndpoint = matches.group(3);
 
       if (lowerBoundEndpoint == null && upperBoundEndpoint == null) {
         return Range.all();
       }
 
       final lowerBoundInclusive = matches.group(1)! == '[';
-      final upperBoundInclusive = matches.group(4)! == ']';
+      final upperBoundInclusive = matches.group(5)! == ']';
 
       // Lower infinity case (e.g. [, 1.0.0])
       if (lowerBoundEndpoint == null || lowerBoundEndpoint == '') {

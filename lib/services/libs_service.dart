@@ -44,16 +44,16 @@ class LibService {
 
   static Future<LibService> instantiate() async {
     final instance = LibService._();
-    instance._devDepsBox = await Hive.openBox<Artifact>('dev-deps');
+    instance.devDepsBox = await Hive.openBox<Artifact>('dev-deps');
     instance._buildLibsBox = await Hive.openBox<Artifact>('build-libs');
     return instance;
   }
 
-  late final Box<Artifact> _devDepsBox;
+  late final Box<Artifact> devDepsBox;
   late final Box<Artifact> _buildLibsBox;
 
   List<String> devDepJars() =>
-      [for (final lib in _devDepsBox.values) lib.classesJar];
+      [for (final lib in devDepsBox.values) lib.classesJar];
 
   String d8Jar() => _buildLibsBox.get(_d8Coord)!.classesJar;
 
@@ -71,7 +71,7 @@ class LibService {
       .toList();
 
   String kotlinStdLib(String ktVersion) {
-    return _devDepsBox
+    return devDepsBox
         .get('$_kotlinGroupId:kotlin-stdlib:$ktVersion')!
         .classesJar;
   }
@@ -82,42 +82,12 @@ class LibService {
       .classpathJars(_buildLibsBox.values)
       .toList();
 
-  Future<void> _downloadAndCacheLibs(
-    List<String> libCoords,
-    Box<Artifact> cacheBox,
-    Scope scope,
-    bool downloadSources,
-  ) async {
-    final resolver = ArtifactResolver();
-
-    print('Resolving libs... (size ${libCoords.length})');
-    final resolvedLibs = (await Future.wait([
-      for (final lib in libCoords) resolver.resolveArtifact(lib, scope),
-    ]))
-        .flattened
-        .toSet()
-        .toList();
-
-    print('Downloading resolved artifacts... (size ${resolvedLibs.length})');
-    await Future.wait([
-      for (final artifact in resolvedLibs) resolver.downloadArtifact(artifact),
-      if (downloadSources) ...[
-        for (final artifact in resolvedLibs)
-          resolver.downloadSourceJar(artifact)
-      ],
-    ]);
-
-    await cacheBox.putAll(resolvedLibs
-        .asMap()
-        .map((key, value) => MapEntry(value.coordinate, value)));
-  }
-
   Future<void> ensureDevDeps(String ktVersion) async {
     final resolutionNeeded = () {
-      if (_devDepsBox.isEmpty || _buildLibsBox.isEmpty) {
+      if (devDepsBox.isEmpty || _buildLibsBox.isEmpty) {
         return true;
       }
-      return !(_devDepsBox.values
+      return !(devDepsBox.values
               .every((el) => el.classesJar.asFile().existsSync()) &&
           _buildLibsBox.values
               .every((el) => el.classesJar.asFile().existsSync()));
@@ -128,7 +98,7 @@ class LibService {
 
     print('Fetching build tools...');
     await SyncSubCommand()
-        .run(cacheBox: _buildLibsBox, setKeysAsCoordinates: true, coordinates: {
+        .run(cacheBox: _buildLibsBox, saveCoordinatesAsKeys: true, coordinates: {
       Scope.runtime: [
         '$_kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
         '$_kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
@@ -140,7 +110,7 @@ class LibService {
 
     print('Fetching dev dependencies...');
     await SyncSubCommand()
-        .run(cacheBox: _devDepsBox, setKeysAsCoordinates: true, coordinates: {
+        .run(cacheBox: devDepsBox, saveCoordinatesAsKeys: true, coordinates: {
       Scope.compile: [..._devDeps, '$_kotlinGroupId:kotlin-stdlib:$ktVersion']
     });
   }
