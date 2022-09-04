@@ -115,7 +115,7 @@ class BuildCommand extends RushCommand {
     };
 
     _logger.initStep('Compiling sources files');
-    await _compile(config, depJars);
+    await _compile(config, depJars, timestampsBox);
     _logger.closeStep();
 
     _logger.initStep('Processing');
@@ -192,7 +192,7 @@ class BuildCommand extends RushCommand {
   }
 
   /// Compiles extension's source files.
-  Future<void> _compile(RushYaml rushYaml, Set<String> depJars) async {
+  Future<void> _compile(RushYaml rushYaml, Set<String> depJars, Box<DateTime> timestampBox) async {
     final srcFiles =
         Directory(_fs.srcDir.path).listSync(recursive: true).whereType<File>();
     final javaFiles = srcFiles
@@ -212,11 +212,11 @@ class BuildCommand extends RushCommand {
           throw Exception('Kotlin support is not enabled in rush.yaml');
         }
 
-        await Compiler.compileKtFiles(depJars, _kotlinVersion);
+        await Compiler.compileKtFiles(depJars, _kotlinVersion, timestampBox);
       }
 
       if (javaFiles.isNotEmpty) {
-        await Compiler.compileJavaFiles(depJars, rushYaml.desugar);
+        await Compiler.compileJavaFiles(depJars, rushYaml.desugar, timestampBox);
       }
     } catch (e) {
       rethrow;

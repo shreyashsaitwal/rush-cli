@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:get_it/get_it.dart';
 import 'package:rush_cli/utils/file_extension.dart';
@@ -15,7 +16,8 @@ class Compiler {
   static final _libService = GetIt.I<LibService>();
 
   static Future<void> _compilerHelpers(
-    Iterable<String> depJars, {
+    Iterable<String> depJars,
+    Box<DateTime> timestampBox, {
     String? ktVersion,
     bool java8 = false,
   }) async {
@@ -27,7 +29,11 @@ class Compiler {
         .whereType<File>()
         .where((el) => p.basename(el.parent.path) == 'helpers');
 
-    if (helperFiles.isEmpty) {
+    final helpersModified = timestampBox.get('helpers-compile-time') == null
+        ? true
+        : helperFiles.any((el) =>
+            el.lastModifiedSync().isAfter(timestampBox.get('helpers-compile-time')!));
+    if (helperFiles.isEmpty || !helpersModified) {
       return;
     }
 
@@ -55,18 +61,19 @@ class Compiler {
       rethrow;
     }
 
+    await timestampBox.put('helpers-compile-time', DateTime.now());
     print(DateTime.now().difference(time).inMilliseconds);
   }
 
   static Future<void> compileJavaFiles(
-      Set<String> depJars, bool supportJava8) async {
+      Set<String> depJars, bool supportJava8, Box<DateTime> timestampBox) async {
     final javaFiles = _fs.srcDir
         .listSync(recursive: true)
         .where((el) => el is File && p.extension(el.path) == '.java')
         .map((el) => el.path);
     final args = _javacArgs(javaFiles, depJars, supportJava8);
     try {
-      await _compilerHelpers(depJars, java8: supportJava8);
+      await _compilerHelpers(depJars, timestampBox, java8: supportJava8);
       await _processRunner.runExecutable('javac', args);
     } catch (e) {
       rethrow;
@@ -94,9 +101,9 @@ class Compiler {
   }
 
   static Future<void> compileKtFiles(
-      Set<String> depJars, String kotlinVersion) async {
+      Set<String> depJars, String kotlinVersion, Box<DateTime> timestampBox) async {
     try {
-      await _compilerHelpers(depJars, ktVersion: kotlinVersion);
+      await _compilerHelpers(depJars, timestampBox, ktVersion: kotlinVersion);
       final kotlincArgs =
           await _kotlincArgs(_fs.srcDir.path, depJars, kotlinVersion);
       await _processRunner.runExecutable('java', kotlincArgs);
