@@ -107,11 +107,6 @@ class BuildCommand extends RushCommand {
     final depJars = <String>{
       // Dev deps
       ..._libService.devDepJars(),
-      p.join(_fs.libsDir.path, 'android.jar'),
-      p.join(_fs.libsDir.path, 'annotations.jar'),
-      p.join(_fs.libsDir.path, 'runtime.jar'),
-      p.join(_fs.libsDir.path, 'kawa-1.11-modified.jar'),
-      p.join(_fs.libsDir.path, 'physicaloid-library.jar'),
       // Remote deps
       for (final dep in remoteArtifacts) ...dep.classpathJars(remoteArtifacts),
       // Local deps
@@ -286,7 +281,7 @@ class BuildCommand extends RushCommand {
     final classFiles = _fs.buildClassesDir.listSync(recursive: true);
     for (final file in classFiles) {
       if (file is File &&
-          file.path.contains('META-INF') &&
+          !file.path.contains('META-INF') &&
           p.extension(file.path) == '.class') {
         final path = p.relative(file.path, from: _fs.buildClassesDir.path);
         await zipEncoder.addFile(file, path);

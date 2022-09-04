@@ -60,4 +60,6 @@ class FileService {
 
   File get javacArgsFile =>
       p.join(buildFilesDir.path, 'javac.args').asFile(true);
+  File get kotlincArgsFile =>
+      p.join(buildFilesDir.path, 'kotlinc.args').asFile(true);
 }

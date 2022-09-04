@@ -14,41 +14,91 @@ class Compiler {
   static final _processRunner = ProcessRunner();
   static final _libService = GetIt.I<LibService>();
 
-  static Future<void> compileJavaFiles(Set<String> depJars, bool supportJava8) async {
-    final args = await _javacArgs(depJars, supportJava8);
+  static Future<void> _compilerHelpers(
+    Iterable<String> depJars, {
+    String? ktVersion,
+    bool java8 = false,
+  }) async {
+    // Only the files that reside directly under the "com.sth.helpers" package
+    // are considered as helpers. We could probably lift this restriction in
+    // future, but because this how AI2 does it, we'll stick to it for now.
+    final helperFiles = _fs.srcDir
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((el) => p.basename(el.parent.path) == 'helpers');
+
+    if (helperFiles.isEmpty) {
+      return;
+    }
+
+    print('Compiling helpers');
+    final time = DateTime.now();
+
+    final package =
+        p.relative(helperFiles.first.parent.path, from: _fs.srcDir.path);
+    final hasKtFiles = helperFiles.any((el) => p.extension(el.path) == '.kt');
+    final outputDir = p.join(_fs.buildClassesDir.path, package);
+
+    final List<String> args;
+    if (hasKtFiles) {
+      args = await _kotlincArgs(
+          helperFiles.first.parent.path, depJars, ktVersion!,
+          files: helperFiles.map((e) => e.path), withProc: false);
+    } else {
+      args = _javacArgs(helperFiles.map((e) => e.path), depJars, java8,
+          withProc: false);
+    }
+
     try {
-      await _fs.javacArgsFile.writeAsString(args.join('\n'));
-      await _processRunner
-          .runExecutable('javac', ['@${_fs.javacArgsFile.path}']);
+      await _processRunner.runExecutable(hasKtFiles ? 'java' : 'javac', args);
+    } catch (e) {
+      rethrow;
+    }
+
+    print(DateTime.now().difference(time).inMilliseconds);
+  }
+
+  static Future<void> compileJavaFiles(
+      Set<String> depJars, bool supportJava8) async {
+    final javaFiles = _fs.srcDir
+        .listSync(recursive: true)
+        .where((el) => el is File && p.extension(el.path) == '.java')
+        .map((el) => el.path);
+    final args = _javacArgs(javaFiles, depJars, supportJava8);
+    try {
+      await _compilerHelpers(depJars, java8: supportJava8);
+      await _processRunner.runExecutable('javac', args);
     } catch (e) {
       rethrow;
     }
   }
 
-  static Future<List<String>> _javacArgs(Set<String> depJars, bool supportJava8) async {
+  static List<String> _javacArgs(
+    Iterable<String> files,
+    Iterable<String> depJars,
+    bool supportJava8, {
+    bool withProc = true,
+  }) {
     final classpath = depJars.join(BuildUtils.cpSeparator);
-    final javaFiles = _fs.srcDir
-        .listSync(recursive: true)
-        .whereType<File>()
-        .where((el) => p.extension(el.path) == '.java')
-        .map((el) => el.path);
-
     final args = <String>[
       ...['-source', supportJava8 ? '1.8' : '1.7'],
       ...['-target', supportJava8 ? '1.8' : '1.7'],
       ...['-encoding', 'UTF8'],
       ...['-d', _fs.buildClassesDir.path],
       ...['-cp', classpath],
-      ...['-processorpath', _fs.processorJar.path],
-      ...javaFiles,
-    ];
-    return args.map((el) => el.replaceAll('\\', '/')).toList();
+      if (withProc) ...['-processorpath', _fs.processorJar.path],
+      ...files,
+    ].map((el) => el.replaceAll('\\', '/')).join('\n');
+    _fs.javacArgsFile.writeAsStringSync(args);
+    return ['@${_fs.javacArgsFile.path}'];
   }
 
   static Future<void> compileKtFiles(
       Set<String> depJars, String kotlinVersion) async {
     try {
-      final kotlincArgs = await _kotlincArgs(depJars, kotlinVersion);
+      await _compilerHelpers(depJars, ktVersion: kotlinVersion);
+      final kotlincArgs =
+          await _kotlincArgs(_fs.srcDir.path, depJars, kotlinVersion);
       await _processRunner.runExecutable('java', kotlincArgs);
     } catch (e) {
       rethrow;
@@ -56,7 +106,12 @@ class Compiler {
   }
 
   static Future<List<String>> _kotlincArgs(
-      Set<String> depJars, String kotlinVersion) async {
+    String srcDir,
+    Iterable<String> depJars,
+    String kotlinVersion, {
+    bool withProc = true,
+    Iterable<String>? files,
+  }) async {
     // Here, we are copying the kotlin-annotation-processing-embeddable jar
     // in the it's own directory but with name: kotlin-annotation-processing.jar
     // This is a bug in kapt, and for more details:
@@ -66,31 +121,40 @@ class Compiler {
         p.join(p.dirname(kaptJar), 'kotlin-annotation-processing.jar');
     kaptJar.asFile().copySync(duplicateKaptJar);
 
-    final pluginPrefix = '-P=plugin:org.jetbrains.kotlin.kapt3';
-    final kaptCliCp = [
+    final classpath = [
       ..._libService.kotlincJars(kotlinVersion),
-      ..._libService.kaptJars(kotlinVersion),
+      if (withProc) ..._libService.kaptJars(kotlinVersion),
       // TODO: Consider using JDK bundled tools.jar or similar
-      _fs.jreToolsJar.path,
+      if (withProc) _fs.jreToolsJar.path,
     ].join(BuildUtils.cpSeparator);
+
+    final kotlincArgs = <String>[
+      ...['-cp', depJars.join(BuildUtils.cpSeparator)],
+      if (withProc) ...[
+        // KaptCli args
+        '-Kapt-classes=${_fs.buildKaptDir.path}',
+        '-Kapt-sources=${_fs.buildKaptDir.path}',
+        '-Kapt-stubs=${_fs.buildKaptDir.path}',
+        '-Kapt-classpath=${_fs.processorJar.path}',
+        '-Kapt-mode=compile',
+        '-Kapt-strip-metadata=true',
+        '-Kapt-use-light-analysis=true',
+      ],
+      '-no-stdlib',
+      ...['-d', _fs.buildClassesDir.path],
+      if (files != null) ...files else srcDir,
+    ].map((el) => el.replaceAll('\\', '/')).join('\n');
+    final argsFile = _fs.kotlincArgsFile..writeAsStringSync(kotlincArgs);
 
     return <String>[
       // This -cp flag belongs to the java cmdline tool, required to run the
       // below KaptCli class
-      ...['-cp', kaptCliCp],
-      'org.jetbrains.kotlin.kapt.cli.KaptCli',
-      // And this -cp flag belongs to the above KaptCli class
-      ...['-cp', depJars.join(BuildUtils.cpSeparator)],
-      '-Xplugin=$kaptJar',
-      ...[
-        '$pluginPrefix:classes=${_fs.buildKaptDir.path}',
-        '$pluginPrefix:sources=${_fs.buildKaptDir.path}',
-        '$pluginPrefix:stubs=${_fs.buildKaptDir.path}',
-        '$pluginPrefix:apclasspath=${_fs.processorJar.path}',
-      ],
-      ...['-d', _fs.buildClassesDir.path],
-      '-no-stdlib',
-      _fs.srcDir.path,
+      ...['-cp', classpath],
+      if (withProc)
+        'org.jetbrains.kotlin.kapt.cli.KaptCli'
+      else
+        'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler',
+      '@${argsFile.path}',
     ].map((el) => el.replaceAll('\\', '/')).toList();
   }
 }

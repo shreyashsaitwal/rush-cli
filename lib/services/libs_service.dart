@@ -1,11 +1,10 @@
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
-import 'package:path/path.dart';
+import 'package:path/path.dart' as p;
 import 'package:collection/collection.dart';
 
 import './file_service.dart';
 import '../resolver/artifact.dart';
-import '../resolver/resolver.dart';
 import '../utils/file_extension.dart';
 import '../commands/deps/sync.dart';
 
@@ -37,7 +36,7 @@ class LibService {
 
   LibService._() {
     Hive
-      ..init(join(_fs.rushHomeDir.path, 'cache'))
+      ..init(p.join(_fs.rushHomeDir.path, 'cache'))
       ..registerAdapter(ArtifactAdapter())
       ..registerAdapter(ScopeAdapter());
   }
@@ -52,8 +51,14 @@ class LibService {
   late final Box<Artifact> devDepsBox;
   late final Box<Artifact> _buildLibsBox;
 
-  List<String> devDepJars() =>
-      [for (final lib in devDepsBox.values) lib.classesJar];
+  List<String> devDepJars() => [
+        for (final lib in devDepsBox.values) lib.classesJar,
+        p.join(_fs.libsDir.path, 'android.jar'),
+        p.join(_fs.libsDir.path, 'annotations.jar'),
+        p.join(_fs.libsDir.path, 'runtime.jar'),
+        p.join(_fs.libsDir.path, 'kawa-1.11-modified.jar'),
+        p.join(_fs.libsDir.path, 'physicaloid-library.jar')
+      ];
 
   String d8Jar() => _buildLibsBox.get(_d8Coord)!.classesJar;
 
@@ -97,16 +102,18 @@ class LibService {
     }
 
     print('Fetching build tools...');
-    await SyncSubCommand()
-        .run(cacheBox: _buildLibsBox, saveCoordinatesAsKeys: true, coordinates: {
-      Scope.runtime: [
-        '$_kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
-        '$_kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
-        _d8Coord,
-        _pgCoord,
-        ..._manifMergerAndDeps,
-      ],
-    });
+    await SyncSubCommand().run(
+        cacheBox: _buildLibsBox,
+        saveCoordinatesAsKeys: true,
+        coordinates: {
+          Scope.runtime: [
+            '$_kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
+            '$_kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
+            _d8Coord,
+            _pgCoord,
+            ..._manifMergerAndDeps,
+          ],
+        });
 
     print('Fetching dev dependencies...');
     await SyncSubCommand()

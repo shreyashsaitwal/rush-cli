@@ -8,15 +8,13 @@ import 'package:rush_cli/services/file_service.dart';
 class ProcessRunner {
   final _fs = GetIt.I<FileService>();
 
-  Future<void> runExecutable(
-    String exe,
-    List<String> args, {
-    String? cwd,
-  }) async {
+  Future<void> runExecutable(String exe, List<String> args) async {
     final Process process;
     try {
-      process =
-          await Process.start(exe, args, workingDirectory: cwd ?? _fs.cwd);
+      process = await Process.start(exe, args, environment: {
+        'RUSH_HOME': _fs.rushHomeDir.path,
+        'RUSH_PROJECT_ROOT': _fs.cwd,
+      });
     } catch (e) {
       // TODO: Is this any different than not try catching at all?
       rethrow;
