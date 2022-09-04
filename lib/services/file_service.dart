@@ -20,7 +20,7 @@ class FileService {
       if (Platform.operatingSystem == 'windows') {
         homeDir = p.join(Platform.environment['UserProfile']!, '.rush').asDir();
       } else {
-        homeDir = p.join(Platform.environment['HOME']!, 'rush').asDir();
+        homeDir = p.join(Platform.environment['HOME']!, '.rush').asDir();
       }
     }
 

@@ -1,243 +1,117 @@
-// TODO: Reimplement
+import 'dart:convert';
+import 'dart:io';
 
-// import 'dart:io'
-//     show Directory, File, Platform, Process, ProcessStartMode, exit;
+import 'package:crypto/crypto.dart';
+import 'package:get_it/get_it.dart';
+import 'package:github/github.dart';
+import 'package:collection/collection.dart';
+import 'package:http/http.dart';
+import 'package:path/path.dart' as p;
 
-// import 'package:get_it/get_it.dart';
-// import 'package:hive/hive.dart';
-// import 'package:path/path.dart' as p;
-// import 'package:rush_cli/commands/rush_command.dart';
-// import 'package:rush_cli/commands/upgrade/models/repo_content.dart';
-// import 'package:rush_cli/commands/upgrade/models/gh_release.dart';
-// import 'package:rush_cli/services/file_service.dart';
-// import 'package:rush_cli/version.dart';
+import '../../utils/file_extension.dart';
+import '../../services/file_service.dart';
+import '../rush_command.dart';
+import 'models/asset_info.dart';
 
-// class UpgradeCommand extends RushCommand {
-//   final FileService _fs = GetIt.I<FileService>();
-//   static const String _endpt = 'https://rush-api.shreyashsaitwal.repl.co';
+class Upgrade extends RushCommand {
+  final _fs = GetIt.I<FileService>();
 
-//   UpgradeCommand() {
-//     argParser
-//       ..addFlag('force',
-//           abbr: 'f',
-//           help:
-//               'Forcefully upgrades Rush to the latest version. This downloads '
-//               'and replaces even the unchanged files.')
-//       ..addFlag('safe', abbr: 's', hide: true);
-//   }
+  Upgrade() {
+    argParser
+      ..addFlag('force',
+          abbr: 'f',
+          help: 'Upgrades Rush even if you\'re using the latest version.')
+      ..addOption('access-token',
+          abbr: 't',
+          help:
+              'Your GitHub access token. Normally, you don\'t need to worry about this.');
+  }
 
-//   @override
-//   String get description => 'Upgrades Rush to the latest available version.';
+  @override
+  String get description => 'Upgrades Rush to the latest available version.';
 
-//   @override
-//   String get name => 'upgrade';
+  @override
+  String get name => 'upgrade';
 
-//   @override
-//   Future<void> run() async {
-//     final dir = Directory(p.join(_fs.dataDir, '.installer'));
-//     await dir.create(recursive: true);
-//     Hive.init(dir.path);
+  @override
+  Future<void> run() async {
+    final gh = GitHub(
+        auth: Authentication.withToken(argResults!['access-token'] as String?));
+    final release = await gh.repositories
+        .getLatestRelease(RepositorySlug.full('shreyashsaitwal/rush-cli'));
 
-//     final isForce = argResults?['force'] as bool;
-//     final initDataBox = await Hive.openBox('data.init');
+    final assetInfoJsonUrl = release.assets
+        ?.singleWhereOrNull((el) => el.name == 'asset-info.json')
+        ?.browserDownloadUrl;
+    if (assetInfoJsonUrl == null) {
+      throw Exception('Could not find asset-info.json');
+    }
 
-//     Logger.log(LogType.info, 'Fetching data...');
-//     final allContent = await _fetchAllContent(initDataBox);
-//     final reqContent = await _reqContents(initDataBox, allContent, isForce);
+    final httpClient = Client();
+    final json = (await httpClient.get(Uri.parse(assetInfoJsonUrl))).body;
+    final assetInfo =
+        AssetInfo.fromJson(jsonDecode(json) as List<Map<String, String>>);
 
-//     final releaseInfo = await _fetchLatestRelease();
+    final upgradables = {
+      'rush.exe': p.join(Platform.resolvedExecutable),
+      'swap.exe': p.join(p.dirname(Platform.resolvedExecutable), 'swap.exe'),
+      'android.jar': p.join(_fs.libsDir.path, 'android.jar'),
+      'annotations.jar': p.join(_fs.srcDir.path, 'annotations.jar'),
+      'annotations-sources.jar':
+          p.join(_fs.srcDir.path, 'annotations-sources.jar'),
+      'runtime.jar': p.join(_fs.libsDir.path, 'runtime.jar'),
+      'runtime-sources.jar': p.join(_fs.libsDir.path, 'runtime-sources.jar'),
+      'kawa-1.11-modified.jar':
+          p.join(_fs.libsDir.path, 'kawa-1.11-modified.jar'),
+      'physicaloid-library.jar':
+          p.join(_fs.libsDir.path, 'physicaloid-library.jar'),
+      'processor-uber.jar': p.join(_fs.libsDir.path, 'processor-uber.jar'),
+      'desugar.jar': p.join(_fs.libsDir.path, 'desugar.jar'),
+    };
 
-//     if (releaseInfo.name == 'v$rushVersion' && !isForce) {
-//       Logger.log(LogType.warn,
-//           'You already have the latest version of Rush ($rushVersion) installed.');
-//       Logger.log(LogType.note,
-//           'To perform a force upgrade, run `rush upgrade --force`');
-//       exit(0);
-//     }
+    for (final asset in assetInfo.assets) {
+      if (!Platform.isWindows && asset.name == 'swap.exe') {
+        continue;
+      }
 
-//     final binDir = p.dirname(Platform.resolvedExecutable);
+      final saveAs = asset.downloadLocation
+          .replaceAll('{{home}}', _fs.rushHomeDir.path)
+          .replaceAll('{{exe}}', Platform.resolvedExecutable);
 
-//     Logger.log(
-//         LogType.info, 'Starting download... [${reqContent.length} MB]\n');
-//     final ProgressBar pb = ProgressBar(reqContent.length);
+      if (!upgradables.containsKey(asset.name)) {
+        await _download(httpClient, asset.url, saveAs);
+        continue;
+      }
 
-//     for (final el in reqContent) {
-//       final savePath = () {
-//         if (el.path!.startsWith('exe')) {
-//           return p.join(binDir, el.name! + '.new');
-//         }
-//         return p.join(_fs.dataDir, el.path);
-//       }();
+      final upgradable = upgradables[asset.name];
+      final sha = sha1.convert(upgradable!.asFile().readAsBytesSync());
+      if (sha.toString() == asset.sha1) {
+        continue;
+      }
 
-//       await Dio().download(el.downloadUrl!, savePath);
-//       await _updateInitBox(initDataBox, el, savePath);
-//       pb.incr();
-//     }
+      await _download(httpClient, asset.url, saveAs);
+      if (saveAs != upgradable) {
+        upgradable.asFile().deleteSync();
+      }
+    }
 
-//     Logger.log(
-//         LogType.info, 'Download complete; performing post download tasks...');
-//     if (!(argResults?['safe'] as bool)) {
-//       await _removeRedundantFiles(initDataBox, allContent);
-//     }
-//     await _swapExe(binDir);
+    if (Platform.isWindows) {
+      final newExe = '${Platform.resolvedExecutable}.new';
+      final swapExe =
+          p.join(p.dirname(Platform.resolvedExecutable), 'swap.exe');
+      if (newExe.asFile().existsSync()) {
+        await Process.start(
+            swapExe, ['--old-exe', Platform.resolvedExecutable]);
+      }
+    } else {
+      final newExe = '${Platform.resolvedExecutable}.new';
+      newExe.asFile().renameSync(newExe.replaceFirst('.new', ''));
+      await Process.start('chmod', ['+x', Platform.resolvedExecutable]);
+    }
+  }
 
-//     Logger.log(LogType.info,
-//         'Done! Rush was successfully upgraded to ${releaseInfo.name}');
-//   }
-
-//   /// Returns a list of all the files that needs to be downloaded from GH.
-//   Future<List<RepoContent>> _reqContents(
-//       Box initDataBox, List<RepoContent> contents, bool force) async {
-//     // If this is a forceful upgrade, return all the files, else only the ones
-//     // that have changed.
-//     if (force) {
-//       return contents;
-//     }
-
-//     final res = <RepoContent>[];
-//     for (final el in contents) {
-//       final data = await initDataBox.get(el.name);
-
-//       // Stage this file for download if: 1. data is null or 2. it's sha doesn't
-//       // match with that of upstream or 3. it doesn't exist at the expected
-//       // location.
-//       if (data == null) {
-//         res.add(el);
-//       } else {
-//         final idealPath = File(p.join(_fs.dataDir, el.path));
-//         if (el.sha != data['sha'] || !await idealPath.exists()) {
-//           res.add(el);
-//         }
-//       }
-//     }
-
-//     return res;
-//   }
-
-//   /// Removes all the files that are no longer needed.
-//   Future<void> _removeRedundantFiles(
-//       Box initDataBox, List<RepoContent> contents) async {
-//     final entriesInBox = initDataBox.keys;
-
-//     final devDepsToRemove = Directory(p.join(_fs.dataDir, 'dev-deps'))
-//         .listSync(recursive: true)
-//         .whereType<File>()
-//         .where((file) => !contents
-//             .any((el) => el.path == p.relative(file.path, from: _fs.dataDir)));
-
-//     final toolsToRemove = Directory(p.join(_fs.dataDir, 'tools'))
-//         .listSync(recursive: true)
-//         .whereType<File>()
-//         .where((file) => !contents
-//             .any((el) => el.path == p.relative(file.path, from: _fs.dataDir)));
-
-//     for (final file in [...devDepsToRemove, ...toolsToRemove]) {
-//       // Remove box entry of this file if it exists
-//       final basename = p.basename(file.path);
-//       if (entriesInBox.contains(basename)) {
-//         await initDataBox.delete(basename);
-//       }
-
-//       try {
-//         await file.delete();
-//       } catch (_) {}
-//     }
-//   }
-
-//   /// Returns all the files that are changed since the last release and needs to
-//   /// be updated.
-//   Future<List<RepoContent>> _fetchAllContent(Box initDataBox) async {
-//     final Response response;
-//     try {
-//       response = await Dio().get('$_endpt/contents');
-//     } catch (e) {
-//       Logger.log(LogType.erro, 'Something went wrong:');
-//       Logger.log(LogType.erro, e.toString(), addPrefix: false);
-//       exit(1);
-//     }
-
-//     final json = response.data as List;
-
-//     final contents = json
-//         .map((el) => RepoContent.fromJson(el as Map<String, dynamic>))
-//         .where((el) {
-//       if (el.path!.startsWith('exe')) {
-//         return el.path!.contains(_correctExePath());
-//       }
-//       return true;
-//     });
-
-//     return contents.toList();
-//   }
-
-//   String _correctExePath() {
-//     switch (Platform.operatingSystem) {
-//       case 'windows':
-//         return 'exe/win';
-//       case 'macos':
-//         return 'exe/mac';
-//       default:
-//         return 'exe/linux';
-//     }
-//   }
-
-//   /// Replaces the old `rush.exe` with new one on Windows.
-//   Future<void> _swapExe(String binDir) async {
-//     final ext = Platform.isWindows ? '.exe' : '';
-
-//     final old = File(p.join(binDir, 'rush' + ext));
-//     final _new = File(p.join(binDir, 'rush' + ext + '.new'));
-
-//     if (Platform.isWindows) {
-//       // Replace old swap.exe with new if it exists.
-//       final newSwap = p.join(binDir, 'swap.exe.new');
-//       if (await File(newSwap).exists()) {
-//         final oldSwap = File(p.join(binDir, 'swap.exe'));
-//         await oldSwap.create();
-//         await oldSwap.delete();
-//         await File(newSwap).rename(oldSwap.path);
-//       }
-
-//       // TODO: Previously, this was using the ProcessRunner package, check if
-//       // it still works.
-//       await Process.start('swap.exe', ['-o', old.path],
-//           mode: ProcessStartMode.detached);
-//     } else {
-//       await old.delete();
-//       await _new.rename(old.path);
-//       await _chmodExe(old.path);
-//     }
-//   }
-
-//   /// Returns a [GhRelease] containing the information of the latest `rush-cli`
-//   /// repo's release on GitHub.
-//   Future<GhRelease> _fetchLatestRelease() async {
-//     final Response response;
-//     try {
-//       response = await Dio().get('$_endpt/release');
-//     } catch (e) {
-//       Logger.log(LogType.erro, 'Something went wrong:');
-//       Logger.log(LogType.erro, e.toString(), addPrefix: false);
-//       exit(1);
-//     }
-
-//     final json = response.data as Map<String, dynamic>;
-//     return GhRelease.fromJson(json);
-//   }
-
-//   /// Updates init box's values.
-//   Future<void> _updateInitBox(
-//       Box initBox, RepoContent content, String savePath) async {
-//     final value = {
-//       'path': savePath,
-//       'sha': content.sha!,
-//     };
-
-//     await initBox.put(content.name, value);
-//   }
-
-//   /// Grants Rush binary execution permission on Unix systems.
-//   Future<void> _chmodExe(String exePath) async {
-//     await Process.run('chmod', ['+x', exePath]);
-//   }
-// }
+  Future<void> _download(Client client, String url, String saveAs) async {
+    final response = await client.get(Uri.parse(url));
+    saveAs.asFile().writeAsBytesSync(response.bodyBytes);
+  }
+}

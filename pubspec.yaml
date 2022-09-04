@@ -22,7 +22,9 @@ dependencies:
   args: ^2.0.0
   checked_yaml: ^2.0.1
   collection: ^1.15.0
+  crypto: ^3.0.2
   get_it: ^7.2.0
+  github: ^9.4.0
   hive: ^2.2.3
   http: ^0.13.5
   interact: ^2.1.1
