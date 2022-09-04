@@ -6,13 +6,15 @@ import 'package:rush_cli/utils/file_extension.dart';
 
 class FileService {
   final String cwd;
+  late final Directory rushHomeDir;
 
-  FileService(this.cwd);
-
-  Directory get rushHomeDir {
+  FileService(this.cwd) {
     final Directory homeDir;
 
-    if (Platform.environment.containsKey('RUSH_DATA_DIR')) {
+    if (Platform.environment.containsKey('RUSH_HOME')) {
+      homeDir = Platform.environment['RUSH_HOME']!.asDir();
+    } else if (Platform.environment.containsKey('RUSH_DATA_DIR')) {
+      print('warn: RUSH_DATA_DIR env var is deprecated. Use RUSH_HOME instead.');
       homeDir = Platform.environment['RUSH_DATA_DIR']!.asDir();
     } else {
       if (Platform.operatingSystem == 'windows') {
@@ -27,7 +29,7 @@ class FileService {
       exit(1);
     }
 
-    return homeDir;
+    rushHomeDir = homeDir;
   }
 
   Directory get srcDir => p.join(cwd, 'src').asDir();
