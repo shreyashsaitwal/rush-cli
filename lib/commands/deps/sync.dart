@@ -22,7 +22,12 @@ class SyncSubCommand extends RushCommand {
   String get name => 'sync';
 
   @override
-  Future<List<Artifact>> run({
+  Future<int> run() async {
+    await sync();
+    return 0;
+  }
+
+  Future<List<Artifact>> sync({
     Box<Artifact>? cacheBox,
     Map<Scope, Iterable<String>> coordinates = const {},
     bool saveCoordinatesAsKeys = false,

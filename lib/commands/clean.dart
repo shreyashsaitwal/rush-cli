@@ -21,10 +21,10 @@ class CleanCommand extends RushCommand {
   String get name => 'clean';
 
   @override
-  Future<void> run() async {
+  Future<int> run() async {
     if (!await _isRushProject()) {
       _logger.error('Not a Rush project.');
-      exit(1);
+      return 1;
     }
 
     final spinner = Spinner(
@@ -35,8 +35,10 @@ class CleanCommand extends RushCommand {
     for (final file in _fs.dotRushDir.listSync()) {
       file.deleteSync(recursive: true);
     }
+
     await Future.delayed(Duration(milliseconds: Random().nextInt(2000)));
     spinner.done();
+    return 0;
   }
 
   Future<bool> _isRushProject() async {

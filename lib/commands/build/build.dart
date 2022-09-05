@@ -45,7 +45,7 @@ class BuildCommand extends RushCommand {
 
   /// Builds the extension in the current directory
   @override
-  Future<void> run() async {
+  Future<int> run() async {
     Hive.init(p.join(_fs.cwd, '.rush'));
 
     _logger.initStep('Initializing build');
@@ -85,7 +85,7 @@ class BuildCommand extends RushCommand {
             .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
       };
       remoteArtifacts = await SyncSubCommand()
-          .run(cacheBox: depsBox, coordinates: remoteDeps);
+          .sync(cacheBox: depsBox, coordinates: remoteDeps);
       await timestampsBox.put('rush.yaml', DateTime.now());
     } else {
       remoteArtifacts = depsBox.values.toList();
@@ -139,6 +139,7 @@ class BuildCommand extends RushCommand {
     _logger.initStep('Assembling the AIX');
     await _assemble();
     _logger.closeStep();
+    return 0;
   }
 
   Future<void> _mergeManifests(

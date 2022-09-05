@@ -6,6 +6,7 @@ import 'package:rush_cli/commands/clean.dart';
 import 'package:rush_cli/commands/create.dart';
 import 'package:rush_cli/commands/deps/deps.dart';
 import 'package:rush_cli/commands/rush_command.dart';
+import 'package:rush_cli/commands/upgrade/upgrade.dart';
 import 'package:rush_cli/services/libs_service.dart';
 import 'package:rush_cli/services/service_locator.dart';
 import 'package:rush_cli/version.dart';
@@ -33,7 +34,7 @@ Future<void> main(List<String> args) async {
     ..addCommand(BuildCommand())
     // TODO: Fix these two
     // ..addCommand(MigrateCommand())
-    // ..addCommand(UpgradeCommand())
+    ..addCommand(UpgradeCommand())
     ..addCommand(CleanCommand())
     ..addCommand(DepsCommand());
 

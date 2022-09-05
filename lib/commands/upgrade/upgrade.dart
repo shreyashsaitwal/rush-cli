@@ -13,10 +13,10 @@ import '../../services/file_service.dart';
 import '../rush_command.dart';
 import 'models/asset_info.dart';
 
-class Upgrade extends RushCommand {
+class UpgradeCommand extends RushCommand {
   final _fs = GetIt.I<FileService>();
 
-  Upgrade() {
+  UpgradeCommand() {
     argParser
       ..addFlag('force',
           abbr: 'f',
@@ -34,7 +34,7 @@ class Upgrade extends RushCommand {
   String get name => 'upgrade';
 
   @override
-  Future<void> run() async {
+  Future<int> run() async {
     final gh = GitHub(
         auth: Authentication.withToken(argResults!['access-token'] as String?));
     final release = await gh.repositories
@@ -108,6 +108,8 @@ class Upgrade extends RushCommand {
       newExe.asFile().renameSync(newExe.replaceFirst('.new', ''));
       await Process.start('chmod', ['+x', Platform.resolvedExecutable]);
     }
+
+    return 0;
   }
 
   Future<void> _download(Client client, String url, String saveAs) async {

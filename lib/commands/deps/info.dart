@@ -18,7 +18,7 @@ class InfoSubCommand extends RushCommand {
   String get name => 'info';
 
   @override
-  Future<void> run() async {
+  Future<int> run() async {
     Hive.init(p.join(_fs.cwd, '.rush'));
     final rushYaml = await RushYaml.load(_fs.configFile);
 
@@ -35,6 +35,7 @@ class InfoSubCommand extends RushCommand {
     }.join();
 
     print(p.basename(_fs.cwd) + newLine + graph);
+    return 0;
   }
 
   static const String newLine = '\n';

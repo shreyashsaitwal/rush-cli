@@ -1,4 +1,3 @@
-import 'dart:io' show Directory, File, exit;
 import 'dart:math';
 
 import 'package:get_it/get_it.dart';
@@ -7,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/services/libs_service.dart';
 import 'package:rush_cli/utils/casing.dart';
+import 'package:rush_cli/utils/file_extension.dart';
 import 'package:rush_cli/utils/utils.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/templates/android_manifest.dart';
@@ -43,19 +43,19 @@ class CreateCommand extends RushCommand {
 
   /// Creates a new extension project in the current directory.
   @override
-  Future<void> run() async {
+  Future<int> run() async {
     late String name;
     if (argResults!.rest.length == 1) {
       name = argResults!.rest.first;
     } else {
       printUsage();
-      exit(64); // Exit code 64 indicates usage error
+      return 64; // Exit code 64 indicates usage error
     }
 
     final kebabCasedName = Casing.kebabCase(name);
     final projectDir = p.join(_fs.cwd, kebabCasedName);
 
-    final dir = Directory(projectDir);
+    final dir = projectDir.asDir();
     if (await dir.exists() && dir.listSync().isNotEmpty) {
       throw Exception(
           'Cannot create "$projectDir" because it already exists and is not empty.');
@@ -138,19 +138,21 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
       filesToCreate.forEach((path, contents) async {
         await Utils.writeFile(path, contents);
       });
-
-      await Directory(p.join(projectDir, 'assets')).create(recursive: true);
+      p.join(projectDir, 'assets').asDir(true);
     } catch (e) {
       rethrow;
     }
 
     // Copy icon
-    await File(p.join(_fs.rushHomeDir.path, 'icon.png'))
-        .copy(p.join(projectDir, 'assets', 'icon.png'));
+    p
+        .join(_fs.rushHomeDir.path, 'icon.png')
+        .asFile()
+        .copySync(p.join(projectDir, 'assets', 'icon.png'));
 
     // All the above operations are blazingly fast. Wait a couple of seconds
     // to show that nice spinner. :P
     await Future.delayed(Duration(milliseconds: Random().nextInt(2000)));
     processing.done();
+    return 0;
   }
 }

@@ -102,7 +102,7 @@ class LibService {
     }
 
     print('Fetching build tools...');
-    await SyncSubCommand().run(
+    await SyncSubCommand().sync(
         cacheBox: _buildLibsBox,
         saveCoordinatesAsKeys: true,
         coordinates: {
@@ -117,7 +117,7 @@ class LibService {
 
     print('Fetching dev dependencies...');
     await SyncSubCommand()
-        .run(cacheBox: devDepsBox, saveCoordinatesAsKeys: true, coordinates: {
+        .sync(cacheBox: devDepsBox, saveCoordinatesAsKeys: true, coordinates: {
       Scope.compile: [..._devDeps, '$_kotlinGroupId:kotlin-stdlib:$ktVersion']
     });
   }

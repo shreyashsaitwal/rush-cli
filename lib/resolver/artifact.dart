@@ -126,7 +126,7 @@ class Artifact {
 @HiveType(typeId: 3)
 class Version extends Comparable<Version> {
   @HiveField(0)
-  final String _versionSpec;
+  String versionSpec;
 
   @HiveField(1)
   final List<String> _elements;
@@ -136,15 +136,15 @@ class Version extends Comparable<Version> {
 
   String get originalSpec => _originalSpec!;
 
-  Version(String versionSpec, [String? originalSpec])
-      : _versionSpec = versionSpec.trim(),
-        _elements = versionSpec.trim().split('.'),
+  Version({required this.versionSpec, String? originalSpec})
+      : _elements = versionSpec.trim().split('.'),
         _originalSpec = originalSpec {
-    _originalSpec ??= _versionSpec;
+    versionSpec = versionSpec.trim();
+    _originalSpec ??= versionSpec;
   }
 
   Version.from(String literal, {String? origialSpec})
-      : this(literal, origialSpec);
+      : this(versionSpec: literal, originalSpec: origialSpec);
 
   int _stringOrNumComparison(String a, String b) {
     final aNum = int.tryParse(a);
@@ -156,9 +156,6 @@ class Version extends Comparable<Version> {
     }
   }
 
-  @override
-  String toString() => _versionSpec;
-
   static RegExp rangeRegex =
       RegExp(r'([\[\(])(-?∞?[^,]*)(\,?|\.\.)?(-?∞?[^,]*)?([\]\)])');
 
@@ -167,7 +164,7 @@ class Version extends Comparable<Version> {
   // still handle them.
   // Below copy-pasta sauce: https://stackoverflow.com/a/45627598/12401482 :)
   Range<Version>? get range {
-    _originalSpec ??= _versionSpec;
+    _originalSpec ??= versionSpec;
 
     if (!rangeRegex.hasMatch(_originalSpec!)) {
       return null;
@@ -234,7 +231,7 @@ class Version extends Comparable<Version> {
 
   @override
   int compareTo(Version other) {
-    if (_versionSpec == other._versionSpec) return 0;
+    if (versionSpec == other.versionSpec) return 0;
 
     final minLenght = min(_elements.length, other._elements.length);
     for (var i = 0; i < minLenght - 1; i++) {
