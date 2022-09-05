@@ -11,7 +11,6 @@ import 'package:tint/tint.dart';
 import './utils.dart';
 import './tools/compiler.dart';
 import './tools/executor.dart';
-import './tools/generator.dart';
 import '../deps/sync.dart';
 import '../rush_command.dart';
 import '../../config/rush_yaml.dart';
@@ -76,7 +75,7 @@ class BuildCommand extends RushCommand {
 
     final Iterable<Artifact> remoteArtifacts;
     final needFetch = configFileModified || !everyDepExists;
-    
+
     if (needFetch) {
       _logger.info('Fetching dependencies...');
       final remoteDeps = {
@@ -119,7 +118,8 @@ class BuildCommand extends RushCommand {
     _logger.closeStep();
 
     _logger.initStep('Processing');
-    await Generator.generate(config);
+    BuildUtils.copyAssets(config);
+    BuildUtils.copyLicense(config);
     final artJarPath = await _createArtJar(config, remoteArtifacts.toList());
 
     if (argResults!['optimize'] as bool) {
@@ -192,7 +192,8 @@ class BuildCommand extends RushCommand {
   }
 
   /// Compiles extension's source files.
-  Future<void> _compile(RushYaml rushYaml, Set<String> depJars, Box<DateTime> timestampBox) async {
+  Future<void> _compile(RushYaml rushYaml, Set<String> depJars,
+      Box<DateTime> timestampBox) async {
     final srcFiles =
         Directory(_fs.srcDir.path).listSync(recursive: true).whereType<File>();
     final javaFiles = srcFiles
@@ -216,7 +217,8 @@ class BuildCommand extends RushCommand {
       }
 
       if (javaFiles.isNotEmpty) {
-        await Compiler.compileJavaFiles(depJars, rushYaml.desugar, timestampBox);
+        await Compiler.compileJavaFiles(
+            depJars, rushYaml.desugar, timestampBox);
       }
     } catch (e) {
       rethrow;
