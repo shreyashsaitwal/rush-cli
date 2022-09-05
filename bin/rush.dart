@@ -46,8 +46,7 @@ Future<void> main(List<String> args) async {
 }
 
 void _printVersion() {
-  print('Version: ${rushVersion.toString().cyan()}');
-  print('Built on: ${rushBuiltOn.toString().cyan()}');
+  print('Version: ${packageVersion.cyan()}');
   exit(0);
 }
 
