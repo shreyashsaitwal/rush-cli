@@ -27,23 +27,20 @@ class Compiler {
     final helperFiles = _fs.srcDir
         .listSync(recursive: true)
         .whereType<File>()
-        .where((el) => p.basename(el.parent.path) == 'helpers');
+        .where((el) => el.path.split(p.separator).contains('helpers'));
 
     final helpersModified = timestampBox.get('helpers-compile-time') == null
         ? true
-        : helperFiles.any((el) =>
-            el.lastModifiedSync().isAfter(timestampBox.get('helpers-compile-time')!));
+        : helperFiles.any((el) => el
+            .lastModifiedSync()
+            .isAfter(timestampBox.get('helpers-compile-time')!));
     if (helperFiles.isEmpty || !helpersModified) {
       return;
     }
 
     print('Compiling helpers');
     final time = DateTime.now();
-
-    final package =
-        p.relative(helperFiles.first.parent.path, from: _fs.srcDir.path);
     final hasKtFiles = helperFiles.any((el) => p.extension(el.path) == '.kt');
-    final outputDir = p.join(_fs.buildClassesDir.path, package);
 
     final List<String> args;
     if (hasKtFiles) {
@@ -66,14 +63,17 @@ class Compiler {
   }
 
   static Future<void> compileJavaFiles(
-      Set<String> depJars, bool supportJava8, Box<DateTime> timestampBox) async {
+    Set<String> depJars,
+    bool supportJava8,
+    Box<DateTime> timestampBox,
+  ) async {
     final javaFiles = _fs.srcDir
         .listSync(recursive: true)
         .where((el) => el is File && p.extension(el.path) == '.java')
         .map((el) => el.path);
-    final args = _javacArgs(javaFiles, depJars, supportJava8);
     try {
       await _compilerHelpers(depJars, timestampBox, java8: supportJava8);
+      final args = _javacArgs(javaFiles, depJars, supportJava8);
       await _processRunner.runExecutable('javac', args);
     } catch (e) {
       rethrow;
@@ -101,7 +101,10 @@ class Compiler {
   }
 
   static Future<void> compileKtFiles(
-      Set<String> depJars, String kotlinVersion, Box<DateTime> timestampBox) async {
+    Set<String> depJars,
+    String kotlinVersion,
+    Box<DateTime> timestampBox,
+  ) async {
     try {
       await _compilerHelpers(depJars, timestampBox, ktVersion: kotlinVersion);
       final kotlincArgs =
