@@ -12,7 +12,7 @@ import '../services/logger.dart';
 
 class CleanCommand extends RushCommand {
   final _fs = GetIt.I<FileService>();
-  final _logger = GetIt.I<Logger>();
+  final _lgr = GetIt.I<Logger>();
 
   @override
   String get description => 'Deletes old build files and caches.';
@@ -23,7 +23,7 @@ class CleanCommand extends RushCommand {
   @override
   Future<int> run() async {
     if (!await _isRushProject()) {
-      _logger.error('Not a Rush project.');
+      _lgr.err('Not a Rush project.');
       return 1;
     }
 

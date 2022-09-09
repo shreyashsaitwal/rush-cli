@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:get_it/get_it.dart';
+import 'package:rush_cli/services/logger.dart';
 import 'package:rush_cli/utils/file_extension.dart';
 import 'package:rush_cli/utils/process_runner.dart';
 import 'package:rush_cli/services/file_service.dart';
@@ -12,8 +13,10 @@ import '../utils.dart';
 
 class Compiler {
   static final _fs = GetIt.I<FileService>();
-  static final _processRunner = ProcessRunner();
   static final _libService = GetIt.I<LibService>();
+  static final _lgr = GetIt.I<Logger>();
+
+  static final _processRunner = ProcessRunner();
 
   static Future<void> _compilerHelpers(
     Iterable<String> depJars,
@@ -38,8 +41,7 @@ class Compiler {
       return;
     }
 
-    print('Compiling helpers');
-    final time = DateTime.now();
+    _lgr.info('Pre-compiling helper enums...');
     final hasKtFiles = helperFiles.any((el) => p.extension(el.path) == '.kt');
 
     final List<String> args;
@@ -59,7 +61,6 @@ class Compiler {
     }
 
     await timestampBox.put('helpers-compile-time', DateTime.now());
-    print(DateTime.now().difference(time).inMilliseconds);
   }
 
   static Future<void> compileJavaFiles(
@@ -126,14 +127,14 @@ class Compiler {
     // in the it's own directory but with name: kotlin-annotation-processing.jar
     // This is a bug in kapt, and for more details:
     // https://youtrack.jetbrains.com/issue/KTIJ-22605/kotlin-annotation-processing-embeddable-isnt-actually-embeddable
-    final kaptJar = _libService.kaptJars(kotlinVersion).first;
+    final kaptJar = _libService.kaptJars().first;
     final duplicateKaptJar =
         p.join(p.dirname(kaptJar), 'kotlin-annotation-processing.jar');
     kaptJar.asFile().copySync(duplicateKaptJar);
 
     final classpath = [
-      ..._libService.kotlincJars(kotlinVersion),
-      if (withProc) ..._libService.kaptJars(kotlinVersion),
+      ..._libService.kotlincJars(),
+      if (withProc) ..._libService.kaptJars(),
       // TODO: Consider using JDK bundled tools.jar or similar
       if (withProc) _fs.jreToolsJar.path,
     ].join(BuildUtils.cpSeparator);
@@ -154,8 +155,8 @@ class Compiler {
       ...['-d', _fs.buildClassesDir.path],
       if (files != null) ...files else srcDir,
     ].map((el) => el.replaceAll('\\', '/')).join('\n');
-    final argsFile = _fs.kotlincArgsFile..writeAsStringSync(kotlincArgs);
 
+    final argsFile = _fs.kotlincArgsFile..writeAsStringSync(kotlincArgs);
     return <String>[
       // This -cp flag belongs to the java cmdline tool, required to run the
       // below KaptCli class

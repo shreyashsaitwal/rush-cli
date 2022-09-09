@@ -1,8 +1,9 @@
-// ignore_for_file: avoid_print
-
 import 'dart:convert';
 
+import 'package:dart_console/dart_console.dart';
 import 'package:tint/tint.dart';
+
+final _console = Console();
 
 class Logger {
   int _errorCount = 0;
@@ -11,65 +12,108 @@ class Logger {
   int _warningCount = 0;
   int get warningCount => _warningCount;
 
-  bool _isStepInit = false;
+  bool _isTaskRunning = false;
+  bool _hasTaskLogged = false;
+  final _taskStopwatch = Stopwatch();
 
-  void initStep(String title) {
-    if (!_isStepInit) {
-      print('┌─ '.brightBlack() + title);
-      _isStepInit = true;
-    } else {
-      debug('Attempted to init a new step before closing previous' +
-          '\n' +
-          StackTrace.current.toString());
-    }
+  void dbg(String message) {
+    log(message, 'debug '.blue());
   }
 
-  void closeStep({bool fail = false}) {
-    if (_isStepInit) {
-      print('└ '.brightBlack() + (fail ? 'failed'.red() : 'done'.green()));
-      _isStepInit = false;
-    } else {
-      debug('Attempted to close a step that was not initialized' +
-          '\n' +
-          StackTrace.current.toString());
-    }
+  void info(String message) {
+    log(message, 'info  '.cyan());
   }
 
-  void log(String message, [String prefix = '     ']) {
-    final prefixNew = '${_isStepInit ? '│ '.brightBlack() : ''}$prefix ';
-    print(prefixNew + message);
-  }
-
-  void debug(String message, [bool printPrefix = true]) {
-    log(_padMessage(message), printPrefix ? 'debug'.cyan() : '');
-  }
-
-  void info(String message, [bool printPrefix = true]) {
-    log(_padMessage(message), printPrefix ? ' info'.blue() : '');
-  }
-
-  void warn(String message, [bool printPrefix = true]) {
-    log(_padMessage(message), printPrefix ? ' warn'.yellow() : '');
+  void warn(String message) {
+    log(message, 'warn  '.yellow());
     _warningCount++;
   }
 
-  void error(String message, [bool printPrefix = true]) {
-    log(_padMessage(message), printPrefix ? 'error'.red() : '');
+  void err(String message) {
+    log(message, 'error '.red());
     _errorCount++;
   }
 
-  String _padMessage(String message) {
-    final lines = LineSplitter.split(message).toList();
-    if (lines.length == 1) {
-      return message;
-    }
-    final sublist = lines.sublist(1).map((el) {
-      if (_isStepInit) {
-        return '│ '.brightBlack() + ' ' * 6 + el;
+  final _warnRegex = RegExp('(warning:? ){1,2}', caseSensitive: false);
+  final _errRegex =
+      RegExp('((error:? )|(exception:? )){1,2}', caseSensitive: false);
+  final _dbgRegex = RegExp('((note:? )|(debug:? )){1,2}', caseSensitive: false);
+
+  void parseAndLog(String chunk) {
+    final lines = LineSplitter.split(chunk);
+    for (final el in lines.toList()) {
+      final String prefix;
+      final String msg;
+      if (_warnRegex.hasMatch(el)) {
+        prefix = 'warn  '.yellow();
+        msg = el.replaceFirst(_warnRegex, '');
+      } else if (_errRegex.hasMatch(el)) {
+        prefix = 'error '.red();
+        msg = el.replaceFirst(_errRegex, '');
+      } else if (_dbgRegex.hasMatch(el)) {
+        prefix = 'debug '.blue();
+        msg = el.replaceFirst(_dbgRegex, '');
       } else {
-        return ' ' * 6 + el;
+        prefix = ' ' * 6;
+        msg = el;
       }
-    });
-    return [lines[0], ...sublist].join('\n');
+      log(msg, prefix);
+    }
+  }
+
+  String _taskTitle = '';
+
+  void log(String message, [String prefix = '']) {
+    if (!_hasTaskLogged && _isTaskRunning) {
+      _console
+        ..cursorUp()
+        ..eraseLine()
+        ..write('┌ '.brightBlack() + _taskTitle)
+        ..writeLine();
+      _hasTaskLogged = true;
+    }
+    if (_isTaskRunning) {
+      prefix = '│ '.brightBlack() + prefix;
+    }
+    _console.writeLine(prefix + message);
+  }
+
+  void startTask(String title) {
+    if (_isTaskRunning) {
+      throw Exception('A task is already running');
+    }
+    _taskStopwatch.start();
+    _isTaskRunning = true;
+    _taskTitle = title;
+    _console
+      ..write('- '.brightBlack())
+      ..write(title)
+      ..writeLine();
+  }
+
+  void stopTask([bool success = true]) {
+    if (!_isTaskRunning) {
+      throw Exception('No task is running');
+    }
+
+    final time = (_taskStopwatch.elapsedMilliseconds / 1000).toStringAsFixed(2);
+    String line = (success ? '✅'.green() : '❌'.red()) +
+        ' ' * 4 +
+        '... ($time)'.brightBlack();
+    if (_hasTaskLogged) {
+      line = '└ '.brightBlack() + line;
+    } else {
+      line = '- '.brightBlack() + '$_taskTitle ' + line;
+      _console
+        ..cursorUp()
+        ..eraseLine();
+    }
+    _console
+      ..write(line)
+      ..writeLine();
+
+    _isTaskRunning = false;
+    _hasTaskLogged = false;
+    _taskStopwatch.reset();
   }
 }

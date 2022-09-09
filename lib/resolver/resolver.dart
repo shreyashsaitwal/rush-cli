@@ -1,8 +1,10 @@
 import 'dart:io';
 
 import 'package:collection/collection.dart';
+import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/services/logger.dart';
 
 import './artifact.dart';
 import './pom.dart';
@@ -13,10 +15,16 @@ class _ArtifactMetadata {
   late final String artifactId;
   late final String version;
 
-  _ArtifactMetadata(String coordinate)
-      : groupId = coordinate.split(':')[0],
-        artifactId = coordinate.split(':')[1],
-        version = coordinate.split(':')[2];
+  _ArtifactMetadata(String coordinate) {
+    final parts = coordinate.split(':');
+    if (parts.length != 3) {
+      throw Exception(
+          'Invalid artifact coordinate format: $coordinate\nExpected format: <groupId>:<artifactId>:<version>');
+    }
+    groupId = coordinate.split(':')[0];
+    artifactId = coordinate.split(':')[1];
+    version = coordinate.split(':')[2];
+  }
 
   String _basePath() =>
       p.joinAll([...groupId.split('.'), artifactId, version]).replaceAll(
@@ -41,6 +49,7 @@ class ArtifactResolver {
     'https://maven-central.storage-download.googleapis.com/repos/central/data',
     'https://jcenter.bintray.com',
   };
+  final _lgr = GetIt.I<Logger>();
 
   late final String cacheDir;
 
@@ -58,8 +67,9 @@ class ArtifactResolver {
 
   Future<File> _fetchFile(String relativePath) async {
     final file = p.join(cacheDir, relativePath).asFile();
-
     if (file.existsSync()) return file;
+
+    _lgr.dbg('${file.path} does not exist, downloading...');
     await file.create(recursive: true);
 
     for (final repo in defaultRepos) {
@@ -72,9 +82,8 @@ class ArtifactResolver {
           return file;
         }
         continue;
-      } catch (e, s) {
-        print('$e\n$s');
-        continue;
+      } catch (e) {
+        _lgr.dbg(e.toString());
       }
     }
 
@@ -87,16 +96,16 @@ class ArtifactResolver {
   Version _resolveDepVersion(Dependency dependency, Pom pom, Pom? parentPom) {
     var version = dependency.version;
     final exception = Exception(
-        'Couldn\'t resolve version of dependency (${dependency.coordinate}) of artifact ${pom.coordinate}');
+        'Couldn\'t resolve dependency (${dependency.coordinate}) of artifact ${pom.coordinate}');
 
     // If the version is defined in a range, pick the upper endpoint if it is
     // upper bounded otherwise pick the lower endpoint for now.
     if (version != null && Version.rangeRegex.hasMatch(version)) {
       final range = Version.from(version).range;
       if (!range!.upperBounded) {
-        return Version.from(range.lower!.toString(), origialSpec: version);
+        return Version.from(range.lower!.versionSpec, origialSpec: version);
       }
-      return Version.from(range.upper!.toString(), origialSpec: version);
+      return Version.from(range.upper!.versionSpec, origialSpec: version);
     }
 
     // If the version is null, then it should be stored in the [pom] or [parentPom]
@@ -196,9 +205,9 @@ class ArtifactResolver {
     Scope scope, [
     Version? version,
   ]) async {
-    print(coordinate);
     final metadata = _ArtifactMetadata(coordinate);
     final pomFile = await _fetchFile(metadata.pomPath());
+    _lgr.dbg('Fetched POM: ${pomFile.path}');
 
     final pom = Pom.fromXml(pomFile.readAsStringSync());
     final Pom? parentPom;
@@ -208,6 +217,8 @@ class ArtifactResolver {
         throw Exception(
             'Artifact ${pom.coordinate} doesn\'t have a valid POM file (missing groupId and/or version)');
       } else {
+      _lgr.dbg(
+          '$coordinate POM has no version or group ID; fetching parent POM ${pom.parent!.coordinate}');
         // TODO: Investigate why I chose to resolve the parent here. I remember
         // I did it for some reason, but don't remember what it was. :(
         // final parentArtifact =
@@ -221,6 +232,7 @@ class ArtifactResolver {
 
         pom.version ??= parentMetadata.version;
         pom.groupId ??= parentMetadata.groupId;
+        _lgr.dbg('pom.version: ${pom.version}; pom.groupId: ${pom.groupId}');
       }
     } else {
       parentPom = null;
@@ -236,25 +248,35 @@ class ArtifactResolver {
       }
       return false;
     });
+    _lgr.dbg('$coordinate: Total ${pom.dependencies.length} deps defined; ${deps.length} selected');
 
     final result = <Artifact>[];
     for (final dep in deps) {
       final resolvedVersion = _resolveDepVersion(dep, pom, parentPom);
-      dep.version = resolvedVersion.toString();
+      final versionChanged =
+          resolvedVersion.versionSpec != resolvedVersion.originalSpec;
+      if (versionChanged) {
+        _lgr.dbg(
+            'Changed version: ${dep.version} -> $resolvedVersion');
+      }
+
+      dep.version = resolvedVersion.versionSpec;
       result.addAll(await resolveArtifact(
           dep.coordinate,
           dep.scope?.toScope() ?? Scope.compile,
           // Only pass the version object if the original version spec is different
           // than the spec used to resolved the artifact. This can happen in only
           // one case and that is when the original spec was a version range.
-          resolvedVersion.originalSpec != resolvedVersion.toString()
-              ? resolvedVersion
-              : null));
+          versionChanged ? resolvedVersion : null));
     }
 
-    coordinate = version == null
-        ? coordinate
-        : [...coordinate.split(':').take(2), version.originalSpec].join(':');
+    if (version != null) {
+      final newCoordinate = [...coordinate.split(':').take(2), version.originalSpec].join(':');
+      _lgr.dbg('Changed coord: $coordinate -> $newCoordinate');
+      coordinate = newCoordinate;
+    }
+
+    _lgr.info('Resolved $coordinate and its dependencies');
     return result
       ..insert(
         0,
@@ -278,6 +300,8 @@ class ArtifactResolver {
     final metadata = _ArtifactMetadata(artifact.coordinate);
     try {
       await _fetchFile(metadata.sourceJarPath());
-    } catch (_) {}
+    } catch (_) {
+      _lgr.warn('Could not resolve source JAR for ${artifact.coordinate}');
+    }
   }
 }

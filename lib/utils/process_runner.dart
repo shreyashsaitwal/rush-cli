@@ -3,10 +3,11 @@ import 'dart:io' show Process, ProcessException;
 
 import 'package:get_it/get_it.dart';
 import 'package:rush_cli/services/file_service.dart';
+import 'package:rush_cli/services/logger.dart';
 
-// TODO: Not yet complete
 class ProcessRunner {
   final _fs = GetIt.I<FileService>();
+  final _lgr = GetIt.I<Logger>();
 
   Future<void> runExecutable(String exe, List<String> args) async {
     final Process process;
@@ -16,16 +17,15 @@ class ProcessRunner {
         'RUSH_PROJECT_ROOT': _fs.cwd,
       });
     } catch (e) {
-      // TODO: Is this any different than not try catching at all?
       rethrow;
     }
 
     process
-      ..stdout.transform(utf8.decoder).listen((data) {
-        print(data.trimRight());
+      ..stdout.transform(utf8.decoder).listen((chunk) {
+        _lgr.parseAndLog(chunk);
       })
-      ..stderr.transform(utf8.decoder).listen((data) {
-        print(data.trimRight());
+      ..stderr.transform(utf8.decoder).listen((chunk) {
+        _lgr.parseAndLog(chunk);
       });
 
     if (await process.exitCode != 0) {

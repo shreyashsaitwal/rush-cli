@@ -61,7 +61,7 @@ class Executor {
   static Future<void> execManifMerger(
     int minSdk,
     String mainManifest,
-    Set<String> depManifests,
+    Iterable<String> depManifests,
   ) async {
     final classpath = <String>[
       ..._libService.manifMergerJars(),

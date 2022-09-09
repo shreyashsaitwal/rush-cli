@@ -1,6 +1,8 @@
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/services/logger.dart';
+import 'package:tint/tint.dart';
 
 import '../../commands/rush_command.dart';
 import '../../config/rush_yaml.dart';
@@ -8,7 +10,8 @@ import '../../resolver/artifact.dart';
 import '../../services/file_service.dart';
 
 class InfoSubCommand extends RushCommand {
-  final FileService _fs = GetIt.I<FileService>();
+  final _fs = GetIt.I<FileService>();
+  final _lgr = GetIt.I<Logger>();
 
   @override
   String get description =>
@@ -20,7 +23,11 @@ class InfoSubCommand extends RushCommand {
   @override
   Future<int> run() async {
     Hive.init(p.join(_fs.cwd, '.rush'));
-    final rushYaml = await RushYaml.load(_fs.configFile);
+    final rushYaml = await RushYaml.load(_fs.configFile, _lgr);
+    if (rushYaml == null) {
+      _lgr.err('Failed to load the config file rush.yaml');
+      return 1;
+    }
 
     final depsBox = await Hive.openBox<Artifact>('deps');
     final remoteDeps = depsBox.values.toList();
@@ -34,7 +41,7 @@ class InfoSubCommand extends RushCommand {
         _printGraph(remoteDeps, dep, dep == directDeps.last)
     }.join();
 
-    print(p.basename(_fs.cwd) + newLine + graph);
+    _lgr.log(p.basename(_fs.cwd) + newLine + graph);
     return 0;
   }
 
@@ -60,7 +67,7 @@ class InfoSubCommand extends RushCommand {
         : Connector.horizontal;
     connector += Connector.empty +
         dep.coordinate +
-        ' (${dep.scope.name})' +
+        ' (${dep.scope.name})'.brightBlack() +
         (isPrinted && dep.dependencies.isNotEmpty ? ' (*)' : '') +
         newLine;
 
@@ -84,10 +91,10 @@ class InfoSubCommand extends RushCommand {
 }
 
 class Connector {
-  static const String sibling = '├';
-  static const String lastSibling = '└';
-  static const String childDeps = '┬';
-  static const String horizontal = '─';
-  static const String vertical = '│';
-  static const String empty = ' ';
+  static final sibling = '├'.brightBlack();
+  static final lastSibling = '└'.brightBlack();
+  static final childDeps = '┬'.brightBlack();
+  static final horizontal = '─'.brightBlack();
+  static final vertical = '│'.brightBlack();
+  static final empty = ' '.brightBlack();
 }

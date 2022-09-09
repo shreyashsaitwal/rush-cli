@@ -2,6 +2,7 @@ import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:collection/collection.dart';
+import 'package:rush_cli/services/logger.dart';
 
 import './file_service.dart';
 import '../resolver/artifact.dart';
@@ -31,10 +32,15 @@ const _manifMergerAndDeps = <String>[
 
 const _kotlinGroupId = 'org.jetbrains.kotlin';
 
+/// Kotlin version used by Rush's annotation processor.
+const _rushApKotlinVersion = '1.7.10';
+
 class LibService {
-  final _fs = GetIt.I<FileService>();
+  static final _fs = GetIt.I<FileService>();
+  static final _lgr = GetIt.I<Logger>();
 
   LibService._() {
+    _lgr.dbg('Initializing Hive in ${_fs.rushHomeDir.path}/cache');
     Hive
       ..init(p.join(_fs.rushHomeDir.path, 'cache'))
       ..registerAdapter(ArtifactAdapter())
@@ -42,6 +48,7 @@ class LibService {
   }
 
   static Future<LibService> instantiate() async {
+    _lgr.dbg('Instantiating LibService');
     final instance = LibService._();
     instance.devDepsBox = await Hive.openBox<Artifact>('dev-deps');
     instance._buildLibsBox = await Hive.openBox<Artifact>('build-libs');
@@ -70,8 +77,8 @@ class LibService {
       .flattened
       .toList();
 
-  List<String> kotlincJars(String ktVersion) => _buildLibsBox
-      .get('$_kotlinGroupId:kotlin-compiler-embeddable:$ktVersion')!
+  List<String> kotlincJars() => _buildLibsBox
+      .get('$_kotlinGroupId:kotlin-compiler-embeddable:$_rushApKotlinVersion')!
       .classpathJars(_buildLibsBox.values)
       .toList();
 
@@ -81,13 +88,13 @@ class LibService {
         .classesJar;
   }
 
-  List<String> kaptJars(String ktVersion) => _buildLibsBox
+  List<String> kaptJars() => _buildLibsBox
       .get(
-          '$_kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion')!
+          '$_kotlinGroupId:kotlin-annotation-processing-embeddable:$_rushApKotlinVersion')!
       .classpathJars(_buildLibsBox.values)
       .toList();
 
-  Future<void> ensureDevDeps(String ktVersion) async {
+  Future<void> ensureDevDeps() async {
     final resolutionNeeded = () {
       if (devDepsBox.isEmpty || _buildLibsBox.isEmpty) {
         return true;
@@ -98,27 +105,27 @@ class LibService {
               .every((el) => el.classesJar.asFile().existsSync()));
     }();
     if (!resolutionNeeded) {
+      _lgr.dbg('Dev-deps are up-to-date');
       return;
     }
 
-    print('Fetching build tools...');
+    _lgr.dbg('Resolving dev-deps');
     await SyncSubCommand().sync(
         cacheBox: _buildLibsBox,
         saveCoordinatesAsKeys: true,
         coordinates: {
           Scope.runtime: [
-            '$_kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
-            '$_kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
+            '$_kotlinGroupId:kotlin-compiler-embeddable:$_rushApKotlinVersion',
+            '$_kotlinGroupId:kotlin-annotation-processing-embeddable:$_rushApKotlinVersion',
             _d8Coord,
             _pgCoord,
             ..._manifMergerAndDeps,
           ],
         });
 
-    print('Fetching dev dependencies...');
     await SyncSubCommand()
         .sync(cacheBox: devDepsBox, saveCoordinatesAsKeys: true, coordinates: {
-      Scope.compile: [..._devDeps, '$_kotlinGroupId:kotlin-stdlib:$ktVersion']
+      Scope.compile: [..._devDeps, '$_kotlinGroupId:kotlin-stdlib:$_rushApKotlinVersion']
     });
   }
 }

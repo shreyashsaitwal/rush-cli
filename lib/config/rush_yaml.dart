@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:checked_yaml/checked_yaml.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:rush_cli/services/logger.dart';
 
 part 'android.dart';
 part 'kotlin.dart';
@@ -53,12 +54,14 @@ class RushYaml {
   // ignore: strict_raw_type
   factory RushYaml._fromJson(Map json) => _$RushYamlFromJson(json);
 
-  static Future<RushYaml> load(File configFile) async {
+  static Future<RushYaml?> load(File configFile, Logger lgr) async {
+    lgr.dbg('Loading config from ${configFile.path}');
     try {
       return checkedYamlDecode(
           await configFile.readAsString(), (json) => RushYaml._fromJson(json!));
     } catch (e) {
-      rethrow;
+      lgr.err(e.toString());
     }
+    return null;
   }
 }

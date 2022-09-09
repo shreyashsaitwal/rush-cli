@@ -1,4 +1,4 @@
-import 'dart:io' show Directory, File, Platform;
+import 'dart:io' show File, Platform;
 
 import 'package:archive/archive.dart';
 import 'package:get_it/get_it.dart';
@@ -7,9 +7,11 @@ import 'package:rush_cli/utils/file_extension.dart';
 
 import '../../config/rush_yaml.dart';
 import '../../services/file_service.dart';
+import '../../services/logger.dart';
 
 class BuildUtils {
   static final _fs = GetIt.I<FileService>();
+  static final _lgr = GetIt.I<Logger>();
 
   static void unzip(String zipFilePath, String outputDirPath) {
     final archive =
@@ -20,9 +22,8 @@ class BuildUtils {
         try {
           final file = p.join(outputDirPath, el.name).asFile(true);
           file.writeAsBytesSync(bytes);
-        } catch (e, s) {
-          print(e);
-          print(s);
+        } catch (e) {
+          _lgr.parseAndLog('error: ' + e.toString());
           rethrow;
         }
       }
@@ -48,7 +49,7 @@ class BuildUtils {
       if (asset.existsSync()) {
         asset.copySync(p.join(assetsDestDir.path, el));
       } else {
-        // TODO: Log
+        throw Exception('Asset $el does not exist');
       }
     }
   }
@@ -67,9 +68,7 @@ class BuildUtils {
       return;
     }
 
-    final dest = Directory(p.join(_fs.buildRawDir.path, 'aiwebres'));
-    dest.createSync(recursive: true);
-
+    final dest = p.join(_fs.buildRawDir.path, 'aiwebres').asDir(true);
     if (license.existsSync()) {
       license.copySync(p.join(dest.path, 'LICENSE'));
     }

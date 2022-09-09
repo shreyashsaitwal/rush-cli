@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/services/logger.dart';
 import 'package:xrange/xrange.dart';
 
 import '../../commands/rush_command.dart';
@@ -14,6 +15,7 @@ import '../../services/libs_service.dart';
 class SyncSubCommand extends RushCommand {
   final _fs = GetIt.I<FileService>();
   final _libService = GetIt.I<LibService>();
+  final _lgr = GetIt.I<Logger>();
 
   @override
   String get description => 'Resolves and downloads project dependencies.';
@@ -29,27 +31,35 @@ class SyncSubCommand extends RushCommand {
 
   Future<List<Artifact>> sync({
     Box<Artifact>? cacheBox,
+    Box<DateTime>? timestampBox,
     Map<Scope, Iterable<String>> coordinates = const {},
     bool saveCoordinatesAsKeys = false,
   }) async {
+    _lgr.info('Fetching dependency metadata...');
+
     // Initialize all the parameters if this was invoked as a subcommand.
     if (cacheBox == null) {
       Hive.init(p.join(_fs.dotRushDir.path));
-      final config = await RushYaml.load(_fs.configFile);
-      if (coordinates.isEmpty) {
-        coordinates = {
-          Scope.runtime: config.runtimeDeps
-              .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
-          Scope.compile: config.comptimeDeps
-              .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
-        };
+      final config = await RushYaml.load(_fs.configFile, _lgr);
+      if (config == null) {
+        throw Exception('Failed to load rush.yml config file');
       }
+
+      coordinates = {
+        Scope.runtime: config.runtimeDeps
+            .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
+        Scope.compile: config.comptimeDeps
+            .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
+      };
     }
 
     cacheBox ??= await Hive.openBox<Artifact>('deps');
+    timestampBox ??= await Hive.openBox<DateTime>('timestamps');
     await cacheBox.clear();
 
     final resolver = ArtifactResolver();
+
+    _lgr.dbg('Firing up the resolution process');
     var resolvedDeps = (await Future.wait([
       for (final entry in coordinates.entries)
         for (final coord in entry.value)
@@ -60,9 +70,16 @@ class SyncSubCommand extends RushCommand {
 
     final directDeps =
         {for (final entry in coordinates.entries) entry.value}.flattened;
-    resolvedDeps =
-        (await _resolveVersionConflicts(resolvedDeps, directDeps, resolver))
-            .toList(growable: true);
+
+    try {
+      // Resolve version comflicts
+      _lgr.info('Resolving version conflicts...');
+      resolvedDeps =
+          (await _resolveVersionConflicts(resolvedDeps, directDeps, resolver))
+              .toList(growable: true);
+    } catch (e) {
+      rethrow;
+    }
 
     // Update the versions of transitive dependencies once the version conflicts
     // are resolved.
@@ -77,14 +94,19 @@ class SyncSubCommand extends RushCommand {
     }).toList();
 
     // Download the artifacts and then add them to the cache
-    await Future.wait([
-      for (final dep in resolvedDeps) resolver.downloadArtifact(dep),
-      if (saveCoordinatesAsKeys)
-        cacheBox
-            .putAll(Map.fromIterable(resolvedDeps, key: (el) => el.coordinate))
-      else
-        cacheBox.addAll(resolvedDeps),
-    ]);
+    _lgr.info('Downloading dependencies...');
+    try {
+      await Future.wait([
+        for (final dep in resolvedDeps) resolver.downloadArtifact(dep),
+        if (saveCoordinatesAsKeys)
+          cacheBox.putAll(
+              Map.fromIterable(resolvedDeps, key: (el) => el.coordinate))
+        else
+          cacheBox.addAll(resolvedDeps),
+      ]);
+    } catch (e) {
+      rethrow;
+    }
 
     return resolvedDeps;
   }
@@ -97,6 +119,8 @@ class SyncSubCommand extends RushCommand {
     final sameArtifacts = resolvedArtifacts
         .groupListsBy((el) => '${el.groupId}:${el.artifactId}')
         .entries;
+    _lgr.dbg(
+        'Ungrouped: ${resolvedArtifacts.length} -> Grouped: ${sameArtifacts.length}');
 
     final result = <Artifact>[];
     final newCoordsToReResolve = <String, Scope>{};
@@ -105,6 +129,8 @@ class SyncSubCommand extends RushCommand {
       // Filter deps that have ranges defined
       final rangedVersionDeps =
           entry.value.where((el) => el.version.range != null).toSet();
+      _lgr.dbg('Total ranged: ${rangedVersionDeps.length}');
+
       final providedAlternative = _providedAlternative(entry.key);
       final scope = entry.value.any((el) => el.scope == Scope.runtime)
           ? Scope.runtime
@@ -142,11 +168,12 @@ class SyncSubCommand extends RushCommand {
             // Ignore this artifact if it is provided by App Inventor.
             if (providedAlternative != null &&
                 pickedArtifact.coordinate == providedAlternative.coordinate) {
+              _lgr.dbg('Provided alternative found for ${entry.key}');
               continue;
             }
 
-            print(
-                'Multiple versions of ${entry.key} found. Using ${pickedArtifact.version} because its was explicit');
+            _lgr.dbg(
+                '${entry.value.length} versions for ${entry.key} found; using ${pickedArtifact.version} because its a direct dep');
             result.add(pickedArtifact..scope = scope);
             continue;
           }
@@ -165,6 +192,7 @@ class SyncSubCommand extends RushCommand {
 
         if (providedAlternative != null &&
             intersection.contains(providedAlternative.version)) {
+          _lgr.dbg('Provided alternative found for ${entry.key}');
           continue;
         }
 
@@ -215,15 +243,15 @@ class SyncSubCommand extends RushCommand {
       }
 
       // If this artifact is defined as a direct dep, use that version.
-      // Note: when this method if called from the build command, the coordinates
+      // Note: when this method is called from the build command, the `coordinates`
       // are the direct deps.
       final directDep = {
         for (final coord in directDeps)
           if (coord.split(':').take(2).join(':') == '${entry.key}:') coord
       };
       if (directDep.isNotEmpty) {
-        print(
-            'Multiple versions of ${entry.key} found. Using ${directDep.first.split(':').last} because its a direct dep');
+        _lgr.dbg(
+            '${entry.value.length} versions for ${entry.key} found; using ${directDep.first.split(':').last} because its a direct dep');
         final artifact =
             entry.value.firstWhere((el) => el.coordinate == directDep.first);
         result.add(artifact..scope = scope);
@@ -236,13 +264,15 @@ class SyncSubCommand extends RushCommand {
       final highestVersionDep = nonRangedVersionDeps
           .sorted((a, b) => a.version.compareTo(b.version))
           .first;
-      print(
-          'Multiple versions of ${entry.key} found. Using ${highestVersionDep.version} because its the highest');
+      _lgr.dbg(
+          '${entry.value.length} versions for ${entry.key} found; using ${highestVersionDep.version} because its the highest');
       result.add(highestVersionDep..scope = scope);
     }
 
     // Resolve any new coordinates that were added to the `newArtifactsToReResolve`
     if (newCoordsToReResolve.isNotEmpty) {
+      _lgr.dbg(
+          'Fetching new resolved versions for ${newCoordsToReResolve.keys.length} coordinates');
       final newResolved = await Future.wait([
         for (final entry in newCoordsToReResolve.entries)
           resolver.resolveArtifact(entry.key, entry.value)

@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io' show File, Directory, exit;
+import 'dart:io' show File;
 
 import 'package:archive/archive_io.dart';
 import 'package:collection/collection.dart';
@@ -21,11 +21,9 @@ import '../../services/logger.dart';
 import '../../utils/file_extension.dart';
 
 class BuildCommand extends RushCommand {
-  final Logger _logger = GetIt.I<Logger>();
+  final Logger _lgr = GetIt.I<Logger>();
   final FileService _fs = GetIt.I<FileService>();
   final LibService _libService = GetIt.I<LibService>();
-
-  late final String _kotlinVersion;
 
   BuildCommand() {
     argParser.addFlag(
@@ -46,47 +44,48 @@ class BuildCommand extends RushCommand {
   /// Builds the extension in the current directory
   @override
   Future<int> run() async {
+    _lgr.startTask('Initializing build');
     Hive.init(p.join(_fs.cwd, '.rush'));
 
-    _logger.initStep('Initializing build');
-
-    final RushYaml config;
-    try {
-      config = await RushYaml.load(_fs.configFile);
-    } catch (e) {
-      rethrow;
+    _lgr.info('Loading config file');
+    final config = await RushYaml.load(_fs.configFile, _lgr);
+    if (config == null) {
+      _lgr.stopTask(false);
+      return 1;
     }
-
-    _kotlinVersion = config.kotlin?.version ?? '1.7.10';
-
-    await _libService.ensureDevDeps(_kotlinVersion);
 
     final timestampsBox = await Hive.openBox<DateTime>('timestamps');
     final depsBox = await Hive.openBox<Artifact>('deps');
 
+    await _libService.ensureDevDeps();
     // Re-fetch deps if they are outdated, ie, if the config file is modified
     // or if the dep artifacts are missing
     final configFileModified = timestampsBox
             .get('rush.yaml')
             ?.isBefore(_fs.configFile.lastModifiedSync()) ??
         true;
-    final everyDepExists = depsBox.isNotEmpty &&
+    final everyDepExists =
         depsBox.values.every((el) => el.classesJar.asFile().existsSync());
 
-    final Iterable<Artifact> remoteArtifacts;
     final needFetch = configFileModified || !everyDepExists;
 
+    final Iterable<Artifact> remoteArtifacts;
     if (needFetch) {
-      _logger.info('Fetching dependencies...');
       final remoteDeps = {
         Scope.runtime: config.runtimeDeps
             .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
         Scope.compile: config.comptimeDeps
             .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
       };
-      remoteArtifacts = await SyncSubCommand()
-          .sync(cacheBox: depsBox, coordinates: remoteDeps);
-      await timestampsBox.put('rush.yaml', DateTime.now());
+
+      try {
+        remoteArtifacts = await SyncSubCommand()
+            .sync(cacheBox: depsBox, coordinates: remoteDeps);
+        await timestampsBox.put('rush.yaml', DateTime.now());
+      } catch (e) {
+        _lgr.stopTask(false);
+        return 1;
+      }
     } else {
       remoteArtifacts = depsBox.values.toList();
     }
@@ -98,11 +97,6 @@ class BuildCommand extends RushCommand {
         if (dep.endsWith('.aar')) p.join(_fs.depsDir.path, dep)
     };
 
-    _logger.debug('Dep aars: $depAars');
-    await _mergeManifests(
-        timestampsBox, config.android?.minSdk ?? 21, depAars, needFetch);
-    _logger.closeStep();
-
     final depJars = <String>{
       // Dev deps
       ..._libService.devDepJars(),
@@ -111,41 +105,87 @@ class BuildCommand extends RushCommand {
       // Local deps
       for (final dep in [...config.runtimeDeps, ...config.comptimeDeps])
         if (dep.endsWith('.jar')) p.join(_fs.depsDir.path, dep),
+      if (config.kotlin?.enable ?? false)
+        _libService.kotlinStdLib(config.kotlin!.version),
     };
+    _lgr.stopTask();
 
-    _logger.initStep('Compiling sources files');
-    await _compile(config, depJars, timestampsBox);
-    _logger.closeStep();
+    _lgr.startTask('Compiling sources');
+    try {
+      await _mergeManifests(
+          timestampsBox, config.android?.minSdk ?? 21, depAars, needFetch);
+    } catch (e) {
+      _lgr.stopTask(false);
+      return 1;
+    }
 
-    _logger.initStep('Processing');
-    BuildUtils.copyAssets(config);
-    BuildUtils.copyLicense(config);
-    final artJarPath = await _createArtJar(config, remoteArtifacts.toList());
+    try {
+      await _compile(config, depJars, timestampsBox);
+    } catch (e) {
+      _lgr.stopTask(false);
+      return 1;
+    }
+    _lgr.stopTask();
+
+    _lgr.startTask('Processing resources');
+    final String artJarPath;
+    try {
+      BuildUtils.copyAssets(config);
+      BuildUtils.copyLicense(config);
+      artJarPath = await _createArtJar(config, remoteArtifacts.toList());
+    } catch (e) {
+      _lgr.err(e.toString());
+      _lgr.stopTask(false);
+      return 1;
+    }
+    _lgr.stopTask();
 
     if (argResults!['optimize'] as bool) {
-      _logger.info('Optimizing and obfuscating the bytecode');
-      await Executor.execProGuard(artJarPath, depJars);
+      _lgr.startTask('Optimizing and obfuscating the bytecode');
+      try {
+        await Executor.execProGuard(artJarPath, depJars);
+      } catch (e) {
+        _lgr.stopTask(false);
+        return 1;
+      }
+      _lgr.stopTask();
     }
 
     if (config.desugar) {
-      _logger.info('Desugaring the bytecode');
-      await Executor.execDesugarer(artJarPath, depJars);
+      _lgr.startTask('Desugaring Java8 langauge features');
+      try {
+        await Executor.execDesugarer(artJarPath, depJars);
+      } catch (e) {
+        _lgr.stopTask(false);
+        return 1;
+      }
+      _lgr.stopTask();
     }
 
-    _logger.info('Generating DEX bytecode');
-    await Executor.execD8(artJarPath);
-    _logger.closeStep();
+    _lgr.startTask('Generating DEX bytecode');
+    try {
+      await Executor.execD8(artJarPath);
+    } catch (e) {
+      _lgr.stopTask(false);
+      return 1;
+    }
+    _lgr.stopTask();
 
-    _logger.initStep('Assembling the AIX');
-    await _assemble();
-    _logger.closeStep();
+    _lgr.startTask('Packaging the extension');
+    try {
+      await _assemble();
+    } catch (e) {
+      _lgr.stopTask(false);
+      return 1;
+    }
+    _lgr.stopTask();
     return 0;
   }
 
   Future<void> _mergeManifests(
     Box<DateTime> timestampBox,
     int minSdk,
-    Set<String> depAars,
+    Iterable<String> depAars,
     bool wereNewDepsAdded,
   ) async {
     final depManifestPaths = depAars.map((path) {
@@ -157,11 +197,10 @@ class BuildCommand extends RushCommand {
       }
       final outputDir = p.withoutExtension(path).asDir(true);
       return p.join(outputDir.path, 'AndroidManifest.xml');
-    }).toSet();
+    });
 
     if (depManifestPaths.isEmpty) {
-      _logger
-          .debug('No manifests found in dependencies; skipping manifest merge');
+      _lgr.dbg('No manifests found in dependencies; skipping manifest merge');
       return;
     }
 
@@ -171,32 +210,32 @@ class BuildCommand extends RushCommand {
         p.join(_fs.buildFilesDir.path, 'AndroidManifest.xml').asFile();
 
     final lastMergeTime = timestampBox.get('AndroidManifest.xml');
-    _logger.debug('Last manifest merge time: $lastMergeTime');
+    _lgr.dbg('Last manifest merge time: $lastMergeTime');
 
     final needMerge = !await outputManifest.exists() ||
         (lastMergeTime?.isBefore(mainManifest.lastModifiedSync()) ?? true) ||
         wereNewDepsAdded;
 
-    if (needMerge) {
-      _logger.info('Merging Android manifests...');
-      try {
-        await outputManifest.create(recursive: true);
-        await Executor.execManifMerger(
-            minSdk, mainManifest.path, depManifestPaths);
-      } catch (e) {
-        rethrow;
-      }
-      await timestampBox.put('AndroidManifest.xml', DateTime.now());
-    } else {
-      _logger.info('Merging Android manifests... ${'UP-TO-DATE'.green()}');
+    _lgr.info('Merging Android manifests...');
+
+    if (!needMerge) {
+      return;
     }
+
+    await outputManifest.create(recursive: true);
+    await Executor.execManifMerger(minSdk, mainManifest.path, depManifestPaths);
+
+    await timestampBox.put('AndroidManifest.xml', DateTime.now());
   }
 
   /// Compiles extension's source files.
-  Future<void> _compile(RushYaml rushYaml, Set<String> depJars,
-      Box<DateTime> timestampBox) async {
+  Future<void> _compile(
+    RushYaml rushYaml,
+    Set<String> depJars,
+    Box<DateTime> timestampBox,
+  ) async {
     final srcFiles =
-        Directory(_fs.srcDir.path).listSync(recursive: true).whereType<File>();
+        _fs.srcDir.path.asDir().listSync(recursive: true).whereType<File>();
     final javaFiles = srcFiles
         .whereType<File>()
         .where((file) => p.extension(file.path) == '.java');
@@ -205,16 +244,19 @@ class BuildCommand extends RushCommand {
         .where((file) => p.extension(file.path) == '.kt');
 
     final fileCount = javaFiles.length + ktFiles.length;
-    _logger.info('Picked $fileCount source file${fileCount > 1 ? 's' : ''}');
+    _lgr.info('Picked $fileCount source file${fileCount > 1 ? 's' : ''}');
 
     try {
       if (ktFiles.isNotEmpty) {
         final isKtEnabled = rushYaml.kotlin?.enable ?? false;
         if (!isKtEnabled) {
-          throw Exception('Kotlin support is not enabled in rush.yaml');
+          _lgr.err(
+              'Kotlin support is not enabled in the config file rush.yaml');
+          throw Exception();
         }
 
-        await Compiler.compileKtFiles(depJars, _kotlinVersion, timestampBox);
+        await Compiler.compileKtFiles(
+            depJars, rushYaml.kotlin!.version, timestampBox);
       }
 
       if (javaFiles.isNotEmpty) {
@@ -230,7 +272,6 @@ class BuildCommand extends RushCommand {
       RushYaml rushYaml, List<Artifact> remoteArtifacts) async {
     final artJarPath =
         p.join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.jar');
-    final zipEncoder = ZipFileEncoder()..create(artJarPath);
 
     final runtimeDepJars = <String>{
       ...rushYaml.runtimeDeps
@@ -242,23 +283,16 @@ class BuildCommand extends RushCommand {
           .flattened,
     };
 
-    // Add Kotlin Stdlib. to runtime deps if Kotlin is enabled for the project.
-    if (rushYaml.kotlin?.enable ?? false) {
-      runtimeDepJars.add(_libService.kotlinStdLib(_kotlinVersion));
-    }
-
+    final zipEncoder = ZipFileEncoder()..create(artJarPath);
     // Add class files from all required runtime deps into the ART.jar
     if (runtimeDepJars.isNotEmpty) {
-      _logger.info('Attaching dependencies');
+      _lgr.info('Merging dependencies into a single JAR...');
 
       final addedPaths = <String>{};
       for (final jarPath in runtimeDepJars) {
         final jar = jarPath.asFile();
         if (!jar.existsSync()) {
-          _logger
-            ..error('Unable to find required library \'$jar)\'')
-            ..closeStep(fail: true);
-          exit(1);
+          throw Exception('Unable to find required library \'$jar)\'');
         }
 
         final decodedJar = ZipDecoder()
@@ -307,13 +341,10 @@ class BuildCommand extends RushCommand {
       return split.join('.');
     }();
 
-    final outputDir = Directory(p.join(_fs.cwd, 'out'));
-    outputDir.createSync(recursive: true);
+    final outputDir = p.join(_fs.cwd, 'out').asDir(true);
+    final aix = p.join(outputDir.path, '$org.aix');
+    final zipEncoder = ZipFileEncoder()..create(aix);
 
-    final zipEncoder = ZipFileEncoder();
-    zipEncoder.create(p.join(outputDir.path, '$org.aix'));
-
-    _logger.info('Packing $org.aix');
     try {
       for (final file in _fs.buildRawDir.listSync(recursive: true)) {
         if (file is File) {
@@ -321,6 +352,7 @@ class BuildCommand extends RushCommand {
           await zipEncoder.addFile(file, p.join(org, name));
         }
       }
+      _lgr.info('Generated AIX file at ${aix.blue()}');
     } catch (e) {
       rethrow;
     } finally {

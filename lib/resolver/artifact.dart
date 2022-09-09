@@ -134,6 +134,7 @@ class Version extends Comparable<Version> {
   @HiveField(2)
   String? _originalSpec;
 
+  /// Original version string as defined in the pom.xml of the artifact.
   String get originalSpec => _originalSpec!;
 
   Version({required this.versionSpec, String? originalSpec})
@@ -228,6 +229,9 @@ class Version extends Comparable<Version> {
       throw Exception(_originalSpec! + ' is not a valid range notation');
     }
   }
+
+  @override
+  String toString() => versionSpec;
 
   @override
   int compareTo(Version other) {

@@ -14,7 +14,7 @@ class FileService {
     if (Platform.environment.containsKey('RUSH_HOME')) {
       homeDir = Platform.environment['RUSH_HOME']!.asDir();
     } else if (Platform.environment.containsKey('RUSH_DATA_DIR')) {
-      print('warn: RUSH_DATA_DIR env var is deprecated. Use RUSH_HOME instead.');
+      Logger().warn('RUSH_DATA_DIR env var is deprecated. Use RUSH_HOME instead.');
       homeDir = Platform.environment['RUSH_DATA_DIR']!.asDir();
     } else {
       if (Platform.operatingSystem == 'windows') {
@@ -25,7 +25,7 @@ class FileService {
     }
 
     if (!homeDir.existsSync() || homeDir.listSync().isEmpty) {
-      Logger().error('Could not find Rush data directory at $homeDir.');
+      Logger().err('Could not find Rush data directory at $homeDir.');
       exit(1);
     }
 
