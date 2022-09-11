@@ -33,7 +33,7 @@ class FileService {
   }
 
   Directory get srcDir => p.join(cwd, 'src').asDir();
-  Directory get depsDir => p.join(cwd, 'deps').asDir();
+  Directory get localDepsDir => p.join(cwd, 'deps').asDir();
   Directory get dotRushDir => p.join(cwd, '.rush').asDir();
 
   Directory get buildDir => p.join(dotRushDir.path, 'build').asDir(true);
@@ -41,6 +41,7 @@ class FileService {
   Directory get buildRawDir => p.join(buildDir.path, 'raw').asDir(true);
   Directory get buildFilesDir => p.join(buildDir.path, 'files').asDir(true);
   Directory get buildKaptDir => p.join(buildDir.path, 'kapt').asDir(true);
+  Directory get buildAarsDir => p.join(buildDir.path, 'extracted-aars').asDir(true);
 
   Directory get libsDir => p.join(rushHomeDir.path, 'libs').asDir();
 

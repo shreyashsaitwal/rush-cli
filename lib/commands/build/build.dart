@@ -1,5 +1,5 @@
-import 'dart:convert';
-import 'dart:io' show File;
+import 'dart:convert' show jsonDecode;
+import 'dart:io' show Directory, File;
 
 import 'package:archive/archive_io.dart';
 import 'package:collection/collection.dart';
@@ -8,17 +8,21 @@ import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:tint/tint.dart';
 
-import './utils.dart';
-import './tools/compiler.dart';
-import './tools/executor.dart';
-import '../deps/sync.dart';
-import '../rush_command.dart';
-import '../../config/rush_yaml.dart';
-import '../../resolver/artifact.dart';
-import '../../services/libs_service.dart';
-import '../../services/file_service.dart';
-import '../../services/logger.dart';
-import '../../utils/file_extension.dart';
+import 'package:rush_cli/commands/build/utils.dart';
+import 'package:rush_cli/commands/build/tools/compiler.dart';
+import 'package:rush_cli/commands/build/tools/executor.dart';
+import 'package:rush_cli/commands/deps/sync.dart';
+import 'package:rush_cli/commands/rush_command.dart';
+import 'package:rush_cli/config/rush_yaml.dart';
+import 'package:rush_cli/resolver/artifact.dart';
+import 'package:rush_cli/services/libs_service.dart';
+import 'package:rush_cli/services/file_service.dart';
+import 'package:rush_cli/services/logger.dart';
+import 'package:rush_cli/utils/constants.dart';
+import 'package:rush_cli/utils/file_extension.dart';
+
+const _androidManifestTimestampKey = 'android-manifest-xml';
+const _configTimestampKey = 'rush-yaml';
 
 class BuildCommand extends RushCommand {
   final Logger _lgr = GetIt.I<Logger>();
@@ -45,7 +49,6 @@ class BuildCommand extends RushCommand {
   @override
   Future<int> run() async {
     _lgr.startTask('Initializing build');
-    Hive.init(p.join(_fs.cwd, '.rush'));
 
     _lgr.info('Loading config file');
     final config = await RushYaml.load(_fs.configFile, _lgr);
@@ -54,18 +57,21 @@ class BuildCommand extends RushCommand {
       return 1;
     }
 
-    final timestampsBox = await Hive.openBox<DateTime>('timestamps');
-    final depsBox = await Hive.openBox<Artifact>('deps');
+    Hive.init(_fs.dotRushDir.path);
+    final timestampsBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
+    final depsBox = await Hive.openLazyBox<Artifact>(projectDepsBoxName);
 
-    await _libService.ensureDevDeps();
+    final depsBoxValues = () async {
+      return [for (final key in depsBox.keys) (await depsBox.get(key))!];
+    }();
+
     // Re-fetch deps if they are outdated, ie, if the config file is modified
     // or if the dep artifacts are missing
-    final configFileModified = timestampsBox
-            .get('rush.yaml')
+    final configFileModified = (await timestampsBox.get(_configTimestampKey))
             ?.isBefore(_fs.configFile.lastModifiedSync()) ??
         true;
-    final everyDepExists =
-        depsBox.values.every((el) => el.classesJar.asFile().existsSync());
+    final everyDepExists = (await depsBoxValues)
+        .every((el) => el.classesJar.asFile().existsSync());
 
     final needFetch = configFileModified || !everyDepExists;
 
@@ -79,34 +85,26 @@ class BuildCommand extends RushCommand {
       };
 
       try {
-        remoteArtifacts = await SyncSubCommand()
-            .sync(cacheBox: depsBox, coordinates: remoteDeps);
-        await timestampsBox.put('rush.yaml', DateTime.now());
+        remoteArtifacts = await SyncSubCommand().sync(
+          libCacheBox: depsBox,
+          coordinates: remoteDeps,
+          saveCoordinatesAsKeys: false,
+          timestampBox: timestampsBox,
+        );
+        await timestampsBox.put(_configTimestampKey, DateTime.now());
       } catch (e) {
         _lgr.stopTask(false);
         return 1;
       }
     } else {
-      remoteArtifacts = depsBox.values.toList();
+      remoteArtifacts = await depsBoxValues;
     }
 
     final depAars = <String>{
       for (final dep in remoteArtifacts)
         if (dep.isAar) dep.artifactFile,
       for (final dep in [...config.runtimeDeps, ...config.comptimeDeps])
-        if (dep.endsWith('.aar')) p.join(_fs.depsDir.path, dep)
-    };
-
-    final depJars = <String>{
-      // Dev deps
-      ..._libService.devDepJars(),
-      // Remote deps
-      for (final dep in remoteArtifacts) ...dep.classpathJars(remoteArtifacts),
-      // Local deps
-      for (final dep in [...config.runtimeDeps, ...config.comptimeDeps])
-        if (dep.endsWith('.jar')) p.join(_fs.depsDir.path, dep),
-      if (config.kotlin?.enable ?? false)
-        _libService.kotlinStdLib(config.kotlin!.version),
+        if (dep.endsWith('.aar')) p.join(_fs.localDepsDir.path, dep)
     };
     _lgr.stopTask();
 
@@ -118,6 +116,23 @@ class BuildCommand extends RushCommand {
       _lgr.stopTask(false);
       return 1;
     }
+
+    final depJars = <String>{
+      // Dev deps
+      ...(await _libService.devDepJars()),
+      // Remote deps
+      for (final dep in remoteArtifacts) ...dep.classpathJars(remoteArtifacts),
+      if (config.kotlin?.enable ?? false)
+        await _libService.kotlinStdLib(config.kotlin!.version),
+      // Local deps
+      for (final dep in [...config.runtimeDeps, ...config.comptimeDeps])
+        if (dep.endsWith('.jar'))
+          p.join(_fs.localDepsDir.path, dep)
+        else if (dep.endsWith('.aar'))
+          // The merge manifest method would have already extracted the aars
+          p.join(_fs.buildAarsDir.path, p.basenameWithoutExtension(dep),
+              'classes.jar'),
+    };
 
     try {
       await _compile(config, depJars, timestampsBox);
@@ -140,10 +155,10 @@ class BuildCommand extends RushCommand {
     }
     _lgr.stopTask();
 
-    if (argResults!['optimize'] as bool) {
-      _lgr.startTask('Optimizing and obfuscating the bytecode');
+    if (config.desugar) {
+      _lgr.startTask('Desugaring Java8 langauge features');
       try {
-        await Executor.execProGuard(artJarPath, depJars);
+        await Executor.execDesugarer(artJarPath, depJars);
       } catch (e) {
         _lgr.stopTask(false);
         return 1;
@@ -151,10 +166,10 @@ class BuildCommand extends RushCommand {
       _lgr.stopTask();
     }
 
-    if (config.desugar) {
-      _lgr.startTask('Desugaring Java8 langauge features');
+    if (argResults!['optimize'] as bool) {
+      _lgr.startTask('Optimizing and obfuscating the bytecode');
       try {
-        await Executor.execDesugarer(artJarPath, depJars);
+        await Executor.execProGuard(artJarPath, depJars);
       } catch (e) {
         _lgr.stopTask(false);
         return 1;
@@ -183,16 +198,23 @@ class BuildCommand extends RushCommand {
   }
 
   Future<void> _mergeManifests(
-    Box<DateTime> timestampBox,
+    LazyBox<DateTime> timestampBox,
     int minSdk,
     Iterable<String> depAars,
     bool wereNewDepsAdded,
   ) async {
     final depManifestPaths = depAars.map((path) {
       if (wereNewDepsAdded) {
-        final dist = p
-            .join(p.dirname(path), p.basenameWithoutExtension(path))
-            .asDir(true);
+        final Directory dist;
+        if (path.startsWith(_fs.localDepsDir.path)) {
+          dist = p
+              .join(_fs.buildAarsDir.path, p.basenameWithoutExtension(path))
+              .asDir(true);
+        } else {
+          dist = p
+              .join(p.dirname(path), p.basenameWithoutExtension(path))
+              .asDir(true);
+        }
         BuildUtils.unzip(path, dist.path);
       }
       final outputDir = p.withoutExtension(path).asDir(true);
@@ -209,7 +231,7 @@ class BuildCommand extends RushCommand {
     final outputManifest =
         p.join(_fs.buildFilesDir.path, 'AndroidManifest.xml').asFile();
 
-    final lastMergeTime = timestampBox.get('AndroidManifest.xml');
+    final lastMergeTime = await timestampBox.get(_androidManifestTimestampKey);
     _lgr.dbg('Last manifest merge time: $lastMergeTime');
 
     final needMerge = !await outputManifest.exists() ||
@@ -225,14 +247,14 @@ class BuildCommand extends RushCommand {
     await outputManifest.create(recursive: true);
     await Executor.execManifMerger(minSdk, mainManifest.path, depManifestPaths);
 
-    await timestampBox.put('AndroidManifest.xml', DateTime.now());
+    await timestampBox.put(_androidManifestTimestampKey, DateTime.now());
   }
 
   /// Compiles extension's source files.
   Future<void> _compile(
     RushYaml rushYaml,
     Set<String> depJars,
-    Box<DateTime> timestampBox,
+    LazyBox<DateTime> timestampBox,
   ) async {
     final srcFiles =
         _fs.srcDir.path.asDir().listSync(recursive: true).whereType<File>();
@@ -269,19 +291,27 @@ class BuildCommand extends RushCommand {
   }
 
   Future<String> _createArtJar(
-      RushYaml rushYaml, List<Artifact> remoteArtifacts) async {
+      RushYaml config, List<Artifact> remoteArtifacts) async {
     final artJarPath =
         p.join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.jar');
 
-    final runtimeDepJars = <String>{
-      ...rushYaml.runtimeDeps
-          .where((dep) => dep.endsWith('.jar') || dep.endsWith('.aar'))
-          .map((dep) => p.join(_fs.depsDir.path, dep)),
-      ...remoteArtifacts
-          .where((dep) => dep.scope == Scope.runtime)
-          .map((dep) => dep.classpathJars(remoteArtifacts))
-          .flattened,
-    };
+    final runtimeDepJars = <String>[
+      // Remote deps
+      for (final dep in remoteArtifacts)
+        if (dep.scope == Scope.runtime) ...dep.classpathJars(remoteArtifacts),
+      // Local deps
+      for (final dep in config.runtimeDeps)
+        if (dep.endsWith('.jar'))
+          p.join(_fs.localDepsDir.path, dep)
+        else if (dep.endsWith('.aar'))
+          p.join(_fs.buildAarsDir.path, p.basenameWithoutExtension(dep),
+              'classes.jar'),
+    ];
+
+    if (config.kotlin?.enable ?? false) {
+      runtimeDepJars
+          .add(await _libService.kotlinStdLib(config.kotlin!.version));
+    }
 
     final zipEncoder = ZipFileEncoder()..create(artJarPath);
     // Add class files from all required runtime deps into the ART.jar

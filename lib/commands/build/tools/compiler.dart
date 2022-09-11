@@ -1,15 +1,17 @@
-import 'dart:io';
+import 'dart:io' show File;
 
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:get_it/get_it.dart';
+
 import 'package:rush_cli/services/logger.dart';
 import 'package:rush_cli/utils/file_extension.dart';
 import 'package:rush_cli/utils/process_runner.dart';
 import 'package:rush_cli/services/file_service.dart';
+import 'package:rush_cli/services/libs_service.dart';
+import 'package:rush_cli/commands/build/utils.dart';
 
-import '../../../services/libs_service.dart';
-import '../utils.dart';
+const helpersTimestampKey = 'helper-enums';
 
 class Compiler {
   static final _fs = GetIt.I<FileService>();
@@ -20,7 +22,7 @@ class Compiler {
 
   static Future<void> _compilerHelpers(
     Iterable<String> depJars,
-    Box<DateTime> timestampBox, {
+    LazyBox<DateTime> timestampBox, {
     String? ktVersion,
     bool java8 = false,
   }) async {
@@ -32,11 +34,11 @@ class Compiler {
         .whereType<File>()
         .where((el) => el.path.split(p.separator).contains('helpers'));
 
-    final helpersModified = timestampBox.get('helpers-compile-time') == null
+    final helpersModTime = await timestampBox.get(helpersTimestampKey);
+    final helpersModified = helpersModTime == null
         ? true
-        : helperFiles.any((el) => el
-            .lastModifiedSync()
-            .isAfter(timestampBox.get('helpers-compile-time')!));
+        : helperFiles
+            .any((el) => el.lastModifiedSync().isAfter(helpersModTime));
     if (helperFiles.isEmpty || !helpersModified) {
       return;
     }
@@ -60,13 +62,13 @@ class Compiler {
       rethrow;
     }
 
-    await timestampBox.put('helpers-compile-time', DateTime.now());
+    await timestampBox.put(helpersTimestampKey, DateTime.now());
   }
 
   static Future<void> compileJavaFiles(
     Set<String> depJars,
     bool supportJava8,
-    Box<DateTime> timestampBox,
+    LazyBox<DateTime> timestampBox,
   ) async {
     final javaFiles = _fs.srcDir
         .listSync(recursive: true)
@@ -104,7 +106,7 @@ class Compiler {
   static Future<void> compileKtFiles(
     Set<String> depJars,
     String kotlinVersion,
-    Box<DateTime> timestampBox,
+    LazyBox<DateTime> timestampBox,
   ) async {
     try {
       await _compilerHelpers(depJars, timestampBox, ktVersion: kotlinVersion);
@@ -127,14 +129,14 @@ class Compiler {
     // in the it's own directory but with name: kotlin-annotation-processing.jar
     // This is a bug in kapt, and for more details:
     // https://youtrack.jetbrains.com/issue/KTIJ-22605/kotlin-annotation-processing-embeddable-isnt-actually-embeddable
-    final kaptJar = _libService.kaptJars().first;
+    final kaptJar = (await _libService.kaptJars(kotlinVersion)).first;
     final duplicateKaptJar =
         p.join(p.dirname(kaptJar), 'kotlin-annotation-processing.jar');
     kaptJar.asFile().copySync(duplicateKaptJar);
 
     final classpath = [
-      ..._libService.kotlincJars(),
-      if (withProc) ..._libService.kaptJars(),
+      ...(await _libService.kotlincJars(kotlinVersion)),
+      if (withProc) ...(await _libService.kaptJars(kotlinVersion)),
       // TODO: Consider using JDK bundled tools.jar or similar
       if (withProc) _fs.jreToolsJar.path,
     ].join(BuildUtils.cpSeparator);

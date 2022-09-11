@@ -38,10 +38,15 @@ class Logger {
   final _errRegex =
       RegExp('((error:? )|(exception:? )){1,2}', caseSensitive: false);
   final _dbgRegex = RegExp('((note:? )|(debug:? )){1,2}', caseSensitive: false);
+  final _infoRegex = RegExp('(info:? ){1,2}', caseSensitive: false);
 
   void parseAndLog(String chunk) {
     final lines = LineSplitter.split(chunk);
     for (final el in lines.toList()) {
+      if (el.trim().isEmpty) {
+        continue;
+      }
+
       final String prefix;
       final String msg;
       if (_warnRegex.hasMatch(el)) {
@@ -53,11 +58,14 @@ class Logger {
       } else if (_dbgRegex.hasMatch(el)) {
         prefix = 'debug '.blue();
         msg = el.replaceFirst(_dbgRegex, '');
+      } else if (_infoRegex.hasMatch(el)) {
+        prefix = 'info  '.cyan();
+        msg = el.replaceFirst(_infoRegex, '');
       } else {
         prefix = ' ' * 6;
         msg = el;
       }
-      log(msg, prefix);
+      log(msg.trimRight(), prefix);
     }
   }
 

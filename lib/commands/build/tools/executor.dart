@@ -14,10 +14,11 @@ class Executor {
 
   static Future<void> execD8(String artJarPath) async {
     final args = <String>[
-      ...['-cp', _libService.d8Jar()],
+      ...['-cp', (await _libService.d8Jar())],
       'com.android.tools.r8.D8',
       ...['--lib', p.join(_fs.libsDir.path, 'android.jar')],
       '--release',
+      '--intermediate',
       '--no-desugaring',
       '--output',
       p.join(_fs.buildRawDir.path, 'classes.jar'),
@@ -39,7 +40,7 @@ class Executor {
         p.join(p.dirname(artJarPath), 'AndroidRuntime.optimized.jar').asFile();
 
     final args = <String>[
-      ...['-cp', _libService.pgJars().join(BuildUtils.cpSeparator)],
+      ...['-cp', (await _libService.pgJars()).join(BuildUtils.cpSeparator)],
       'proguard.ProGuard',
       ...['-injars', artJarPath],
       ...['-outjars', optimizedJar.path],
@@ -64,7 +65,7 @@ class Executor {
     Iterable<String> depManifests,
   ) async {
     final classpath = <String>[
-      ..._libService.manifMergerJars(),
+      ...(await _libService.manifMergerJars()),
       p.join(_fs.libsDir.path, 'android.jar'),
     ].join(BuildUtils.cpSeparator);
 

@@ -66,9 +66,9 @@ class InfoSubCommand extends RushCommand {
         ? Connector.childDeps
         : Connector.horizontal;
     connector += Connector.empty +
-        dep.coordinate +
+        dep.coordinate.replaceAll(':', ':'.brightBlack()) +
         ' (${dep.scope.name})'.brightBlack() +
-        (isPrinted && dep.dependencies.isNotEmpty ? ' (*)' : '') +
+        (isPrinted && dep.dependencies.isNotEmpty ? ' (*)' : '').brightBlack() +
         newLine;
 
     if (isPrinted) {

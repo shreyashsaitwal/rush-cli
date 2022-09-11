@@ -1,16 +1,35 @@
 import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
-import 'package:path/path.dart' as p;
-import 'package:rush_cli/services/logger.dart';
 import 'package:xrange/xrange.dart';
 
-import '../../commands/rush_command.dart';
-import '../../config/rush_yaml.dart';
-import '../../resolver/artifact.dart';
-import '../../resolver/resolver.dart';
-import '../../services/file_service.dart';
-import '../../services/libs_service.dart';
+import 'package:rush_cli/commands/rush_command.dart';
+import 'package:rush_cli/config/rush_yaml.dart';
+import 'package:rush_cli/resolver/artifact.dart';
+import 'package:rush_cli/resolver/resolver.dart';
+import 'package:rush_cli/services/file_service.dart';
+import 'package:rush_cli/services/libs_service.dart';
+import 'package:rush_cli/services/logger.dart';
+import 'package:rush_cli/utils/constants.dart';
+
+const _devDeps = <String>[
+  'androidx.appcompat:appcompat:1.0.0',
+  'ch.acra:acra:4.9.0',
+  'org.locationtech.jts:jts-core:1.16.1',
+  'org.osmdroid:osmdroid-android:6.1.0',
+  'redis.clients:jedis:3.1.0',
+  'com.caverock:androidsvg:1.2.1',
+  'com.firebase:firebase-client-android:2.5.2',
+  'com.google.api-client:google-api-client:1.31.1',
+  'com.google.api-client:google-api-client-android2:1.10.3-beta',
+  'org.webrtc:google-webrtc:1.0.23995',
+];
+
+const _buildTools = [
+  r8Coord,
+  pgCoord,
+  ...manifMergerAndDeps,
+];
 
 class SyncSubCommand extends RushCommand {
   final _fs = GetIt.I<FileService>();
@@ -25,38 +44,81 @@ class SyncSubCommand extends RushCommand {
 
   @override
   Future<int> run() async {
-    await sync();
+    _lgr.startTask('Initializing');
+
+    Hive.init(_fs.dotRushDir.path);
+    final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
+    final projectDepsBox = await Hive.openLazyBox<Artifact>(projectDepsBoxName);
+
+    final config = await RushYaml.load(_fs.configFile, _lgr);
+    if (config == null) {
+      _lgr.stopTask(false);
+      return 1;
+    }
+    _lgr.stopTask();
+
+    _lgr.startTask('Syncing dev-dependencies');
+    final ktVersion = config.kotlin?.version ?? defaultKtVersion;
+    final tools = _buildTools +
+        [
+          '$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
+          '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
+        ];
+    try {
+      await Future.wait([
+        sync(
+            libCacheBox: _libService.devDepsBox,
+            saveCoordinatesAsKeys: true,
+            timestampBox: timestampBox,
+            coordinates: {Scope.compile: _devDeps}),
+        sync(
+            libCacheBox: _libService.buildLibsBox,
+            saveCoordinatesAsKeys: true,
+            timestampBox: timestampBox,
+            coordinates: {Scope.runtime: tools}),
+      ]);
+    } catch (_) {
+      _lgr.stopTask(false);
+      return 1;
+    }
+    _lgr.stopTask();
+
+    final projectDepCoords = {
+      Scope.runtime: config.runtimeDeps
+          .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
+      Scope.compile: config.comptimeDeps
+          .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
+    };
+    if (projectDepCoords.values.every((el) => el.isNotEmpty)) {
+      return 0;
+    }
+
+    _lgr.startTask('Syncing project dependencies');
+    try {
+      await sync(
+        libCacheBox: projectDepsBox,
+        saveCoordinatesAsKeys: false,
+        timestampBox: timestampBox,
+        coordinates: projectDepCoords,
+      );
+    } catch (_) {
+      _lgr.stopTask(false);
+      return 1;
+    }
+    _lgr.stopTask();
+
     return 0;
   }
 
   Future<List<Artifact>> sync({
-    Box<Artifact>? cacheBox,
-    Box<DateTime>? timestampBox,
-    Map<Scope, Iterable<String>> coordinates = const {},
-    bool saveCoordinatesAsKeys = false,
+    required LazyBox<Artifact> libCacheBox,
+    required LazyBox<DateTime> timestampBox,
+    required Map<Scope, Iterable<String>> coordinates,
+    required bool saveCoordinatesAsKeys,
   }) async {
-    _lgr.info('Fetching dependency metadata...');
+    _lgr.info('Fetching artifact metadata...');
 
-    // Initialize all the parameters if this was invoked as a subcommand.
-    if (cacheBox == null) {
-      Hive.init(p.join(_fs.dotRushDir.path));
-      final config = await RushYaml.load(_fs.configFile, _lgr);
-      if (config == null) {
-        throw Exception('Failed to load rush.yml config file');
-      }
-
-      coordinates = {
-        Scope.runtime: config.runtimeDeps
-            .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
-        Scope.compile: config.comptimeDeps
-            .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
-      };
-    }
-
-    cacheBox ??= await Hive.openBox<Artifact>('deps');
-    timestampBox ??= await Hive.openBox<DateTime>('timestamps');
-    await cacheBox.clear();
-
+    await libCacheBox.clear();
     final resolver = ArtifactResolver();
 
     _lgr.dbg('Firing up the resolution process');
@@ -94,15 +156,15 @@ class SyncSubCommand extends RushCommand {
     }).toList();
 
     // Download the artifacts and then add them to the cache
-    _lgr.info('Downloading dependencies...');
+    _lgr.info('Downloading resolved artifacts...');
     try {
       await Future.wait([
         for (final dep in resolvedDeps) resolver.downloadArtifact(dep),
         if (saveCoordinatesAsKeys)
-          cacheBox.putAll(
+          libCacheBox.putAll(
               Map.fromIterable(resolvedDeps, key: (el) => el.coordinate))
         else
-          cacheBox.addAll(resolvedDeps),
+          libCacheBox.addAll(resolvedDeps),
       ]);
     } catch (e) {
       rethrow;
@@ -119,6 +181,11 @@ class SyncSubCommand extends RushCommand {
     final sameArtifacts = resolvedArtifacts
         .groupListsBy((el) => '${el.groupId}:${el.artifactId}')
         .entries;
+
+    if (!sameArtifacts.any((el) => el.value.length > 1)) {
+      return resolvedArtifacts;
+    }
+
     _lgr.dbg(
         'Ungrouped: ${resolvedArtifacts.length} -> Grouped: ${sameArtifacts.length}');
 
@@ -129,14 +196,15 @@ class SyncSubCommand extends RushCommand {
       // Filter deps that have ranges defined
       final rangedVersionDeps =
           entry.value.where((el) => el.version.range != null).toSet();
-      _lgr.dbg('Total ranged: ${rangedVersionDeps.length}');
 
-      final providedAlternative = _providedAlternative(entry.key);
+      final providedAlternative = await _providedAlternative(entry.key);
       final scope = entry.value.any((el) => el.scope == Scope.runtime)
           ? Scope.runtime
           : Scope.compile;
 
       if (rangedVersionDeps.isNotEmpty) {
+        _lgr.dbg('Total ranged: ${rangedVersionDeps.length}');
+
         // A singleton range is a range that allows only one exact value.
         // Eg: [1.2.3]
         final singletonVersionDeps = rangedVersionDeps
@@ -287,9 +355,9 @@ class SyncSubCommand extends RushCommand {
     return result;
   }
 
-  Artifact? _providedAlternative(String artifactIdent) {
-    final devDepBox = _libService.devDepsBox;
-    for (final val in devDepBox.values) {
+  Future<Artifact?> _providedAlternative(String artifactIdent) async {
+    final devDeps = await _libService.devDeps;
+    for (final val in devDeps) {
       if (val.coordinate.startsWith(artifactIdent)) {
         return val;
       }
