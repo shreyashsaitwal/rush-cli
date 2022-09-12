@@ -1,15 +1,15 @@
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/services/logger.dart';
 import 'package:tint/tint.dart';
 
-import '../../commands/rush_command.dart';
-import '../../config/rush_yaml.dart';
-import '../../resolver/artifact.dart';
-import '../../services/file_service.dart';
+import 'package:rush_cli/commands/rush_command.dart';
+import 'package:rush_cli/config/rush_yaml.dart';
+import 'package:rush_cli/resolver/artifact.dart';
+import 'package:rush_cli/services/file_service.dart';
+import 'package:rush_cli/services/logger.dart';
 
-class InfoSubCommand extends RushCommand {
+class TreeSubCommand extends RushCommand {
   final _fs = GetIt.I<FileService>();
   final _lgr = GetIt.I<Logger>();
 
@@ -18,11 +18,11 @@ class InfoSubCommand extends RushCommand {
       'Prints the dependency graph of the current extension project.';
 
   @override
-  String get name => 'info';
+  String get name => 'tree';
 
   @override
   Future<int> run() async {
-    Hive.init(p.join(_fs.cwd, '.rush'));
+    Hive.init(_fs.dotRushDir.path);
     final rushYaml = await RushYaml.load(_fs.configFile, _lgr);
     if (rushYaml == null) {
       _lgr.err('Failed to load the config file rush.yaml');
@@ -41,7 +41,7 @@ class InfoSubCommand extends RushCommand {
         _printGraph(remoteDeps, dep, dep == directDeps.last)
     }.join();
 
-    _lgr.log(p.basename(_fs.cwd) + newLine + graph);
+    _lgr.log(p.basename(_fs.cwd).cyan().bold() + newLine + graph);
     return 0;
   }
 
@@ -65,11 +65,28 @@ class InfoSubCommand extends RushCommand {
     connector += dep.dependencies.isNotEmpty && !isPrinted
         ? Connector.childDeps
         : Connector.horizontal;
-    connector += Connector.empty +
-        dep.coordinate.replaceAll(':', ':'.brightBlack()) +
-        ' (${dep.scope.name})'.brightBlack() +
-        (isPrinted && dep.dependencies.isNotEmpty ? ' (*)' : '').brightBlack() +
-        newLine;
+    connector += Connector.empty;
+
+    if (dep.scope == Scope.runtime) {
+      connector += dep.groupId.green() +
+          ':'.brightBlack() +
+          dep.artifactId.green() +
+          ':'.brightBlack() +
+          dep.version.versionSpec.green() +
+          ' (runtime)'.brightBlack();
+    } else {
+      connector += dep.groupId.blue() +
+          ':'.brightBlack() +
+          dep.artifactId.blue() +
+          ':'.brightBlack() +
+          dep.version.versionSpec.blue() +
+          ' (comptime)'.brightBlack();
+    }
+
+    if (isPrinted && dep.dependencies.isNotEmpty) {
+      connector = connector.italic() + ' *'.brightBlack().italic();
+    }
+    connector += newLine;
 
     if (isPrinted) {
       return connector;

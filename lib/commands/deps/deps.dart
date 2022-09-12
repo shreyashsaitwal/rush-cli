@@ -1,10 +1,10 @@
-import './info.dart';
+import 'tree.dart';
 import './sync.dart';
 import '../../commands/rush_command.dart';
 
 class DepsCommand extends RushCommand {
   DepsCommand() {
-    addSubcommand(InfoSubCommand());
+    addSubcommand(TreeSubCommand());
     addSubcommand(SyncSubCommand());
   }
 
