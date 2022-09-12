@@ -6,6 +6,10 @@ import 'package:tint/tint.dart';
 final _console = Console();
 
 class Logger {
+  final bool debug;
+
+  Logger(this.debug);
+
   int _errorCount = 0;
   int get errorCount => _errorCount;
 
@@ -17,7 +21,9 @@ class Logger {
   final _taskStopwatch = Stopwatch();
 
   void dbg(String message) {
-    log(message, 'debug '.blue());
+    if (debug) {
+      log(message, 'debug '.blue());
+    }
   }
 
   void info(String message) {

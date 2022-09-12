@@ -8,42 +8,44 @@ import 'package:rush_cli/commands/deps/deps.dart';
 import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/commands/upgrade/upgrade.dart';
 import 'package:rush_cli/services/libs_service.dart';
+import 'package:rush_cli/services/logger.dart';
 import 'package:rush_cli/services/service_locator.dart';
 import 'package:rush_cli/version.dart';
 import 'package:tint/tint.dart';
 
 Future<void> main(List<String> args) async {
+  final stopwatch = Stopwatch()..start();
   _printArt();
 
   final commandRunner = RushCommandRunner();
-  commandRunner.argParser.addFlag('version',
-      abbr: 'v',
-      negatable: false,
-      help: 'Prints the version info of the current installation of Rush.',
-      callback: (val) {
-    if (val) {
-      _printVersion();
-    }
-  });
+  final argsResult = commandRunner.argParser
+    ..addFlag('version',
+        abbr: 'v',
+        negatable: false,
+        help: 'Prints the version info of the current installation of Rush.',
+        callback: (val) {
+      if (val) {
+        _printVersion();
+      }
+    })
+    ..addFlag(
+      'debug',
+      abbr: 'd',
+      help: 'Prints debug information.',
+    );
 
-  setupServiceLocator(Directory.current.path);
+  setupServiceLocator(
+      Directory.current.path, argsResult.parse(args)['debug'] as bool);
   await GetIt.I.isReady<LibService>();
 
   commandRunner
     ..addCommand(CreateCommand())
     ..addCommand(BuildCommand())
-    // TODO: Fix these two
-    // ..addCommand(MigrateCommand())
     ..addCommand(UpgradeCommand())
     ..addCommand(CleanCommand())
     ..addCommand(DepsCommand());
 
-  try {
-    await commandRunner.run(args);
-  } catch (e, s) {
-    print(s);
-    rethrow;
-  }
+  await commandRunner.run(args);
 }
 
 void _printVersion() {

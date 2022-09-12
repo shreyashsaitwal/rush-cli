@@ -139,7 +139,7 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
           .asFile()
           .copySync(p.join(projectDir, 'assets', 'icon.png'));
     } catch (e) {
-      Logger().err(e.toString());
+      GetIt.I<Logger>().err(e.toString());
       rethrow;
     }
 

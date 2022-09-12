@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/services/logger.dart';
 import 'package:rush_cli/utils/file_extension.dart';
@@ -8,24 +9,27 @@ class FileService {
   final String cwd;
   late final Directory rushHomeDir;
 
+  final _lgr = GetIt.I.get<Logger>();
+
   FileService(this.cwd) {
     final Directory homeDir;
+    final env = Platform.environment;
 
-    if (Platform.environment.containsKey('RUSH_HOME')) {
-      homeDir = Platform.environment['RUSH_HOME']!.asDir();
-    } else if (Platform.environment.containsKey('RUSH_DATA_DIR')) {
-      Logger().warn('RUSH_DATA_DIR env var is deprecated. Use RUSH_HOME instead.');
-      homeDir = Platform.environment['RUSH_DATA_DIR']!.asDir();
+    if (env.containsKey('RUSH_HOME')) {
+      homeDir = env['RUSH_HOME']!.asDir();
+    } else if (env.containsKey('RUSH_DATA_DIR')) {
+      _lgr.warn('RUSH_DATA_DIR env var is deprecated. Use RUSH_HOME instead.');
+      homeDir = env['RUSH_DATA_DIR']!.asDir();
     } else {
       if (Platform.operatingSystem == 'windows') {
-        homeDir = p.join(Platform.environment['UserProfile']!, '.rush').asDir();
+        homeDir = p.join(env['UserProfile']!, '.rush').asDir();
       } else {
-        homeDir = p.join(Platform.environment['HOME']!, '.rush').asDir();
+        homeDir = p.join(env['HOME']!, '.rush').asDir();
       }
     }
 
     if (!homeDir.existsSync() || homeDir.listSync().isEmpty) {
-      Logger().err('Could not find Rush data directory at $homeDir.');
+      _lgr.err('Could not find Rush data directory at $homeDir.');
       exit(1);
     }
 
@@ -41,7 +45,8 @@ class FileService {
   Directory get buildRawDir => p.join(buildDir.path, 'raw').asDir(true);
   Directory get buildFilesDir => p.join(buildDir.path, 'files').asDir(true);
   Directory get buildKaptDir => p.join(buildDir.path, 'kapt').asDir(true);
-  Directory get buildAarsDir => p.join(buildDir.path, 'extracted-aars').asDir(true);
+  Directory get buildAarsDir =>
+      p.join(buildDir.path, 'extracted-aars').asDir(true);
 
   Directory get libsDir => p.join(rushHomeDir.path, 'libs').asDir();
 
