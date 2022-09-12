@@ -3,7 +3,7 @@ import 'dart:io' show Directory, exit;
 import 'package:get_it/get_it.dart';
 import 'package:rush_cli/commands/build/build.dart';
 import 'package:rush_cli/commands/clean.dart';
-import 'package:rush_cli/commands/create.dart';
+import 'package:rush_cli/commands/create/create.dart';
 import 'package:rush_cli/commands/deps/deps.dart';
 import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/commands/upgrade/upgrade.dart';

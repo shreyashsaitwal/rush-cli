@@ -1,21 +1,15 @@
-import 'dart:math';
-
 import 'package:get_it/get_it.dart';
 import 'package:interact/interact.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/services/libs_service.dart';
-import 'package:rush_cli/utils/casing.dart';
+import 'package:rush_cli/services/logger.dart';
+import 'package:rush_cli/commands/create/casing.dart';
 import 'package:rush_cli/utils/file_extension.dart';
-import 'package:rush_cli/utils/utils.dart';
 import 'package:rush_cli/services/file_service.dart';
-import 'package:rush_cli/templates/android_manifest.dart';
-import 'package:rush_cli/templates/dot_gitignore.dart';
-import 'package:rush_cli/templates/extension_source.dart';
-import 'package:rush_cli/templates/intellij_files.dart';
-import 'package:rush_cli/templates/readme.dart';
-import 'package:rush_cli/templates/rules_pro.dart';
-import 'package:rush_cli/templates/rush_yml.dart';
+import 'package:rush_cli/commands/create/templates/extension_source.dart';
+import 'package:rush_cli/commands/create/templates/intellij_files.dart';
+import 'package:rush_cli/commands/create/templates/other.dart';
 import 'package:tint/tint.dart';
 
 class CreateCommand extends RushCommand {
@@ -87,9 +81,8 @@ class CreateCommand extends RushCommand {
       orgName = orgName.toLowerCase() + '.' + camelCasedName.toLowerCase();
     }
 
-    // TODO: Colorize the spinner output
     final processing = Spinner(
-        icon: '\n✔'.green(),
+        icon: '\n✅ '.green(),
         rightPrompt: (done) => !done
             ? 'Getting things ready...'
             : '''
@@ -102,6 +95,8 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
     final extPath = p.joinAll([projectDir, 'src', ...orgName.split('.')]);
     final ideaDir = p.join(projectDir, '.idea');
 
+    final devDeps = await GetIt.I<LibService>().devDeps;
+
     final filesToCreate = <String, String>{
       if (['j', 'java'].contains(lang.toLowerCase()))
         p.join(extPath, '$pascalCasedName.java'): getExtensionTempJava(
@@ -113,45 +108,41 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
           pascalCasedName,
           orgName,
         ),
-      p.join(projectDir, 'src', 'AndroidManifest.xml'): getManifestXml(orgName),
-      p.join(projectDir, 'src', 'proguard-rules.pro'):
-          getPgRules(orgName, pascalCasedName),
+      p.join(projectDir, 'src', 'AndroidManifest.xml'):
+          androidManifestXml(orgName),
+      p.join(projectDir, 'src', 'proguard-rules.pro'): pgRules(orgName),
       p.join(projectDir, 'rush.yml'):
-          getRushYamlTemp(pascalCasedName, lang == 'Kotlin'),
-      p.join(projectDir, 'README.md'): getReadme(pascalCasedName),
-      p.join(projectDir, '.gitignore'): getDotGitignore(),
+          rushYaml(pascalCasedName, lang == 'Kotlin'),
+      p.join(projectDir, 'README.md'): readmeMd(pascalCasedName),
+      p.join(projectDir, '.gitignore'): dotGitignore,
       p.join(projectDir, 'deps', '.placeholder'):
-          'This directory stores your extension\'s dependencies.',
+          'This directory stores your extension\'s local dependencies.',
 
       // IntelliJ IDEA files
-      p.join(ideaDir, 'misc.xml'): getMiscXml(),
-      p.join(ideaDir, 'libraries', 'dev-deps.xml'):
-          getDevDepsXml(GetIt.I<LibService>().devDepJars()),
-      p.join(ideaDir, 'libraries', 'deps.xml'): getDepsXml(),
-      p.join(ideaDir, 'modules.xml'): getModulesXml(kebabCasedName),
+      p.join(ideaDir, 'misc.xml'): ijMiscXml,
+      p.join(ideaDir, 'libraries', 'local-deps.xml'): ijLocalDepsXml,
+      p.join(ideaDir, 'libraries', 'dev-deps.xml'): ijDevDepsXml(devDeps),
       p.join(ideaDir, '$kebabCasedName.iml'):
-          getIml(ideaDir, ['dev-deps', 'deps'])
+          ijImlXml(ideaDir, ['dev-deps', 'local-deps']),
+      p.join(ideaDir, 'modules.xml'): ijModulesXml(kebabCasedName),
     };
 
     // Creates the required files for the extension.
     try {
       filesToCreate.forEach((path, contents) async {
-        await Utils.writeFile(path, contents);
+        path.asFile(true).writeAsStringSync(contents);
       });
       p.join(projectDir, 'assets').asDir(true);
+      // Copy icon
+      p
+          .join(_fs.rushHomeDir.path, 'icon.png')
+          .asFile()
+          .copySync(p.join(projectDir, 'assets', 'icon.png'));
     } catch (e) {
+      Logger().err(e.toString());
       rethrow;
     }
 
-    // Copy icon
-    p
-        .join(_fs.rushHomeDir.path, 'icon.png')
-        .asFile()
-        .copySync(p.join(projectDir, 'assets', 'icon.png'));
-
-    // All the above operations are blazingly fast. Wait a couple of seconds
-    // to show that nice spinner. :P
-    await Future.delayed(Duration(milliseconds: Random().nextInt(2000)));
     processing.done();
     return 0;
   }

@@ -44,10 +44,10 @@ package $org
 
 import com.google.appinventor.components.annotations.ExtensionComponent
 import com.google.appinventor.components.annotations.SimpleFunction
-import com.google.appinventor.components.runtime.util.YailList
+import com.google.appinventor.components.runtime.AndroidNonvisibleComponent
 import com.google.appinventor.components.runtime.ComponentContainer
 import com.google.appinventor.components.runtime.errors.YailRuntimeError
-import com.google.appinventor.components.runtime.AndroidNonvisibleComponent
+import com.google.appinventor.components.runtime.util.YailList
 
 @ExtensionComponent(
     name = "$name",

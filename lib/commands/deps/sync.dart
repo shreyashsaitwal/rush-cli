@@ -1,6 +1,9 @@
 import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
+import 'package:path/path.dart' as p;
+import 'package:rush_cli/commands/create/templates/intellij_files.dart';
+import 'package:rush_cli/utils/file_extension.dart';
 import 'package:xrange/xrange.dart';
 
 import 'package:rush_cli/commands/rush_command.dart';
@@ -64,6 +67,7 @@ class SyncSubCommand extends RushCommand {
           '$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
           '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
         ];
+
     try {
       await Future.wait([
         sync(
@@ -94,14 +98,26 @@ class SyncSubCommand extends RushCommand {
     }
 
     _lgr.startTask('Syncing project dependencies');
+
+    final Iterable<Artifact> resolvedProjectDeps;
     try {
-      await sync(
+      resolvedProjectDeps = await sync(
         libCacheBox: projectDepsBox,
         saveCoordinatesAsKeys: false,
         timestampBox: timestampBox,
         coordinates: projectDepCoords,
       );
     } catch (_) {
+      _lgr.stopTask(false);
+      return 1;
+    }
+    _lgr.stopTask();
+
+    _lgr.startTask('Adding resolved dependencies to IntelliJ\'s lib index');
+    try {
+      await _updateIjLibIndex(resolvedProjectDeps);
+    } catch (e) {
+      _lgr.err(e.toString());
       _lgr.stopTask(false);
       return 1;
     }
@@ -377,5 +393,31 @@ class SyncSubCommand extends RushCommand {
       previous = range;
     }
     return result;
+  }
+
+  Future<void> _updateIjLibIndex(Iterable<Artifact> projectDeps) async {
+    final devDeps = await _libService.devDeps;
+    final devDepsLibXml =
+        p.join(_fs.cwd, '.idea', 'libraries', 'dev-deps.xml').asFile(true);
+    devDepsLibXml.writeAsStringSync(ijDevDepsXml(devDeps));
+
+    for (final lib in projectDeps) {
+      final fileName = lib.coordinate.replaceAll(RegExp(r'(:|\.)'), '_');
+      final libXml =
+          p.join(_fs.cwd, '.idea', 'libraries', '$fileName.xml').asFile(true);
+      libXml.writeAsStringSync('''
+<component name="libraryTable">
+  <library name="${lib.coordinate}">
+    <CLASSES>
+      ${lib.classesJar}
+    </CLASSES>
+    <SOURCES>
+      ${lib.sourceJar}
+    </SOURCES>
+    <JAVADOC />
+  </library>
+</component>
+''');
+    }
   }
 }
