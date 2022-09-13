@@ -1,6 +1,6 @@
 import 'package:get_it/get_it.dart';
-import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/services/libs_service.dart';
 import 'package:tint/tint.dart';
 
 import 'package:rush_cli/commands/rush_command.dart';
@@ -22,15 +22,15 @@ class TreeSubCommand extends RushCommand {
 
   @override
   Future<int> run() async {
-    Hive.init(_fs.dotRushDir.path);
     final config = await Config.load(_fs.configFile, _lgr);
     if (config == null) {
       _lgr.err('Failed to load the config file rush.yaml');
       return 1;
     }
 
-    final depsBox = await Hive.openBox<Artifact>('deps');
-    final remoteDeps = depsBox.values.toList();
+    await GetIt.I.isReady<LibService>();
+
+    final remoteDeps = await GetIt.I<LibService>().projectRemoteDeps();
     final directDeps = remoteDeps.where((el) =>
         config.runtimeDeps.contains(el.coordinate) ||
         config.comptimeDeps.contains(el.coordinate));

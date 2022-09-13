@@ -39,7 +39,7 @@ class MigrateCommand extends RushCommand {
       homepage: oldConfig.homepage ?? '',
       android: Android(minSdk: oldConfig.minSdk),
       kotlin: Kotlin(
-        enable: oldConfig.build?.kotlin?.enable ?? false,
+        compilerVersion: '1.7.10',
       ),
     );
 
@@ -55,7 +55,7 @@ class MigrateCommand extends RushCommand {
     }
 
     _editSourceFile(srcFile, oldConfig);
-    _updateConfig(newConfig);
+    _updateConfig(newConfig, oldConfig.build?.kotlin?.enable ?? false);
     _deleteOldHiveBoxes();
 
     return 0;
@@ -107,7 +107,7 @@ class MigrateCommand extends RushCommand {
     });
   }
 
-  void _updateConfig(Config config) {
+  void _updateConfig(Config config, bool enableKotlin) {
     var contents = 'version: \'${config.version}\'\n\n';
     contents += '''
 android:
@@ -136,11 +136,10 @@ ${config.assets.map((el) => '- $el').join('\n')}
       contents += 'desugar: true\n\n';
     }
 
-    if (config.kotlin?.enable ?? false) {
+    if (enableKotlin) {
       contents += '''
 kotlin:
-  enable: true
-  version: '1.5.32'
+  compiler_version: ${config.kotlin!.compilerVersion}
 
 ''';
     }
@@ -150,6 +149,7 @@ kotlin:
 # Runtime dependencies of your extension. These can be local JARs or AARs stored in the deps/ directory or coordinates
 # of remote Maven artifacts in <groupId>:<artifactId>:<version> format.
 dependencies:
+${enableKotlin ? 'org.jetbrains.kotlin:kotlin-stdlib:${config.kotlin!.compilerVersion}' : ''}
 ${config.runtimeDeps.map((el) => '- $el').join('\n')}
 ''';
     }

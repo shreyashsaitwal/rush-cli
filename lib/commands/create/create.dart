@@ -95,7 +95,8 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
     final extPath = p.joinAll([projectDir, 'src', ...orgName.split('.')]);
     final ideaDir = p.join(projectDir, '.idea');
 
-    final devDeps = await GetIt.I<LibService>().devDeps;
+    await GetIt.I.isReady<LibService>();
+    final devDeps = await GetIt.I<LibService>().devDeps();
 
     final filesToCreate = <String, String>{
       if (['j', 'java'].contains(lang.toLowerCase()))

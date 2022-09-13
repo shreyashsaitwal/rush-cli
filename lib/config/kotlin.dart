@@ -6,15 +6,11 @@ part of 'config.dart';
   disallowUnrecognizedKeys: true,
 )
 class Kotlin {
-  @JsonKey(required: true)
-  final bool enable;
-
-  @JsonKey(required: true)
-  final String version;
+  @JsonKey(required: true, name: 'compiler_version', defaultValue: '1.7.10')
+  final String compilerVersion;
 
   Kotlin({
-    required this.enable,
-    this.version = '1.7.10',
+    required this.compilerVersion,
   });
 
   factory Kotlin.fromJson(Map<String, dynamic> json) => _$KotlinFromJson(json);

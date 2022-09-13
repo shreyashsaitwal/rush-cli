@@ -1,20 +1,18 @@
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
+
+import 'package:rush_cli/services/file_service.dart';
+import 'package:rush_cli/commands/build/utils.dart';
 import 'package:rush_cli/utils/file_extension.dart';
 import 'package:rush_cli/utils/process_runner.dart';
-import 'package:rush_cli/services/file_service.dart';
-
-import '../../../services/libs_service.dart';
-import '../utils.dart';
 
 class Executor {
   static final _fs = GetIt.I<FileService>();
-  static final _libService = GetIt.I<LibService>();
   static final processRunner = ProcessRunner();
 
-  static Future<void> execD8(String artJarPath) async {
+  static Future<void> execD8(String artJarPath, String r8Jar) async {
     final args = <String>[
-      ...['-cp', (await _libService.d8Jar())],
+      ...['-cp', r8Jar],
       'com.android.tools.r8.D8',
       ...['--lib', p.join(_fs.libsDir.path, 'android.jar')],
       '--release',
@@ -34,17 +32,17 @@ class Executor {
   }
 
   static Future<void> execProGuard(
-      String artJarPath, Set<String> depJars) async {
+      String artJarPath, Set<String> comptimeJars, String pgClasspath) async {
     final rulesPro = p.join(_fs.srcDir.path, 'proguard-rules.pro').asFile();
     final optimizedJar =
         p.join(p.dirname(artJarPath), 'AndroidRuntime.optimized.jar').asFile();
 
     final args = <String>[
-      ...['-cp', (await _libService.pgJars()).join(BuildUtils.cpSeparator)],
+      ...['-cp', pgClasspath],
       'proguard.ProGuard',
       ...['-injars', artJarPath],
       ...['-outjars', optimizedJar.path],
-      ...['-libraryjars', depJars.join(BuildUtils.cpSeparator)],
+      ...['-libraryjars', comptimeJars.join(BuildUtils.cpSeparator)],
       '@${rulesPro.path}',
     ];
 
@@ -62,10 +60,11 @@ class Executor {
   static Future<void> execManifMerger(
     int minSdk,
     String mainManifest,
-    Iterable<String> depManifests,
+    Set<String> depManifests,
+    Iterable<String> manifMergerJars,
   ) async {
     final classpath = <String>[
-      ...(await _libService.manifMergerJars()),
+      ...manifMergerJars,
       p.join(_fs.libsDir.path, 'android.jar'),
     ].join(BuildUtils.cpSeparator);
 
@@ -91,7 +90,7 @@ class Executor {
   // TODO: This can be execed on JDK >8, see here:
   // https://linear.app/shreyash/issue/RSH-51/toolsjar-and-rtjar-might-be-the-reason-for-desugaring-not-working-on
   static Future<void> execDesugarer(
-      String artJarPath, Set<String> depJars) async {
+      String artJarPath, Set<String> comptimeDepJars) async {
     final outputJar = p
         .join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.desugared.jar')
         .asFile();
@@ -102,7 +101,7 @@ class Executor {
       ...['--bootclasspath_entry', '\'${_fs.jreRtJar.path}\''],
       ...['--input', '\'$artJarPath\''],
       ...['--output', '\'${outputJar.path}\''],
-      ...depJars.map((dep) => '--classpath_entry' '\n' '\'$dep\''),
+      ...comptimeDepJars.map((dep) => '--classpath_entry' '\n' '\'$dep\''),
     ];
     final argsFile =
         p.join(_fs.buildFilesDir.path, 'desugar.args').asFile(true);

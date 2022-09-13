@@ -1,6 +1,5 @@
 import 'dart:io' show Directory, exit;
 
-import 'package:get_it/get_it.dart';
 import 'package:rush_cli/commands/build/build.dart';
 import 'package:rush_cli/commands/clean.dart';
 import 'package:rush_cli/commands/create/create.dart';
@@ -8,7 +7,6 @@ import 'package:rush_cli/commands/deps/deps.dart';
 import 'package:rush_cli/commands/migrate/migrate.dart';
 import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/commands/upgrade/upgrade.dart';
-import 'package:rush_cli/services/libs_service.dart';
 import 'package:rush_cli/services/service_locator.dart';
 import 'package:rush_cli/version.dart';
 import 'package:tint/tint.dart';
@@ -17,7 +15,7 @@ Future<void> main(List<String> args) async {
   _printArt();
 
   final commandRunner = RushCommandRunner();
-  final argsResult = commandRunner.argParser
+  commandRunner.argParser
     ..addFlag('version',
         abbr: 'v',
         negatable: false,
@@ -34,8 +32,7 @@ Future<void> main(List<String> args) async {
     );
 
   setupServiceLocator(
-      Directory.current.path, argsResult.parse(args)['debug'] as bool);
-  await GetIt.I.isReady<LibService>();
+      Directory.current.path, args.contains('-d') || args.contains('--debug'));
 
   commandRunner
     ..addCommand(BuildCommand())

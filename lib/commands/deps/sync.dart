@@ -36,8 +36,8 @@ const _buildTools = [
 
 class SyncSubCommand extends RushCommand {
   final _fs = GetIt.I<FileService>();
-  final _libService = GetIt.I<LibService>();
   final _lgr = GetIt.I<Logger>();
+  late final LibService _libService;
 
   @override
   String get description => 'Resolves and downloads project dependencies.';
@@ -48,6 +48,10 @@ class SyncSubCommand extends RushCommand {
   @override
   Future<int> run() async {
     _lgr.startTask('Initializing');
+
+    _lgr.dbg('Waiting for lib service...');
+    await GetIt.I.isReady<LibService>();
+    _libService = GetIt.I<LibService>();
 
     Hive.init(_fs.dotRushDir.path);
     final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
@@ -61,7 +65,7 @@ class SyncSubCommand extends RushCommand {
     _lgr.stopTask();
 
     _lgr.startTask('Syncing dev-dependencies');
-    final ktVersion = config.kotlin?.version ?? defaultKtVersion;
+    final ktVersion = config.kotlin?.compilerVersion ?? defaultKtVersion;
     final tools = _buildTools +
         [
           '$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
@@ -373,7 +377,7 @@ class SyncSubCommand extends RushCommand {
   }
 
   Future<Artifact?> _providedAlternative(String artifactIdent) async {
-    final devDeps = await _libService.devDeps;
+    final devDeps = await _libService.devDeps();
     for (final val in devDeps) {
       if (val.coordinate.startsWith(artifactIdent)) {
         return val;
@@ -397,7 +401,7 @@ class SyncSubCommand extends RushCommand {
   }
 
   Future<void> _updateIjLibIndex(Iterable<Artifact> projectDeps) async {
-    final devDeps = await _libService.devDeps;
+    final devDeps = await _libService.devDeps();
     final devDepsLibXml =
         p.join(_fs.cwd, '.idea', 'libraries', 'dev-deps.xml').asFile(true);
     devDepsLibXml.writeAsStringSync(ijDevDepsXml(devDeps));
