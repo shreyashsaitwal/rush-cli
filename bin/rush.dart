@@ -5,16 +5,15 @@ import 'package:rush_cli/commands/build/build.dart';
 import 'package:rush_cli/commands/clean.dart';
 import 'package:rush_cli/commands/create/create.dart';
 import 'package:rush_cli/commands/deps/deps.dart';
+import 'package:rush_cli/commands/migrate/migrate.dart';
 import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/commands/upgrade/upgrade.dart';
 import 'package:rush_cli/services/libs_service.dart';
-import 'package:rush_cli/services/logger.dart';
 import 'package:rush_cli/services/service_locator.dart';
 import 'package:rush_cli/version.dart';
 import 'package:tint/tint.dart';
 
 Future<void> main(List<String> args) async {
-  final stopwatch = Stopwatch()..start();
   _printArt();
 
   final commandRunner = RushCommandRunner();
@@ -39,12 +38,12 @@ Future<void> main(List<String> args) async {
   await GetIt.I.isReady<LibService>();
 
   commandRunner
-    ..addCommand(CreateCommand())
     ..addCommand(BuildCommand())
-    ..addCommand(UpgradeCommand())
     ..addCommand(CleanCommand())
-    ..addCommand(DepsCommand());
-
+    ..addCommand(CreateCommand())
+    ..addCommand(DepsCommand())
+    ..addCommand(MigrateCommand())
+    ..addCommand(UpgradeCommand());
   await commandRunner.run(args);
 }
 

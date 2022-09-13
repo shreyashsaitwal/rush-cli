@@ -217,8 +217,8 @@ class ArtifactResolver {
         throw Exception(
             'Artifact ${pom.coordinate} doesn\'t have a valid POM file (missing groupId and/or version)');
       } else {
-      _lgr.dbg(
-          '$coordinate POM has no version or group ID; fetching parent POM ${pom.parent!.coordinate}');
+        _lgr.dbg(
+            '$coordinate POM has no version or group ID; fetching parent POM ${pom.parent!.coordinate}');
         // TODO: Investigate why I chose to resolve the parent here. I remember
         // I did it for some reason, but don't remember what it was. :(
         // final parentArtifact =
@@ -248,7 +248,8 @@ class ArtifactResolver {
       }
       return false;
     });
-    _lgr.dbg('$coordinate: Total ${pom.dependencies.length} deps defined; ${deps.length} selected');
+    _lgr.dbg(
+        '$coordinate: Total ${pom.dependencies.length} deps defined; ${deps.length} selected');
 
     final result = <Artifact>[];
     for (final dep in deps) {
@@ -256,8 +257,7 @@ class ArtifactResolver {
       final versionChanged =
           resolvedVersion.versionSpec != resolvedVersion.originalSpec;
       if (versionChanged) {
-        _lgr.dbg(
-            'Changed version: ${dep.version} -> $resolvedVersion');
+        _lgr.dbg('Changed version: ${dep.version} -> $resolvedVersion');
       }
 
       dep.version = resolvedVersion.versionSpec;
@@ -271,7 +271,8 @@ class ArtifactResolver {
     }
 
     if (version != null) {
-      final newCoordinate = [...coordinate.split(':').take(2), version.originalSpec].join(':');
+      final newCoordinate =
+          [...coordinate.split(':').take(2), version.originalSpec].join(':');
       _lgr.dbg('Changed coord: $coordinate -> $newCoordinate');
       coordinate = newCoordinate;
     }

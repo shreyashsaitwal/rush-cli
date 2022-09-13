@@ -13,7 +13,7 @@ import 'package:rush_cli/commands/build/tools/compiler.dart';
 import 'package:rush_cli/commands/build/tools/executor.dart';
 import 'package:rush_cli/commands/deps/sync.dart';
 import 'package:rush_cli/commands/rush_command.dart';
-import 'package:rush_cli/config/rush_yaml.dart';
+import 'package:rush_cli/config/config.dart';
 import 'package:rush_cli/resolver/artifact.dart';
 import 'package:rush_cli/services/libs_service.dart';
 import 'package:rush_cli/services/file_service.dart';
@@ -51,7 +51,7 @@ class BuildCommand extends RushCommand {
     _lgr.startTask('Initializing build');
 
     _lgr.info('Loading config file');
-    final config = await RushYaml.load(_fs.configFile, _lgr);
+    final config = await Config.load(_fs.configFile, _lgr);
     if (config == null) {
       _lgr.stopTask(false);
       return 1;
@@ -252,7 +252,7 @@ class BuildCommand extends RushCommand {
 
   /// Compiles extension's source files.
   Future<void> _compile(
-    RushYaml rushYaml,
+    Config config,
     Set<String> depJars,
     LazyBox<DateTime> timestampBox,
   ) async {
@@ -270,7 +270,7 @@ class BuildCommand extends RushCommand {
 
     try {
       if (ktFiles.isNotEmpty) {
-        final isKtEnabled = rushYaml.kotlin?.enable ?? false;
+        final isKtEnabled = config.kotlin?.enable ?? false;
         if (!isKtEnabled) {
           _lgr.err(
               'Kotlin support is not enabled in the config file rush.yaml');
@@ -278,12 +278,11 @@ class BuildCommand extends RushCommand {
         }
 
         await Compiler.compileKtFiles(
-            depJars, rushYaml.kotlin!.version, timestampBox);
+            depJars, config.kotlin!.version, timestampBox);
       }
 
       if (javaFiles.isNotEmpty) {
-        await Compiler.compileJavaFiles(
-            depJars, rushYaml.desugar, timestampBox);
+        await Compiler.compileJavaFiles(depJars, config.desugar, timestampBox);
       }
     } catch (e) {
       rethrow;
@@ -291,7 +290,7 @@ class BuildCommand extends RushCommand {
   }
 
   Future<String> _createArtJar(
-      RushYaml config, List<Artifact> remoteArtifacts) async {
+      Config config, List<Artifact> remoteArtifacts) async {
     final artJarPath =
         p.join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.jar');
 

@@ -36,13 +36,12 @@ class CleanCommand extends RushCommand {
       file.deleteSync(recursive: true);
     }
 
-    await Future.delayed(Duration(milliseconds: Random().nextInt(2000)));
     spinner.done();
     return 0;
   }
 
   Future<bool> _isRushProject() async {
-    final rushYaml = await () async {
+    final config = await () async {
       final yml = File(p.join(_fs.cwd, 'rush.yml'));
       if (await yml.exists()) {
         return yml;
@@ -55,7 +54,7 @@ class CleanCommand extends RushCommand {
         File(p.join(_fs.srcDir.path, 'AndroidManifest.xml'));
     final dotRushDir = Directory(p.join(_fs.cwd, '.rush'));
 
-    return await rushYaml.exists() &&
+    return await config.exists() &&
         await _fs.srcDir.exists() &&
         await androidManifest.exists() &&
         await dotRushDir.exists();

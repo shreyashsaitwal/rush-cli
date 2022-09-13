@@ -3,11 +3,11 @@ import 'dart:io' show File, Platform;
 import 'package:archive/archive.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/utils/file_extension.dart';
 
-import '../../config/rush_yaml.dart';
-import '../../services/file_service.dart';
-import '../../services/logger.dart';
+import 'package:rush_cli/config/config.dart';
+import 'package:rush_cli/services/file_service.dart';
+import 'package:rush_cli/services/logger.dart';
+import 'package:rush_cli/utils/file_extension.dart';
 
 class BuildUtils {
   static final _fs = GetIt.I<FileService>();
@@ -34,8 +34,8 @@ class BuildUtils {
   static String get cpSeparator => Platform.isWindows ? ';' : ':';
 
   /// Copies extension's assets to the raw directory.
-  static void copyAssets(RushYaml rushYaml) {
-    final assets = rushYaml.assets;
+  static void copyAssets(Config config) {
+    final assets = config.assets;
     if (assets.isEmpty) {
       return;
     }
@@ -55,15 +55,15 @@ class BuildUtils {
   }
 
   /// Copies LICENSE file if there's any.
-  static void copyLicense(RushYaml rushYaml) {
+  static void copyLicense(Config config) {
     // Pattern to match URL
     final urlPattern = RegExp(
         r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_\+.~#?&\/\/=]*)',
         dotAll: true);
 
     final File license;
-    if (rushYaml.license != '' && !urlPattern.hasMatch(rushYaml.license)) {
-      license = p.join(_fs.cwd, rushYaml.license).asFile();
+    if (config.license != '' && !urlPattern.hasMatch(config.license)) {
+      license = p.join(_fs.cwd, config.license).asFile();
     } else {
       return;
     }

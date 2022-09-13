@@ -4,7 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:tint/tint.dart';
 
 import 'package:rush_cli/commands/rush_command.dart';
-import 'package:rush_cli/config/rush_yaml.dart';
+import 'package:rush_cli/config/config.dart';
 import 'package:rush_cli/resolver/artifact.dart';
 import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/services/logger.dart';
@@ -23,8 +23,8 @@ class TreeSubCommand extends RushCommand {
   @override
   Future<int> run() async {
     Hive.init(_fs.dotRushDir.path);
-    final rushYaml = await RushYaml.load(_fs.configFile, _lgr);
-    if (rushYaml == null) {
+    final config = await Config.load(_fs.configFile, _lgr);
+    if (config == null) {
       _lgr.err('Failed to load the config file rush.yaml');
       return 1;
     }
@@ -32,8 +32,8 @@ class TreeSubCommand extends RushCommand {
     final depsBox = await Hive.openBox<Artifact>('deps');
     final remoteDeps = depsBox.values.toList();
     final directDeps = remoteDeps.where((el) =>
-        rushYaml.runtimeDeps.contains(el.coordinate) ||
-        rushYaml.comptimeDeps.contains(el.coordinate));
+        config.runtimeDeps.contains(el.coordinate) ||
+        config.comptimeDeps.contains(el.coordinate));
 
     // TODO: Colorize the output + print additional info like dep scope, etc.
     final graph = <String>{

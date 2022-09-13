@@ -1,4 +1,4 @@
-String rushYaml(String name, bool enableKt) {
+String config(String name, bool enableKt) {
   return '''
 version: '1.0.0'
 
@@ -65,4 +65,3 @@ String readmeMd(String name) {
 An App Inventor 2 extension created using Rush.
 ''';
 }
-

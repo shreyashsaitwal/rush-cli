@@ -7,7 +7,7 @@ import 'package:rush_cli/utils/file_extension.dart';
 import 'package:xrange/xrange.dart';
 
 import 'package:rush_cli/commands/rush_command.dart';
-import 'package:rush_cli/config/rush_yaml.dart';
+import 'package:rush_cli/config/config.dart';
 import 'package:rush_cli/resolver/artifact.dart';
 import 'package:rush_cli/resolver/resolver.dart';
 import 'package:rush_cli/services/file_service.dart';
@@ -53,7 +53,7 @@ class SyncSubCommand extends RushCommand {
     final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
     final projectDepsBox = await Hive.openLazyBox<Artifact>(projectDepsBoxName);
 
-    final config = await RushYaml.load(_fs.configFile, _lgr);
+    final config = await Config.load(_fs.configFile, _lgr);
     if (config == null) {
       _lgr.stopTask(false);
       return 1;
@@ -66,6 +66,7 @@ class SyncSubCommand extends RushCommand {
         [
           '$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
           '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
+          '$kotlinGroupId:kotlin-stdlib:$ktVersion',
         ];
 
     try {

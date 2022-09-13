@@ -1,4 +1,4 @@
-part of 'rush_yaml.dart';
+part of 'config.dart';
 
 @JsonSerializable(
   anyMap: true,

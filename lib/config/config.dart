@@ -7,14 +7,14 @@ import 'package:rush_cli/services/logger.dart';
 part 'android.dart';
 part 'kotlin.dart';
 
-part 'rush_yaml.g.dart';
+part 'config.g.dart';
 
 @JsonSerializable(
-  anyMap: true,
-  checked: true,
-  disallowUnrecognizedKeys: true,
-)
-class RushYaml {
+    anyMap: true,
+    checked: true,
+    disallowUnrecognizedKeys: true,
+    includeIfNull: false)
+class Config {
   @JsonKey(required: true)
   final String version;
 
@@ -23,22 +23,22 @@ class RushYaml {
 
   @JsonKey(name: 'comptime_dependencies')
   final List<String> comptimeDeps;
-  
+
   final String homepage;
-  
+
   final String license;
-  
+
   final bool desugar;
-  
+
   final List<String> assets;
-  
+
   final List<String> authors;
-  
+
   final Android? android;
-  
+
   final Kotlin? kotlin;
 
-  RushYaml({
+  Config({
     required this.version,
     this.homepage = '',
     this.license = '',
@@ -52,13 +52,13 @@ class RushYaml {
   });
 
   // ignore: strict_raw_type
-  factory RushYaml._fromJson(Map json) => _$RushYamlFromJson(json);
+  factory Config._fromJson(Map json) => _$ConfigFromJson(json);
 
-  static Future<RushYaml?> load(File configFile, Logger lgr) async {
+  static Future<Config?> load(File configFile, Logger lgr) async {
     lgr.dbg('Loading config from ${configFile.path}');
     try {
       return checkedYamlDecode(
-          await configFile.readAsString(), (json) => RushYaml._fromJson(json!));
+          await configFile.readAsString(), (json) => Config._fromJson(json!));
     } catch (e) {
       lgr.err(e.toString());
     }
