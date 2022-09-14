@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
@@ -401,28 +403,49 @@ class SyncSubCommand extends RushCommand {
   }
 
   Future<void> _updateIjLibIndex(Iterable<Artifact> projectDeps) async {
-    final devDeps = await _libService.devDeps();
     final devDepsLibXml =
         p.join(_fs.cwd, '.idea', 'libraries', 'dev-deps.xml').asFile(true);
-    devDepsLibXml.writeAsStringSync(ijDevDepsXml(devDeps));
+    final devDepJars = await _libService.devDepJars();
+    final devDepSources = (await _libService.devDeps()).map((dep) {
+      if (dep.sourceJar != null) {
+        return dep.sourceJar!;
+      }
+    }).whereNotNull();
+    devDepsLibXml.writeAsStringSync(ijDevDepsXml(devDepJars, devDepSources));
+
+    final libs = <String>['deps', 'dev-deps'];
 
     for (final lib in projectDeps) {
       final fileName = lib.coordinate.replaceAll(RegExp(r'(:|\.)'), '_');
-      final libXml =
+      final xml =
           p.join(_fs.cwd, '.idea', 'libraries', '$fileName.xml').asFile(true);
-      libXml.writeAsStringSync('''
+
+      xml.writeAsStringSync('''
 <component name="libraryTable">
   <library name="${lib.coordinate}">
     <CLASSES>
-      ${lib.classesJar}
+      <root url="jar://${lib.classesJar}!/" />
     </CLASSES>
     <SOURCES>
-      ${lib.sourceJar}
+      ${lib.sourceJar != null ? '<root url="jar://${lib.sourceJar!}!/" />' : ''}
     </SOURCES>
     <JAVADOC />
   </library>
 </component>
 ''');
+
+      libs.add(lib.coordinate);
     }
+
+    final imlXml = p
+        .join(_fs.cwd, '.idea')
+        .asDir()
+        .listSync()
+        .firstWhereOrNull((el) => el is File && p.extension(el.path) == '.iml');
+    if (imlXml == null) {
+      throw Exception('Unable to find project\'s .iml file in .idea directory');
+    }
+
+    imlXml.path.asFile().writeAsStringSync(ijImlXml(libs));
   }
 }

@@ -1,7 +1,5 @@
-import 'package:rush_cli/resolver/artifact.dart';
-
-String ijImlXml(String ideaDir, List<String> libXmls) {
-  final libEntries = libXmls
+String ijImlXml(List<String> libs) {
+  final libEntries = libs
       .map((el) =>
           '    <orderEntry type="library" name="$el" level="project" />')
       .join('\n');
@@ -44,23 +42,21 @@ String ijModulesXml(String name) {
 ''';
 }
 
-String ijDevDepsXml(Iterable<Artifact> devDeps) {
-  final classesJars = devDeps
-      .map((el) => '      <root url="jar://${el.classesJar}!/"/>')
-      .join('\n');
-  final sourcesJars = devDeps
-      .where((el) => el.sourceJar != null)
-      .map((el) => '      <root url="jar://${el.sourceJar}!/"/>')
-      .join('\n');
+String ijDevDepsXml(
+    Iterable<String> classesJars, Iterable<String> sourcesJars) {
+  final classes =
+      classesJars.map((el) => '      <root url="jar://$el!/"/>').join('\n');
+  final sources =
+      sourcesJars.map((el) => '      <root url="jar://$el!/"/>').join('\n');
 
   return '''
 <component name="libraryTable">
   <library name="dev-deps">
     <CLASSES>
-$classesJars
+$classes
     </CLASSES>
     <SOURCES>
-$sourcesJars
+$sources
     </SOURCES>
     <JAVADOC />
   </library>

@@ -1,6 +1,9 @@
+import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:interact/interact.dart';
 import 'package:path/path.dart' as p;
+import 'package:tint/tint.dart';
+
 import 'package:rush_cli/commands/rush_command.dart';
 import 'package:rush_cli/services/libs_service.dart';
 import 'package:rush_cli/services/logger.dart';
@@ -10,7 +13,6 @@ import 'package:rush_cli/services/file_service.dart';
 import 'package:rush_cli/commands/create/templates/extension_source.dart';
 import 'package:rush_cli/commands/create/templates/intellij_files.dart';
 import 'package:rush_cli/commands/create/templates/other.dart';
-import 'package:tint/tint.dart';
 
 class CreateCommand extends RushCommand {
   final FileService _fs = GetIt.I<FileService>();
@@ -96,7 +98,14 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
     final ideaDir = p.join(projectDir, '.idea');
 
     await GetIt.I.isReady<LibService>();
-    final devDeps = await GetIt.I<LibService>().devDeps();
+    final libService = GetIt.I<LibService>();
+
+    final devDepJars = await libService.devDepJars();
+    final devDepSources = (await libService.devDeps()).map((dep) {
+      if (dep.sourceJar != null) {
+        return dep.sourceJar!;
+      }
+    }).whereNotNull();
 
     final filesToCreate = <String, String>{
       if (['j', 'java'].contains(lang.toLowerCase()))
@@ -121,9 +130,10 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
       // IntelliJ IDEA files
       p.join(ideaDir, 'misc.xml'): ijMiscXml,
       p.join(ideaDir, 'libraries', 'local-deps.xml'): ijLocalDepsXml,
-      p.join(ideaDir, 'libraries', 'dev-deps.xml'): ijDevDepsXml(devDeps),
+      p.join(ideaDir, 'libraries', 'dev-deps.xml'):
+          ijDevDepsXml(devDepJars, devDepSources),
       p.join(ideaDir, '$kebabCasedName.iml'):
-          ijImlXml(ideaDir, ['dev-deps', 'local-deps']),
+          ijImlXml(['dev-deps', 'local-deps']),
       p.join(ideaDir, 'modules.xml'): ijModulesXml(kebabCasedName),
     };
 
