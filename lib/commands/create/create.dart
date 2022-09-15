@@ -101,7 +101,7 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
     final libService = GetIt.I<LibService>();
 
     final devDepJars = await libService.devDepJars();
-    final devDepSources = (await libService.devDeps()).map((dep) {
+    final devDepSources = (await libService.devDepArtifacts()).map((dep) {
       if (dep.sourceJar != null) {
         return dep.sourceJar!;
       }

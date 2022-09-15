@@ -68,7 +68,7 @@ class BuildCommand extends RushCommand {
     final configFileModified = (await timestampsBox.get(_configTimestampKey))
             ?.isBefore(_fs.configFile.lastModifiedSync()) ??
         true;
-    final everyDepExists = (await _libService.projectRemoteDeps())
+    final everyDepExists = (await _libService.projectRemoteDepArtifacts())
         .every((el) => el.classesJar.asFile().existsSync());
 
     final needFetch = configFileModified || !everyDepExists;
@@ -87,9 +87,14 @@ class BuildCommand extends RushCommand {
           coordinates: remoteDeps,
           saveCoordinatesAsKeys: false,
           timestampBox: timestampsBox,
+          devDepArtifacts: await _libService.devDepArtifacts(),
         );
         await timestampsBox.put(_configTimestampKey, DateTime.now());
-      } catch (e) {
+      } catch (e, s) {
+        if (_lgr.debug) {
+          _lgr.err(e.toString());
+          _lgr.err(s.toString());
+        }
         _lgr.stopTask(false);
         return 1;
       }

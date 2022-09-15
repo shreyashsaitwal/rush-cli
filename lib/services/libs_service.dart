@@ -47,18 +47,18 @@ class LibService {
   late final LazyBox<Artifact> buildLibsBox;
   late final LazyBox<Artifact> projectDepsBox;
 
-   Future<List<Artifact>> devDeps() async {
+   Future<List<Artifact>> devDepArtifacts() async {
     return [for (final key in devDepsBox.keys) (await devDepsBox.get(key))!];
   }
 
-  Future<List<Artifact>> _buildLibs() async {
+  Future<List<Artifact>> _buildLibArtifacts() async {
     return [
       for (final key in buildLibsBox.keys) (await buildLibsBox.get(key))!
     ];
   }
 
   Future<Iterable<String>> devDepJars() async => [
-        for (final dep in await devDeps()) dep.classesJar,
+        for (final dep in await devDepArtifacts()) dep.classesJar,
         p.join(_fs.libsDir.path, 'android.jar'),
         p.join(_fs.libsDir.path, 'annotations.jar'),
         p.join(_fs.libsDir.path, 'runtime.jar'),
@@ -69,41 +69,41 @@ class LibService {
   Future<String> r8Jar() async => (await buildLibsBox.get(r8Coord))!.classesJar;
 
   Future<Iterable<String>> pgJars() async => (await buildLibsBox.get(pgCoord))!
-      .classpathJars(await _buildLibs())
+      .classpathJars(await _buildLibArtifacts())
       .toList();
 
   Future<Iterable<String>> manifMergerJars() async => [
         for (final lib in manifMergerAndDeps)
-          (await buildLibsBox.get(lib))!.classpathJars(await _buildLibs())
+          (await buildLibsBox.get(lib))!.classpathJars(await _buildLibArtifacts())
       ].flattened.toList();
 
   Future<Iterable<String>> kotlincJars(String ktVersion) async =>
       (await buildLibsBox
               .get('$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion'))!
-          .classpathJars(await _buildLibs())
+          .classpathJars(await _buildLibArtifacts())
           .toList();
 
   Future<Iterable<String>> kaptJars(String ktVersion) async =>
       (await buildLibsBox.get(
               '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion'))!
-          .classpathJars(await _buildLibs())
+          .classpathJars(await _buildLibArtifacts())
           .toList();
 
   
-  Future<Iterable<Artifact>> projectRemoteDeps() async {
+  Future<Iterable<Artifact>> projectRemoteDepArtifacts() async {
     return [
       for (final key in projectDepsBox.keys) (await projectDepsBox.get(key))!
     ];
   }
 
   Future<Iterable<String>> projectRuntimeAars() async => [
-        for (final dep in await projectRemoteDeps())
+        for (final dep in await projectRemoteDepArtifacts())
           if (dep.isAar) dep.artifactFile
       ];
 
   Future<Iterable<String>> projectRuntimeDepJars(Config config) async => [
         // Remote deps
-        for (final dep in await projectRemoteDeps()) dep.classesJar,
+        for (final dep in await projectRemoteDepArtifacts()) dep.classesJar,
         // Local deps
         for (final dep in config.runtimeDeps)
           if (dep.endsWith('.jar'))

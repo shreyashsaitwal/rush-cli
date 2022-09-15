@@ -17,7 +17,7 @@ import 'package:rush_cli/services/libs_service.dart';
 import 'package:rush_cli/services/logger.dart';
 import 'package:rush_cli/utils/constants.dart';
 
-const _devDeps = <String>[
+const _devDepsCoords = <String>[
   'androidx.appcompat:appcompat:1.0.0',
   'ch.acra:acra:4.9.0',
   'org.locationtech.jts:jts-core:1.16.1',
@@ -30,7 +30,7 @@ const _devDeps = <String>[
   'org.webrtc:google-webrtc:1.0.23995',
 ];
 
-const _buildTools = [
+const _buildToolCoords = [
   r8Coord,
   pgCoord,
   ...manifMergerAndDeps,
@@ -39,7 +39,6 @@ const _buildTools = [
 class SyncSubCommand extends RushCommand {
   final _fs = GetIt.I<FileService>();
   final _lgr = GetIt.I<Logger>();
-  late final LibService _libService;
 
   @override
   String get description => 'Resolves and downloads project dependencies.';
@@ -53,7 +52,7 @@ class SyncSubCommand extends RushCommand {
 
     _lgr.dbg('Waiting for lib service...');
     await GetIt.I.isReady<LibService>();
-    _libService = GetIt.I<LibService>();
+    final libService = GetIt.I<LibService>();
 
     Hive.init(_fs.dotRushDir.path);
     final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
@@ -68,25 +67,31 @@ class SyncSubCommand extends RushCommand {
 
     _lgr.startTask('Syncing dev-dependencies');
     final ktVersion = config.kotlin?.compilerVersion ?? defaultKtVersion;
-    final tools = _buildTools +
+    final tools = _buildToolCoords +
         [
           '$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
           '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
           '$kotlinGroupId:kotlin-stdlib:$ktVersion',
         ];
 
+    final devDepArtifacts = await libService.devDepArtifacts();
+
     try {
       await Future.wait([
         sync(
-            libCacheBox: _libService.devDepsBox,
-            saveCoordinatesAsKeys: true,
-            timestampBox: timestampBox,
-            coordinates: {Scope.compile: _devDeps}),
+          libCacheBox: libService.devDepsBox,
+          saveCoordinatesAsKeys: true,
+          timestampBox: timestampBox,
+          coordinates: {Scope.compile: _devDepsCoords},
+          devDepArtifacts: devDepArtifacts,
+        ),
         sync(
-            libCacheBox: _libService.buildLibsBox,
-            saveCoordinatesAsKeys: true,
-            timestampBox: timestampBox,
-            coordinates: {Scope.runtime: tools}),
+          libCacheBox: libService.buildLibsBox,
+          saveCoordinatesAsKeys: true,
+          timestampBox: timestampBox,
+          coordinates: {Scope.runtime: tools},
+          devDepArtifacts: devDepArtifacts,
+        ),
       ]);
     } catch (_) {
       _lgr.stopTask(false);
@@ -113,6 +118,7 @@ class SyncSubCommand extends RushCommand {
         saveCoordinatesAsKeys: false,
         timestampBox: timestampBox,
         coordinates: projectDepCoords,
+        devDepArtifacts: devDepArtifacts,
       );
     } catch (_) {
       _lgr.stopTask(false);
@@ -122,7 +128,7 @@ class SyncSubCommand extends RushCommand {
 
     _lgr.startTask('Adding resolved dependencies to IntelliJ\'s lib index');
     try {
-      await _updateIjLibIndex(resolvedProjectDeps);
+      await _updateIjLibIndex(resolvedProjectDeps, libService);
     } catch (e) {
       _lgr.err(e.toString());
       _lgr.stopTask(false);
@@ -138,6 +144,7 @@ class SyncSubCommand extends RushCommand {
     required LazyBox<DateTime> timestampBox,
     required Map<Scope, Iterable<String>> coordinates,
     required bool saveCoordinatesAsKeys,
+    required List<Artifact> devDepArtifacts,
   }) async {
     _lgr.info('Fetching artifact metadata...');
 
@@ -159,9 +166,9 @@ class SyncSubCommand extends RushCommand {
     try {
       // Resolve version comflicts
       _lgr.info('Resolving version conflicts...');
-      resolvedDeps =
-          (await _resolveVersionConflicts(resolvedDeps, directDeps, resolver))
-              .toList(growable: true);
+      resolvedDeps = (await _resolveVersionConflicts(
+              resolvedDeps, directDeps, resolver, devDepArtifacts))
+          .toList(growable: true);
     } catch (e) {
       rethrow;
     }
@@ -200,6 +207,7 @@ class SyncSubCommand extends RushCommand {
     Iterable<Artifact> resolvedArtifacts,
     Iterable<String> directDeps,
     ArtifactResolver resolver,
+    List<Artifact> devDepArtifacts,
   ) async {
     final sameArtifacts = resolvedArtifacts
         .groupListsBy((el) => '${el.groupId}:${el.artifactId}')
@@ -220,7 +228,8 @@ class SyncSubCommand extends RushCommand {
       final rangedVersionDeps =
           entry.value.where((el) => el.version.range != null).toSet();
 
-      final providedAlternative = await _providedAlternative(entry.key);
+      final providedAlternative =
+          await _providedAlternative(entry.key, devDepArtifacts);
       final scope = entry.value.any((el) => el.scope == Scope.runtime)
           ? Scope.runtime
           : Scope.compile;
@@ -372,14 +381,15 @@ class SyncSubCommand extends RushCommand {
         [...newResolved.flattened, ...result],
         directDeps,
         resolver,
+        devDepArtifacts,
       );
     }
 
     return result;
   }
 
-  Future<Artifact?> _providedAlternative(String artifactIdent) async {
-    final devDeps = await _libService.devDeps();
+  Future<Artifact?> _providedAlternative(
+      String artifactIdent, List<Artifact> devDeps) async {
     for (final val in devDeps) {
       if (val.coordinate.startsWith(artifactIdent)) {
         return val;
@@ -402,11 +412,12 @@ class SyncSubCommand extends RushCommand {
     return result;
   }
 
-  Future<void> _updateIjLibIndex(Iterable<Artifact> projectDeps) async {
+  Future<void> _updateIjLibIndex(
+      Iterable<Artifact> projectDeps, LibService libService) async {
     final devDepsLibXml =
         p.join(_fs.cwd, '.idea', 'libraries', 'dev-deps.xml').asFile(true);
-    final devDepJars = await _libService.devDepJars();
-    final devDepSources = (await _libService.devDeps()).map((dep) {
+    final devDepJars = await libService.devDepJars();
+    final devDepSources = (await libService.devDepArtifacts()).map((dep) {
       if (dep.sourceJar != null) {
         return dep.sourceJar!;
       }
