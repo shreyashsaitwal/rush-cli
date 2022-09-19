@@ -1,4 +1,4 @@
-package io.shreyash.rush.processor.model
+package io.github.shreyashsaitwal.rush.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

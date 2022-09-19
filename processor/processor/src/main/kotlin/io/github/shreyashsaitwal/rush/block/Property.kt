@@ -1,8 +1,8 @@
-package io.shreyash.rush.processor.block
+package io.github.shreyashsaitwal.rush.block
 
 import com.google.appinventor.components.annotations.SimpleProperty
-import io.shreyash.rush.processor.util.isPascalCase
-import io.shreyash.rush.processor.util.yailTypeOf
+import io.github.shreyashsaitwal.rush.util.isPascalCase
+import io.github.shreyashsaitwal.rush.util.yailTypeOf
 import shaded.org.json.JSONObject
 import javax.annotation.processing.Messager
 import javax.lang.model.element.ExecutableElement

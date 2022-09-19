@@ -1,8 +1,4 @@
-package io.shreyash.rush.processor.util
-
-import io.shreyash.rush.processor.block.HelperType
-import javax.lang.model.element.Element
-import javax.lang.model.element.ExecutableElement
+package io.github.shreyashsaitwal.rush.util
 
 private val componentTypes = listOf(
     "com.google.appinventor.components.runtime.AccelerometerSensor",

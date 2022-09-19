@@ -1,10 +1,10 @@
-package io.shreyash.rush.processor.model
+package io.github.shreyashsaitwal.rush.model
 
 import com.google.appinventor.components.annotations.ExtensionComponent
-import io.shreyash.rush.processor.block.DesignerProperty
-import io.shreyash.rush.processor.block.Event
-import io.shreyash.rush.processor.block.Function
-import io.shreyash.rush.processor.block.Property
+import io.github.shreyashsaitwal.rush.block.DesignerProperty
+import io.github.shreyashsaitwal.rush.block.Event
+import io.github.shreyashsaitwal.rush.block.Function
+import io.github.shreyashsaitwal.rush.block.Property
 
 data class Extension(
     val extensionComponent: ExtensionComponent,

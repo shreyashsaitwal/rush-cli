@@ -1,4 +1,4 @@
-package io.shreyash.rush.processor.block
+package io.github.shreyashsaitwal.rush.block
 
 import com.google.appinventor.components.annotations.Asset
 import com.google.appinventor.components.annotations.Options
@@ -74,8 +74,8 @@ data class Helper(
                             elem = (e.typeMirror as DeclaredType).asElement()
                         }
 
-                        // This will never be null, don't listen to IntelliJ
-                        elem!!.asType().toString()
+                        @Suppress("KotlinConstantConditions")
+                        elem!!.asType().toString()   // This will never be null
                     } else if (element is ExecutableElement) {
                         element.returnType.toString()
                     } else {

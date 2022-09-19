@@ -1,8 +1,8 @@
-package io.shreyash.rush.processor
+package io.github.shreyashsaitwal.rush
 
 import com.charleskorn.kaml.Yaml
-import io.shreyash.rush.processor.model.Extension
-import io.shreyash.rush.processor.model.RushYaml
+import io.github.shreyashsaitwal.rush.model.Extension
+import io.github.shreyashsaitwal.rush.model.RushYaml
 import org.commonmark.ext.autolink.AutolinkExtension
 import org.commonmark.ext.task.list.items.TaskListItemsExtension
 import org.commonmark.parser.Parser
