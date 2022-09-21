@@ -2,27 +2,26 @@ plugins {
     id 'org.jetbrains.kotlin.jvm' version '1.7.10'
 }
 
-subprojects {
+allprojects {
     apply plugin: 'org.jetbrains.kotlin.jvm'
-    apply plugin: 'maven-publish'
-    apply plugin: 'signing'
-
-    group = 'io.github.shreyashsaitwal.rush'
-    version = '2.0.0-beta01'
 
     repositories {
         mavenCentral()
     }
 
-    dependencies {
-        implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8'
-    }
+    group = 'io.github.shreyashsaitwal.rush'
+    version = '2.0.0-beta03'
 
     compileKotlin {
         kotlinOptions {
             jvmTarget = JavaVersion.VERSION_1_8
         }
     }
+}
+
+subprojects {
+    apply plugin: 'maven-publish'
+    apply plugin: 'signing'
 
     java {
         withSourcesJar()

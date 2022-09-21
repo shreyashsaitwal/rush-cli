@@ -1,5 +1,6 @@
 plugins {
     id 'org.jetbrains.kotlin.plugin.serialization' version '1.7.10'
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
 dependencies {
@@ -15,6 +16,13 @@ dependencies {
 
     implementation fileTree('libs')
     implementation project(':annotations')
+
+    shadow 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.7.10'
+}
+
+shadowJar {
+    archiveClassifier.set('uber')
+    minimize()
 }
 
 publishing {
