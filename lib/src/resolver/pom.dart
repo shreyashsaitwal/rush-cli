@@ -30,7 +30,9 @@ class Pom {
   });
 
   factory Pom.fromXml(String xmlString) {
-    final transformer = Xml2Json()..parse(xmlString);
+    // Strip off comments, JSON decoder parses them as json objects.
+    final str = xmlString.replaceAll(RegExp('<!--(.*?)-->'), '');
+    final transformer = Xml2Json()..parse(str);
     final json =
         jsonDecode(transformer.toParker())['project'] as Map<String, dynamic>;
 
@@ -100,19 +102,19 @@ class Parent {
 
 class Dependency {
   String? version;
-  String? scope;
-  final bool? optional;
-  final String groupId;
+  String groupId;
   final String artifactId;
+  final String scope;
+  final bool? optional;
 
   String get coordinate => '$groupId:$artifactId:$version';
 
   Dependency({
     required this.groupId,
     required this.artifactId,
+    required this.scope,
     this.version,
     this.optional,
-    this.scope,
   });
 
   factory Dependency.fromJson(Map<String, dynamic> json) => Dependency(
@@ -120,7 +122,7 @@ class Dependency {
         artifactId: json['artifactId'] as String,
         version: json['version'] as String?,
         optional: (json['optional'] as String?) == 'true',
-        scope: json['scope'] as String?,
+        scope: (json['scope'] as String?) ?? 'compile',
       );
 
   @override

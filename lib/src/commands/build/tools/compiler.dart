@@ -52,8 +52,12 @@ class Compiler {
           helperFiles.first.parent.path, comptimeJars, ktVersion!,
           files: helperFiles.map((e) => e.path), withProc: false);
     } else {
-      args = _javacArgs(helperFiles.map((e) => e.path), comptimeJars, java8,
-          withProc: false);
+      args = await _javacArgs(
+        helperFiles.map((e) => e.path),
+        comptimeJars,
+        java8,
+        withProc: false,
+      );
     }
 
     try {
@@ -77,26 +81,27 @@ class Compiler {
     try {
       await _compilerHelpers(compileJars, timestampBox, java8: supportJava8);
       final args = _javacArgs(javaFiles, compileJars, supportJava8);
-      await _processRunner.runExecutable('javac', args);
+      await _processRunner.runExecutable('javac', await args);
     } catch (e) {
       rethrow;
     }
   }
 
-  static List<String> _javacArgs(
+  static Future<List<String>> _javacArgs(
     Iterable<String> files,
     Iterable<String> comptimeJars,
     bool supportJava8, {
     bool withProc = true,
-  }) {
+  }) async {
     final classpath = comptimeJars.join(BuildUtils.cpSeparator);
+    final procClasspath = await _libService.processorUberJar();
     final args = <String>[
       ...['-source', supportJava8 ? '1.8' : '1.7'],
       ...['-target', supportJava8 ? '1.8' : '1.7'],
       ...['-encoding', 'UTF8'],
       ...['-d', _fs.buildClassesDir.path],
       ...['-cp', classpath],
-      if (withProc) ...['-processorpath', _fs.processorJar.path],
+      if (withProc) ...['-processorpath', procClasspath],
       ...files,
     ].map((el) => el.replaceAll('\\', '/')).join('\n');
     _fs.javacArgsFile.writeAsStringSync(args);
@@ -109,7 +114,8 @@ class Compiler {
     LazyBox<DateTime> timestampBox,
   ) async {
     try {
-      await _compilerHelpers(comptimeJars, timestampBox, ktVersion: kotlinVersion);
+      await _compilerHelpers(comptimeJars, timestampBox,
+          ktVersion: kotlinVersion);
       final kotlincArgs =
           await _kotlincArgs(_fs.srcDir.path, comptimeJars, kotlinVersion);
       await _processRunner.runExecutable('java', kotlincArgs);
@@ -141,6 +147,8 @@ class Compiler {
       if (withProc) _fs.jreToolsJar.path,
     ].join(BuildUtils.cpSeparator);
 
+    final procClasspath = await _libService.processorUberJar();
+
     final kotlincArgs = <String>[
       ...['-cp', comptimeJars.join(BuildUtils.cpSeparator)],
       if (withProc) ...[
@@ -148,7 +156,7 @@ class Compiler {
         '-Kapt-classes=${_fs.buildKaptDir.path}',
         '-Kapt-sources=${_fs.buildKaptDir.path}',
         '-Kapt-stubs=${_fs.buildKaptDir.path}',
-        '-Kapt-classpath=${_fs.processorJar.path}',
+        '-Kapt-classpath=$procClasspath',
         '-Kapt-mode=compile',
         '-Kapt-strip-metadata=true',
         '-Kapt-use-light-analysis=true',

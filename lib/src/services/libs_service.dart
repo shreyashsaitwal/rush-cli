@@ -11,6 +11,8 @@ import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/constants.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
 
+const rushApCoord =
+    'io.github.shreyashsaitwal.rush:processor:$annotationProcVersion';
 const r8Coord = 'com.android.tools:r8:3.3.28';
 const pgCoord = 'com.guardsquare:proguard-base:7.2.2';
 const manifMergerAndDeps = <String>[
@@ -36,10 +38,13 @@ class LibService {
   static Future<LibService> instantiate() async {
     _lgr.dbg('Instantiating LibService');
     final instance = LibService._();
-    instance.devDepsBox = await Hive.openLazyBox<Artifact>(devDepBoxName, path: p.join(_fs.rushHomeDir.path, 'cache'));
-    instance.buildLibsBox = await Hive.openLazyBox<Artifact>(buildLibsBoxName, path: p.join(_fs.rushHomeDir.path, 'cache'));
-    instance.projectDepsBox =
-        await Hive.openLazyBox<Artifact>(projectDepsBoxName, path: _fs.dotRushDir.path);
+    instance.devDepsBox = await Hive.openLazyBox<Artifact>(devDepBoxName,
+        path: p.join(_fs.rushHomeDir.path, 'cache'));
+    instance.buildLibsBox = await Hive.openLazyBox<Artifact>(buildLibsBoxName,
+        path: p.join(_fs.rushHomeDir.path, 'cache'));
+    instance.projectDepsBox = await Hive.openLazyBox<Artifact>(
+        projectDepsBoxName,
+        path: _fs.dotRushDir.path);
     return instance;
   }
 
@@ -47,7 +52,7 @@ class LibService {
   late final LazyBox<Artifact> buildLibsBox;
   late final LazyBox<Artifact> projectDepsBox;
 
-   Future<List<Artifact>> devDepArtifacts() async {
+  Future<List<Artifact>> devDepArtifacts() async {
     return [for (final key in devDepsBox.keys) (await devDepsBox.get(key))!];
   }
 
@@ -60,36 +65,35 @@ class LibService {
   Future<Iterable<String>> devDepJars() async => [
         for (final dep in await devDepArtifacts()) dep.classesJar,
         p.join(_fs.libsDir.path, 'android.jar'),
-        p.join(_fs.libsDir.path, 'annotations.jar'),
         p.join(_fs.libsDir.path, 'runtime.jar'),
         p.join(_fs.libsDir.path, 'kawa-1.11-modified.jar'),
         p.join(_fs.libsDir.path, 'physicaloid-library.jar')
       ];
 
+  Future<String> processorUberJar() async =>
+      (await buildLibsBox.get(rushApCoord))!.classesJar;
+
   Future<String> r8Jar() async => (await buildLibsBox.get(r8Coord))!.classesJar;
 
   Future<Iterable<String>> pgJars() async => (await buildLibsBox.get(pgCoord))!
-      .classpathJars(await _buildLibArtifacts())
-      .toList();
+      .classpathJars(await _buildLibArtifacts());
 
   Future<Iterable<String>> manifMergerJars() async => [
         for (final lib in manifMergerAndDeps)
-          (await buildLibsBox.get(lib))!.classpathJars(await _buildLibArtifacts())
-      ].flattened.toList();
+          (await buildLibsBox.get(lib))!
+              .classpathJars(await _buildLibArtifacts())
+      ].flattened;
 
   Future<Iterable<String>> kotlincJars(String ktVersion) async =>
       (await buildLibsBox
               .get('$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion'))!
-          .classpathJars(await _buildLibArtifacts())
-          .toList();
+          .classpathJars(await _buildLibArtifacts());
 
   Future<Iterable<String>> kaptJars(String ktVersion) async =>
       (await buildLibsBox.get(
               '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion'))!
-          .classpathJars(await _buildLibArtifacts())
-          .toList();
+          .classpathJars(await _buildLibArtifacts());
 
-  
   Future<Iterable<Artifact>> projectRemoteDepArtifacts() async {
     return [
       for (final key in projectDepsBox.keys) (await projectDepsBox.get(key))!

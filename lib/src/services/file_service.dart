@@ -60,7 +60,6 @@ class FileService {
     }
   }
 
-  File get processorJar => p.join(libsDir.path, 'processor-uber.jar').asFile();
   File get desugarJar => p.join(libsDir.path, 'desugar.jar').asFile();
 
   File get jreToolsJar => p.join(libsDir.path, 'tools.jar').asFile();

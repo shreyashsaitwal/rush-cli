@@ -72,14 +72,14 @@ class TreeSubCommand extends RushCommand {
           ':'.brightBlack() +
           dep.artifactId.green() +
           ':'.brightBlack() +
-          dep.version.versionSpec.green() +
+          dep.version.toString().green() +
           ' (runtime)'.brightBlack();
     } else {
       connector += dep.groupId.blue() +
           ':'.brightBlack() +
           dep.artifactId.blue() +
           ':'.brightBlack() +
-          dep.version.versionSpec.blue() +
+          dep.version.toString().blue() +
           ' (comptime)'.brightBlack();
     }
 

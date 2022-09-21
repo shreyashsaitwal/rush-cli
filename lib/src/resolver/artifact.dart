@@ -92,11 +92,11 @@ class Artifact {
     return p.join(dist.path, 'classes.jar');
   }
 
-  Version get version => Version.from(coordinate.split(':').last);
+  Version get version => Version.from(coordinate.split(':')[2]);
 
   String get groupId => coordinate.split(':')[0];
 
-  String get artifactId => coordinate.split(':').elementAt(1);
+  String get artifactId => coordinate.split(':')[1];
 
   Set<String> classpathJars(Iterable<Artifact> artifactIndex) {
     return {
@@ -126,26 +126,25 @@ class Artifact {
 @HiveType(typeId: 3)
 class Version extends Comparable<Version> {
   @HiveField(0)
-  String versionSpec;
+  String _versionStr;
 
   @HiveField(1)
   final List<String> _elements;
 
   @HiveField(2)
-  String? _originalSpec;
+  String? _originalVersionStr;
 
   /// Original version string as defined in the pom.xml of the artifact.
-  String get originalSpec => _originalSpec!;
+  String get originalVersionSpec => _originalVersionStr!;
 
-  Version({required this.versionSpec, String? originalSpec})
-      : _elements = versionSpec.trim().split('.'),
-        _originalSpec = originalSpec {
-    versionSpec = versionSpec.trim();
-    _originalSpec ??= versionSpec;
+  Version(this._versionStr, this._originalVersionStr)
+      : _elements = _versionStr.trim().split('.') {
+    _versionStr = _versionStr.trim();
+    _originalVersionStr ??= _versionStr;
   }
 
-  Version.from(String literal, {String? origialSpec})
-      : this(versionSpec: literal, originalSpec: origialSpec);
+  Version.from(String version, {String? originalVersion})
+      : this(version, originalVersion);
 
   int _stringOrNumComparison(String a, String b) {
     final aNum = int.tryParse(a);
@@ -165,14 +164,14 @@ class Version extends Comparable<Version> {
   // still handle them.
   // Below copy-pasta sauce: https://stackoverflow.com/a/45627598/12401482 :)
   Range<Version>? get range {
-    _originalSpec ??= versionSpec;
+    _originalVersionStr ??= _versionStr;
 
-    if (!rangeRegex.hasMatch(_originalSpec!)) {
+    if (!rangeRegex.hasMatch(_originalVersionStr!)) {
       return null;
     }
 
-    final matches = rangeRegex.allMatches(_originalSpec!).first;
-    if (rangeRegex.hasMatch(_originalSpec!)) {
+    final matches = rangeRegex.allMatches(_originalVersionStr!).first;
+    if (rangeRegex.hasMatch(_originalVersionStr!)) {
       final lowerBoundEndpoint = matches.group(2);
       final separator = matches.group(3);
       final upperBoundEndpoint = matches.group(4);
@@ -226,16 +225,16 @@ class Version extends Comparable<Version> {
         }
       }
     } else {
-      throw Exception(_originalSpec! + ' is not a valid range notation');
+      throw Exception(_originalVersionStr! + ' is not a valid range notation');
     }
   }
 
   @override
-  String toString() => versionSpec;
+  String toString() => _versionStr;
 
   @override
   int compareTo(Version other) {
-    if (versionSpec == other.versionSpec) return 0;
+    if (_versionStr == other._versionStr) return 0;
 
     final minLenght = min(_elements.length, other._elements.length);
     for (var i = 0; i < minLenght - 1; i++) {

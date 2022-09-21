@@ -18,6 +18,7 @@ import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/constants.dart';
 
 const _devDepsCoords = <String>[
+  'io.github.shreyashsaitwal.rush:annotations:$annotationProcVersion',
   'androidx.appcompat:appcompat:1.0.0',
   'ch.acra:acra:4.9.0',
   'org.locationtech.jts:jts-core:1.16.1',
@@ -31,6 +32,7 @@ const _devDepsCoords = <String>[
 ];
 
 const _buildToolCoords = [
+  rushApCoord,
   r8Coord,
   pgCoord,
   ...manifMergerAndDeps,
@@ -93,7 +95,9 @@ class SyncSubCommand extends RushCommand {
           devDepArtifacts: devDepArtifacts,
         ),
       ]);
-    } catch (_) {
+    } catch (e, s) {
+      print(e);
+      print(s);
       _lgr.stopTask(false);
       return 1;
     }

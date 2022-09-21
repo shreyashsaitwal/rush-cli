@@ -251,7 +251,9 @@ class BuildCommand extends RushCommand {
         await Compiler.compileJavaFiles(
             comptimeJars, config.desugar, timestampBox);
       }
-    } catch (e) {
+    } catch (e,s) {
+      print(e);
+      print(s);
       rethrow;
     }
   }
