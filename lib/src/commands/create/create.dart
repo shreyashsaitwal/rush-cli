@@ -121,7 +121,7 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
       p.join(projectDir, 'src', 'AndroidManifest.xml'):
           androidManifestXml(orgName),
       p.join(projectDir, 'src', 'proguard-rules.pro'): pgRules(orgName),
-      p.join(projectDir, 'rush.yml'): config(pascalCasedName, lang == 'Kotlin'),
+      p.join(projectDir, 'rush.yml'): config(lang == 'Kotlin'),
       p.join(projectDir, 'README.md'): readmeMd(pascalCasedName),
       p.join(projectDir, '.gitignore'): dotGitignore,
       p.join(projectDir, 'deps', '.placeholder'):

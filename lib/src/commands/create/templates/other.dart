@@ -1,4 +1,7 @@
-String config(String name, bool enableKt) {
+import 'package:rush_cli/src/services/libs_service.dart';
+import 'package:rush_cli/src/utils/constants.dart';
+
+String config(bool enableKt) {
   return '''
 version: '1.0.0'
 
@@ -7,15 +10,14 @@ android:
   compile_sdk: 31
 
 # kotlin:
-#   enable: true
-#   version: '1.7.10'
+#   compiler_version: '$defaultKtVersion'
 
 # desugar: true
 
 # Runtime dependencies of your extension. These can be local JARs or AARs stored in the deps/ directory or coordinates
-# of remote Maven artifacts in <groupId>:<artifactId>:<version> format. 
+# of remote Maven artifacts in <groupId>:<artifactId>:<version> or <groupId>:<artifactId>:<version>:<classifier> format. 
 # dependencies:
-# - example.jar                 # Local JAR or AAR file stored in deps directory
+${enableKt ? '- $kotlinGroupId:kotlin-stdlib:$defaultKtVersion\n' : ''}# - example.jar                 # Local JAR or AAR file stored in deps directory
 # - com.example:foo-bar:1.2.3   # Coordinate of remote Maven artifact
 ''';
 }
@@ -38,8 +40,8 @@ String pgRules(String org) {
 }
 
 const String dotGitignore = '''
-/out/
-/.rush/
+/out
+/.rush
 ''';
 
 String androidManifestXml(String org) {
