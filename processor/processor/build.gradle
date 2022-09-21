@@ -5,6 +5,7 @@ plugins {
 
 dependencies {
     implementation 'com.google.auto.service:auto-service:1.0.1'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.7.10'
 
     // CommonMark (Markdown)
     implementation 'org.commonmark:commonmark:0.19.0'
@@ -16,19 +17,19 @@ dependencies {
 
     implementation fileTree('libs')
     implementation project(':annotations')
-
-    shadow 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.7.10'
 }
 
 shadowJar {
-    archiveClassifier.set('uber')
+    archiveClassifier.set('')
     minimize()
 }
 
 publishing {
     publications {
-        mavenJava(MavenPublication) {
-            from components.java
+        mavenJava(MavenPublication) { publication ->
+            project.shadow.component(publication)
+            artifact javadocJar
+            artifact sourcesJar
             pom {
                 name = 'Rush Annotation Processor'
                 description = 'Annotation processor for extensions built with Rush.'
