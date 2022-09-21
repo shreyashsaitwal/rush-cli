@@ -17,7 +17,7 @@ import 'package:rush_cli/src/services/libs_service.dart';
 import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/constants.dart';
 
-const _devDepsCoords = <String>[
+const _providedDepsCoords = <String>[
   'io.github.shreyashsaitwal.rush:annotations:$annotationProcVersion',
   'androidx.appcompat:appcompat:1.0.0',
   'ch.acra:acra:4.9.0',
@@ -84,8 +84,9 @@ class SyncSubCommand extends RushCommand {
           libCacheBox: libService.devDepsBox,
           saveCoordinatesAsKeys: true,
           timestampBox: timestampBox,
-          coordinates: {Scope.compile: _devDepsCoords},
+          coordinates: {Scope.compile: _providedDepsCoords},
           devDepArtifacts: devDepArtifacts,
+          repositories: config.repositories,
         ),
         sync(
           libCacheBox: libService.buildLibsBox,
@@ -93,6 +94,7 @@ class SyncSubCommand extends RushCommand {
           timestampBox: timestampBox,
           coordinates: {Scope.runtime: tools},
           devDepArtifacts: devDepArtifacts,
+          repositories: config.repositories,
         ),
       ]);
     } catch (e, s) {
@@ -123,6 +125,7 @@ class SyncSubCommand extends RushCommand {
         timestampBox: timestampBox,
         coordinates: projectDepCoords,
         devDepArtifacts: devDepArtifacts,
+        repositories: config.repositories
       );
     } catch (_) {
       _lgr.stopTask(false);
@@ -148,12 +151,13 @@ class SyncSubCommand extends RushCommand {
     required LazyBox<DateTime> timestampBox,
     required Map<Scope, Iterable<String>> coordinates,
     required bool saveCoordinatesAsKeys,
-    required List<Artifact> devDepArtifacts,
+    required Iterable<Artifact> devDepArtifacts,
+    required Iterable<String> repositories,
   }) async {
     _lgr.info('Fetching artifact metadata...');
 
     await libCacheBox.clear();
-    final resolver = ArtifactResolver();
+    final resolver = ArtifactResolver(repos: repositories);
 
     _lgr.dbg('Firing up the resolution process');
     var resolvedDeps = (await Future.wait([
@@ -211,7 +215,7 @@ class SyncSubCommand extends RushCommand {
     Iterable<Artifact> resolvedArtifacts,
     Iterable<String> directDeps,
     ArtifactResolver resolver,
-    List<Artifact> devDepArtifacts,
+    Iterable<Artifact> devDepArtifacts,
   ) async {
     final sameArtifacts = resolvedArtifacts
         .groupListsBy((el) => '${el.groupId}:${el.artifactId}')
@@ -393,7 +397,7 @@ class SyncSubCommand extends RushCommand {
   }
 
   Future<Artifact?> _providedAlternative(
-      String artifactIdent, List<Artifact> devDeps) async {
+      String artifactIdent, Iterable<Artifact> devDeps) async {
     for (final val in devDeps) {
       if (val.coordinate.startsWith(artifactIdent)) {
         return val;

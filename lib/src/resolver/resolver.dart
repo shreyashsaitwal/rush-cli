@@ -50,17 +50,18 @@ class _ArtifactMetadata {
 }
 
 class ArtifactResolver {
-  static const defaultRepos = <String>{
+  final defaultRepos = <String>{
     'https://dl.google.com/dl/android/maven2',
     'https://repo.maven.apache.org/maven2',
-    'https://maven-central.storage-download.googleapis.com/repos/central/data',
+    // JCenter is deprecated but one of the AI2 provided dep, org.webrtc.google-webrtc.1.0.23995,
+    // is hosted there, so, we add it.
     'https://jcenter.bintray.com',
   };
   final _lgr = GetIt.I<Logger>();
 
   late final String cacheDir;
 
-  ArtifactResolver({String? cacheDir}) {
+  ArtifactResolver({String? cacheDir, required Iterable<String> repos}) {
     if (cacheDir != null) {
       this.cacheDir = cacheDir;
     } else if (Platform.isWindows) {
@@ -70,6 +71,7 @@ class ArtifactResolver {
       this.cacheDir =
           p.join(Platform.environment['HOME']!, '.m2').asDir(true).path;
     }
+    defaultRepos.addAll(repos);
   }
 
   Future<File> _fetchFile(String relativePath) async {

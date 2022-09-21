@@ -9,12 +9,16 @@ data class RushYaml(
     val license: String = "",
     val homepage: String = "",
     val desugar: Boolean = false,
+
     val assets: List<String> = listOf(),
     val authors: List<String> = listOf(),
-    @SerialName("dependencies") val runtimeDeps: List<String> = listOf(),
-    @SerialName("comptime_dependencies") val compileDeps: List<String> = listOf(),
+    val repositories: List<String> = listOf(),
+    
     val android: Android = Android(),
     val kotlin: Kotlin = Kotlin(),
+    
+    @SerialName("dependencies") val runtimeDeps: List<String> = listOf(),
+    @SerialName("comptime_dependencies") val compileDeps: List<String> = listOf(),
 )
 
 @Serializable
@@ -25,5 +29,5 @@ data class Android(
 
 @Serializable
 data class Kotlin(
-    @SerialName("compiler_version") val compilerVersion: String = "1.7.10",
+    @SerialName("compiler_version") val compilerVersion: String? = null,
 )

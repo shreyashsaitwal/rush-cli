@@ -88,6 +88,7 @@ class BuildCommand extends RushCommand {
           saveCoordinatesAsKeys: false,
           timestampBox: timestampsBox,
           devDepArtifacts: await _libService.devDepArtifacts(),
+          repositories: config.repositories,
         );
         await timestampsBox.put(_configTimestampKey, DateTime.now());
       } catch (e, s) {

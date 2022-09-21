@@ -24,6 +24,8 @@ class Config {
   @JsonKey(name: 'comptime_dependencies')
   final List<String> comptimeDeps;
 
+  final List<String> repositories;
+
   final String homepage;
 
   final String license;
@@ -47,6 +49,7 @@ class Config {
     this.authors = const [],
     this.runtimeDeps = const [],
     this.comptimeDeps = const [],
+    this.repositories = const [],
     this.android,
     this.kotlin,
   });
