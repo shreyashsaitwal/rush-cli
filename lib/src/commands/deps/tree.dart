@@ -31,18 +31,58 @@ class TreeSubCommand extends RushCommand {
     await GetIt.I.isReady<LibService>();
 
     final remoteDeps = await GetIt.I<LibService>().projectRemoteDepArtifacts();
-    final directDeps = remoteDeps.where((el) =>
-        config.runtimeDeps.contains(el.coordinate) ||
-        config.comptimeDeps.contains(el.coordinate));
+    final directDeps = remoteDeps
+        .where((el) =>
+            config.runtimeDeps.contains(el.coordinate) ||
+            config.comptimeDeps.contains(el.coordinate))
+        .toList(growable: true);
 
     // TODO: Colorize the output + print additional info like dep scope, etc.
-    final graph = <String>{
-      for (final dep in directDeps)
-        _printGraph(remoteDeps, dep, dep == directDeps.last)
-    }.join();
+    _lgr.log(p.basename(_fs.cwd).cyan().bold());
 
-    _lgr.log(p.basename(_fs.cwd).cyan().bold() + newLine + graph);
+    // Print local deps first
+    final runtimeLocal = _localDepGraph(
+        config.runtimeDeps.where(
+            (el) => p.extension(el) == '.jar' || p.extension(el) == '.aar'),
+        false,
+        remoteDeps.isEmpty);
+    if (runtimeLocal.isNotEmpty) {
+      _lgr.log(runtimeLocal);
+    }
+
+    final comptimeLocal = _localDepGraph(
+        config.comptimeDeps.where(
+            (el) => p.extension(el) == '.jar' || p.extension(el) == '.aar'),
+        true,
+        remoteDeps.isEmpty);
+    if (comptimeLocal.isNotEmpty) {
+      _lgr.log(comptimeLocal);
+    }
+
+    final remoteDepsGraph = <String>{
+      for (final dep in directDeps)
+        _remoteDepsGraph(remoteDeps, dep, dep == directDeps.last)
+    }.join();
+    _lgr.log(remoteDepsGraph);
+
     return 0;
+  }
+
+  String _localDepGraph(
+      Iterable<String> deps, bool isComptime, bool noRemoteDeps) {
+    final graph = <String>[];
+    for (final dep in deps) {
+      final isLast = dep == deps.last && noRemoteDeps;
+      var branch = isLast ? Connector.lastSibling : Connector.sibling;
+      branch += Connector.horizontal * (branchGap + 1) + Connector.empty;
+      if (isComptime) {
+        branch += dep.blue() + ' (comptime, local)'.grey();
+      } else {
+        branch += dep.green() + ' (runtime, local)'.grey();
+      }
+      graph.add(branch);
+    }
+    return graph.join('\n');
   }
 
   static const String newLine = '\n';
@@ -50,7 +90,7 @@ class TreeSubCommand extends RushCommand {
 
   final alreadyPrinted = <Artifact>{};
 
-  String _printGraph(
+  String _remoteDepsGraph(
     Iterable<Artifact> depList,
     Artifact dep,
     bool isLast, [
@@ -98,7 +138,7 @@ class TreeSubCommand extends RushCommand {
           Connector.empty * branchGap;
       final artifact =
           depList.firstWhere((element) => element.coordinate == el);
-      connector += _printGraph(
+      connector += _remoteDepsGraph(
           depList, artifact, el == dep.dependencies.last, newPrefix);
     }
 
