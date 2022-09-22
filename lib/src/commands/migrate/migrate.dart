@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/src/utils/constants.dart';
 import 'package:tint/tint.dart';
 
-import 'package:rush_cli/src/commands/migrate/old_config/old_config.dart' as old;
+import 'package:rush_cli/src/commands/migrate/old_config/old_config.dart'
+    as old;
 import 'package:rush_cli/src/command_runner.dart';
 import 'package:rush_cli/src/config/config.dart';
 import 'package:rush_cli/src/services/file_service.dart';
@@ -24,25 +26,36 @@ class MigrateCommand extends RushCommand {
 
   @override
   Future<int> run() async {
+    _lgr.startTask('Constructing new config file');
     final oldConfig = await old.OldConfig.load(_fs.configFile, _lgr);
     if (oldConfig == null) {
-      _lgr.err('Failed to load old config');
+      _lgr
+        ..err('Failed to load old config')
+        ..stopTask(false);
       return 1;
     }
+
+    final comptimeDeps = _fs.localDepsDir
+        .listSync()
+        .map((el) => p.basename(el.path))
+        .where((el) => !(oldConfig.deps?.contains(el) ?? true));
 
     final newConfig = Config(
       version: oldConfig.version.name.toString(),
       assets: oldConfig.assets.other ?? [],
       desugar: oldConfig.build?.desugar?.enable ?? false,
       runtimeDeps: oldConfig.deps ?? [],
+      comptimeDeps: comptimeDeps.toList(),
       license: oldConfig.license ?? '',
       homepage: oldConfig.homepage ?? '',
       android: Android(minSdk: oldConfig.minSdk),
       kotlin: Kotlin(
-        compilerVersion: '1.7.10',
+        compilerVersion: defaultKtVersion,
       ),
     );
+    _lgr.stopTask();
 
+    _lgr.startTask('Parsing old source files');
     final srcFile = _fs.srcDir.listSync(recursive: true).firstWhereOrNull(
         (el) => p.basenameWithoutExtension(el.path) == oldConfig.name);
     if (srcFile == null || srcFile is! File) {
@@ -54,9 +67,14 @@ class MigrateCommand extends RushCommand {
       return 1;
     }
 
+    _lgr.info('Main extension source file found: ${srcFile.path}');
     _editSourceFile(srcFile, oldConfig);
+    _lgr.stopTask();
+
+    _lgr.startTask('Final touches');
     _updateConfig(newConfig, oldConfig.build?.kotlin?.enable ?? false);
     _deleteOldHiveBoxes();
+    _lgr.stopTask();
 
     return 0;
   }
@@ -139,18 +157,24 @@ ${config.assets.map((el) => '- $el').join('\n')}
     if (enableKotlin) {
       contents += '''
 kotlin:
-  compiler_version: ${config.kotlin!.compilerVersion}
+  compiler_version: '${config.kotlin!.compilerVersion}'
 
 ''';
     }
 
-    if (config.runtimeDeps.isNotEmpty) {
+    if (config.runtimeDeps.isNotEmpty || enableKotlin) {
       contents += '''
 # Runtime dependencies of your extension. These can be local JARs or AARs stored in the deps/ directory or coordinates
-# of remote Maven artifacts in <groupId>:<artifactId>:<version> format.
+# of remote Maven artifacts in <groupId>:<artifactId>:<version> or <groupId>:<artifactId>:<version>:<classifier> format.
 dependencies:
-${enableKotlin ? 'org.jetbrains.kotlin:kotlin-stdlib:${config.kotlin!.compilerVersion}' : ''}
-${config.runtimeDeps.map((el) => '- $el').join('\n')}
+${enableKotlin ? 'org.jetbrains.kotlin:kotlin-stdlib:${config.kotlin!.compilerVersion}\n' : ''}${config.runtimeDeps.map((el) => '- $el').join('\n')}
+''';
+    }
+
+    if (config.comptimeDeps.isNotEmpty) {
+      contents += '''
+comptime_dependencies:
+${config.comptimeDeps.map((el) => '- $el').join('\n')}
 ''';
     }
 
