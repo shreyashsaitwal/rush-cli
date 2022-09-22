@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:interact/interact.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/src/commands/create/templates/eclipse_files.dart';
 import 'package:tint/tint.dart';
 
 import 'package:rush_cli/src/command_runner.dart';
@@ -19,15 +20,15 @@ class CreateCommand extends RushCommand {
 
   CreateCommand() {
     argParser
-      ..addOption('org',
-          abbr: 'o',
+      ..addOption('package',
+          abbr: 'p',
           help:
               'The organization name in reverse domain name notation. This is used as extension\'s package name.')
-      ..addOption('lang',
+      ..addOption('language',
           abbr: 'l',
           help:
               'The language in which the extension\'s starter template should be generated',
-          allowed: ['Java', 'Kotlin', 'java', 'kotlin', 'J', 'K', 'j', 'k']);
+          allowed: ['Java', 'Kotlin']);
   }
 
   @override
@@ -57,12 +58,12 @@ class CreateCommand extends RushCommand {
           'Cannot create "$projectDir" because it already exists and is not empty.');
     }
 
-    var orgName = (argResults!['org'] ??
+    var orgName = (argResults!['package'] ??
         Input(
-          prompt: 'Organisation (package name)',
+          prompt: 'Package name',
         ).interact()) as String;
 
-    var lang = argResults!['lang'] as String?;
+    var lang = argResults!['language'] as String?;
     if (lang == null) {
       final opts = ['Java', 'Kotlin'];
       final index = Select(
@@ -82,6 +83,15 @@ class CreateCommand extends RushCommand {
     if (!isOrgAndNameSame) {
       orgName = orgName.toLowerCase() + '.' + camelCasedName.toLowerCase();
     }
+
+    final editor = Select(
+      prompt: 'IDE',
+      options: [
+        'IntelliJ ${'(includes Android Studio and other JetBrains IDEs)'.grey()}',
+        'Eclipse  ${'(includes Visual Studio Code)'.grey()}',
+        'Both     ${'(includes every IDE mentioned above)'.grey()}',
+      ],
+    ).interact();
 
     final processing = Spinner(
         icon: '\n✅ '.green(),
@@ -128,13 +138,20 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
           'This directory stores your extension\'s local dependencies.',
 
       // IntelliJ IDEA files
-      p.join(ideaDir, 'misc.xml'): ijMiscXml,
-      p.join(ideaDir, 'libraries', 'local-deps.xml'): ijLocalDepsXml,
-      p.join(ideaDir, 'libraries', 'dev-deps.xml'):
-          ijDevDepsXml(devDepJars, devDepSources),
-      p.join(ideaDir, '$kebabCasedName.iml'):
-          ijImlXml(['dev-deps', 'local-deps']),
-      p.join(ideaDir, 'modules.xml'): ijModulesXml(kebabCasedName),
+      if (editor == 0 || editor == 2) ...{
+        p.join(ideaDir, 'misc.xml'): ijMiscXml,
+        p.join(ideaDir, 'libraries', 'local-deps.xml'): ijLocalDepsXml,
+        p.join(ideaDir, 'libraries', 'dev-deps.xml'):
+            ijDevDepsXml(devDepJars, devDepSources),
+        p.join(ideaDir, '$kebabCasedName.iml'):
+            ijImlXml(['dev-deps', 'local-deps']),
+        p.join(ideaDir, 'modules.xml'): ijModulesXml(kebabCasedName),
+      },
+      // Eclipse files
+      if (editor == 1 || editor == 2) ...{
+        p.join(projectDir, '.project'): dotProject(kebabCasedName),
+        p.join(projectDir, '.classpath'): dotClasspath(devDepJars, []),
+      },
     };
 
     // Creates the required files for the extension.

@@ -53,7 +53,41 @@ class LibService {
   late final LazyBox<Artifact> projectDepsBox;
 
   Future<List<Artifact>> devDepArtifacts() async {
-    return [for (final key in devDepsBox.keys) (await devDepsBox.get(key))!];
+    return [
+      for (final key in devDepsBox.keys) (await devDepsBox.get(key))!,
+      Artifact(
+        coordinate: '',
+        scope: Scope.compile,
+        artifactFile: p.join(_fs.libsDir.path, 'runtime.jar'),
+        sourceJar: null,
+        dependencies: [],
+        isAar: false,
+      ),
+      Artifact(
+        coordinate: '',
+        scope: Scope.compile,
+        artifactFile: p.join(_fs.libsDir.path, 'android.jar'),
+        sourceJar: null,
+        dependencies: [],
+        isAar: false,
+      ),
+      Artifact(
+        coordinate: '',
+        scope: Scope.compile,
+        artifactFile: p.join(_fs.libsDir.path, 'kawa-1.11-modified.jar'),
+        sourceJar: null,
+        dependencies: [],
+        isAar: false,
+      ),
+      Artifact(
+        coordinate: '',
+        scope: Scope.compile,
+        artifactFile: p.join(_fs.libsDir.path, 'physicaloid-library.jar'),
+        sourceJar: null,
+        dependencies: [],
+        isAar: false,
+      )
+    ];
   }
 
   Future<List<Artifact>> _buildLibArtifacts() async {
@@ -64,10 +98,6 @@ class LibService {
 
   Future<Iterable<String>> devDepJars() async => [
         for (final dep in await devDepArtifacts()) dep.classesJar,
-        p.join(_fs.libsDir.path, 'android.jar'),
-        p.join(_fs.libsDir.path, 'runtime.jar'),
-        p.join(_fs.libsDir.path, 'kawa-1.11-modified.jar'),
-        p.join(_fs.libsDir.path, 'physicaloid-library.jar')
       ];
 
   Future<String> processorUberJar() async =>

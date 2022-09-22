@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/src/commands/create/templates/eclipse_files.dart';
 import 'package:rush_cli/src/commands/create/templates/intellij_files.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
 import 'package:xrange/xrange.dart';
@@ -87,6 +88,7 @@ class SyncSubCommand extends RushCommand {
           coordinates: {Scope.compile: _providedDepsCoords},
           devDepArtifacts: devDepArtifacts,
           repositories: config.repositories,
+          downloadSources: true,
         ),
         sync(
           libCacheBox: libService.buildLibsBox,
@@ -125,7 +127,8 @@ class SyncSubCommand extends RushCommand {
         timestampBox: timestampBox,
         coordinates: projectDepCoords,
         devDepArtifacts: devDepArtifacts,
-        repositories: config.repositories
+        repositories: config.repositories,
+        downloadSources: true,
       );
     } catch (_) {
       _lgr.stopTask(false);
@@ -133,9 +136,11 @@ class SyncSubCommand extends RushCommand {
     }
     _lgr.stopTask();
 
-    _lgr.startTask('Adding resolved dependencies to IntelliJ\'s lib index');
+    _lgr.startTask('Adding resolved dependencies to your IDE\'s lib index');
     try {
-      await _updateIjLibIndex(resolvedProjectDeps, libService);
+      final providedDeps = await libService.devDepArtifacts();
+      _updateIjLibIndex(providedDeps, resolvedProjectDeps);
+      _updateEclipseClasspath(providedDeps, resolvedProjectDeps);
     } catch (e) {
       _lgr.err(e.toString());
       _lgr.stopTask(false);
@@ -153,6 +158,7 @@ class SyncSubCommand extends RushCommand {
     required bool saveCoordinatesAsKeys,
     required Iterable<Artifact> devDepArtifacts,
     required Iterable<String> repositories,
+    bool downloadSources = false,
   }) async {
     _lgr.info('Fetching artifact metadata...');
 
@@ -198,6 +204,8 @@ class SyncSubCommand extends RushCommand {
     try {
       await Future.wait([
         for (final dep in resolvedDeps) resolver.downloadArtifact(dep),
+        if (downloadSources)
+          for (final dep in resolvedDeps) resolver.downloadSourcesJar(dep),
         if (saveCoordinatesAsKeys)
           libCacheBox.putAll(
               Map.fromIterable(resolvedDeps, key: (el) => el.coordinate))
@@ -420,20 +428,47 @@ class SyncSubCommand extends RushCommand {
     return result;
   }
 
-  Future<void> _updateIjLibIndex(
-      Iterable<Artifact> projectDeps, LibService libService) async {
+  void _updateEclipseClasspath(
+      Iterable<Artifact> providedDeps, Iterable<Artifact> projectDeps) {
+    final dotClasspathFile = p.join(_fs.cwd, '.classpath').asFile();
+    if (!dotClasspathFile.existsSync()) {
+      return;
+    }
+
+    final classesJars = [
+      ...providedDeps.map((el) => el.classesJar),
+      ...projectDeps.map((el) => el.classesJar),
+    ];
+    final sourcesJars = [
+      ...providedDeps
+          .whereNot((element) => element.sourceJar == null)
+          .map((el) => el.sourceJar!),
+      ...projectDeps
+          .whereNot((element) => element.sourceJar == null)
+          .map((el) => el.sourceJar!),
+    ];
+    dotClasspathFile.writeAsStringSync(dotClasspath(classesJars, sourcesJars));
+  }
+
+  void _updateIjLibIndex(
+      Iterable<Artifact> providedDeps, Iterable<Artifact> projectDeps) {
+    final ideaDir = p.join(_fs.cwd, '.idea').asDir();
+    if (!ideaDir.existsSync()) {
+      return;
+    }
+
     final devDepsLibXml =
         p.join(_fs.cwd, '.idea', 'libraries', 'dev-deps.xml').asFile(true);
-    final devDepJars = await libService.devDepJars();
-    final devDepSources = (await libService.devDepArtifacts()).map((dep) {
-      if (dep.sourceJar != null) {
-        return dep.sourceJar!;
-      }
-    }).whereNotNull();
-    devDepsLibXml.writeAsStringSync(ijDevDepsXml(devDepJars, devDepSources));
+    devDepsLibXml.writeAsStringSync(
+      ijDevDepsXml(
+        providedDeps.map((el) => el.classesJar),
+        providedDeps
+            .whereNot((element) => element.sourceJar == null)
+            .map((el) => el.sourceJar!),
+      ),
+    );
 
-    final libs = <String>['deps', 'dev-deps'];
-
+    final libNames = <String>['deps', 'dev-deps'];
     for (final lib in projectDeps) {
       final fileName = lib.coordinate.replaceAll(RegExp(r'(:|\.)'), '_');
       final xml =
@@ -453,7 +488,7 @@ class SyncSubCommand extends RushCommand {
 </component>
 ''');
 
-      libs.add(lib.coordinate);
+      libNames.add(lib.coordinate);
     }
 
     final imlXml = p
@@ -465,6 +500,6 @@ class SyncSubCommand extends RushCommand {
       throw Exception('Unable to find project\'s .iml file in .idea directory');
     }
 
-    imlXml.path.asFile().writeAsStringSync(ijImlXml(libs));
+    imlXml.path.asFile().writeAsStringSync(ijImlXml(libNames));
   }
 }
