@@ -66,10 +66,10 @@ class ArtifactResolver {
       this.cacheDir = cacheDir;
     } else if (Platform.isWindows) {
       this.cacheDir =
-          p.join(Platform.environment['UserProfile']!, '.m2').asDir(true).path;
+          p.join(Platform.environment['UserProfile']!, '.m2', 'repository').asDir(true).path;
     } else {
       this.cacheDir =
-          p.join(Platform.environment['HOME']!, '.m2').asDir(true).path;
+          p.join(Platform.environment['HOME']!, '.m2', 'repository').asDir(true).path;
     }
     defaultRepos.addAll(repos);
   }
@@ -338,7 +338,7 @@ class ArtifactResolver {
     await _fetchFile(metadata.artifactPath(artifact.isAar ? 'aar' : 'jar'));
   }
 
-  Future<void> downloadSourceJar(Artifact artifact) async {
+  Future<void> downloadSourcesJar(Artifact artifact) async {
     final metadata = _ArtifactMetadata(artifact.coordinate);
     try {
       await _fetchFile(metadata.sourceJarPath());
