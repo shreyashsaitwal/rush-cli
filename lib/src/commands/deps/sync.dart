@@ -36,6 +36,7 @@ const _buildToolCoords = [
   rushApCoord,
   r8Coord,
   pgCoord,
+  desugarCoord,
   ...manifMergerAndDeps,
 ];
 

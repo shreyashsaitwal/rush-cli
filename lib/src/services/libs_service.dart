@@ -15,11 +15,13 @@ const rushApCoord =
     'io.github.shreyashsaitwal.rush:processor:$annotationProcVersion';
 const r8Coord = 'com.android.tools:r8:3.3.28';
 const pgCoord = 'com.guardsquare:proguard-base:7.2.2';
+const desugarCoord = 'io.github.shreyashsaitwal:desugar:1.0.0';
 const manifMergerAndDeps = <String>[
   'com.android.tools.build:manifest-merger:30.2.2',
   'org.w3c:dom:2.3.0-jaxb-1.0.6',
   'xml-apis:xml-apis:1.4.01',
 ];
+
 const kotlinGroupId = 'org.jetbrains.kotlin';
 
 class LibService {
@@ -107,6 +109,9 @@ class LibService {
 
   Future<Iterable<String>> pgJars() async => (await buildLibsBox.get(pgCoord))!
       .classpathJars(await _buildLibArtifacts());
+
+  Future<String> desugarJar() async =>
+      (await buildLibsBox.get(desugarCoord))!.classesJar;
 
   Future<Iterable<String>> manifMergerJars() async => [
         for (final lib in manifMergerAndDeps)

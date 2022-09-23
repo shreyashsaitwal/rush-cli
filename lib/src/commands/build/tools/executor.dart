@@ -90,7 +90,7 @@ class Executor {
   // TODO: This can be execed on JDK >8, see here:
   // https://linear.app/shreyash/issue/RSH-51/toolsjar-and-rtjar-might-be-the-reason-for-desugaring-not-working-on
   static Future<void> execDesugarer(
-      String artJarPath, Set<String> comptimeDepJars) async {
+      String desugarJar, String artJarPath, Set<String> comptimeDepJars) async {
     final outputJar = p
         .join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.desugared.jar')
         .asFile();
@@ -108,7 +108,7 @@ class Executor {
     await argsFile.writeAsString(desugarerArgs.join('\n'));
 
     final args = <String>[
-      ...['-cp', p.join(_fs.desugarJar.path)],
+      ...['-cp', desugarJar],
       'com.google.devtools.build.android.desugar.Desugar',
       '@${argsFile.path}',
     ];

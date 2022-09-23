@@ -144,9 +144,13 @@ class BuildCommand extends RushCommand {
     if (config.desugar) {
       _lgr.startTask('Desugaring Java8 langauge features');
       try {
-        await Executor.execDesugarer(artJarPath, comptimeDepJars);
-      } catch (e) {
-        _lgr.stopTask(false);
+        await Executor.execDesugarer(
+            await _libService.desugarJar(), artJarPath, comptimeDepJars);
+      } catch (e, s) {
+        _lgr
+          ..dbg(e.toString())
+          ..dbg(s.toString())
+          ..stopTask(false);
         return 1;
       }
       _lgr.stopTask();
