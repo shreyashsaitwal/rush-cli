@@ -10,13 +10,13 @@ import 'package:rush_cli/src/resolver/pom.dart';
 import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
 
-class _ArtifactMetadata {
+class ArtifactMetadata {
   late final String groupId;
   late final String artifactId;
   late final String version;
   late final String classifier;
 
-  _ArtifactMetadata(String coordinate) {
+  ArtifactMetadata(String coordinate) {
     final parts = coordinate.split(':');
     if (parts.length > 4 || parts.length < 3) {
       throw Exception(
@@ -107,7 +107,7 @@ class ArtifactResolver {
     Pom dependentPom,
     Iterable<Pom> dependentPomsParentPoms,
   ) {
-    final metadata = _ArtifactMetadata(coordinate);
+    final metadata = ArtifactMetadata(coordinate);
 
     var version = metadata.version == 'null' ? null : metadata.version;
     final exception = Exception(
@@ -195,7 +195,7 @@ class ArtifactResolver {
       return const [];
     }
 
-    final metadata = _ArtifactMetadata(coordinate);
+    final metadata = ArtifactMetadata(coordinate);
     final pomFile = await _fetchFile(metadata.pomPath());
     final pom = Pom.fromXml(pomFile.readAsStringSync());
 
@@ -246,7 +246,7 @@ class ArtifactResolver {
     Scope scope, [
     Version? version,
   ]) async {
-    final metadata = _ArtifactMetadata(coordinate);
+    final metadata = ArtifactMetadata(coordinate);
     final poms = await _resolvePomAndParents(coordinate);
     final pom = poms.first;
     final parentPoms = poms.skip(1);
@@ -318,7 +318,6 @@ class ArtifactResolver {
       coordinate = newCoordinate;
     }
 
-    _lgr.info('Resolved $coordinate and its dependencies');
     return result
       ..insert(
         0,
@@ -326,7 +325,7 @@ class ArtifactResolver {
           coordinate: coordinate,
           scope: scope,
           artifactFile: p.join(cacheDir, metadata.artifactPath(pom.packaging)),
-          sourceJar: p.join(cacheDir, metadata.sourceJarPath()),
+          sourcesJar: p.join(cacheDir, metadata.sourceJarPath()),
           dependencies: deps.map((el) => el.coordinate).toList(growable: true),
           isAar: pom.packaging == 'aar',
         ),
@@ -334,12 +333,12 @@ class ArtifactResolver {
   }
 
   Future<void> downloadArtifact(Artifact artifact) async {
-    final metadata = _ArtifactMetadata(artifact.coordinate);
+    final metadata = ArtifactMetadata(artifact.coordinate);
     await _fetchFile(metadata.artifactPath(artifact.isAar ? 'aar' : 'jar'));
   }
 
   Future<void> downloadSourcesJar(Artifact artifact) async {
-    final metadata = _ArtifactMetadata(artifact.coordinate);
+    final metadata = ArtifactMetadata(artifact.coordinate);
     try {
       await _fetchFile(metadata.sourceJarPath());
     } catch (_) {

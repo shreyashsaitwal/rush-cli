@@ -56,7 +56,7 @@ class Artifact {
   final String artifactFile;
 
   @HiveField(3)
-  final String? sourceJar;
+  final String? sourcesJar;
 
   @HiveField(4)
   List<String> dependencies;
@@ -68,7 +68,7 @@ class Artifact {
     required this.coordinate,
     required this.scope,
     required this.artifactFile,
-    required this.sourceJar,
+    required this.sourcesJar,
     required this.dependencies,
     required this.isAar,
   });

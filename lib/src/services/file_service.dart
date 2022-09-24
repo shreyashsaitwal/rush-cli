@@ -60,8 +60,6 @@ class FileService {
     }
   }
 
-  File get desugarJar => p.join(libsDir.path, 'desugar.jar').asFile();
-
   File get jreToolsJar => p.join(libsDir.path, 'tools.jar').asFile();
   File get jreRtJar => p.join(libsDir.path, 'rt.jar').asFile();
 

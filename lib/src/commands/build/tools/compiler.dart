@@ -94,7 +94,7 @@ class Compiler {
     bool withProc = true,
   }) async {
     final classpath = comptimeJars.join(BuildUtils.cpSeparator);
-    final procClasspath = await _libService.processorUberJar();
+    final procClasspath = await _libService.processorJar();
     final args = <String>[
       ...['-source', supportJava8 ? '1.8' : '1.7'],
       ...['-target', supportJava8 ? '1.8' : '1.7'],
@@ -147,7 +147,7 @@ class Compiler {
       if (withProc) _fs.jreToolsJar.path,
     ].join(BuildUtils.cpSeparator);
 
-    final procClasspath = await _libService.processorUberJar();
+    final procClasspath = await _libService.processorJar();
 
     final kotlincArgs = <String>[
       ...['-cp', comptimeJars.join(BuildUtils.cpSeparator)],

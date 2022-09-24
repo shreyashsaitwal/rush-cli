@@ -59,12 +59,15 @@ class Logger {
       } else if (_errRegex.hasMatch(el)) {
         prefix = 'error '.red();
         msg = el.replaceFirst(_errRegex, '');
-      } else if (_dbgRegex.hasMatch(el)) {
-        prefix = 'debug '.blue();
-        msg = el.replaceFirst(_dbgRegex, '');
       } else if (_infoRegex.hasMatch(el)) {
         prefix = 'info  '.cyan();
         msg = el.replaceFirst(_infoRegex, '');
+      } else if (_dbgRegex.hasMatch(el)) {
+        if (!debug) {
+          continue;
+        }
+        prefix = 'debug '.blue();
+        msg = el.replaceFirst(_dbgRegex, '');
       } else {
         prefix = ' ' * 6;
         msg = el;

@@ -54,14 +54,14 @@ class LibService {
   late final LazyBox<Artifact> buildLibsBox;
   late final LazyBox<Artifact> projectDepsBox;
 
-  Future<List<Artifact>> devDepArtifacts() async {
+  Future<List<Artifact>> providedDepArtifacts() async {
     return [
       for (final key in devDepsBox.keys) (await devDepsBox.get(key))!,
       Artifact(
         coordinate: '',
         scope: Scope.compile,
         artifactFile: p.join(_fs.libsDir.path, 'runtime.jar'),
-        sourceJar: null,
+        sourcesJar: null,
         dependencies: [],
         isAar: false,
       ),
@@ -69,7 +69,7 @@ class LibService {
         coordinate: '',
         scope: Scope.compile,
         artifactFile: p.join(_fs.libsDir.path, 'android.jar'),
-        sourceJar: null,
+        sourcesJar: null,
         dependencies: [],
         isAar: false,
       ),
@@ -77,7 +77,7 @@ class LibService {
         coordinate: '',
         scope: Scope.compile,
         artifactFile: p.join(_fs.libsDir.path, 'kawa-1.11-modified.jar'),
-        sourceJar: null,
+        sourcesJar: null,
         dependencies: [],
         isAar: false,
       ),
@@ -85,30 +85,30 @@ class LibService {
         coordinate: '',
         scope: Scope.compile,
         artifactFile: p.join(_fs.libsDir.path, 'physicaloid-library.jar'),
-        sourceJar: null,
+        sourcesJar: null,
         dependencies: [],
         isAar: false,
       )
     ];
   }
 
-  Future<List<Artifact>> _buildLibArtifacts() async {
+  Future<List<Artifact>> buildLibArtifacts() async {
     return [
       for (final key in buildLibsBox.keys) (await buildLibsBox.get(key))!
     ];
   }
 
-  Future<Iterable<String>> devDepJars() async => [
-        for (final dep in await devDepArtifacts()) dep.classesJar,
+  Future<Iterable<String>> providedDepJars() async => [
+        for (final dep in await providedDepArtifacts()) dep.classesJar,
       ];
 
-  Future<String> processorUberJar() async =>
+  Future<String> processorJar() async =>
       (await buildLibsBox.get(rushApCoord))!.classesJar;
 
   Future<String> r8Jar() async => (await buildLibsBox.get(r8Coord))!.classesJar;
 
   Future<Iterable<String>> pgJars() async => (await buildLibsBox.get(pgCoord))!
-      .classpathJars(await _buildLibArtifacts());
+      .classpathJars(await buildLibArtifacts());
 
   Future<String> desugarJar() async =>
       (await buildLibsBox.get(desugarCoord))!.classesJar;
@@ -116,18 +116,18 @@ class LibService {
   Future<Iterable<String>> manifMergerJars() async => [
         for (final lib in manifMergerAndDeps)
           (await buildLibsBox.get(lib))!
-              .classpathJars(await _buildLibArtifacts())
+              .classpathJars(await buildLibArtifacts())
       ].flattened;
 
   Future<Iterable<String>> kotlincJars(String ktVersion) async =>
       (await buildLibsBox
               .get('$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion'))!
-          .classpathJars(await _buildLibArtifacts());
+          .classpathJars(await buildLibArtifacts());
 
   Future<Iterable<String>> kaptJars(String ktVersion) async =>
       (await buildLibsBox.get(
               '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion'))!
-          .classpathJars(await _buildLibArtifacts());
+          .classpathJars(await buildLibArtifacts());
 
   Future<Iterable<Artifact>> projectRemoteDepArtifacts() async {
     return [
@@ -153,7 +153,7 @@ class LibService {
 
   Future<Iterable<String>> projectComptimeDepJars(Config config) async => [
         // Dev deps
-        ...(await devDepJars()),
+        ...(await providedDepJars()),
         // Runtime deps
         ...(await projectRuntimeDepJars(config)),
         // Local comptime deps

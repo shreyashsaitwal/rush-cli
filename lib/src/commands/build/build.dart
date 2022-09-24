@@ -21,9 +21,6 @@ import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/constants.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
 
-const _androidManifestTimestampKey = 'android-manifest-xml';
-const _configTimestampKey = 'rush-yaml';
-
 class BuildCommand extends RushCommand {
   final Logger _lgr = GetIt.I<Logger>();
   final FileService _fs = GetIt.I<FileService>();
@@ -61,19 +58,17 @@ class BuildCommand extends RushCommand {
       return 1;
     }
 
-    final timestampsBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
+    final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
 
     // Re-fetch deps if they are outdated, ie, if the config file is modified
     // or if the dep artifacts are missing
-    final configFileModified = (await timestampsBox.get(_configTimestampKey))
+    final configFileModified = (await timestampBox.get(configTimestampKey))
             ?.isBefore(_fs.configFile.lastModifiedSync()) ??
         true;
-    final everyDepExists = (await _libService.projectRemoteDepArtifacts())
-        .every((el) => el.classesJar.asFile().existsSync());
+    final isAnyDepMissing = (await _libService.projectRemoteDepArtifacts())
+        .any((el) => !el.classesJar.asFile().existsSync());
 
-    final needFetch = configFileModified || !everyDepExists;
-
-    if (needFetch) {
+    if (configFileModified || isAnyDepMissing) {
       final remoteDeps = {
         Scope.runtime: config.runtimeDeps
             .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
@@ -85,12 +80,12 @@ class BuildCommand extends RushCommand {
         await SyncSubCommand().sync(
           libCacheBox: _libService.projectDepsBox,
           coordinates: remoteDeps,
-          saveCoordinatesAsKeys: false,
-          timestampBox: timestampsBox,
-          devDepArtifacts: await _libService.devDepArtifacts(),
+          timestampBox: timestampBox,
+          devDepArtifacts: await _libService.providedDepArtifacts(),
           repositories: config.repositories,
+          downloadSources: true,
         );
-        await timestampsBox.put(_configTimestampKey, DateTime.now());
+        await timestampBox.put(configTimestampKey, DateTime.now());
       } catch (e, s) {
         if (_lgr.debug) {
           _lgr.err(e.toString());
@@ -111,7 +106,7 @@ class BuildCommand extends RushCommand {
     _lgr.startTask('Compiling sources');
     try {
       await _mergeManifests(
-        timestampsBox,
+        timestampBox,
         config.android?.minSdk ?? 21,
         await _libService.projectRuntimeAars(),
       );
@@ -121,7 +116,7 @@ class BuildCommand extends RushCommand {
     }
 
     try {
-      await _compile(comptimeDepJars, config, timestampsBox);
+      await _compile(comptimeDepJars, config, timestampBox);
     } catch (e) {
       _lgr.stopTask(false);
       return 1;
@@ -209,7 +204,7 @@ class BuildCommand extends RushCommand {
     final outputManifest =
         p.join(_fs.buildFilesDir.path, 'AndroidManifest.xml').asFile();
 
-    final lastMergeTime = await timestampBox.get(_androidManifestTimestampKey);
+    final lastMergeTime = await timestampBox.get(androidManifestTimestampKey);
     _lgr.dbg('Last manifest merge time: $lastMergeTime');
 
     final needMerge = !await outputManifest.exists() ||
@@ -225,7 +220,7 @@ class BuildCommand extends RushCommand {
     await Executor.execManifMerger(minSdk, mainManifest.path,
         depManifestPaths.toSet(), await _libService.manifMergerJars());
 
-    await timestampBox.put(_androidManifestTimestampKey, DateTime.now());
+    await timestampBox.put(androidManifestTimestampKey, DateTime.now());
   }
 
   /// Compiles extension's source files.
@@ -256,9 +251,10 @@ class BuildCommand extends RushCommand {
         await Compiler.compileJavaFiles(
             comptimeJars, config.desugar, timestampBox);
       }
-    } catch (e,s) {
-      print(e);
-      print(s);
+    } catch (e, s) {
+      _lgr
+        ..dbg(e.toString())
+        ..dbg(s.toString());
       rethrow;
     }
   }
