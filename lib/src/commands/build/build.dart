@@ -65,8 +65,10 @@ class BuildCommand extends RushCommand {
     final configFileModified = (await timestampBox.get(configTimestampKey))
             ?.isBefore(_fs.configFile.lastModifiedSync()) ??
         true;
-    final isAnyDepMissing = (await _libService.projectRemoteDepArtifacts())
-        .any((el) => !el.classesJar.asFile().existsSync());
+    final isAnyDepMissing = (await _libService.projectRemoteDepArtifacts()).any(
+        (el) =>
+            !el.artifactFile.endsWith('.pom') &&
+            !el.artifactFile.asFile().existsSync());
 
     if (configFileModified || isAnyDepMissing) {
       final remoteDeps = {

@@ -62,7 +62,7 @@ class Artifact {
   List<String> dependencies;
 
   @HiveField(5)
-  final bool isAar;
+  final String packaging;
 
   Artifact({
     required this.coordinate,
@@ -70,26 +70,30 @@ class Artifact {
     required this.artifactFile,
     required this.sourcesJar,
     required this.dependencies,
-    required this.isAar,
+    required this.packaging,
   });
 
-  String get classesJar {
-    if (p.extension(artifactFile) == '.bundle') {
-      final jarFile = p
-          .join(
-              artifactFile.replaceRange(artifactFile.length - 7, null, '.jar'))
-          .asFile();
-      if (jarFile.existsSync()) {
-        return jarFile.path;
-      }
-    } else if (!isAar) {
+  String? get classesJar {
+    if (packaging == 'jar') {
       return artifactFile;
     }
 
-    final basename = p.basenameWithoutExtension(artifactFile);
-    final dist = p.join(p.dirname(artifactFile), basename).asDir(true);
-    BuildUtils.unzip(artifactFile, dist.path);
-    return p.join(dist.path, 'classes.jar');
+    if (packaging == 'aar') {
+      final baseDir = p
+          .join(
+              p.dirname(artifactFile), p.basenameWithoutExtension(artifactFile))
+          .asDir(true);
+      final jar = p.join(baseDir.path, 'classes.jar').asFile();
+      if (jar.existsSync()) {
+        return jar.path;
+      }
+
+      BuildUtils.unzip(artifactFile, baseDir.path);
+      return jar.path;
+    }
+
+    // TODO: Take a look here
+    throw Exception('Unexpected packaging ($packaging) for $coordinate');
   }
 
   Version get version => Version.from(coordinate.split(':')[2]);
@@ -100,7 +104,7 @@ class Artifact {
 
   Set<String> classpathJars(Iterable<Artifact> artifactIndex) {
     return {
-      classesJar,
+      if (classesJar != null) classesJar!,
       ...dependencies
           .map((dependency) {
             final artifact = artifactIndex

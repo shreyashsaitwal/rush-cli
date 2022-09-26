@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:collection/collection.dart';
+import 'package:crypto/crypto.dart';
 import 'package:get_it/get_it.dart';
+import 'package:github/github.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
@@ -9,6 +11,8 @@ import 'package:rush_cli/src/resolver/artifact.dart';
 import 'package:rush_cli/src/resolver/pom.dart';
 import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
+import 'package:tint/tint.dart';
+import 'package:xml2json/xml2json.dart';
 
 class ArtifactMetadata {
   late final String groupId;
@@ -50,54 +54,119 @@ class ArtifactMetadata {
 }
 
 class ArtifactResolver {
-  final defaultRepos = <String>{
-    'https://dl.google.com/dl/android/maven2',
+  var mvnRepos = <String>{
+    'https://repo1.maven.org/maven2',
     'https://repo.maven.apache.org/maven2',
+    'https://dl.google.com/dl/android/maven2',
     // JCenter is deprecated but one of the AI2 provided dep, org.webrtc.google-webrtc.1.0.23995,
     // is hosted there, so, we add it.
     'https://jcenter.bintray.com',
   };
   final _lgr = GetIt.I<Logger>();
+  final _client = http.Client();
 
-  late final String cacheDir;
+  late final String localMvnRepo;
 
-  ArtifactResolver({String? cacheDir, required Iterable<String> repos}) {
-    if (cacheDir != null) {
-      this.cacheDir = cacheDir;
+  ArtifactResolver({String? localMvnRepo, required Set<String> repos}) {
+    if (localMvnRepo != null) {
+      this.localMvnRepo = localMvnRepo;
     } else if (Platform.isWindows) {
-      this.cacheDir =
-          p.join(Platform.environment['UserProfile']!, '.m2', 'repository').asDir(true).path;
+      this.localMvnRepo = p
+          .join(Platform.environment['UserProfile']!, '.m2', 'repository')
+          .asDir(true)
+          .path;
     } else {
-      this.cacheDir =
-          p.join(Platform.environment['HOME']!, '.m2', 'repository').asDir(true).path;
+      this.localMvnRepo = p
+          .join(Platform.environment['HOME']!, '.m2', 'repository')
+          .asDir(true)
+          .path;
     }
-    defaultRepos.addAll(repos);
+
+    // User defined repos should be given priority over the default ones.
+    mvnRepos = {...repos, ...mvnRepos};
   }
 
-  Future<File> _fetchFile(String relativePath) async {
-    final file = p.join(cacheDir, relativePath).asFile();
-    if (file.existsSync()) return file;
+  final _hashTypes = {
+    'sha1',
+    'md5',
+    'sha256',
+    'sha512',
+  };
 
-    _lgr.dbg('${file.path} does not exist, downloading...');
-    await file.create(recursive: true);
+  Future<bool> _verifyChecksum(File file, File checksumFile) async {
+    final ext = p.extension(checksumFile.path);
+    final fileChecksum = () {
+      if (ext == '.sha1') {
+        return sha1.convert(file.readAsBytesSync());
+      } else if (ext == '.md5') {
+        return md5.convert(file.readAsBytesSync());
+      } else if (ext == '.sha256') {
+        return sha256.convert(file.readAsBytesSync());
+      } else if (ext == '.sha512') {
+        return sha512.convert(file.readAsBytesSync());
+      } else {
+        throw Exception('Unsupported checksum type: $ext');
+      }
+    }();
 
-    for (final repo in defaultRepos) {
-      final uri = Uri.parse('$repo/$relativePath');
-      try {
-        final response = await http.get(uri);
-        // TODO: Handle other response codes when implementing logging.
-        if (response.statusCode == 200) {
-          await file.writeAsBytes(response.bodyBytes, flush: true);
-          return file;
+    final requiredChecksum = checksumFile.readAsStringSync().trim();
+    return fileChecksum.toString() == requiredChecksum;
+  }
+
+  Future<File?> _fetchFile(String relativeFilePath,
+      {bool isChecksum = false}) async {
+    final file = p.join(localMvnRepo, relativeFilePath).asFile();
+
+    if (file.existsSync() && file.lengthSync() > 0) {
+      if (isChecksum) {
+        return file;
+      }
+
+      final checksumPaths = _hashTypes.map((el) => '$relativeFilePath.$el');
+      File? checksum;
+      for (final path in checksumPaths) {
+        final checksumFile = await _fetchFile(path, isChecksum: true);
+        if (checksumFile != null) {
+          checksum = checksumFile;
+          break;
         }
-        continue;
-      } catch (e) {
-        _lgr.dbg(e.toString());
+      }
+
+      // If checksum is not found, we assume the file is valid.
+      if (checksum == null) {
+        return file;
+      }
+
+      if (await _verifyChecksum(file, checksum)) {
+        return file;
       }
     }
 
-    await file.delete();
-    throw Exception('Unable to fetch $relativePath');
+    _lgr.dbg('${file.path} does not exist, downloading...');
+
+    for (final repo in mvnRepos) {
+      final uri = Uri.parse(p.posix.join(repo, relativeFilePath));
+      try {
+        final response = await _client.get(uri);
+        if (response.statusCode == StatusCodes.OK) {
+          file
+            ..createSync(recursive: true)
+            ..writeAsBytesSync(response.bodyBytes, flush: true);
+          return file;
+        }
+        continue;
+      } catch (e, s) {
+        _lgr
+          ..dbg(e.toString())
+          ..dbg(s.toString());
+      }
+    }
+
+    return null;
+  }
+
+  void closeHttpClient() {
+    _client.close();
   }
 
   /// For details on how this (roughly) works:
@@ -197,13 +266,29 @@ class ArtifactResolver {
 
     final metadata = ArtifactMetadata(coordinate);
     final pomFile = await _fetchFile(metadata.pomPath());
-    final pom = Pom.fromXml(pomFile.readAsStringSync());
+    if (pomFile == null) {
+      _lgr
+        ..err('Could not find POM file for $coordinate')
+        ..log(
+            'Make sure that you\'ve defined the Maven repository where $coordinate is located.',
+            'help  '.green());
+      throw Exception();
+    }
+
+    final Pom pom;
+    try {
+      pom = Pom.fromXml(pomFile.readAsStringSync());
+    } on Xml2JsonException catch (e) {
+      _lgr.err('Could not parse POM file for $coordinate');
+      throw Exception(e);
+    }
 
     pom.groupId ??= metadata.groupId;
     pom.version ??= metadata.version;
 
     final parentPoms = await _resolvePomAndParents(pom.parent?.coordinate);
 
+    // Deps of type imports are POM files who's dependencies we need to import.
     final imports = List.of(pom.dependencyManagement
         .whereNot((el) => el.coordinate.contains('+'))
         .where((el) => el.scope == Scope.import.name));
@@ -318,29 +403,42 @@ class ArtifactResolver {
       coordinate = newCoordinate;
     }
 
-    return result
-      ..insert(
+    if (pom.packaging != 'pom') {
+      result.insert(
         0,
         Artifact(
           coordinate: coordinate,
           scope: scope,
-          artifactFile: p.join(cacheDir, metadata.artifactPath(pom.packaging)),
-          sourcesJar: p.join(cacheDir, metadata.sourceJarPath()),
+          artifactFile:
+              p.join(localMvnRepo, metadata.artifactPath(pom.packaging)),
+          sourcesJar: p.join(localMvnRepo, metadata.sourceJarPath()),
           dependencies: deps.map((el) => el.coordinate).toList(growable: true),
-          isAar: pom.packaging == 'aar',
+          packaging: pom.packaging,
         ),
       );
+    }
+
+    return result;
   }
 
-  Future<void> downloadArtifact(Artifact artifact) async {
+  Future<File> downloadArtifact(Artifact artifact) async {
     final metadata = ArtifactMetadata(artifact.coordinate);
-    await _fetchFile(metadata.artifactPath(artifact.isAar ? 'aar' : 'jar'));
+    final file = await _fetchFile(metadata.artifactPath(artifact.packaging));
+    if (file == null) {
+      _lgr
+        ..err('Could not find artifact file for ${artifact.coordinate}')
+        ..log(
+            'Make sure that you\'ve defined the Maven repository where ${artifact.coordinate} is located.',
+            'help  '.green());
+      throw Exception();
+    }
+    return file;
   }
 
-  Future<void> downloadSourcesJar(Artifact artifact) async {
+  Future<File?> downloadSourcesJar(Artifact artifact) async {
     final metadata = ArtifactMetadata(artifact.coordinate);
     try {
-      await _fetchFile(metadata.sourceJarPath());
+      return await _fetchFile(metadata.sourceJarPath());
     } catch (_) {
       _lgr.warn('Could not resolve source JAR for ${artifact.coordinate}');
     }

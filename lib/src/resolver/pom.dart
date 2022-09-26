@@ -36,21 +36,21 @@ class Pom {
     final json =
         jsonDecode(transformer.toParker())['project'] as Map<String, dynamic>;
 
+    final packaging = (json['packaging'] as String?) ?? 'jar';
     return Pom(
+      // Artifacts with "bundle" packaging are actually distributed as jars.
+      // https://stackoverflow.com/a/5409602/12401482
+      packaging: packaging == 'bundle' ? 'jar' : packaging,
       artifactId: json['artifactId'] as String,
-      groupId: json['groupId'] != null ? json['groupId'] as String : null,
-      version: json['version'] != null ? json['version'] as String : null,
-      packaging:
-          json['packaging'] != null ? json['packaging'] as String : 'jar',
-      parent: json['parent'] != null
-          ? Parent.fromJson(json['parent'] as Map<String, dynamic>)
-          : null,
-      properties: json['properties'] != null
-          ? json['properties'] as Map<String, dynamic>
-          : {},
+      groupId: json['groupId'] as String?,
+      version: json['version'] as String?,
+      properties: json['properties'] as Map<String, dynamic>? ?? {},
       dependencies: _constructDependencies(json['dependencies'] as Map?),
       dependencyManagement: _constructDependencies(
           json['dependencyManagement']?['dependencies'] as Map?),
+      parent: json['parent'] != null
+          ? Parent.fromJson(json['parent'] as Map<String, dynamic>)
+          : null,
     );
   }
 

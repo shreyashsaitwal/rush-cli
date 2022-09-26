@@ -63,7 +63,7 @@ class MigrateCommand extends RushCommand {
         ..err('Unable to find the main extension source file.')
         ..log(
             'Make sure that the name of the main source file matches with `name` field in rush.yml: `${oldConfig.name}`',
-            'help '.green());
+            'help  '.green());
       return 1;
     }
 
@@ -97,7 +97,7 @@ class MigrateCommand extends RushCommand {
       _lgr
         ..err('Unable to process src file: ${srcFile.path}')
         ..log('Are you sure that it is a valid extension source file?',
-            'help '.green());
+            'help  '.green());
       throw Exception();
     }
 

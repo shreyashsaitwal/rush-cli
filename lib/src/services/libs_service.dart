@@ -63,7 +63,7 @@ class LibService {
         artifactFile: p.join(_fs.libsDir.path, 'runtime.jar'),
         sourcesJar: null,
         dependencies: [],
-        isAar: false,
+        packaging: 'jar',
       ),
       Artifact(
         coordinate: '',
@@ -71,7 +71,7 @@ class LibService {
         artifactFile: p.join(_fs.libsDir.path, 'android.jar'),
         sourcesJar: null,
         dependencies: [],
-        isAar: false,
+        packaging: 'jar',
       ),
       Artifact(
         coordinate: '',
@@ -79,7 +79,7 @@ class LibService {
         artifactFile: p.join(_fs.libsDir.path, 'kawa-1.11-modified.jar'),
         sourcesJar: null,
         dependencies: [],
-        isAar: false,
+        packaging: 'jar',
       ),
       Artifact(
         coordinate: '',
@@ -87,7 +87,7 @@ class LibService {
         artifactFile: p.join(_fs.libsDir.path, 'physicaloid-library.jar'),
         sourcesJar: null,
         dependencies: [],
-        isAar: false,
+        packaging: 'jar',
       )
     ];
   }
@@ -99,19 +99,21 @@ class LibService {
   }
 
   Future<Iterable<String>> providedDepJars() async => [
-        for (final dep in await providedDepArtifacts()) dep.classesJar,
+        for (final dep in await providedDepArtifacts())
+          if (dep.classesJar != null) dep.classesJar!
       ];
 
   Future<String> processorJar() async =>
-      (await buildLibsBox.get(rushApCoord))!.classesJar;
+      (await buildLibsBox.get(rushApCoord))!.classesJar!;
 
-  Future<String> r8Jar() async => (await buildLibsBox.get(r8Coord))!.classesJar;
+  Future<String> r8Jar() async =>
+      (await buildLibsBox.get(r8Coord))!.classesJar!;
 
   Future<Iterable<String>> pgJars() async => (await buildLibsBox.get(pgCoord))!
       .classpathJars(await buildLibArtifacts());
 
   Future<String> desugarJar() async =>
-      (await buildLibsBox.get(desugarCoord))!.classesJar;
+      (await buildLibsBox.get(desugarCoord))!.classesJar!;
 
   Future<Iterable<String>> manifMergerJars() async => [
         for (final lib in manifMergerAndDeps)
@@ -137,12 +139,13 @@ class LibService {
 
   Future<Iterable<String>> projectRuntimeAars() async => [
         for (final dep in await projectRemoteDepArtifacts())
-          if (dep.isAar) dep.artifactFile
+          if (dep.packaging == 'aar') dep.artifactFile
       ];
 
   Future<Iterable<String>> projectRuntimeDepJars(Config config) async => [
         // Remote deps
-        for (final dep in await projectRemoteDepArtifacts()) dep.classesJar,
+        for (final dep in await projectRemoteDepArtifacts())
+          if (dep.classesJar != null) dep.classesJar!,
         // Local deps
         for (final dep in config.runtimeDeps)
           if (dep.endsWith('.jar'))

@@ -85,12 +85,12 @@ class SyncSubCommand extends RushCommand {
 
     // Add every un-cached dev dep to fetch list.
     for (final coord in _providedDepsCoords) {
-      if (!providedDepsFromCache.any((el) => el.coordinate == coord)) {
+      if (providedDepsFromCache.none((el) => el.coordinate == coord)) {
         providedDepsToFetch.add(coord);
       }
     }
     for (final coord in toolsCoord) {
-      if (!buildToolsFromCache.any((el) => el.coordinate == coord)) {
+      if (buildToolsFromCache.none((el) => el.coordinate == coord)) {
         toolsToFetch.add(coord);
       }
     }
@@ -99,12 +99,12 @@ class SyncSubCommand extends RushCommand {
     // the said dev was deleted or the local Maven repo location was changed.
     providedDepsToFetch.addAll(
       providedDepsFromCache
-          .where((el) => !el.classesJar.asFile().existsSync())
+          .where((el) => !el.artifactFile.asFile().existsSync())
           .map((el) => el.coordinate),
     );
     toolsToFetch.addAll(
       buildToolsFromCache
-          .where((el) => !el.classesJar.asFile().existsSync())
+          .where((el) => !el.artifactFile.asFile().existsSync())
           .map((el) => el.coordinate),
     );
 
@@ -145,8 +145,10 @@ class SyncSubCommand extends RushCommand {
     final configFileModified = (await timestampBox.get(configTimestampKey))
             ?.isBefore(_fs.configFile.lastModifiedSync()) ??
         true;
-    final isAnyDepMissing = (await libService.projectRemoteDepArtifacts())
-        .any((el) => !el.classesJar.asFile().existsSync());
+    final isAnyDepMissing = (await libService.projectRemoteDepArtifacts()).any(
+        (el) =>
+            !el.artifactFile.endsWith('.pom') &&
+            !el.artifactFile.asFile().existsSync());
 
     if (configFileModified || isAnyDepMissing) {
       _lgr.startTask('Syncing project dependencies');
@@ -185,9 +187,11 @@ class SyncSubCommand extends RushCommand {
       final projectDeps = await libService.projectRemoteDepArtifacts();
       _updateIjLibIndex(providedDeps, projectDeps);
       _updateEclipseClasspath(providedDeps, projectDeps);
-    } catch (e) {
-      _lgr.err(e.toString());
-      _lgr.stopTask(false);
+    } catch (e, s) {
+      _lgr
+        ..err(e.toString())
+        ..dbg(s.toString())
+        ..stopTask(false);
       return 1;
     }
     _lgr.stopTask();
@@ -204,7 +208,7 @@ class SyncSubCommand extends RushCommand {
   }) async {
     _lgr.info('Fetching artifact metadata...');
 
-    final resolver = ArtifactResolver(repos: repositories);
+    final resolver = ArtifactResolver(repos: repositories.toSet());
 
     _lgr.dbg('Firing up the resolution process');
     var resolvedDeps = (await Future.wait([
@@ -225,6 +229,7 @@ class SyncSubCommand extends RushCommand {
               resolvedDeps, directDeps, resolver, devDepArtifacts))
           .toList(growable: true);
     } catch (e) {
+      resolver.closeHttpClient();
       rethrow;
     }
 
@@ -249,12 +254,14 @@ class SyncSubCommand extends RushCommand {
           for (final dep in resolvedDeps) resolver.downloadSourcesJar(dep),
         libCacheBox.putAll({
           for (final dep in resolvedDeps) dep.coordinate: dep,
-        })
+        }),
       ]);
     } catch (e) {
+      resolver.closeHttpClient();
       rethrow;
     }
 
+    resolver.closeHttpClient();
     return resolvedDeps;
   }
 
@@ -475,16 +482,12 @@ class SyncSubCommand extends RushCommand {
     }
 
     final classesJars = [
-      ...providedDeps.map((el) => el.classesJar),
-      ...projectDeps.map((el) => el.classesJar),
+      ...providedDeps.map((el) => el.classesJar).whereNotNull(),
+      ...projectDeps.map((el) => el.classesJar).whereNotNull(),
     ];
     final sourcesJars = [
-      ...providedDeps
-          .whereNot((element) => element.sourcesJar == null)
-          .map((el) => el.sourcesJar!),
-      ...projectDeps
-          .whereNot((element) => element.sourcesJar == null)
-          .map((el) => el.sourcesJar!),
+      ...providedDeps.map((el) => el.sourcesJar).whereNotNull(),
+      ...projectDeps.map((el) => el.sourcesJar).whereNotNull(),
     ];
     dotClasspathFile.writeAsStringSync(dotClasspath(classesJars, sourcesJars));
   }
@@ -500,7 +503,7 @@ class SyncSubCommand extends RushCommand {
         p.join(_fs.cwd, '.idea', 'libraries', 'dev-deps.xml').asFile(true);
     devDepsLibXml.writeAsStringSync(
       ijDevDepsXml(
-        providedDeps.map((el) => el.classesJar),
+        providedDeps.map((el) => el.classesJar).whereNotNull(),
         providedDeps
             .whereNot((element) => element.sourcesJar == null)
             .map((el) => el.sourcesJar!),

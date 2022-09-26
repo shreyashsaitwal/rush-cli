@@ -72,7 +72,7 @@ class OldConfig {
       lgr.err(e.toString());
       lgr.log(
           'Are you sure you are inside a Rush project created prior to v2.0.0?',
-          'help '.green());
+          'help  '.green());
     }
     return null;
   }
