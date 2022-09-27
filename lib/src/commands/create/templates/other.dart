@@ -16,7 +16,7 @@ android:
 
 # Runtime dependencies of your extension. These can be local JARs or AARs stored in the deps/ directory or coordinates
 # of remote Maven artifacts in <groupId>:<artifactId>:<version> or <groupId>:<artifactId>:<version>:<classifier> format. 
-# dependencies:
+${enableKt ? 'dependencies:' : '# dependencies:'}
 ${enableKt ? '- $kotlinGroupId:kotlin-stdlib:$defaultKtVersion\n' : ''}# - example.jar                 # Local JAR or AAR file stored in deps directory
 # - com.example:foo-bar:1.2.3   # Coordinate of remote Maven artifact
 ''';
