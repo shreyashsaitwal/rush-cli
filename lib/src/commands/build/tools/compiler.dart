@@ -1,4 +1,4 @@
-import 'dart:io' show File;
+import 'dart:io' show File, Platform, Process;
 
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
@@ -61,7 +61,7 @@ class Compiler {
     }
 
     try {
-      await _processRunner.runExecutable(hasKtFiles ? 'java' : 'javac', args);
+      await _processRunner.runExecutable((hasKtFiles ? 'java' : 'javac'), args);
     } catch (e) {
       rethrow;
     }
@@ -140,11 +140,23 @@ class Compiler {
         p.join(p.dirname(kaptJar), 'kotlin-annotation-processing.jar');
     kaptJar.asFile().copySync(duplicateKaptJar);
 
+    final toolsJar = await () async {
+      final String javaExe;
+      if (Platform.isWindows) {
+        final res = await Process.run('where', ['java'], runInShell: true);
+        javaExe = res.stdout.toString().trim();
+      } else {
+        final res = await Process.run('which', ['java'], runInShell: true);
+        javaExe = res.stdout.toString().trim();
+      }
+
+      return p.join(p.dirname(p.dirname(javaExe)), 'lib', 'tools.jar').asFile();
+    }();
+
     final classpath = [
       ...(await _libService.kotlincJars(kotlinVersion)),
       if (withProc) ...(await _libService.kaptJars(kotlinVersion)),
-      // TODO: Consider using JDK bundled tools.jar or similar
-      if (withProc) _fs.jreToolsJar.path,
+      if (withProc && toolsJar.existsSync()) toolsJar.path,
     ].join(BuildUtils.cpSeparator);
 
     final procClasspath = await _libService.processorJar();

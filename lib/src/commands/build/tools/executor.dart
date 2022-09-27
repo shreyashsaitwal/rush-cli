@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 
@@ -87,18 +89,37 @@ class Executor {
     }
   }
 
-  // TODO: This can be execed on JDK >8, see here:
-  // https://linear.app/shreyash/issue/RSH-51/toolsjar-and-rtjar-might-be-the-reason-for-desugaring-not-working-on
   static Future<void> execDesugarer(
       String desugarJar, String artJarPath, Set<String> comptimeDepJars) async {
     final outputJar = p
         .join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.desugared.jar')
         .asFile();
 
+    final bootclasspath = await () async {
+      final String javaExe;
+      if (Platform.isWindows) {
+        final res = await Process.run('where', ['java'], runInShell: true);
+        javaExe = res.stdout.toString().trim();
+      } else {
+        final res = await Process.run('which', ['java'], runInShell: true);
+        javaExe = res.stdout.toString().trim();
+      }
+
+      final forJdk8AndBelow =
+          p.join(p.dirname(p.dirname(javaExe)), 'jre', 'lib', 'rt.jar').asFile();
+      if (forJdk8AndBelow.existsSync()) {
+        return forJdk8AndBelow;
+      }
+
+      return p
+          .join(p.dirname(p.dirname(javaExe)), 'jmods', 'java.base.jmod')
+          .asFile();
+    }();
+
     final desugarerArgs = <String>[
       '--desugar_try_with_resources_if_needed',
       '--copy_bridges_from_classpath',
-      ...['--bootclasspath_entry', '\'${_fs.jreRtJar.path}\''],
+      ...['--bootclasspath_entry', '\'${bootclasspath.path}\''],
       ...['--input', '\'$artJarPath\''],
       ...['--output', '\'${outputJar.path}\''],
       ...comptimeDepJars.map((dep) => '--classpath_entry' '\n' '\'$dep\''),
@@ -107,7 +128,11 @@ class Executor {
         p.join(_fs.buildFilesDir.path, 'desugar.args').asFile(true);
     await argsFile.writeAsString(desugarerArgs.join('\n'));
 
+    final tempDir = Directory(p.join(_fs.buildFilesDir.path)).createTempSync();
     final args = <String>[
+      // Required on JDK 11 (>11.0.9.1)
+      // https://github.com/bazelbuild/bazel/commit/cecb3f1650d642dc626d6f418282bd802c29f6d7
+      '-Djdk.internal.lambda.dumpProxyClasses=${tempDir.path}',
       ...['-cp', desugarJar],
       'com.google.devtools.build.android.desugar.Desugar',
       '@${argsFile.path}',
@@ -117,6 +142,8 @@ class Executor {
       await processRunner.runExecutable('java', args);
     } catch (e) {
       rethrow;
+    } finally {
+      tempDir.deleteSync(recursive: true);
     }
 
     await outputJar.copy(artJarPath);

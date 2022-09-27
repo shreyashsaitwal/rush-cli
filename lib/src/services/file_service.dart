@@ -60,9 +60,6 @@ class FileService {
     }
   }
 
-  File get jreToolsJar => p.join(libsDir.path, 'tools.jar').asFile();
-  File get jreRtJar => p.join(libsDir.path, 'rt.jar').asFile();
-
   File get javacArgsFile =>
       p.join(buildFilesDir.path, 'javac.args').asFile(true);
   File get kotlincArgsFile =>
