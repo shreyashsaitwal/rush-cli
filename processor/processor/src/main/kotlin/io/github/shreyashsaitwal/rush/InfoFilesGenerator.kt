@@ -117,10 +117,8 @@ class InfoFilesGenerator(
             buildInfoJsonArray.put(extJsonObj)
         }
 
-        // TODO: Add ability to declare extension specific manifest elements
-
-        // Before the annotation processor runs, the CLI merges the manifests of all the AAR deps
-        // with the extension's main manifest into a single manifest file.
+        // Before the annotation processor runs, the CLI merges the manifests of all the AAR deps with the extension's
+        // main manifest into a single manifest file.
         // So, if the merged manifest is found use it instead of the main manifest.
         val mergedManifest = Paths.get(rawBuildDir.toString(), "..", "files", "AndroidManifest.xml")
         val manifest = if (mergedManifest.exists()) {
@@ -132,23 +130,46 @@ class InfoFilesGenerator(
         val builder = DocumentBuilderFactory.newInstance().newDocumentBuilder()
         val doc = builder.parse(manifest)
 
-        // Put application elements
-        val appElements = applicationElementsXmlString(doc)
+        // Put children of <application> element
+        val appElements = applicationElementsXmlString(doc).filter { it.isNotBlank() }
         // We put all the elements under the activities tag. This lets us use the tags which aren't
         // yet added to AI2 and don't have a dedicated key in the build info JSON file.
         // The reason why this works is that AI compiler doesn't perform any checks on these
         // manifest arrays in the build info file, and just adds them to the final manifest file.
         buildInfoJsonArray.getJSONObject(0).put("activities", appElements)
 
-        // Put permissions
-        val nodes = doc.getElementsByTagName("uses-permission")
+        // Put <uses-permission> tags
+        val permissionNodes = doc.getElementsByTagName("uses-permission")
         val permissions = JSONArray()
-        if (nodes.length != 0) {
-            for (i in 0 until nodes.length) {
-                permissions.put(generateXmlString(nodes.item(i), "manifest"))
+        if (permissionNodes.length > 0) {
+            for (i in 0 until permissionNodes.length) {
+                val str = generateXmlString(permissionNodes.item(i), "manifest")
+                if (str.isNotBlank()) {
+                    permissions.put(str)
+                }
             }
         }
         buildInfoJsonArray.getJSONObject(0).put("permissions", permissions)
+
+        // Put <queries> tags.
+        val queriesNodes = doc.getElementsByTagName("queries")
+        val queries = JSONArray()
+        if (queriesNodes.length > 0) {
+            for (i in 0 until queriesNodes.length) {
+                val element = queriesNodes.item(i) as Element
+                if (element.hasChildNodes()) {
+                    val children = element.childNodes
+                    for (j in 0 until children.length) {
+                        val str = generateXmlString(children.item(j), element.nodeName)
+                        if (str.isNotBlank()) {
+                            queries.put(str)
+                        }
+                    }
+                }
+
+            }
+        }
+        buildInfoJsonArray.getJSONObject(0).put("queries", queries)
 
         val buildInfoJsonFile =
             Paths.get(rawBuildDir.toString(), "files", "component_build_infos.json").toFile().apply {
@@ -208,8 +229,7 @@ class InfoFilesGenerator(
                 permission.nodeValue
             } else {
                 throw DOMException(
-                    1.toShort(),
-                    "ERR No android:name attribute found in <uses-permission>"
+                    1.toShort(), "error: No android:name attribute found in <uses-permission>"
                 )
             }
         }
@@ -261,7 +281,7 @@ class InfoFilesGenerator(
             "provider",
             "service",
             "receiver",
-            "uses-library"
+            "uses-library",
         )
 
         val xmlStrings = validTags.map {
