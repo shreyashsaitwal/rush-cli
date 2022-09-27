@@ -10,7 +10,7 @@ allprojects {
     }
 
     group = 'io.github.shreyashsaitwal.rush'
-    version = '2.0.0-SNAPSHOT'
+    version = '2.0.0-beta06'
 
     compileKotlin {
         kotlinOptions {

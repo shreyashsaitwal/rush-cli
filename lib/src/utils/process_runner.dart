@@ -13,6 +13,7 @@ class ProcessRunner {
     final Process process;
     try {
       process = await Process.start(exe, args, environment: {
+        // These variables are used by the annotation processor
         'RUSH_HOME': _fs.rushHomeDir.path,
         'RUSH_PROJECT_ROOT': _fs.cwd,
       });
