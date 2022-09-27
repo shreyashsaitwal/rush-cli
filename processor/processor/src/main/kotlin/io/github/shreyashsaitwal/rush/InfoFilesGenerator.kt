@@ -279,9 +279,11 @@ class InfoFilesGenerator(
             "activity-alias",
             "meta-data",
             "provider",
+            "profileable",
             "service",
             "receiver",
             "uses-library",
+            "uses-native-library"
         )
 
         val xmlStrings = validTags.map {
