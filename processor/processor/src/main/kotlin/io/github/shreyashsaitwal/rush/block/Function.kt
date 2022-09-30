@@ -73,5 +73,5 @@ class Function(
         .put("deprecated", deprecated.toString())
         .put("params", this.params.map { it.asJsonObject() })
         .put("returnType", returnType)
-        .put("helper", helper)
+        .put("helper", helper?.asJsonObject())
 }

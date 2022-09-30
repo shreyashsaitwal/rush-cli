@@ -21,20 +21,27 @@ enum class HelperType {
 
     companion object {
         fun tryFrom(element: Element): HelperType? {
-            val type = if (element is ExecutableElement) element.returnType else element.asType()
-            return if (element.getAnnotation(Asset::class.java) != null) {
-                ASSET
+            val type = if (element is ExecutableElement) {
+                element.returnType
+            } else {
+                element.asType()
+            }
+
+            if (element.getAnnotation(Asset::class.java) != null) {
+                return ASSET
             } else if (element.getAnnotation(Options::class.java) != null) {
-                OPTION_LIST
-            } else if (type.kind == TypeKind.DECLARED) {
-                val el = (type as DeclaredType).asElement() as TypeElement
-                val isOptionList = el.interfaces.any {
-                    val ty = (it as DeclaredType).asElement() as TypeElement
-                    ty.simpleName.toString() == "OptionList"
+                return OPTION_LIST
+            }
+
+            return if (type.kind == TypeKind.DECLARED) {
+                val typeElement = (type as DeclaredType).asElement() as TypeElement
+                val isOptionList = typeElement.interfaces.any {
+                    val interfaceTypeElement = (it as DeclaredType).asElement() as TypeElement
+                    interfaceTypeElement.simpleName.toString() == "OptionList"
                 }
                 if (isOptionList) OPTION_LIST else null
             } else {
-                return null
+                null
             }
         }
     }
@@ -64,28 +71,31 @@ data class Helper(
 
                 HelperType.OPTION_LIST -> {
                     val optionsAnnotation = element.getAnnotation(Options::class.java)
+                    var helperElement = element
 
                     val optionListEnumName = if (optionsAnnotation != null) {
-                        var elem: Element? = null
                         try {
                             // This will always throw. For more info: https://stackoverflow.com/a/10167558/12401482
                             optionsAnnotation.value
                         } catch (e: MirroredTypeException) {
-                            elem = (e.typeMirror as DeclaredType).asElement()
+                            helperElement = (e.typeMirror as DeclaredType).asElement()
                         }
 
-                        @Suppress("KotlinConstantConditions")
-                        elem!!.asType().toString()   // This will never be null
-                    } else if (element is ExecutableElement) {
-                        element.returnType.toString()
+                        helperElement.asType().toString()
                     } else {
-                        element.asType().toString()
+                        val type = if (element is ExecutableElement) {
+                            element.returnType
+                        } else {
+                            element.asType()
+                        }
+                        type.toString()
                     }
 
-                    val data = if (HelperSingleton.optionListCache.containsKey(optionListEnumName)) {
+                    val isCached = HelperSingleton.optionListCache.containsKey(optionListEnumName)
+                    val data = if (isCached) {
                         HelperSingleton.optionListCache[optionListEnumName]!!
                     } else {
-                        OptionListData(element).apply {
+                        OptionListData(helperElement).apply {
                             HelperSingleton.optionListCache.putIfAbsent(optionListEnumName, this)
                         }
                     }
