@@ -5,6 +5,7 @@ homepage: https://github.com/shreyashsaitwal/rush-cli
 
 executables:
   rush: rush.dart
+  000swap: swap.dart
 
 environment:
   sdk: ">=2.17.0 <3.0.0"

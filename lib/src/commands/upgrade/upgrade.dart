@@ -1,7 +1,6 @@
-import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
+import 'package:archive/archive_io.dart';
 import 'package:get_it/get_it.dart';
 import 'package:github/github.dart';
 import 'package:collection/collection.dart';
@@ -9,12 +8,15 @@ import 'package:http/http.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:rush_cli/src/command_runner.dart';
+import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
 import 'package:rush_cli/src/services/file_service.dart';
-import 'package:rush_cli/src/commands/upgrade/models/asset_info.dart';
+import 'package:rush_cli/src/version.dart';
+import 'package:tint/tint.dart';
 
 class UpgradeCommand extends RushCommand {
   final _fs = GetIt.I<FileService>();
+  final _lgr = GetIt.I<Logger>();
 
   UpgradeCommand() {
     argParser
@@ -23,8 +25,7 @@ class UpgradeCommand extends RushCommand {
           help: 'Upgrades Rush even if you\'re using the latest version.')
       ..addOption('access-token',
           abbr: 't',
-          help:
-              'Your GitHub access token. Normally, you don\'t need to worry about this.');
+          help: 'Your GitHub access token. Normally, you don\'t need this.');
   }
 
   @override
@@ -35,85 +36,126 @@ class UpgradeCommand extends RushCommand {
 
   @override
   Future<int> run() async {
+    _lgr.info('Checking for new version');
+
     final gh = GitHub(
         auth: Authentication.withToken(argResults!['access-token'] as String?));
     final release = await gh.repositories
         .getLatestRelease(RepositorySlug.full('shreyashsaitwal/rush-cli'));
 
-    final assetInfoJsonUrl = release.assets
-        ?.singleWhereOrNull((el) => el.name == 'asset-info.json')
-        ?.browserDownloadUrl;
-    if (assetInfoJsonUrl == null) {
-      throw Exception('Could not find asset-info.json');
+    final latestVersion = release.tagName;
+    final force = (argResults!['force'] as bool);
+
+    if (latestVersion == 'v$packageVersion') {
+      if (!force) {
+        _lgr.info(
+            'You\'re already on the latest version of Rush. Use `--force` to upgrade anyway.');
+        return 0;
+      }
+    } else {
+      _lgr.info('A newer version is available: $latestVersion');
     }
 
-    final httpClient = Client();
-    final json = (await httpClient.get(Uri.parse(assetInfoJsonUrl))).body;
-    final assetInfo =
-        AssetInfo.fromJson(jsonDecode(json) as List<Map<String, String>>);
+    final archive =
+        release.assets?.firstWhereOrNull((el) => el.name == archiveName());
+    if (archive == null || archive.browserDownloadUrl == null) {
+      _lgr
+        ..err('Could not find asset ${archiveName()} at ${release.htmlUrl}')
+        ..log('This is not supposed to happen. Please report this issue.');
+      return 1;
+    }
 
-    final upgradables = {
-      'rush.exe': p.join(Platform.resolvedExecutable),
-      'swap.exe': p.join(p.dirname(Platform.resolvedExecutable), 'swap.exe'),
-      'android.jar': p.join(_fs.libsDir.path, 'android.jar'),
-      'annotations.jar': p.join(_fs.srcDir.path, 'annotations.jar'),
-      'annotations-sources.jar':
-          p.join(_fs.srcDir.path, 'annotations-sources.jar'),
-      'runtime.jar': p.join(_fs.libsDir.path, 'runtime.jar'),
-      'runtime-sources.jar': p.join(_fs.libsDir.path, 'runtime-sources.jar'),
-      'kawa-1.11-modified.jar':
-          p.join(_fs.libsDir.path, 'kawa-1.11-modified.jar'),
-      'physicaloid-library.jar':
-          p.join(_fs.libsDir.path, 'physicaloid-library.jar'),
-      'processor-uber.jar': p.join(_fs.libsDir.path, 'processor-uber.jar'),
-      'desugar.jar': p.join(_fs.libsDir.path, 'desugar.jar'),
-    };
-
-    for (final asset in assetInfo.assets) {
-      if (!Platform.isWindows && asset.name == 'swap.exe') {
-        continue;
+    _lgr.info('Downloading ${archiveName()}...');
+    final archiveDist =
+        p.join(_fs.rushHomeDir.path, 'temp', archive.name).asFile();
+    try {
+      final response = await get(Uri.parse(archive.browserDownloadUrl!));
+      if (response.statusCode != 200) {
+        _lgr
+          ..err('Something went wrong...')
+          ..log('GET status code: ${response.statusCode}')
+          ..log('GET body:\n${response.body}');
+        return 1;
       }
 
-      final saveAs = asset.downloadLocation
-          .replaceAll('{{home}}', _fs.rushHomeDir.path)
-          .replaceAll('{{exe}}', Platform.resolvedExecutable);
+      archiveDist
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(response.bodyBytes);
+    } catch (e) {
+      _lgr
+        ..err('Something went wrong...')
+        ..log(e.toString());
+      return 1;
+    }
 
-      if (!upgradables.containsKey(asset.name)) {
-        await _download(httpClient, asset.url, saveAs);
-        continue;
-      }
+    // TODO: We should delete the old files.
 
-      final upgradable = upgradables[asset.name];
-      final sha = sha1.convert(upgradable!.asFile().readAsBytesSync());
-      if (sha.toString() == asset.sha1) {
-        continue;
-      }
+    _lgr.info('Extracting ${p.basename(archiveDist.path)}...');
 
-      await _download(httpClient, asset.url, saveAs);
-      if (saveAs != upgradable) {
-        upgradable.asFile().deleteSync();
+    final inputStream = InputFileStream(archiveDist.path);
+    final zipDecoder = ZipDecoder().decodeBuffer(inputStream);
+    for (final file in zipDecoder.files) {
+      if (file.isFile) {
+        final String path;
+        if (file.name.endsWith('rush.exe')) {
+          path = p.join(_fs.rushHomeDir.path, '$name.new');
+        } else {
+          path = p.join(_fs.rushHomeDir.path, name);
+        }
+
+        final outputStream = OutputFileStream(path);
+        file.writeContent(outputStream);
+        await outputStream.close();
       }
     }
+    await inputStream.close();
+    archiveDist.deleteSync(recursive: true);
+
+    final successMsg = '''
+
+${'Success'.green()}! Rush $latestVersion has been installed. 🎉
+Now, run ${'`rush deps sync --only-dev`'.blue()} to re-sync dev dependencies.
+
+Check out the changelog for this release at: ${release.htmlUrl}
+''';
 
     if (Platform.isWindows) {
       final newExe = '${Platform.resolvedExecutable}.new';
       final swapExe =
-          p.join(p.dirname(Platform.resolvedExecutable), 'swap.exe');
+          p.join(p.dirname(Platform.resolvedExecutable), '000swap.exe');
       if (newExe.asFile().existsSync()) {
         await Process.start(
-            swapExe, ['--old-exe', Platform.resolvedExecutable]);
+          swapExe,
+          [
+            '--old-exe',
+            Platform.resolvedExecutable,
+            '--message',
+            successMsg,
+          ],
+          mode: ProcessStartMode.detached,
+        );
       }
     } else {
-      final newExe = '${Platform.resolvedExecutable}.new';
-      newExe.asFile().renameSync(newExe.replaceFirst('.new', ''));
-      await Process.start('chmod', ['+x', Platform.resolvedExecutable]);
+      Process.runSync('chmod', ['+x', Platform.resolvedExecutable]);
+      print(successMsg);
     }
-
     return 0;
   }
 
-  Future<void> _download(Client client, String url, String saveAs) async {
-    final response = await client.get(Uri.parse(url));
-    saveAs.asFile().writeAsBytesSync(response.bodyBytes);
+  String archiveName() {
+    if (Platform.isWindows) {
+      return 'rush-x86_64-windows.zip';
+    }
+
+    if (Platform.isLinux) {
+      return 'rush-x86_64-linux.zip';
+    }
+
+    if (Platform.isMacOS) {
+      final arch = Process.runSync('uname', ['-m'], runInShell: true);
+      return 'rush-${arch.stdout.toString().trim()}-apple-darwin.zip';
+    }
+
+    throw UnsupportedError('Unsupported platform');
   }
 }
