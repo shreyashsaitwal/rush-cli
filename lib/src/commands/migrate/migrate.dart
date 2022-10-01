@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/src/commands/deps/sync.dart';
 import 'package:rush_cli/src/utils/constants.dart';
 import 'package:tint/tint.dart';
 
@@ -26,7 +27,7 @@ class MigrateCommand extends RushCommand {
 
   @override
   Future<int> run() async {
-    _lgr.startTask('Constructing new config file');
+    _lgr.startTask('Initializing');
     final oldConfig = await old.OldConfig.load(_fs.configFile, _lgr);
     if (oldConfig == null) {
       _lgr
@@ -62,8 +63,7 @@ class MigrateCommand extends RushCommand {
       _lgr
         ..err('Unable to find the main extension source file.')
         ..log(
-            'Make sure that the name of the main source file matches with `name` field in rush.yml: `${oldConfig.name}`',
-            'help  '.green());
+            '${'help  '.green()} Make sure that the name of the main source file matches with `name` field in rush.yml: `${oldConfig.name}`');
       return 1;
     }
 
@@ -71,11 +71,12 @@ class MigrateCommand extends RushCommand {
     _editSourceFile(srcFile, oldConfig);
     _lgr.stopTask();
 
-    _lgr.startTask('Final touches');
+    _lgr.startTask('Updating config file (rush.yml)');
     _updateConfig(newConfig, oldConfig.build?.kotlin?.enable ?? false);
     _deleteOldHiveBoxes();
     _lgr.stopTask();
 
+    await SyncSubCommand().run();
     return 0;
   }
 
@@ -102,7 +103,7 @@ class MigrateCommand extends RushCommand {
     }
 
     final annotation = '''
-// You might want to shorten this annotation name by importing `com.google.appinventor.components.annotations.ExtensionComponent`
+// You might want to shorten this annotation by importing `ExtensionComponent`.
 @com.google.appinventor.components.annotations.ExtensionComponent(
     name = "${oldConfig.name}",
     description = "Extension component for ${oldConfig.name}. Built with <3 and Rush.",
