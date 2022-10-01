@@ -5,16 +5,21 @@ import io.github.shreyashsaitwal.rush.util.isPascalCase
 import io.github.shreyashsaitwal.rush.util.yailTypeOf
 import shaded.org.json.JSONObject
 import javax.annotation.processing.Messager
+import javax.lang.model.element.Element
 import javax.lang.model.element.ExecutableElement
 import javax.lang.model.type.DeclaredType
 import javax.lang.model.util.Elements
 import javax.tools.Diagnostic
 
-object PropertyAccessType {
-    const val READ = "read-only"
-    const val WRITE = "write-only"
-    const val READ_WRITE = "read-write"
-    const val INVISIBLE = "invisible"
+enum class PropertyAccessType(private val value: String) {
+    READ("read-only"),
+    WRITE("write-only"),
+    READ_WRITE("read-write"),
+    INVISIBLE("invisible");
+
+    override fun toString(): String {
+        return this.value
+    }
 }
 
 class Property(
@@ -23,7 +28,7 @@ class Property(
     private val priorProperties: MutableList<Property>,
     private val elementUtils: Elements,
 ) : Block(element) {
-    private val accessType: String
+    private val accessType: PropertyAccessType
 
     init {
         runChecks()
@@ -83,32 +88,36 @@ class Property(
         }
     }
 
-    /**
-     * @return If this is a setter type property, the type of the value it accepts, else if it is a
-     * getter, it's return type.
-     */
-    override val returnType: String
+    private val returnTypeElement: Element
         get() {
             val returnType = this.element.returnType
+
             // If the property is of setter type, the JSON property "type" is equal to the type of
             // parameter the setter expects.
-            val elem = if (returnType.toString() == "void") {
+            return if (returnType.toString() == "void") {
                 this.element.parameters[0]
             } else if (returnType is DeclaredType) {
                 returnType.asElement()
             } else {
                 element
             }
-
-            // Primitive types when converted to string seem to have () in-front of them. This only
-            // happens when `elem` is set using `returnType.asElement()` above.
-            val typeName = elem.asType().toString().replace("()", "")
-
-            HelperType.tryFrom(elem)?.apply {
-                return yailTypeOf(typeName, true)
-            }
-            return yailTypeOf(typeName, false)
         }
+
+    /**
+     * The return type of property type block, defined as "type" in components.json, depends on whether it's a setter or
+     * a getter. For getters, the "type" is the same as the actual return type, but for setters, it is equal to the type
+     * this setter sets, i.e., it is equal to the type of its argument.
+     */
+    override val returnType: String
+        get() {
+            // Primitive types when converted to string seem to have () in-front of them. This only
+            // happens when the `this.element.returnType` is a `DeclaredType`.
+            val typeName = returnTypeElement.asType().toString().replace("()", "")
+            return yailTypeOf(typeName, helper != null)
+        }
+
+
+    override val helper = Helper.tryFrom(returnTypeElement)
 
     /**
      * @return JSON representation of this property.
@@ -121,17 +130,17 @@ class Property(
      * }
      */
     override fun asJsonObject(): JSONObject = JSONObject()
+        .put("deprecated", deprecated.toString())
         .put("name", name)
         .put("description", description)
-        .put("deprecated", deprecated.toString())
         .put("type", returnType)
-        .put("rw", accessType)
+        .put("rw", accessType.toString())
         .put("helper", helper?.asJsonObject())
 
     /**
      * @return The access type of the current property.
-     * */
-    private fun accessType(): String {
+     */
+    private fun accessType(): PropertyAccessType {
         val invisible = !this.element.getAnnotation(SimpleProperty::class.java).userVisible
         if (invisible) {
             return PropertyAccessType.INVISIBLE

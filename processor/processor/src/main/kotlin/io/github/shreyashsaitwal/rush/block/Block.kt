@@ -24,7 +24,10 @@ abstract class Block(val element: ExecutableElement) {
         null
     }
 
-    val helper = Helper.tryFrom(element)
+    /**
+     * Helper (dropdown blocks) definition of this block.
+     */
+    open val helper = Helper.tryFrom(element)
 
     /** Whether this block is deprecated */
     val deprecated = element.getAnnotation(Deprecated::class.java) != null
