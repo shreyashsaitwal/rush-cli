@@ -9,7 +9,6 @@ import io.github.shreyashsaitwal.rush.block.DesignerProperty
 import io.github.shreyashsaitwal.rush.block.Event
 import io.github.shreyashsaitwal.rush.block.Function
 import io.github.shreyashsaitwal.rush.block.Property
-import io.github.shreyashsaitwal.rush.model.Extension
 import javax.annotation.processing.*
 import javax.lang.model.SourceVersion
 import javax.lang.model.element.Element

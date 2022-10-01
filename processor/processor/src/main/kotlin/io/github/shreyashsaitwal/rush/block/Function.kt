@@ -58,20 +58,21 @@ class Function(
     /**
      * @return JSON representation of this method.
      * {
-     *  "name": "Foo",
-     *  "description": "This is a description",
-     *  "deprecated": "false",
-     *  "returnType": "any",
-     *  "params": [
-     *    { "name": "bar", "type": "number" },
-     *  ]
+     *     "deprecated": "false",
+     *     "name": "Foo",
+     *     "description": "This is a description",
+     *     "returnType": "<any YAIL type>",
+     *     "params": [
+     *       { "name": "bar", "type": "number" },
+     *     ],
+     *     "helper": {...}
      * }
      */
     override fun asJsonObject(): JSONObject = JSONObject()
+        .put("deprecated", deprecated.toString())
         .put("name", name)
         .put("description", description)
-        .put("deprecated", deprecated.toString())
-        .put("params", this.params.map { it.asJsonObject() })
         .put("returnType", returnType)
+        .put("params", this.params.map { it.asJsonObject() })
         .put("helper", helper?.asJsonObject())
 }

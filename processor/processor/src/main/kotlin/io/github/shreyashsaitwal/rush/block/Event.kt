@@ -60,12 +60,12 @@ class Event(
      *
      * JSON:
      * {
-     *  "name": "Foo",
-     *  "description": "This is a description",
-     *  "deprecated": "false",
-     *  "params": [
-     *    { "name": "bar", "type": "number" },
-     *  ]
+     *     "deprecated": "false",
+     *     "name": "Foo",
+     *     "description": "This is a description",
+     *     "params": [
+     *       { "name": "bar", "type": "number" },
+     *     ]
      * }
      */
     override fun asJsonObject(): JSONObject = JSONObject()

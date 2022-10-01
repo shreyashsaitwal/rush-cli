@@ -122,11 +122,12 @@ class Property(
     /**
      * @return JSON representation of this property.
      * {
-     *  "rw": "read-only",
-     *  "deprecated": "false",
-     *  "name": "Foo",
-     *  "description": "",
-     *  "type": "any"
+     *     "rw": "read-only",
+     *     "deprecated": "false",
+     *     "name": "Foo",
+     *     "description": "",
+     *     "type": "<some YAIL type>",
+     *     "helper": {...}
      * }
      */
     override fun asJsonObject(): JSONObject = JSONObject()

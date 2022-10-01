@@ -1,7 +1,11 @@
 package io.github.shreyashsaitwal.rush
 
 import com.charleskorn.kaml.Yaml
-import io.github.shreyashsaitwal.rush.model.Extension
+import com.google.appinventor.components.annotations.ExtensionComponent
+import io.github.shreyashsaitwal.rush.block.DesignerProperty
+import io.github.shreyashsaitwal.rush.block.Event
+import io.github.shreyashsaitwal.rush.block.Function
+import io.github.shreyashsaitwal.rush.block.Property
 import io.github.shreyashsaitwal.rush.model.RushYaml
 import org.commonmark.ext.autolink.AutolinkExtension
 import org.commonmark.ext.task.list.items.TaskListItemsExtension
@@ -22,6 +26,15 @@ import javax.xml.parsers.DocumentBuilderFactory
 import javax.xml.parsers.ParserConfigurationException
 import kotlin.io.path.createDirectory
 import kotlin.io.path.exists
+
+data class Extension(
+    val extensionComponent: ExtensionComponent,
+    val fqcn: String,
+    val events: List<Event>,
+    val functions: List<Function>,
+    val properties: List<Property>,
+    val designerProperties: List<DesignerProperty>,
+)
 
 class InfoFilesGenerator(
     private val extensions: List<Extension>,

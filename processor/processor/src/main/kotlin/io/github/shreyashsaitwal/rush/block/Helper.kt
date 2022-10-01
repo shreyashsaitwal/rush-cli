@@ -16,10 +16,18 @@ import javax.lang.model.type.MirroredTypeException
 import javax.lang.model.type.TypeKind
 import javax.lang.model.type.TypeMirror
 
+/**
+ * Possible types of helper blocks.
+ */
 enum class HelperType {
     OPTION_LIST, ASSET;
 
     companion object {
+
+        /**
+         * @return Appropriate [HelperType] for the [element] if it's an option list enum or if it's annotated with
+         * [Options] or [Asset] annotation, otherwise, null.
+         */
         fun tryFrom(element: Element): HelperType? {
             val type = if (element is ExecutableElement) {
                 element.returnType
@@ -33,20 +41,26 @@ enum class HelperType {
                 return OPTION_LIST
             }
 
-            return if (type.kind == TypeKind.DECLARED) {
+            // Element doesn't have any of the above annotation, check if it's type is an option list enum.
+            if (type.kind == TypeKind.DECLARED) {
                 val typeElement = (type as DeclaredType).asElement() as TypeElement
                 val isOptionList = typeElement.interfaces.any {
                     val interfaceTypeElement = (it as DeclaredType).asElement() as TypeElement
                     interfaceTypeElement.simpleName.toString() == "OptionList"
                 }
-                if (isOptionList) OPTION_LIST else null
-            } else {
-                null
+                if (isOptionList) return OPTION_LIST
             }
+
+            return null
         }
     }
 }
 
+/**
+ * Represents the helper definition of a [Block]. For more information on what helpers are (aka known as dropdown blocks)
+ * check out this post on AI2 community:
+ * https://community.appinventor.mit.edu/t/what-is-your-opinion-about-helper-blocks-in-app-inventor-gsoc-project-user-feedback/9057
+ */
 data class Helper(
     val type: HelperType,
     val data: HelperData,
@@ -58,6 +72,10 @@ data class Helper(
     }
 
     companion object {
+
+        /**
+         * @return Generates [Helper] from [element] if it is of valid [HelperType], otherwise null.
+         */
         fun tryFrom(element: Element): Helper? {
             val helperType = HelperType.tryFrom(element)
             return when (helperType) {
@@ -129,7 +147,7 @@ class AssetData(private val fileExtensions: Array<String> = arrayOf()) : HelperD
 
 private object HelperSingleton {
     /**
-     * This stores [OptionListData]s of enums that have already been processed.
+     * This stores [OptionListData]s of helpers that have already been processed.
      */
     val optionListCache = mutableMapOf<String, OptionListData>()
 
@@ -166,7 +184,7 @@ class OptionListData(private val element: Element) : HelperData() {
                 .put("name", name)
                 .put("deprecated", deprecated)
                 .put("value", value)
-                .put("description", "") // Getting enum consts' description doesn't work (also not in AI2's ap)
+                .put("description", "") // Getting enum consts' description doesn't work (also not in AI2)
         }
     }
 
@@ -195,8 +213,9 @@ class OptionListData(private val element: Element) : HelperData() {
             throw Exception("OptionList is not an enum: $optionListEnumName")
         }
 
-        val enumConsts =
-            optionListEnum.enumConstants.associate { Pair(it.toString(), toValueMethod.invoke(it).toString()) }
+        val enumConsts = optionListEnum.enumConstants.associate {
+            it.toString() to toValueMethod.invoke(it).toString()
+        }
 
         // We need the enum elements only for finding which enum const has the Default annotation.
         val enclosedElements = (elementType as DeclaredType).asElement().enclosedElements
@@ -222,10 +241,10 @@ class OptionListData(private val element: Element) : HelperData() {
         val enumName = elementType.toString().split(".").last()
         return JSONObject()
             .put("className", elementType.toString())
-            .put("key", enumName)
-            .put("tag", enumName)
-            .put("options", options())
             .put("underlyingType", underlyingType)
             .put("defaultOpt", defaultOption)
+            .put("options", options())
+            .put("key", enumName)
+            .put("tag", enumName)
     }
 }

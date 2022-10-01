@@ -13,10 +13,10 @@ data class RushYaml(
     val assets: List<String> = listOf(),
     val authors: List<String> = listOf(),
     val repositories: List<String> = listOf(),
-    
+
     val android: Android = Android(),
     val kotlin: Kotlin = Kotlin(),
-    
+
     @SerialName("dependencies") val runtimeDeps: List<String> = listOf(),
     @SerialName("comptime_dependencies") val compileDeps: List<String> = listOf(),
 )

@@ -31,20 +31,20 @@ class DesignerProperty(
     /**
      * @return JSON representation of this designer property.
      * {
-     *  "alwaysSend": "false",
-     *  "defaultValue": "Bar",
-     *  "name": "Foo",
-     *  "editorArgs": ["Bar", "Baz"],
-     *  "editorType": "text"
+     *     "name": "Foo",
+     *     "defaultValue": "Bar",
+     *     "editorType": "text"
+     *     "editorArgs": ["Bar", "Baz"],
+     *     "alwaysSend": "false",
      * }
      */
     override fun asJsonObject(): JSONObject {
         val annotation = element.getAnnotation(DesignerProperty::class.java)
         return JSONObject()
             .put("name", name)
+            .put("defaultValue", annotation.defaultValue)
             .put("editorType", annotation.editorType)
             .put("editorArgs", annotation.editorArgs)
-            .put("defaultValue", annotation.defaultValue)
             .put("alwaysSend", annotation.alwaysSend.toString())
     }
 }
