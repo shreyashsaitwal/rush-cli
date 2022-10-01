@@ -126,11 +126,8 @@ class SyncSubCommand extends RushCommand {
             repositories: config.repositories,
           ),
         ]);
-      } catch (e, s) {
-        _lgr
-          ..dbg(e.toString())
-          ..dbg(s.toString())
-          ..stopTask(false);
+      } catch (_) {
+        _lgr.stopTask(false);
         return 1;
       }
       _lgr.stopTask();
@@ -187,11 +184,8 @@ class SyncSubCommand extends RushCommand {
       final projectDeps = await libService.projectRemoteDepArtifacts();
       _updateIjLibIndex(providedDeps, projectDeps);
       _updateEclipseClasspath(providedDeps, projectDeps);
-    } catch (e, s) {
-      _lgr
-        ..err(e.toString())
-        ..dbg(s.toString())
-        ..stopTask(false);
+    } catch (_) {
+      _lgr.stopTask(false);
       return 1;
     }
     _lgr.stopTask();
@@ -206,18 +200,24 @@ class SyncSubCommand extends RushCommand {
     Iterable<Artifact> devDepArtifacts = const [],
     bool downloadSources = false,
   }) async {
-    _lgr.info('Fetching artifact metadata...');
-
+    _lgr.info('Resolving ${coordinates.values.flattened.length} artifacts...');
     final resolver = ArtifactResolver(repos: repositories.toSet());
 
-    _lgr.dbg('Firing up the resolution process');
-    var resolvedDeps = (await Future.wait([
-      for (final entry in coordinates.entries)
-        for (final coord in entry.value)
-          resolver.resolveArtifact(coord, entry.key),
-    ]))
-        .flattened
-        .toList(growable: true);
+    List<Artifact> resolvedDeps = [];
+    try {
+      resolvedDeps = (await Future.wait([
+        for (final entry in coordinates.entries)
+          for (final coord in entry.value)
+            resolver.resolveArtifact(coord, entry.key),
+      ]))
+          .flattened
+          .toList(growable: true);
+    } catch (e, s) {
+      _lgr
+        ..err(e.toString())
+        ..dbg(s.toString());
+      rethrow;
+    }
 
     final directDeps =
         {for (final entry in coordinates.entries) entry.value}.flattened;
@@ -236,12 +236,15 @@ class SyncSubCommand extends RushCommand {
     // Update the versions of transitive dependencies once the version conflicts
     // are resolved.
     resolvedDeps = resolvedDeps.map((dep) {
-      dep.dependencies = List.of(dep.dependencies).map((el) {
-        final artifact = resolvedDeps.firstWhere((art) =>
-            '${art.groupId}:${art.artifactId}' ==
-            el.split(':').take(2).join(':'));
-        return artifact.coordinate;
-      }).toList();
+      dep.dependencies = List.of(dep.dependencies)
+          .map((el) {
+            final artifact = resolvedDeps.firstWhereOrNull((art) =>
+                '${art.groupId}:${art.artifactId}' ==
+                el.split(':').take(2).join(':'));
+            return artifact?.coordinate;
+          })
+          .whereNotNull()
+          .toList();
       return dep;
     }).toList();
 
@@ -278,9 +281,6 @@ class SyncSubCommand extends RushCommand {
     if (!sameArtifacts.any((el) => el.value.length > 1)) {
       return resolvedArtifacts;
     }
-
-    _lgr.dbg(
-        'Ungrouped: ${resolvedArtifacts.length} -> Grouped: ${sameArtifacts.length}');
 
     final result = <Artifact>[];
     final newCoordsToReResolve = <String, Scope>{};
@@ -435,12 +435,22 @@ class SyncSubCommand extends RushCommand {
     if (newCoordsToReResolve.isNotEmpty) {
       _lgr.dbg(
           'Fetching new resolved versions for ${newCoordsToReResolve.keys.length} coordinates');
-      final newResolved = await Future.wait([
-        for (final entry in newCoordsToReResolve.entries)
-          resolver.resolveArtifact(entry.key, entry.value)
-      ]);
+
+      List<List<Artifact>> resolvedArtifactsNew;
+      try {
+        resolvedArtifactsNew = await Future.wait([
+          for (final entry in newCoordsToReResolve.entries)
+            resolver.resolveArtifact(entry.key, entry.value),
+        ]);
+      } catch (e, s) {
+        _lgr
+          ..err(e.toString())
+          ..dbg(s.toString());
+        rethrow;
+      }
+
       return await _resolveVersionConflicts(
-        [...newResolved.flattened, ...result],
+        [...resolvedArtifactsNew.flattened, ...result],
         directDeps,
         resolver,
         devDepArtifacts,

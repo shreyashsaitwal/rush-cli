@@ -89,11 +89,7 @@ class BuildCommand extends RushCommand {
         );
         await timestampBox.put(configTimestampKey, DateTime.now());
       } catch (e, s) {
-        if (_lgr.debug) {
-          _lgr.err(e.toString());
-          _lgr.err(s.toString());
-        }
-        _lgr.stopTask(false);
+        _catchAndStop(e, s);
         return 1;
       }
     }
@@ -112,15 +108,15 @@ class BuildCommand extends RushCommand {
         config.android?.minSdk ?? 21,
         await _libService.projectRuntimeAars(),
       );
-    } catch (e) {
-      _lgr.stopTask(false);
+    } catch (e, s) {
+      _catchAndStop(e, s);
       return 1;
     }
 
     try {
       await _compile(comptimeDepJars, config, timestampBox);
-    } catch (e) {
-      _lgr.stopTask(false);
+    } catch (e, s) {
+      _catchAndStop(e, s);
       return 1;
     }
     _lgr.stopTask();
@@ -131,9 +127,8 @@ class BuildCommand extends RushCommand {
       BuildUtils.copyAssets(config);
       BuildUtils.copyLicense(config);
       artJarPath = await _createArtJar(config, runtimeDepJars);
-    } catch (e) {
-      _lgr.err(e.toString());
-      _lgr.stopTask(false);
+    } catch (e, s) {
+      _catchAndStop(e, s);
       return 1;
     }
     _lgr.stopTask();
@@ -144,10 +139,7 @@ class BuildCommand extends RushCommand {
         await Executor.execDesugarer(
             await _libService.desugarJar(), artJarPath, comptimeDepJars);
       } catch (e, s) {
-        _lgr
-          ..dbg(e.toString())
-          ..dbg(s.toString())
-          ..stopTask(false);
+        _catchAndStop(e, s);
         return 1;
       }
       _lgr.stopTask();
@@ -159,8 +151,8 @@ class BuildCommand extends RushCommand {
         final pgClasspath =
             (await _libService.pgJars()).join(BuildUtils.cpSeparator);
         await Executor.execProGuard(artJarPath, comptimeDepJars, pgClasspath);
-      } catch (e) {
-        _lgr.stopTask(false);
+      } catch (e, s) {
+        _catchAndStop(e, s);
         return 1;
       }
       _lgr.stopTask();
@@ -169,8 +161,8 @@ class BuildCommand extends RushCommand {
     _lgr.startTask('Generating DEX bytecode');
     try {
       await Executor.execD8(artJarPath, await _libService.r8Jar());
-    } catch (e) {
-      _lgr.stopTask(false);
+    } catch (e, s) {
+      _catchAndStop(e, s);
       return 1;
     }
     _lgr.stopTask();
@@ -178,12 +170,21 @@ class BuildCommand extends RushCommand {
     _lgr.startTask('Packaging the extension');
     try {
       await _assemble();
-    } catch (e) {
-      _lgr.stopTask(false);
+    } catch (e, s) {
+      _catchAndStop(e, s);
       return 1;
     }
     _lgr.stopTask();
     return 0;
+  }
+
+  void _catchAndStop(Object e, StackTrace s) {
+    if (e.toString().isNotEmpty) {
+      _lgr.err(e.toString());
+    }
+    _lgr
+      ..dbg(s.toString())
+      ..stopTask(false);
   }
 
   Future<void> _mergeManifests(

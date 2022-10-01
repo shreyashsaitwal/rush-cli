@@ -39,8 +39,8 @@ class Logger {
   }
 
   final _warnRegex = RegExp('(warning:? ){1,2}', caseSensitive: false);
-  final _errRegex =
-      RegExp('((error:? )|(exception:? )){1,2}', caseSensitive: false);
+  final _errRegex = RegExp('(error:? ){1,2}', caseSensitive: false);
+  final _exceptionRegex = RegExp('(exception:? )', caseSensitive: false);
   final _dbgRegex = RegExp('((note:? )|(debug:? )){1,2}', caseSensitive: false);
   final _infoRegex = RegExp('(info:? ){1,2}', caseSensitive: false);
 
@@ -59,6 +59,9 @@ class Logger {
       } else if (_errRegex.hasMatch(el)) {
         prefix = 'error '.red();
         msg = el.replaceFirst(_errRegex, '');
+      } else if (_exceptionRegex.hasMatch(el)) {
+        prefix = 'error '.red();
+        msg = el;
       } else if (_infoRegex.hasMatch(el)) {
         prefix = 'info  '.cyan();
         msg = el.replaceFirst(_infoRegex, '');

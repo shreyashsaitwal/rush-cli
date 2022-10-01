@@ -92,7 +92,7 @@ class Executor {
   static Future<void> execDesugarer(
       String desugarJar, String artJarPath, Set<String> comptimeDepJars) async {
     final outputJar = p
-        .join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.desugared.jar')
+        .join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.dsgr.jar')
         .asFile();
 
     final bootclasspath = await () async {
@@ -105,8 +105,9 @@ class Executor {
         javaExe = res.stdout.toString().trim();
       }
 
-      final forJdk8AndBelow =
-          p.join(p.dirname(p.dirname(javaExe)), 'jre', 'lib', 'rt.jar').asFile();
+      final forJdk8AndBelow = p
+          .join(p.dirname(p.dirname(javaExe)), 'jre', 'lib', 'rt.jar')
+          .asFile();
       if (forJdk8AndBelow.existsSync()) {
         return forJdk8AndBelow;
       }
@@ -128,7 +129,7 @@ class Executor {
         p.join(_fs.buildFilesDir.path, 'desugar.args').asFile(true);
     await argsFile.writeAsString(desugarerArgs.join('\n'));
 
-    final tempDir = Directory(p.join(_fs.buildFilesDir.path)).createTempSync();
+    final tempDir = p.join(_fs.buildFilesDir.path).asDir().createTempSync();
     final args = <String>[
       // Required on JDK 11 (>11.0.9.1)
       // https://github.com/bazelbuild/bazel/commit/cecb3f1650d642dc626d6f418282bd802c29f6d7
@@ -140,7 +141,7 @@ class Executor {
 
     try {
       await processRunner.runExecutable('java', args);
-    } catch (e) {
+    } catch (_) {
       rethrow;
     } finally {
       tempDir.deleteSync(recursive: true);
