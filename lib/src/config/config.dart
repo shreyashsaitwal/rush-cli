@@ -58,12 +58,13 @@ class Config {
   factory Config._fromJson(Map json) => _$ConfigFromJson(json);
 
   static Future<Config?> load(File configFile, Logger lgr) async {
-    lgr.dbg('Loading config from ${configFile.path}');
-    try {
-      return checkedYamlDecode(
-          await configFile.readAsString(), (json) => Config._fromJson(json!));
-    } catch (e) {
-      lgr.err(e.toString());
+    if (configFile.existsSync()) {
+      try {
+        return checkedYamlDecode(
+            await configFile.readAsString(), (json) => Config._fromJson(json!));
+      } catch (e) {
+        lgr.err(e.toString());
+      }
     }
     return null;
   }

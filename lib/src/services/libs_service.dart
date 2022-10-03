@@ -32,21 +32,32 @@ class LibService {
     _lgr.dbg('Initializing Hive in ${_fs.rushHomeDir.path}/cache');
     Hive
       ..init(p.join(_fs.rushHomeDir.path, 'cache'))
-      ..init(_fs.dotRushDir.path)
       ..registerAdapter(ArtifactAdapter())
       ..registerAdapter(ScopeAdapter());
+
+    // Don't init Hive in .rush dir if we're not in a rush project
+    if (_fs.configFile.existsSync()) {
+      Hive.init(_fs.dotRushDir.path);
+    }
   }
 
   static Future<LibService> instantiate() async {
-    _lgr.dbg('Instantiating LibService');
     final instance = LibService._();
-    instance.devDepsBox = await Hive.openLazyBox<Artifact>(devDepBoxName,
-        path: p.join(_fs.rushHomeDir.path, 'cache'));
-    instance.buildLibsBox = await Hive.openLazyBox<Artifact>(buildLibsBoxName,
-        path: p.join(_fs.rushHomeDir.path, 'cache'));
-    instance.projectDepsBox = await Hive.openLazyBox<Artifact>(
+    instance.devDepsBox = await Hive.openLazyBox<Artifact>(
+      devDepBoxName,
+      path: p.join(_fs.rushHomeDir.path, 'cache'),
+    );
+    instance.buildLibsBox = await Hive.openLazyBox<Artifact>(
+      buildLibsBoxName,
+      path: p.join(_fs.rushHomeDir.path, 'cache'),
+    );
+
+    if (_fs.configFile.existsSync()) {
+      instance.projectDepsBox = await Hive.openLazyBox<Artifact>(
         projectDepsBoxName,
-        path: _fs.dotRushDir.path);
+        path: _fs.dotRushDir.path,
+      );
+    }
     return instance;
   }
 

@@ -114,7 +114,7 @@ class UpgradeCommand extends RushCommand {
     final successMsg = '''
 
 ${'Success'.green()}! Rush $latestVersion has been installed. 🎉
-Now, run ${'`rush deps sync --only-dev`'.blue()} to re-sync dev dependencies.
+Now, run ${'`rush deps sync --dev-deps`'.blue()} to re-sync dev-dependencies.
 
 Check out the changelog for this release at: ${release.htmlUrl}
 ''';

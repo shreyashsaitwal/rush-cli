@@ -53,10 +53,8 @@ class FileService {
   File get configFile {
     if (p.join(cwd, 'rush.yml').asFile().existsSync()) {
       return p.join(cwd, 'rush.yml').asFile();
-    } else if (p.join(cwd, 'rush.yaml').asFile().existsSync()) {
-      return p.join(cwd, 'rush.yaml').asFile();
     } else {
-      throw Exception('Config file rush.yaml not found');
+      return p.join(cwd, 'rush.yaml').asFile();
     }
   }
 

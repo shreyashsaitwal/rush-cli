@@ -82,7 +82,6 @@ class BuildCommand extends RushCommand {
         await SyncSubCommand().sync(
           libCacheBox: _libService.projectDepsBox,
           coordinates: remoteDeps,
-          timestampBox: timestampBox,
           devDepArtifacts: await _libService.providedDepArtifacts(),
           repositories: config.repositories,
           downloadSources: true,

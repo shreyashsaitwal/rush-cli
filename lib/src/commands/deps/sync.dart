@@ -44,8 +44,15 @@ class SyncSubCommand extends RushCommand {
   final _fs = GetIt.I<FileService>();
   final _lgr = GetIt.I<Logger>();
 
+  SyncSubCommand() {
+    argParser
+      ..addFlag('dev-deps', abbr: 'd', help: 'Syncs only the dev-dependencies.')
+      ..addFlag('project-deps',
+          abbr: 'p', help: 'Syncs only the project dependencies.');
+  }
+
   @override
-  String get description => 'Resolves and downloads project dependencies.';
+  String get description => 'Syncs dev and project dependencies.';
 
   @override
   String get name => 'sync';
@@ -54,22 +61,18 @@ class SyncSubCommand extends RushCommand {
   Future<int> run() async {
     _lgr.startTask('Initializing');
 
-    _lgr.dbg('Waiting for lib service...');
+    final onlyDev = argResults!['dev-deps'] as bool;
+    final onlyProject = argResults!['project-deps'] as bool;
+
+    final config = await Config.load(_fs.configFile, _lgr);
+    if (config == null && !onlyDev) {
+      _lgr.warn('Not in a Rush project, only dev-dependencies will be synced.');
+    }
+
     await GetIt.I.isReady<LibService>();
     final libService = GetIt.I<LibService>();
 
-    Hive.init(_fs.dotRushDir.path);
-    final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
-    final projectDepsBox = await Hive.openLazyBox<Artifact>(projectDepsBoxName);
-
-    final config = await Config.load(_fs.configFile, _lgr);
-    if (config == null) {
-      _lgr.stopTask(false);
-      return 1;
-    }
-    _lgr.stopTask();
-
-    final ktVersion = config.kotlin?.compilerVersion ?? defaultKtVersion;
+    final ktVersion = config?.kotlin?.compilerVersion ?? defaultKtVersion;
     final toolsCoord = _buildToolCoords +
         [
           '$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
@@ -108,22 +111,22 @@ class SyncSubCommand extends RushCommand {
           .map((el) => el.coordinate),
     );
 
-    if (providedDepsToFetch.isNotEmpty || toolsToFetch.isNotEmpty) {
+    // Stop the init task
+    _lgr.stopTask();
+
+    if (!onlyProject &&
+        (providedDepsToFetch.isNotEmpty || toolsToFetch.isNotEmpty)) {
       _lgr.startTask('Syncing dev-dependencies');
       try {
         await Future.wait([
           sync(
             libCacheBox: libService.devDepsBox,
-            timestampBox: timestampBox,
             coordinates: {Scope.compile: providedDepsToFetch},
-            repositories: config.repositories,
             downloadSources: true,
           ),
           sync(
             libCacheBox: libService.buildLibsBox,
-            timestampBox: timestampBox,
             coordinates: {Scope.runtime: toolsToFetch},
-            repositories: config.repositories,
           ),
         ]);
       } catch (_) {
@@ -131,11 +134,20 @@ class SyncSubCommand extends RushCommand {
         return 1;
       }
       _lgr.stopTask();
-    } else {
+    } else if (!onlyProject) {
       _lgr
         ..startTask('Syncing dev-dependencies')
         ..stopTask();
     }
+
+    // Exit if this is not a Rush project.
+    if (config == null || onlyDev) {
+      return 0;
+    }
+
+    Hive.init(_fs.dotRushDir.path);
+    final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
+    final projectDepsBox = await Hive.openLazyBox<Artifact>(projectDepsBoxName);
 
     // Re-fetch deps if they are outdated, ie, if the config file is modified
     // or if the dep artifacts are missing
@@ -160,7 +172,6 @@ class SyncSubCommand extends RushCommand {
       try {
         await sync(
           libCacheBox: projectDepsBox,
-          timestampBox: timestampBox,
           coordinates: projectDepCoords,
           repositories: config.repositories,
           devDepArtifacts: await libService.providedDepArtifacts(),
@@ -194,9 +205,8 @@ class SyncSubCommand extends RushCommand {
 
   Future<List<Artifact>> sync({
     required LazyBox<Artifact> libCacheBox,
-    required LazyBox<DateTime> timestampBox,
     required Map<Scope, Iterable<String>> coordinates,
-    required Iterable<String> repositories,
+    Iterable<String> repositories = const [],
     Iterable<Artifact> devDepArtifacts = const [],
     bool downloadSources = false,
   }) async {
