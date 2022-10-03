@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/src/commands/build/utils.dart';
 import 'package:rush_cli/src/commands/create/templates/eclipse_files.dart';
 import 'package:rush_cli/src/commands/create/templates/intellij_files.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
@@ -273,7 +274,20 @@ class SyncSubCommand extends RushCommand {
     }
 
     resolver.closeHttpClient();
+    _extractAars(
+      resolvedDeps.where((el) => el.artifactFile.endsWith('.aar')),
+    );
     return resolvedDeps;
+  }
+
+  void _extractAars(Iterable<Artifact> aars) {
+    for (final aar in aars) {
+      final artifact = aar.artifactFile;
+      final dist = p
+          .join(p.dirname(artifact), p.basenameWithoutExtension(artifact))
+          .asDir(true);
+      BuildUtils.unzip(artifact, dist.path);
+    }
   }
 
   Future<Iterable<Artifact>> _resolveVersionConflicts(

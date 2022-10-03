@@ -77,11 +77,6 @@ class Artifact {
               p.dirname(artifactFile), p.basenameWithoutExtension(artifactFile))
           .asDir(true);
       final jar = p.join(baseDir.path, 'classes.jar').asFile();
-      if (jar.existsSync()) {
-        return jar.path;
-      }
-
-      BuildUtils.unzip(artifactFile, baseDir.path);
       return jar.path;
     }
 
