@@ -2,16 +2,13 @@ import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
-import 'package:get_it/get_it.dart';
 import 'package:github/github.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import 'package:rush_cli/src/resolver/artifact.dart';
 import 'package:rush_cli/src/resolver/pom.dart';
-import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
-import 'package:tint/tint.dart';
 import 'package:xml2json/xml2json.dart';
 
 class ArtifactMetadata {
@@ -108,7 +105,8 @@ class ArtifactResolver {
       }
     }();
 
-    final requiredChecksum = checksumFile.readAsStringSync().trim();
+    final requiredChecksum =
+        checksumFile.readAsStringSync().trim().split(RegExp(r'\s+')).first;
     return fileChecksum.toString() == requiredChecksum;
   }
 
