@@ -5,42 +5,35 @@ import 'package:path/path.dart' as p;
 import 'package:collection/collection.dart';
 import 'package:xrange/xrange.dart';
 
-import '../utils/file_extension.dart';
-import '../commands/build/utils.dart';
+import 'package:rush_cli/src/utils/file_extension.dart';
+import 'package:rush_cli/src/commands/build/utils.dart';
 
 part 'artifact.g.dart';
 
 @HiveType(typeId: 1)
 enum Scope {
   @HiveField(0)
-  compile,
+  compile('compile'),
+  
   @HiveField(1)
-  runtime,
+  runtime('runtime'),
 
   /// We don't handle dependencies with the below scopes.
-  provided,
-  test,
-  system,
-  import,
+  provided('provided'),
+  test('test'),
+  system('system'),
+  import('import');
+
+  final String _name;
+  const Scope(this._name);
+
+  @override
+  String toString() => _name;
 }
 
 extension ScopeExtension on String {
   Scope toScope() {
-    if (this == 'compile') {
-      return Scope.compile;
-    } else if (this == 'runtime') {
-      return Scope.runtime;
-    } else if (this == 'provided') {
-      return Scope.provided;
-    } else if (this == 'test') {
-      return Scope.test;
-    } else if (this == 'system') {
-      return Scope.system;
-    } else if (this == 'import') {
-      return Scope.import;
-    } else {
-      throw Exception('Unknown scope: $this');
-    }
+    return Scope.values.singleWhere((el) => el.toString() == this);
   }
 }
 

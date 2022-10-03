@@ -53,8 +53,11 @@ class ArtifactMetadata {
 class ArtifactResolver {
   var _mvnRepos = <String>{
     'https://repo1.maven.org/maven2',
-    'https://repo.maven.apache.org/maven2',
     'https://dl.google.com/dl/android/maven2',
+    'https://repo.maven.apache.org/maven2',
+    // com.github.PhilJay:MPAndroidChart:v3.1.0 (transitive dep of ai2-runtime)
+    // is hosted on JitPack.
+    'https://jitpack.io',
     // JCenter is deprecated but one of the AI2 provided dep, org.webrtc.google-webrtc.1.0.23995,
     // is hosted there, so, we add it.
     'https://jcenter.bintray.com',

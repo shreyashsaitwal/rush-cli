@@ -20,16 +20,7 @@ import 'package:rush_cli/src/utils/constants.dart';
 
 const _providedDepsCoords = <String>[
   'io.github.shreyashsaitwal.rush:annotations:$annotationProcVersion',
-  'androidx.appcompat:appcompat:1.0.0',
-  'ch.acra:acra:4.9.0',
-  'org.locationtech.jts:jts-core:1.16.1',
-  'org.osmdroid:osmdroid-android:6.1.0',
-  'redis.clients:jedis:3.1.0',
-  'com.caverock:androidsvg:1.2.1',
-  'com.firebase:firebase-client-android:2.5.2',
-  'com.google.api-client:google-api-client:1.31.1',
-  'com.google.api-client:google-api-client-android2:1.10.3-beta',
-  'org.webrtc:google-webrtc:1.0.23995',
+  'io.github.shreyashsaitwal.rush:runtime:$ai2RuntimeVersion',
 ];
 
 const _buildToolCoords = [
@@ -148,7 +139,7 @@ class SyncSubCommand extends RushCommand {
     }
 
     // Exit if this is not a Rush project.
-    if (config == null || onlyDev) {
+    if (config == null) {
       return 0;
     }
 
@@ -166,7 +157,7 @@ class SyncSubCommand extends RushCommand {
             !el.artifactFile.endsWith('.pom') &&
             !el.artifactFile.asFile().existsSync());
 
-    if (configFileModified || isAnyDepMissing || useForce) {
+    if (!onlyDev && (configFileModified || isAnyDepMissing || useForce)) {
       _lgr.startTask('Syncing project dependencies');
 
       final projectDepCoords = {

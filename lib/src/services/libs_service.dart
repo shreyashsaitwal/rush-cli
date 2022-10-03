@@ -2,9 +2,9 @@ import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:collection/collection.dart';
+
 import 'package:rush_cli/src/commands/build/utils.dart';
 import 'package:rush_cli/src/config/config.dart';
-
 import 'package:rush_cli/src/resolver/artifact.dart';
 import 'package:rush_cli/src/services/file_service.dart';
 import 'package:rush_cli/src/services/logger.dart';
@@ -68,14 +68,6 @@ class LibService {
   Future<List<Artifact>> providedDepArtifacts() async {
     return [
       for (final key in devDepsBox.keys) (await devDepsBox.get(key))!,
-      Artifact(
-        coordinate: '',
-        scope: Scope.compile,
-        artifactFile: p.join(_fs.libsDir.path, 'runtime.jar'),
-        sourcesJar: null,
-        dependencies: [],
-        packaging: 'jar',
-      ),
       Artifact(
         coordinate: '',
         scope: Scope.compile,
