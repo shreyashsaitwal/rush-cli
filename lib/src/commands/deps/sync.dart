@@ -48,7 +48,11 @@ class SyncSubCommand extends RushCommand {
     argParser
       ..addFlag('dev-deps', abbr: 'd', help: 'Syncs only the dev-dependencies.')
       ..addFlag('project-deps',
-          abbr: 'p', help: 'Syncs only the project dependencies.');
+          abbr: 'p', help: 'Syncs only the project dependencies.')
+      ..addFlag('force',
+          abbr: 'f',
+          help:
+              'Forcefully syncs all the dependencies even if they are up-to-date.');
   }
 
   @override
@@ -63,6 +67,7 @@ class SyncSubCommand extends RushCommand {
 
     final onlyDev = argResults!['dev-deps'] as bool;
     final onlyProject = argResults!['project-deps'] as bool;
+    final useForce = argResults!['force'] as bool;
 
     final config = await Config.load(_fs.configFile, _lgr);
     if (config == null && !onlyDev) {
@@ -88,12 +93,14 @@ class SyncSubCommand extends RushCommand {
 
     // Add every un-cached dev dep to fetch list.
     for (final coord in _providedDepsCoords) {
-      if (providedDepsFromCache.none((el) => el.coordinate == coord)) {
+      if (useForce ||
+          providedDepsFromCache.none((el) => el.coordinate == coord)) {
         providedDepsToFetch.add(coord);
       }
     }
     for (final coord in toolsCoord) {
-      if (buildToolsFromCache.none((el) => el.coordinate == coord)) {
+      if (useForce ||
+          buildToolsFromCache.none((el) => el.coordinate == coord)) {
         toolsToFetch.add(coord);
       }
     }
@@ -102,12 +109,12 @@ class SyncSubCommand extends RushCommand {
     // the said dev was deleted or the local Maven repo location was changed.
     providedDepsToFetch.addAll(
       providedDepsFromCache
-          .where((el) => !el.artifactFile.asFile().existsSync())
+          .where((el) => useForce || !el.artifactFile.asFile().existsSync())
           .map((el) => el.coordinate),
     );
     toolsToFetch.addAll(
       buildToolsFromCache
-          .where((el) => !el.artifactFile.asFile().existsSync())
+          .where((el) => useForce || !el.artifactFile.asFile().existsSync())
           .map((el) => el.coordinate),
     );
 
@@ -159,7 +166,7 @@ class SyncSubCommand extends RushCommand {
             !el.artifactFile.endsWith('.pom') &&
             !el.artifactFile.asFile().existsSync());
 
-    if (configFileModified || isAnyDepMissing) {
+    if (configFileModified || isAnyDepMissing || useForce) {
       _lgr.startTask('Syncing project dependencies');
 
       final projectDepCoords = {
