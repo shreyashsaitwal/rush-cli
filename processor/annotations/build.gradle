@@ -1,5 +1,5 @@
-dependencies {
-    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.7.10'
+plugins {
+    id 'java-library'
 }
 
 publishing {
@@ -9,6 +9,17 @@ publishing {
             pom {
                 name = 'Rush Annotations'
                 description = 'A superset of MIT AI2 component annotations for extensions built with Rush.'
+
+                developers {
+                    developer {
+                        id = 'mit-appinventor-contributors'
+                        name = 'MIT App Inventor Contributors'
+                    }
+                    developer {
+                        id = 'shreyashsaitwal'
+                        name = 'Shreyash Saitwal'
+                    }
+                }
             }
         }
     }

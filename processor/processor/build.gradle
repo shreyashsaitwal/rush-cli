@@ -1,6 +1,22 @@
 plugins {
+    id 'org.jetbrains.kotlin.jvm' version '1.7.10'
     id 'org.jetbrains.kotlin.plugin.serialization' version '1.7.10'
     id 'com.github.johnrengelman.shadow' version '7.1.2'
+}
+
+compileKotlin {
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_1_8
+    }
+}
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
+repositories {
+    mavenCentral()
 }
 
 dependencies {
@@ -33,6 +49,13 @@ publishing {
             pom {
                 name = 'Rush Annotation Processor'
                 description = 'Annotation processor for extensions built with Rush.'
+
+                developers {
+                    developer {
+                        id = 'shreyashsaitwal'
+                        name = 'Shreyash Saitwal'
+                    }
+                }
             }
         }
     }

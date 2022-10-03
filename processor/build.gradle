@@ -1,32 +1,9 @@
-plugins {
-    id 'org.jetbrains.kotlin.jvm' version '1.7.10'
-}
-
-allprojects {
-    apply plugin: 'org.jetbrains.kotlin.jvm'
-
-    repositories {
-        mavenCentral()
-    }
-
-    group = 'io.github.shreyashsaitwal.rush'
-    version = '2.0.0-beta08'
-
-    compileKotlin {
-        kotlinOptions {
-            jvmTarget = JavaVersion.VERSION_1_8
-        }
-    }
-}
-
 subprojects {
     apply plugin: 'maven-publish'
     apply plugin: 'signing'
 
-    java {
-        withSourcesJar()
-        withJavadocJar()
-    }
+    group = 'io.github.shreyashsaitwal.rush'
+    version = '2.0.0-beta08'
 
     publishing {
         repositories {
@@ -48,12 +25,6 @@ subprojects {
                         license {
                             name = 'GPL-3.0'
                             url = 'https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/LICENSE'
-                        }
-                    }
-                    developers {
-                        developer {
-                            id = 'shreyashsaitwal'
-                            name = 'Shreyash Saitwal'
                         }
                     }
                     scm {
