@@ -1,4 +1,4 @@
-const devDepBoxName = 'dev-deps';
+const providedDepsBoxName = 'provided-deps';
 const buildLibsBoxName = 'build-libs';
 
 const timestampBoxName = 'timestamps';

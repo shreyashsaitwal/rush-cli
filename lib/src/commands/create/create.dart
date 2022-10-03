@@ -110,8 +110,8 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
     await GetIt.I.isReady<LibService>();
     final libService = GetIt.I<LibService>();
 
-    final devDepJars = await libService.providedDepJars();
-    final devDepSources = (await libService.providedDepArtifacts()).map((dep) {
+    final providedDepJars = await libService.providedDepJars();
+    final providedDepSources = (await libService.providedDepArtifacts()).map((dep) {
       if (dep.sourcesJar != null) {
         return dep.sourcesJar!;
       }
@@ -141,16 +141,16 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
       if (editor == 0 || editor == 2) ...{
         p.join(ideaDir, 'misc.xml'): ijMiscXml,
         p.join(ideaDir, 'libraries', 'local-deps.xml'): ijLocalDepsXml,
-        p.join(ideaDir, 'libraries', 'dev-deps.xml'):
-            ijDevDepsXml(devDepJars, devDepSources),
+        p.join(ideaDir, 'libraries', 'provided-deps.xml'):
+            ijProvidedDepsXml(providedDepJars, providedDepSources),
         p.join(ideaDir, '$kebabCasedName.iml'):
-            ijImlXml(['dev-deps', 'local-deps']),
+            ijImlXml(['provided-deps', 'local-deps']),
         p.join(ideaDir, 'modules.xml'): ijModulesXml(kebabCasedName),
       },
       // Eclipse files
       if (editor == 1 || editor == 2) ...{
         p.join(projectDir, '.project'): dotProject(kebabCasedName),
-        p.join(projectDir, '.classpath'): dotClasspath(devDepJars, []),
+        p.join(projectDir, '.classpath'): dotClasspath(providedDepJars, []),
       },
     };
 

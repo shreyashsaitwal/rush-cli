@@ -42,7 +42,7 @@ String ijModulesXml(String name) {
 ''';
 }
 
-String ijDevDepsXml(
+String ijProvidedDepsXml(
     Iterable<String> classesJars, Iterable<String> sourcesJars) {
   final classes =
       classesJars.map((el) => '      <root url="jar://$el!/"/>').join('\n');
@@ -51,7 +51,7 @@ String ijDevDepsXml(
 
   return '''
 <component name="libraryTable">
-  <library name="dev-deps">
+  <library name="provided-deps">
     <CLASSES>
 $classes
     </CLASSES>

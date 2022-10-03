@@ -119,7 +119,7 @@ class SyncSubCommand extends RushCommand {
       try {
         await Future.wait([
           sync(
-            libCacheBox: libService.devDepsBox,
+            libCacheBox: libService.providedDepsBox,
             coordinates: {Scope.compile: providedDepsToFetch},
             downloadSources: true,
           ),
@@ -173,7 +173,7 @@ class SyncSubCommand extends RushCommand {
           libCacheBox: projectDepsBox,
           coordinates: projectDepCoords,
           repositories: config.repositories,
-          devDepArtifacts: await libService.providedDepArtifacts(),
+          providedDepArtifacts: await libService.providedDepArtifacts(),
           downloadSources: true,
         );
         await timestampBox.put(configTimestampKey, DateTime.now());
@@ -206,7 +206,7 @@ class SyncSubCommand extends RushCommand {
     required LazyBox<Artifact> libCacheBox,
     required Map<Scope, Iterable<String>> coordinates,
     Iterable<String> repositories = const [],
-    Iterable<Artifact> devDepArtifacts = const [],
+    Iterable<Artifact> providedDepArtifacts = const [],
     bool downloadSources = false,
   }) async {
     _lgr.info('Resolving ${coordinates.values.flattened.length} artifacts...');
@@ -235,7 +235,7 @@ class SyncSubCommand extends RushCommand {
       // Resolve version comflicts
       _lgr.info('Resolving version conflicts...');
       resolvedDeps = (await _resolveVersionConflicts(
-              resolvedDeps, directDeps, resolver, devDepArtifacts))
+              resolvedDeps, directDeps, resolver, providedDepArtifacts))
           .toList(growable: true);
     } catch (e) {
       resolver.closeHttpClient();
@@ -294,7 +294,7 @@ class SyncSubCommand extends RushCommand {
     Iterable<Artifact> resolvedArtifacts,
     Iterable<String> directDeps,
     ArtifactResolver resolver,
-    Iterable<Artifact> devDepArtifacts,
+    Iterable<Artifact> providedDepArtifacts,
   ) async {
     final sameArtifacts = resolvedArtifacts
         .groupListsBy((el) => '${el.groupId}:${el.artifactId}')
@@ -313,7 +313,7 @@ class SyncSubCommand extends RushCommand {
           entry.value.where((el) => el.version.range != null).toSet();
 
       final providedAlternative =
-          await _providedAlternative(entry.key, devDepArtifacts);
+          await _providedAlternative(entry.key, providedDepArtifacts);
       final scope = entry.value.any((el) => el.scope == Scope.runtime)
           ? Scope.runtime
           : Scope.compile;
@@ -475,7 +475,7 @@ class SyncSubCommand extends RushCommand {
         [...resolvedArtifactsNew.flattened, ...result],
         directDeps,
         resolver,
-        devDepArtifacts,
+        providedDepArtifacts,
       );
     }
 
@@ -483,8 +483,8 @@ class SyncSubCommand extends RushCommand {
   }
 
   Future<Artifact?> _providedAlternative(
-      String artifactIdent, Iterable<Artifact> devDeps) async {
-    for (final val in devDeps) {
+      String artifactIdent, Iterable<Artifact> providedDepArtifacts) async {
+    for (final val in providedDepArtifacts) {
       if (val.coordinate.startsWith(artifactIdent)) {
         return val;
       }
@@ -531,10 +531,10 @@ class SyncSubCommand extends RushCommand {
       return;
     }
 
-    final devDepsLibXml =
-        p.join(_fs.cwd, '.idea', 'libraries', 'dev-deps.xml').asFile(true);
-    devDepsLibXml.writeAsStringSync(
-      ijDevDepsXml(
+    final providedDepsLibXml =
+        p.join(_fs.cwd, '.idea', 'libraries', 'provided-deps.xml').asFile(true);
+    providedDepsLibXml.writeAsStringSync(
+      ijProvidedDepsXml(
         providedDeps.map((el) => el.classesJar).whereNotNull(),
         providedDeps
             .whereNot((element) => element.sourcesJar == null)
@@ -542,7 +542,7 @@ class SyncSubCommand extends RushCommand {
       ),
     );
 
-    final libNames = <String>['deps', 'dev-deps'];
+    final libNames = <String>['deps', 'provided-deps'];
     for (final lib in projectDeps) {
       final fileName = lib.coordinate.replaceAll(RegExp(r'(:|\.)'), '_');
       final xml =

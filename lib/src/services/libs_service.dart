@@ -44,8 +44,8 @@ class LibService {
 
   static Future<LibService> instantiate() async {
     final instance = LibService._();
-    instance.devDepsBox = await Hive.openLazyBox<Artifact>(
-      devDepBoxName,
+    instance.providedDepsBox = await Hive.openLazyBox<Artifact>(
+      providedDepsBoxName,
       path: p.join(_fs.rushHomeDir.path, 'cache'),
     );
     instance.buildLibsBox = await Hive.openLazyBox<Artifact>(
@@ -62,13 +62,13 @@ class LibService {
     return instance;
   }
 
-  late final LazyBox<Artifact> devDepsBox;
+  late final LazyBox<Artifact> providedDepsBox;
   late final LazyBox<Artifact> buildLibsBox;
   late final LazyBox<Artifact> projectDepsBox;
 
   Future<List<Artifact>> providedDepArtifacts() async {
     return [
-      for (final key in devDepsBox.keys) (await devDepsBox.get(key))!,
+      for (final key in providedDepsBox.keys) (await providedDepsBox.get(key))!,
       Artifact(
         coordinate: '',
         scope: Scope.compile,
