@@ -14,7 +14,6 @@ import javax.lang.model.element.TypeElement
 import javax.lang.model.type.DeclaredType
 import javax.lang.model.type.MirroredTypeException
 import javax.lang.model.type.TypeKind
-import javax.lang.model.type.TypeMirror
 
 /**
  * Possible types of helper blocks.
@@ -192,7 +191,7 @@ class OptionListData(private val element: Element) : HelperData() {
 
     private lateinit var underlyingType: String
 
-    private val elementType: TypeMirror = if (element is ExecutableElement) {
+    private val elementType = if (element is ExecutableElement) {
         element.returnType
     } else {
         element.asType()
@@ -239,11 +238,12 @@ class OptionListData(private val element: Element) : HelperData() {
 
     override fun asJsonObject(): JSONObject {
         val enumName = elementType.toString().split(".").last()
+        val opts = options()
         return JSONObject()
             .put("className", elementType.toString())
             .put("underlyingType", underlyingType)
             .put("defaultOpt", defaultOption)
-            .put("options", options())
+            .put("options", opts)
             .put("key", enumName)
             .put("tag", enumName)
     }
