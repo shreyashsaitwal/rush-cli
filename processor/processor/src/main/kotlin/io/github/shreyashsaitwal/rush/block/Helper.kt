@@ -61,8 +61,8 @@ enum class HelperType {
  * https://community.appinventor.mit.edu/t/what-is-your-opinion-about-helper-blocks-in-app-inventor-gsoc-project-user-feedback/9057
  */
 data class Helper(
-    val type: HelperType,
-    val data: HelperData,
+    private val type: HelperType,
+    private val data: HelperData,
 ) {
     fun asJsonObject(): JSONObject {
         return JSONObject()
@@ -131,7 +131,7 @@ abstract class HelperData {
     abstract fun asJsonObject(): JSONObject
 }
 
-class AssetData(private val fileExtensions: Array<String> = arrayOf()) : HelperData() {
+private class AssetData(private val fileExtensions: Array<String> = arrayOf()) : HelperData() {
     override fun asJsonObject(): JSONObject {
         return if (fileExtensions.isEmpty())
             JSONObject()
@@ -171,7 +171,7 @@ private object HelperSingleton {
     }
 }
 
-class OptionListData(private val element: Element) : HelperData() {
+private class OptionListData(private val element: Element) : HelperData() {
 
     data class Option(
         val deprecated: Boolean,

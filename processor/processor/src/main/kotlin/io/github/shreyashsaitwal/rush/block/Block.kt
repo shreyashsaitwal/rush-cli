@@ -70,7 +70,7 @@ abstract class ParameterizedBlock(element: ExecutableElement) : Block(element) {
         fun asJsonObject(): JSONObject = JSONObject()
             .put("name", name)
             .put("type", type)
-            .put("helper", helper?.data?.asJsonObject())
+            .put("helper", helper?.asJsonObject())
     }
 
     /**
