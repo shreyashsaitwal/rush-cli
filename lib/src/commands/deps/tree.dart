@@ -30,7 +30,7 @@ class TreeSubCommand extends RushCommand {
 
     await GetIt.I.isReady<LibService>();
 
-    final remoteDeps = await GetIt.I<LibService>().projectRemoteDepArtifacts();
+    final remoteDeps = await GetIt.I<LibService>().projectDepArtifacts();
     final directDeps = remoteDeps
         .where((el) =>
             config.runtimeDeps.contains(el.coordinate) ||

@@ -30,6 +30,21 @@ class BuildUtils {
     }
   }
 
+  static void extractAars(Iterable<String> aars) {
+    for (final aar in aars) {
+      final String dist;
+      
+      // Extract local AARs in .rush/build/extracted-aars dir, whereas remote AARs
+      // in their original location under {aar_basename} dir.
+      if (p.isWithin(_fs.localDepsDir.path, aar)) {
+        dist = p.join(_fs.buildAarsDir.path, p.basenameWithoutExtension(aar));
+      } else {
+        dist = p.join(p.dirname(aar), p.basenameWithoutExtension(aar));
+      }
+      BuildUtils.unzip(aar, dist);
+    }
+  }
+
   /// Classpath string separator.
   static String get cpSeparator => Platform.isWindows ? ';' : ':';
 

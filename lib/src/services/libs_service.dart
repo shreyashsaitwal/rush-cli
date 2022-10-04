@@ -4,12 +4,10 @@ import 'package:path/path.dart' as p;
 import 'package:collection/collection.dart';
 
 import 'package:rush_cli/src/commands/build/utils.dart';
-import 'package:rush_cli/src/config/config.dart';
 import 'package:rush_cli/src/resolver/artifact.dart';
 import 'package:rush_cli/src/services/file_service.dart';
 import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/constants.dart';
-import 'package:rush_cli/src/utils/file_extension.dart';
 
 const rushApCoord =
     'io.github.shreyashsaitwal.rush:processor:$annotationProcVersion';
@@ -32,7 +30,6 @@ class LibService {
   LibService._() {
     _lgr.dbg('Initializing Hive in ${_fs.rushHomeDir.path}/cache');
     Hive
-      ..init(p.join(_fs.rushHomeDir.path, 'cache'))
       ..registerAdapter(ArtifactAdapter())
       ..registerAdapter(ScopeAdapter());
 
@@ -118,13 +115,8 @@ class LibService {
   Future<List<Artifact>> buildLibArtifacts() async =>
       (await _retrieveArtifactsFromBox(buildLibsBox)).toList();
 
-  Future<Iterable<Artifact>> projectRemoteDepArtifacts() async =>
+  Future<Iterable<Artifact>> projectDepArtifacts() async =>
       (await _retrieveArtifactsFromBox(projectDepsBox)).toList();
-
-  Future<Iterable<String>> providedDepJars() async => [
-        for (final dep in await providedDepArtifacts())
-          if (dep.classesJar != null) dep.classesJar!
-      ];
 
   Future<String> processorJar() async =>
       (await buildLibsBox.get(rushApCoord))!.classesJar!;
@@ -154,40 +146,61 @@ class LibService {
               '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion'))!
           .classpathJars(await buildLibArtifacts());
 
-  Future<Iterable<String>> projectRuntimeAars() async => [
-        for (final dep in await projectRemoteDepArtifacts())
-          if (dep.packaging == 'aar') dep.artifactFile
-      ];
+  Future<Iterable<String>> runtimeAars(
+      Iterable<String> localRuntimeDeps) async {
+    final res = <String>[];
 
-  Future<Iterable<String>> projectRuntimeDepJars(Config config) async => [
-        // Remote deps
-        for (final dep in await projectRemoteDepArtifacts())
-          if (dep.classesJar != null) dep.classesJar!,
-        // Local deps
-        for (final dep in config.runtimeDeps)
-          if (dep.endsWith('.jar'))
-            p.join(_fs.localDepsDir.path, dep)
-          else if (dep.endsWith('.aar'))
-            _classesJarFromLocalAar(p.join(_fs.localDepsDir.path, dep))
-      ];
+    final remote =
+        (await projectDepArtifacts()).where((el) => el.scope == Scope.runtime);
+    res.addAll(remote
+        .where((el) => el.packaging == 'aar')
+        .map((el) => el.artifactFile));
 
-  Future<Iterable<String>> projectComptimeDepJars(Config config) async => [
-        // Dev deps
-        ...(await providedDepJars()),
-        // Runtime deps
-        ...(await projectRuntimeDepJars(config)),
-        // Local comptime deps
-        for (final dep in config.runtimeDeps)
-          if (dep.endsWith('.jar'))
-            p.join(_fs.localDepsDir.path, dep)
-          else if (dep.endsWith('.aar'))
-            _classesJarFromLocalAar(p.join(_fs.localDepsDir.path, dep))
-      ];
+    BuildUtils.extractAars(
+        localRuntimeDeps.where((el) => p.extension(el) == '.aar'));
+    res.addAll(localRuntimeDeps.where((el) => p.extension(el) == '.aar').map(
+          (el) => p.join(_fs.localDepsDir.path, el),
+        ));
 
-  String _classesJarFromLocalAar(String aarPath) {
-    final basename = p.basenameWithoutExtension(aarPath);
-    final dist = p.join(_fs.buildAarsDir.path, basename).asDir(true);
-    BuildUtils.unzip(aarPath, dist.path);
-    return p.join(dist.path, 'classes.jar');
+    return res;
+  }
+
+  Future<Iterable<String>> runtimeJars(
+      Iterable<String> localRuntimeDeps) async {
+    final res = <String>[];
+
+    final remote =
+        (await projectDepArtifacts()).where((el) => el.scope == Scope.runtime);
+    res.addAll(remote.map((el) => el.classesJar!));
+
+    res.addAll(localRuntimeDeps
+        .where((el) => p.extension(el) == '.jar')
+        .map((el) => p.join(_fs.localDepsDir.path, el)));
+    res.addAll(localRuntimeDeps.where((el) => p.extension(el) == '.aar').map(
+          (el) => p.join(_fs.buildAarsDir.path, p.basenameWithoutExtension(el),
+              'classes.jar'),
+        ));
+
+    return res;
+  }
+
+  Future<Iterable<String>> comptimeJars(Iterable<String> localRuntimeDeps,
+      Iterable<String> localComptimeDeps) async {
+    final res = <String>[...await runtimeJars(localRuntimeDeps)];
+
+    final provided = (await providedDepArtifacts());
+    res.addAll(provided.map((el) => el.classesJar!));
+
+    BuildUtils.extractAars(
+        localComptimeDeps.where((el) => p.extension(el) == '.aar'));
+    res.addAll(localComptimeDeps
+        .where((el) => p.extension(el) == '.jar')
+        .map((el) => p.join(_fs.localDepsDir.path, el)));
+    res.addAll(localComptimeDeps.where((el) => p.extension(el) == '.aar').map(
+          (el) => p.join(_fs.buildAarsDir.path, p.basenameWithoutExtension(el),
+              'classes.jar'),
+        ));
+
+    return res;
   }
 }

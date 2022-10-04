@@ -113,6 +113,9 @@ class Artifact {
 
   @override
   int get hashCode => Object.hash(coordinate, scope);
+
+  @override
+  String toString() => coordinate;
 }
 
 @HiveType(typeId: 3)

@@ -65,7 +65,7 @@ class BuildCommand extends RushCommand {
     final configFileModified = (await timestampBox.get(configTimestampKey))
             ?.isBefore(_fs.configFile.lastModifiedSync()) ??
         true;
-    final isAnyDepMissing = (await _libService.projectRemoteDepArtifacts()).any(
+    final isAnyDepMissing = (await _libService.projectDepArtifacts()).any(
         (el) =>
             !el.artifactFile.endsWith('.pom') &&
             !el.artifactFile.asFile().existsSync());
@@ -92,12 +92,6 @@ class BuildCommand extends RushCommand {
         return 1;
       }
     }
-
-    final comptimeDepJars =
-        (await _libService.projectComptimeDepJars(config)).toSet();
-    final runtimeDepJars =
-        (await _libService.projectRuntimeDepJars(config)).toSet();
-
     _lgr.stopTask();
 
     _lgr.startTask('Compiling sources');
@@ -105,15 +99,17 @@ class BuildCommand extends RushCommand {
       await _mergeManifests(
         timestampBox,
         config.android?.minSdk ?? 21,
-        await _libService.projectRuntimeAars(),
+        await _libService.runtimeAars(config.runtimeDeps),
       );
     } catch (e, s) {
       _catchAndStop(e, s);
       return 1;
     }
 
+    final comptimeDeps =
+        await _libService.comptimeJars(config.runtimeDeps, config.comptimeDeps);
     try {
-      await _compile(comptimeDepJars, config, timestampBox);
+      await _compile(comptimeDeps, config, timestampBox);
     } catch (e, s) {
       _catchAndStop(e, s);
       return 1;
@@ -125,7 +121,8 @@ class BuildCommand extends RushCommand {
     try {
       BuildUtils.copyAssets(config);
       BuildUtils.copyLicense(config);
-      artJarPath = await _createArtJar(config, runtimeDepJars);
+      artJarPath = await _createArtJar(
+          config, await _libService.runtimeJars(config.runtimeDeps));
     } catch (e, s) {
       _catchAndStop(e, s);
       return 1;
@@ -136,7 +133,7 @@ class BuildCommand extends RushCommand {
       _lgr.startTask('Desugaring Java8 langauge features');
       try {
         await Executor.execDesugarer(
-            await _libService.desugarJar(), artJarPath, comptimeDepJars);
+            await _libService.desugarJar(), artJarPath, comptimeDeps);
       } catch (e, s) {
         _catchAndStop(e, s);
         return 1;
@@ -149,7 +146,7 @@ class BuildCommand extends RushCommand {
       try {
         final pgClasspath =
             (await _libService.pgJars()).join(BuildUtils.cpSeparator);
-        await Executor.execProGuard(artJarPath, comptimeDepJars, pgClasspath);
+        await Executor.execProGuard(artJarPath, comptimeDeps, pgClasspath);
       } catch (e, s) {
         _catchAndStop(e, s);
         return 1;
@@ -227,7 +224,7 @@ class BuildCommand extends RushCommand {
 
   /// Compiles extension's source files.
   Future<void> _compile(
-    Set<String> comptimeJars,
+    Iterable<String> comptimeJars,
     Config config,
     LazyBox<DateTime> timestampBox,
   ) async {

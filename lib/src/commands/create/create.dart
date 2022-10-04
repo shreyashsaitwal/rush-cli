@@ -110,12 +110,10 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
     await GetIt.I.isReady<LibService>();
     final libService = GetIt.I<LibService>();
 
-    final providedDepJars = await libService.providedDepJars();
-    final providedDepSources = (await libService.providedDepArtifacts()).map((dep) {
-      if (dep.sourcesJar != null) {
-        return dep.sourcesJar!;
-      }
-    }).whereNotNull();
+    final artifacts = await libService.providedDepArtifacts();
+    final providedDepJars = artifacts.map((el) => el.classesJar).whereNotNull();
+    final providedDepSources =
+        artifacts.map((el) => el.sourcesJar).whereNotNull();
 
     final filesToCreate = <String, String>{
       if (['j', 'java'].contains(lang.toLowerCase()))

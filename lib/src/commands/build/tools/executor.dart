@@ -34,7 +34,10 @@ class Executor {
   }
 
   static Future<void> execProGuard(
-      String artJarPath, Set<String> comptimeJars, String pgClasspath) async {
+    String artJarPath,
+    Iterable<String> comptimeJars,
+    String pgClasspath,
+  ) async {
     final rulesPro = p.join(_fs.srcDir.path, 'proguard-rules.pro').asFile();
     final optimizedJar =
         p.join(p.dirname(artJarPath), 'AndroidRuntime.optimized.jar').asFile();
@@ -90,7 +93,10 @@ class Executor {
   }
 
   static Future<void> execDesugarer(
-      String desugarJar, String artJarPath, Set<String> comptimeDepJars) async {
+    String desugarJar,
+    String artJarPath,
+    Iterable<String> comptimeDepJars,
+  ) async {
     final outputJar = p
         .join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.dsgr.jar')
         .asFile();

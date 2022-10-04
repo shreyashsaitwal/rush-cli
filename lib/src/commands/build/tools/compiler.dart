@@ -20,7 +20,7 @@ class Compiler {
 
   static final _processRunner = ProcessRunner();
 
-  static Future<void> _compilerHelpers(
+  static Future<void> _compileHelpers(
     Iterable<String> comptimeJars,
     LazyBox<DateTime> timestampBox, {
     String? ktVersion,
@@ -49,8 +49,12 @@ class Compiler {
     final List<String> args;
     if (hasKtFiles) {
       args = await _kotlincArgs(
-          helperFiles.first.parent.path, comptimeJars, ktVersion!,
-          files: helperFiles.map((e) => e.path), withProc: false);
+        helperFiles.first.parent.path,
+        comptimeJars,
+        ktVersion!,
+        files: helperFiles.map((e) => e.path),
+        withProc: false,
+      );
     } else {
       args = await _javacArgs(
         helperFiles.map((e) => e.path),
@@ -70,7 +74,7 @@ class Compiler {
   }
 
   static Future<void> compileJavaFiles(
-    Iterable<String> compileJars,
+    Iterable<String> comptimeJars,
     bool supportJava8,
     LazyBox<DateTime> timestampBox,
   ) async {
@@ -79,8 +83,8 @@ class Compiler {
         .where((el) => el is File && p.extension(el.path) == '.java')
         .map((el) => el.path);
     try {
-      await _compilerHelpers(compileJars, timestampBox, java8: supportJava8);
-      final args = _javacArgs(javaFiles, compileJars, supportJava8);
+      await _compileHelpers(comptimeJars, timestampBox, java8: supportJava8);
+      final args = _javacArgs(javaFiles, comptimeJars, supportJava8);
       await _processRunner.runExecutable('javac', await args);
     } catch (e) {
       rethrow;
@@ -114,7 +118,7 @@ class Compiler {
     LazyBox<DateTime> timestampBox,
   ) async {
     try {
-      await _compilerHelpers(comptimeJars, timestampBox,
+      await _compileHelpers(comptimeJars, timestampBox,
           ktVersion: kotlinVersion);
       final kotlincArgs =
           await _kotlincArgs(_fs.srcDir.path, comptimeJars, kotlinVersion);

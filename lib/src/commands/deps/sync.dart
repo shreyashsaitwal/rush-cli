@@ -163,10 +163,9 @@ class SyncSubCommand extends RushCommand {
     final configFileModified = (await timestampBox.get(configTimestampKey))
             ?.isBefore(_fs.configFile.lastModifiedSync()) ??
         true;
-    final isAnyDepMissing = (await libService.projectRemoteDepArtifacts()).any(
-        (el) =>
-            !el.artifactFile.endsWith('.pom') &&
-            !el.artifactFile.asFile().existsSync());
+    final isAnyDepMissing = (await libService.projectDepArtifacts()).any((el) =>
+        !el.artifactFile.endsWith('.pom') &&
+        !el.artifactFile.asFile().existsSync());
 
     if (!onlyDevDeps && (configFileModified || isAnyDepMissing)) {
       _lgr.startTask('Syncing project dependencies');
@@ -199,15 +198,7 @@ class SyncSubCommand extends RushCommand {
     }
 
     _lgr.startTask('Adding resolved dependencies to your IDE\'s lib index');
-    final projectDepArtifacts = await libService.projectRemoteDepArtifacts();
-
-    // Remove libs that are no longer required. This can happen when the some dep
-    // is removed from the config file.
-    await Future.wait([
-      _removeRogueArtifacts(libService.providedDepsBox, projectDepArtifacts),
-      _removeRogueArtifacts(libService.buildLibsBox, buildLibArtifacts),
-      _removeRogueArtifacts(libService.projectDepsBox, projectDepArtifacts),
-    ]);
+    final projectDepArtifacts = await libService.projectDepArtifacts();
 
     try {
       _updateIjLibIndex(providedDepArtifacts, projectDepArtifacts);
@@ -219,22 +210,6 @@ class SyncSubCommand extends RushCommand {
 
     _lgr.stopTask();
     return 0;
-  }
-
-  Future<void> _removeRogueArtifacts(
-    LazyBox<Artifact> cacheBox,
-    Iterable<Artifact> directDepsArtifacts,
-  ) async {
-    for (final coordinate in cacheBox.keys) {
-      final artifact = await cacheBox.get(coordinate);
-      if (directDepsArtifacts.contains(artifact)) {
-        continue;
-      }
-      if (directDepsArtifacts
-          .none((el) => el.dependencies.contains(coordinate))) {
-        await cacheBox.delete(coordinate);
-      }
-    }
   }
 
   Future<List<Artifact>> sync({
@@ -309,20 +284,12 @@ class SyncSubCommand extends RushCommand {
     }
 
     resolver.closeHttpClient();
-    _extractAars(
-      resolvedDeps.where((el) => el.artifactFile.endsWith('.aar')),
+    BuildUtils.extractAars(
+      resolvedDeps
+          .where((el) => el.artifactFile.endsWith('.aar'))
+          .map((el) => el.artifactFile),
     );
     return resolvedDeps;
-  }
-
-  void _extractAars(Iterable<Artifact> aars) {
-    for (final aar in aars) {
-      final artifact = aar.artifactFile;
-      final dist = p
-          .join(p.dirname(artifact), p.basenameWithoutExtension(artifact))
-          .asDir(true);
-      BuildUtils.unzip(artifact, dist.path);
-    }
   }
 
   Future<Iterable<Artifact>> _resolveVersionConflicts(
@@ -571,9 +538,7 @@ class SyncSubCommand extends RushCommand {
     providedDepsLibXml.writeAsStringSync(
       ijProvidedDepsXml(
         providedDeps.map((el) => el.classesJar).whereNotNull(),
-        providedDeps
-            .whereNot((element) => element.sourcesJar == null)
-            .map((el) => el.sourcesJar!),
+        providedDeps.map((el) => el.sourcesJar).whereNotNull(),
       ),
     );
 
