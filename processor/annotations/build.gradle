@@ -2,6 +2,11 @@ plugins {
     id 'java-library'
 }
 
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
 publishing {
     publications {
         mavenJava(MavenPublication) {
