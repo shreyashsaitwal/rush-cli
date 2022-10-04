@@ -66,9 +66,28 @@ class LibService {
   late final LazyBox<Artifact> buildLibsBox;
   late final LazyBox<Artifact> projectDepsBox;
 
+  /// Returns a list of all the artifacts and their dependencies in a box.
+  Future<List<Artifact>> _retrieveArtifactsFromBox(
+    LazyBox<Artifact> cacheBox,
+  ) async {
+    final artifacts = <Artifact?>{};
+    for (final key in cacheBox.keys) {
+      final artifact = await cacheBox.get(key);
+      artifacts.add(artifact!);
+
+      if (artifact.dependencies.isNotEmpty) {
+        final deps = await Future.wait([
+          for (final dep in artifact.dependencies) cacheBox.get(dep),
+        ]);
+        artifacts.addAll(deps);
+      }
+    }
+    return artifacts.whereNotNull().toList();
+  }
+
   Future<List<Artifact>> providedDepArtifacts() async {
     return [
-      for (final key in providedDepsBox.keys) (await providedDepsBox.get(key))!,
+      ...await _retrieveArtifactsFromBox(providedDepsBox),
       Artifact(
         coordinate: '',
         scope: Scope.compile,
@@ -96,11 +115,11 @@ class LibService {
     ];
   }
 
-  Future<List<Artifact>> buildLibArtifacts() async {
-    return [
-      for (final key in buildLibsBox.keys) (await buildLibsBox.get(key))!
-    ];
-  }
+  Future<List<Artifact>> buildLibArtifacts() async =>
+      (await _retrieveArtifactsFromBox(buildLibsBox)).toList();
+
+  Future<Iterable<Artifact>> projectRemoteDepArtifacts() async =>
+      (await _retrieveArtifactsFromBox(projectDepsBox)).toList();
 
   Future<Iterable<String>> providedDepJars() async => [
         for (final dep in await providedDepArtifacts())
@@ -134,12 +153,6 @@ class LibService {
       (await buildLibsBox.get(
               '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion'))!
           .classpathJars(await buildLibArtifacts());
-
-  Future<Iterable<Artifact>> projectRemoteDepArtifacts() async {
-    return [
-      for (final key in projectDepsBox.keys) (await projectDepsBox.get(key))!
-    ];
-  }
 
   Future<Iterable<String>> projectRuntimeAars() async => [
         for (final dep in await projectRemoteDepArtifacts())

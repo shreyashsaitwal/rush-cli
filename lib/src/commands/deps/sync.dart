@@ -19,11 +19,8 @@ import 'package:rush_cli/src/services/libs_service.dart';
 import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/constants.dart';
 
-const _providedDepsCoords = <String>[
-  'io.github.shreyashsaitwal.rush:annotations:$annotationProcVersion',
-  'io.github.shreyashsaitwal.rush:runtime:$ai2RuntimeVersion',
-];
-
+const ai2RuntimeCoord =
+    'io.github.shreyashsaitwal.rush:runtime:$ai2RuntimeVersion';
 const _buildToolCoords = [
   rushApCoord,
   r8Coord,
@@ -57,17 +54,28 @@ class SyncSubCommand extends RushCommand {
   Future<int> run() async {
     _lgr.startTask('Initializing');
 
-    final onlyDev = argResults!['dev-deps'] as bool;
-    final onlyProject = argResults!['project-deps'] as bool;
+    final onlyDevDeps = argResults!['dev-deps'] as bool;
+    final onlyProjectDeps = argResults!['project-deps'] as bool;
     final useForce = argResults!['force'] as bool;
 
     final config = await Config.load(_fs.configFile, _lgr);
-    if (config == null && !onlyDev) {
+    if (config == null && !onlyDevDeps) {
       _lgr.warn('Not in a Rush project, only dev-dependencies will be synced.');
     }
 
     await GetIt.I.isReady<LibService>();
     final libService = GetIt.I<LibService>();
+
+    // Clear all the cache if force is used.
+    if (useForce) {
+      if (!onlyProjectDeps) {
+        await libService.providedDepsBox.clear();
+        await libService.buildLibsBox.clear();
+      }
+      if (!onlyDevDeps) {
+        await libService.projectDepsBox.clear();
+      }
+    }
 
     final ktVersion = config?.kotlin?.compilerVersion ?? defaultKtVersion;
     final toolsCoord = _buildToolCoords +
@@ -80,47 +88,45 @@ class SyncSubCommand extends RushCommand {
     final providedDepsToFetch = <String>{};
     final toolsToFetch = <String>{};
 
-    final providedDepsFromCache = await libService.providedDepArtifacts();
-    final buildToolsFromCache = await libService.buildLibArtifacts();
+    var providedDepArtifacts = await libService.providedDepArtifacts();
+    var buildLibArtifacts = await libService.buildLibArtifacts();
 
     // Add every un-cached dev dep to fetch list.
-    for (final coord in _providedDepsCoords) {
-      if (useForce ||
-          providedDepsFromCache.none((el) => el.coordinate == coord)) {
-        providedDepsToFetch.add(coord);
-      }
+    if (providedDepArtifacts.none((el) => el.coordinate == ai2RuntimeCoord)) {
+      providedDepsToFetch.add(ai2RuntimeCoord);
     }
     for (final coord in toolsCoord) {
-      if (useForce ||
-          buildToolsFromCache.none((el) => el.coordinate == coord)) {
+      if (buildLibArtifacts.none((el) => el.coordinate == coord)) {
         toolsToFetch.add(coord);
       }
     }
 
     // Add every non existent dev dep to the fetch list. This can happen when
-    // the said dev was deleted or the local Maven repo location was changed.
+    // the said dep was deleted or the local Maven repo location was changed.
     providedDepsToFetch.addAll(
-      providedDepsFromCache
-          .where((el) => useForce || !el.artifactFile.asFile().existsSync())
-          .map((el) => el.coordinate),
+      providedDepArtifacts
+          .where((el) => !el.artifactFile.asFile().existsSync())
+          .map((el) => el.coordinate)
+          .where((el) => el.trim().isNotEmpty),
     );
     toolsToFetch.addAll(
-      buildToolsFromCache
-          .where((el) => useForce || !el.artifactFile.asFile().existsSync())
-          .map((el) => el.coordinate),
+      buildLibArtifacts
+          .where((el) => !el.artifactFile.asFile().existsSync())
+          .map((el) => el.coordinate)
+          .where((el) => el.trim().isNotEmpty),
     );
 
     // Stop the init task
     _lgr.stopTask();
 
-    if (!onlyProject &&
+    if (!onlyProjectDeps &&
         (providedDepsToFetch.isNotEmpty || toolsToFetch.isNotEmpty)) {
       _lgr.startTask('Syncing dev-dependencies');
       try {
         await Future.wait([
           sync(
             libCacheBox: libService.providedDepsBox,
-            coordinates: {Scope.compile: providedDepsToFetch},
+            coordinates: {Scope.runtime: providedDepsToFetch},
             downloadSources: true,
           ),
           sync(
@@ -133,7 +139,7 @@ class SyncSubCommand extends RushCommand {
         return 1;
       }
       _lgr.stopTask();
-    } else if (!onlyProject) {
+    } else if (!onlyProjectDeps) {
       _lgr
         ..startTask('Syncing dev-dependencies')
         ..stopTask();
@@ -143,6 +149,10 @@ class SyncSubCommand extends RushCommand {
     if (config == null) {
       return 0;
     }
+
+    // Update the vars after syncing dev deps.
+    providedDepArtifacts = await libService.providedDepArtifacts();
+    buildLibArtifacts = await libService.buildLibArtifacts();
 
     Hive.init(_fs.dotRushDir.path);
     final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
@@ -158,7 +168,7 @@ class SyncSubCommand extends RushCommand {
             !el.artifactFile.endsWith('.pom') &&
             !el.artifactFile.asFile().existsSync());
 
-    if (!onlyDev && (configFileModified || isAnyDepMissing || useForce)) {
+    if (!onlyDevDeps && (configFileModified || isAnyDepMissing)) {
       _lgr.startTask('Syncing project dependencies');
 
       final projectDepCoords = {
@@ -173,7 +183,7 @@ class SyncSubCommand extends RushCommand {
           libCacheBox: projectDepsBox,
           coordinates: projectDepCoords,
           repositories: config.repositories,
-          providedDepArtifacts: await libService.providedDepArtifacts(),
+          providedDepArtifacts: providedDepArtifacts,
           downloadSources: true,
         );
         await timestampBox.put(configTimestampKey, DateTime.now());
@@ -189,17 +199,42 @@ class SyncSubCommand extends RushCommand {
     }
 
     _lgr.startTask('Adding resolved dependencies to your IDE\'s lib index');
+    final projectDepArtifacts = await libService.projectRemoteDepArtifacts();
+
+    // Remove libs that are no longer required. This can happen when the some dep
+    // is removed from the config file.
+    await Future.wait([
+      _removeRogueArtifacts(libService.providedDepsBox, projectDepArtifacts),
+      _removeRogueArtifacts(libService.buildLibsBox, buildLibArtifacts),
+      _removeRogueArtifacts(libService.projectDepsBox, projectDepArtifacts),
+    ]);
+
     try {
-      final providedDeps = await libService.providedDepArtifacts();
-      final projectDeps = await libService.projectRemoteDepArtifacts();
-      _updateIjLibIndex(providedDeps, projectDeps);
-      _updateEclipseClasspath(providedDeps, projectDeps);
+      _updateIjLibIndex(providedDepArtifacts, projectDepArtifacts);
+      _updateEclipseClasspath(providedDepArtifacts, projectDepArtifacts);
     } catch (_) {
       _lgr.stopTask(false);
       return 1;
     }
+
     _lgr.stopTask();
     return 0;
+  }
+
+  Future<void> _removeRogueArtifacts(
+    LazyBox<Artifact> cacheBox,
+    Iterable<Artifact> directDepsArtifacts,
+  ) async {
+    for (final coordinate in cacheBox.keys) {
+      final artifact = await cacheBox.get(coordinate);
+      if (directDepsArtifacts.contains(artifact)) {
+        continue;
+      }
+      if (directDepsArtifacts
+          .none((el) => el.dependencies.contains(coordinate))) {
+        await cacheBox.delete(coordinate);
+      }
+    }
   }
 
   Future<List<Artifact>> sync({
