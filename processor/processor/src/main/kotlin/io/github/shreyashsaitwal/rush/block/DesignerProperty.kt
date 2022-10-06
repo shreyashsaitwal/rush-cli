@@ -11,9 +11,13 @@ class DesignerProperty(
     private val messager: Messager,
     private val properties: List<Property>,
 ) : Block(element) {
-    init { runChecks() }
+    init {
+        runChecks()
+    }
 
     override val description: Nothing? = null
+
+    override val returnType: Nothing? = null
 
     override fun runChecks() {
         // Check if the corresponding setter simple property exists.

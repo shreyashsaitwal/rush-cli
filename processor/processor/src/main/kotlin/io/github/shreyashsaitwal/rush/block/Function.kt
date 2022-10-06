@@ -2,9 +2,11 @@ package io.github.shreyashsaitwal.rush.block
 
 import com.google.appinventor.components.annotations.SimpleFunction
 import io.github.shreyashsaitwal.rush.util.Util
+import io.github.shreyashsaitwal.rush.util.yailTypeOf
 import shaded.org.json.JSONObject
 import javax.annotation.processing.Messager
 import javax.lang.model.element.ExecutableElement
+import javax.lang.model.type.TypeKind
 import javax.lang.model.util.Elements
 import javax.tools.Diagnostic
 
@@ -26,6 +28,15 @@ class Function(
             }
             return desc
         }
+
+    override val returnType = if (element.returnType.kind == TypeKind.VOID) {
+        Util.yailTypeOf(
+            element.returnType.toString(),
+            HelperType.tryFrom(element) != null
+        )
+    } else {
+        null
+    }
 
     override fun runChecks() {
         // Check method name

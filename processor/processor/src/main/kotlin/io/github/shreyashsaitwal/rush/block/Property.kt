@@ -11,7 +11,7 @@ import javax.lang.model.type.TypeKind
 import javax.lang.model.util.Elements
 import javax.tools.Diagnostic
 
-enum class PropertyAccessType(val value: String) {
+private enum class PropertyAccessType(val value: String) {
     READ("read-only"),
     WRITE("write-only"),
     READ_WRITE("read-write"),
@@ -25,7 +25,12 @@ class Property(
     private val elementUtils: Elements,
 ) : Block(element) {
 
-    init { runChecks() }
+    private val accessType: PropertyAccessType
+
+    init {
+        accessType = propertyAccessType()
+        runChecks()
+    }
 
     override fun runChecks() {
         if (!Util.isPascalCase(name)) {
@@ -105,38 +110,37 @@ class Property(
     /**
      * The access type of the current property.
      */
-    private val accessType: PropertyAccessType
-        get() {
-            val invisible = !element.getAnnotation(SimpleProperty::class.java).userVisible
-            if (invisible) {
-                return PropertyAccessType.INVISIBLE
-            }
-
-            var accessType = if (element.returnType.kind == TypeKind.VOID) {
-                PropertyAccessType.WRITE
-            } else {
-                PropertyAccessType.READ
-            }
-
-            // If the current property is a setter, this could be a getter and vice versa.
-            val partnerProp = priorProperties.firstOrNull {
-                it.name == name && it !== this
-            }
-
-            // If the partner prop exists and is not invisible, then it means that both getter and setter
-            // exists for this prop. In that case, we set the access type to read-write which tells AI2
-            // to render two blocks -- one getter and one setter.
-            if (partnerProp != null && partnerProp.accessType != PropertyAccessType.INVISIBLE) {
-                accessType = PropertyAccessType.READ_WRITE
-            }
-
-            // Remove the partner prop from the prior props lst. This is necessary because AI2 doesn't
-            // expect getter and setter to be defined separately. It checks the access type to decide
-            // whether to generate getter (read-only), setter (write-only), both (read-write) or none
-            // (invisible).
-            priorProperties.remove(partnerProp)
-            return accessType
+    private fun propertyAccessType(): PropertyAccessType {
+        val invisible = !element.getAnnotation(SimpleProperty::class.java).userVisible
+        if (invisible) {
+            return PropertyAccessType.INVISIBLE
         }
+
+        var accessType = if (element.returnType.kind == TypeKind.VOID) {
+            PropertyAccessType.WRITE
+        } else {
+            PropertyAccessType.READ
+        }
+
+        // If the current property is a setter, this could be a getter and vice versa.
+        val partnerProp = priorProperties.firstOrNull {
+            it.name == name && it !== this
+        }
+
+        // If the partner prop exists and is not invisible, then it means that both getter and setter
+        // exists for this prop. In that case, we set the access type to read-write which tells AI2
+        // to render two blocks -- one getter and one setter.
+        if (partnerProp != null && partnerProp.accessType != PropertyAccessType.INVISIBLE) {
+            accessType = PropertyAccessType.READ_WRITE
+        }
+
+        // Remove the partner prop from the prior props lst. This is necessary because AI2 doesn't
+        // expect getter and setter to be defined separately. It checks the access type to decide
+        // whether to generate getter (read-only), setter (write-only), both (read-write) or none
+        // (invisible).
+        priorProperties.remove(partnerProp)
+        return accessType
+    }
 
     /**
      * @return JSON representation of this property.

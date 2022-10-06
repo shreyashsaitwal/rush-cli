@@ -13,7 +13,6 @@ import javax.lang.model.element.ExecutableElement
 import javax.lang.model.element.TypeElement
 import javax.lang.model.type.DeclaredType
 import javax.lang.model.type.MirroredTypeException
-import javax.lang.model.type.TypeKind
 
 /**
  * Possible types of helper blocks.
