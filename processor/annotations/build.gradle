@@ -2,6 +2,11 @@ plugins {
     id 'java-library'
 }
 
+compileJava {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
 java {
     withSourcesJar()
     withJavadocJar()
