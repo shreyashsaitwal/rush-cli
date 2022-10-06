@@ -49,7 +49,6 @@ enum class HelperType {
                 if (isOptionList) return OPTION_LIST
             }
 
-            println(type.toString())
             return null
         }
     }

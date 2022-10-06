@@ -29,7 +29,7 @@ class Function(
             return desc
         }
 
-    override val returnType = if (element.returnType.kind == TypeKind.VOID) {
+    override val returnType = if (element.returnType.kind != TypeKind.VOID) {
         Util.yailTypeOf(
             element.returnType.toString(),
             HelperType.tryFrom(element) != null
