@@ -1,8 +1,7 @@
 package io.github.shreyashsaitwal.rush.block
 
 import com.google.appinventor.components.annotations.SimpleEvent
-import io.github.shreyashsaitwal.rush.util.isCamelCase
-import io.github.shreyashsaitwal.rush.util.isPascalCase
+import io.github.shreyashsaitwal.rush.util.Util
 import shaded.org.json.JSONObject
 import javax.annotation.processing.Messager
 import javax.lang.model.element.ExecutableElement
@@ -30,7 +29,7 @@ class Event(
 
     override fun runChecks() {
         // Check method name
-        if (!isPascalCase(name)) {
+        if (!Util.isPascalCase(name)) {
             messager.printMessage(
                 Diagnostic.Kind.WARNING,
                 "Simple event \"$name\" should follow 'PascalCase' naming convention."
@@ -39,7 +38,7 @@ class Event(
 
         // Check param names
         params.forEach {
-            if (!isCamelCase(it.name)) {
+            if (!Util.isCamelCase(it.name)) {
                 messager.printMessage(
                     Diagnostic.Kind.WARNING,
                     "Parameter \"${it.name}\" in simple event \"$name\" should follow 'camelCase' naming convention."

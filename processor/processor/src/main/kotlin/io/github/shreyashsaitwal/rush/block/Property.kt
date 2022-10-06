@@ -1,25 +1,21 @@
 package io.github.shreyashsaitwal.rush.block
 
 import com.google.appinventor.components.annotations.SimpleProperty
-import io.github.shreyashsaitwal.rush.util.isPascalCase
+import io.github.shreyashsaitwal.rush.util.Util
 import io.github.shreyashsaitwal.rush.util.yailTypeOf
 import shaded.org.json.JSONObject
 import javax.annotation.processing.Messager
-import javax.lang.model.element.Element
 import javax.lang.model.element.ExecutableElement
 import javax.lang.model.type.DeclaredType
+import javax.lang.model.type.TypeKind
 import javax.lang.model.util.Elements
 import javax.tools.Diagnostic
 
-enum class PropertyAccessType(private val value: String) {
+enum class PropertyAccessType(val value: String) {
     READ("read-only"),
     WRITE("write-only"),
     READ_WRITE("read-write"),
     INVISIBLE("invisible");
-
-    override fun toString(): String {
-        return this.value
-    }
 }
 
 class Property(
@@ -28,25 +24,11 @@ class Property(
     private val priorProperties: MutableList<Property>,
     private val elementUtils: Elements,
 ) : Block(element) {
-    private val accessType: PropertyAccessType
 
-    init {
-        runChecks()
-        accessType = accessType()
-    }
-
-    override val description: String
-        get() {
-            val desc = this.element.getAnnotation(SimpleProperty::class.java).description.let {
-                it.ifBlank {
-                    elementUtils.getDocComment(element) ?: ""
-                }
-            }
-            return desc
-        }
+    init { runChecks() }
 
     override fun runChecks() {
-        if (!isPascalCase(name)) {
+        if (!Util.isPascalCase(name)) {
             messager.printMessage(
                 Diagnostic.Kind.WARNING,
                 "Simple property \"$name\" should follow 'PascalCase' naming convention."
@@ -60,8 +42,8 @@ class Property(
             )
         }
 
-        val isSetter = this.element.returnType.toString() == "void"
-        val noOfParams = this.element.parameters.size
+        val isSetter = element.returnType.kind == TypeKind.VOID
+        val noOfParams = element.parameters.size
 
         // Total numbers of parameters for setters must be 1 and for getter must be 0.
         if (isSetter && noOfParams != 1) {
@@ -79,6 +61,7 @@ class Property(
         val partnerProp = priorProperties.firstOrNull {
             it.name == name && it !== this
         }
+
         // Return types of getters and setters must match
         if (partnerProp != null && partnerProp.returnType != returnType) {
             messager.printMessage(
@@ -88,36 +71,72 @@ class Property(
         }
     }
 
-    private val returnTypeElement: Element
+    override val description: String
         get() {
-            val returnType = this.element.returnType
-
-            // If the property is of setter type, the JSON property "type" is equal to the type of
-            // parameter the setter expects.
-            return if (returnType.toString() == "void") {
-                this.element.parameters[0]
-            } else if (returnType is DeclaredType) {
-                returnType.asElement()
-            } else {
-                element
+            val desc = this.element.getAnnotation(SimpleProperty::class.java).description.let {
+                it.ifBlank {
+                    elementUtils.getDocComment(element) ?: ""
+                }
             }
+            return desc
         }
+
+    private val returnTypeElement = when (element.returnType.kind) {
+        // Setter
+        TypeKind.VOID -> element.parameters[0]
+        // Getter
+        TypeKind.DECLARED -> (element.returnType as DeclaredType).asElement()
+        else -> TODO("Unreachable")
+    }
+
+    override val helper = Helper.tryFrom(returnTypeElement)
 
     /**
      * The return type of property type block, defined as "type" in components.json, depends on whether it's a setter or
      * a getter. For getters, the "type" is the same as the actual return type, but for setters, it is equal to the type
      * this setter sets, i.e., it is equal to the type of its argument.
      */
-    override val returnType: String
+    override val returnType = Util.yailTypeOf(
+        // Primitive types when
+        returnTypeElement.asType().toString().replace("()", ""),
+        helper != null
+    )
+
+    /**
+     * The access type of the current property.
+     */
+    private val accessType: PropertyAccessType
         get() {
-            // Primitive types when converted to string seem to have () in-front of them. This only
-            // happens when the `this.element.returnType` is a `DeclaredType`.
-            val typeName = returnTypeElement.asType().toString().replace("()", "")
-            return yailTypeOf(typeName, helper != null)
+            val invisible = !element.getAnnotation(SimpleProperty::class.java).userVisible
+            if (invisible) {
+                return PropertyAccessType.INVISIBLE
+            }
+
+            var accessType = if (element.returnType.kind == TypeKind.VOID) {
+                PropertyAccessType.WRITE
+            } else {
+                PropertyAccessType.READ
+            }
+
+            // If the current property is a setter, this could be a getter and vice versa.
+            val partnerProp = priorProperties.firstOrNull {
+                it.name == name && it !== this
+            }
+
+            // If the partner prop exists and is not invisible, then it means that both getter and setter
+            // exists for this prop. In that case, we set the access type to read-write which tells AI2
+            // to render two blocks -- one getter and one setter.
+            if (partnerProp != null && partnerProp.accessType != PropertyAccessType.INVISIBLE) {
+                accessType = PropertyAccessType.READ_WRITE
+            }
+
+            // Remove the partner prop from the prior props lst. This is necessary because AI2 doesn't
+            // expect getter and setter to be defined separately. It checks the access type to decide
+            // whether to generate getter (read-only), setter (write-only), both (read-write) or none
+            // (invisible).
+            priorProperties.remove(partnerProp)
+            return accessType
         }
-
-
-    override val helper = Helper.tryFrom(returnTypeElement)
 
     /**
      * @return JSON representation of this property.
@@ -130,46 +149,11 @@ class Property(
      *     "helper": {...}
      * }
      */
-    override fun asJsonObject(): JSONObject = JSONObject()
+    override fun asJsonObject() = JSONObject()
         .put("deprecated", deprecated.toString())
         .put("name", name)
         .put("description", description)
         .put("type", returnType)
-        .put("rw", accessType.toString())
+        .put("rw", accessType.value)
         .put("helper", helper?.asJsonObject())
-
-    /**
-     * @return The access type of the current property.
-     */
-    private fun accessType(): PropertyAccessType {
-        val invisible = !this.element.getAnnotation(SimpleProperty::class.java).userVisible
-        if (invisible) {
-            return PropertyAccessType.INVISIBLE
-        }
-
-        var accessType = if (this.element.returnType.toString() == "void") {
-            PropertyAccessType.WRITE
-        } else {
-            PropertyAccessType.READ
-        }
-
-        // If the current property is a setter, this could be a getter and vice versa.
-        val partnerProp = priorProperties.firstOrNull {
-            it.name == name && it !== this
-        }
-
-        // If the partner prop exists and is not invisible, then it means that both getter and setter
-        // exists for this prop. In that case, we set the access type to read-write which tells AI2
-        // to render two blocks -- one getter and one setter.
-        if (partnerProp != null && partnerProp.accessType != PropertyAccessType.INVISIBLE) {
-            accessType = PropertyAccessType.READ_WRITE
-        }
-
-        // Remove the partner prop from the prior props lst. This is necessary because AI2 doesn't
-        // expect getter and setter to be defined separately. It checks the access type to decide
-        // whether to generate getter (read-only), setter (write-only), both (read-write) or none
-        // (invisible).
-        priorProperties.remove(partnerProp)
-        return accessType
-    }
 }

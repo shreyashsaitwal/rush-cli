@@ -41,8 +41,8 @@ enum class HelperType {
             }
 
             // Element doesn't have any of the above annotation, check if it's type is an option list enum.
-            if (type.kind == TypeKind.DECLARED) {
-                val typeElement = (type as DeclaredType).asElement() as TypeElement
+            if (type is DeclaredType) {
+                val typeElement = type.asElement() as TypeElement
                 val isOptionList = typeElement.interfaces.any {
                     val interfaceTypeElement = (it as DeclaredType).asElement() as TypeElement
                     interfaceTypeElement.simpleName.toString() == "OptionList"
@@ -50,14 +50,15 @@ enum class HelperType {
                 if (isOptionList) return OPTION_LIST
             }
 
+            println(type.toString())
             return null
         }
     }
 }
 
 /**
- * Represents the helper definition of a [Block]. For more information on what helpers are (aka known as dropdown blocks)
- * check out this post on AI2 community:
+ * Represents the helper definition of a [Block]. For more information on what helpers are (aka dropdown blocks) check
+ * out this post on AI2 community:
  * https://community.appinventor.mit.edu/t/what-is-your-opinion-about-helper-blocks-in-app-inventor-gsoc-project-user-feedback/9057
  */
 data class Helper(

@@ -122,8 +122,7 @@ private val componentTypes = listOf(
 /**
  * Returns a YAIL type from given [name] of a type.
  */
-@Throws(IllegalStateException::class)
-fun yailTypeOf(name: String, isHelper: Boolean): String {
+fun Util.Companion.yailTypeOf(name: String, isHelper: Boolean): String {
     if (name.startsWith("java.util.List")) {
         return "list"
     } else if (componentTypes.contains(name)) {

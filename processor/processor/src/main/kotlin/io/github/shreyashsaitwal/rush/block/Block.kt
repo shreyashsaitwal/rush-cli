@@ -1,9 +1,11 @@
 package io.github.shreyashsaitwal.rush.block
 
+import io.github.shreyashsaitwal.rush.util.Util
 import io.github.shreyashsaitwal.rush.util.yailTypeOf
 import shaded.org.json.JSONObject
 import java.lang.Deprecated
 import javax.lang.model.element.ExecutableElement
+import javax.lang.model.type.TypeKind
 import kotlin.String
 
 /**
@@ -28,8 +30,11 @@ abstract class Block(val element: ExecutableElement) {
     /**
      * YAIL equivalent of the return type of this block.
      */
-    open val returnType = if (element.returnType.toString() != "void") {
-        yailTypeOf(element.returnType.toString(), HelperType.tryFrom(element) != null)
+    open val returnType: String? = if (element.returnType.kind == TypeKind.VOID) {
+        Util.yailTypeOf(
+            element.returnType.toString(),
+            HelperType.tryFrom(element) != null
+        )
     } else {
         null
     }
@@ -80,7 +85,7 @@ abstract class ParameterizedBlock(element: ExecutableElement) : Block(element) {
         val helper = Helper.tryFrom(it)
         Parameter(
             it.simpleName.toString(),
-            yailTypeOf(it.asType().toString(), helper != null),
+            Util.yailTypeOf(it.asType().toString(), helper != null),
             helper
         )
     }
