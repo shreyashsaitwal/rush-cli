@@ -139,18 +139,23 @@ class ArtifactResolver {
       return null;
     }
 
-    final checksumPaths = _hashTypes.map((el) => '$relativeFilePath.$el');
-    File? checksum;
-    for (final path in checksumPaths) {
-      final checksumFile = await _fetchFile(path);
-      if (checksumFile != null) {
-        checksum = checksumFile;
-        break;
-      }
-    }
+    final isFileChecksum =
+        _hashTypes.contains(p.extension(file.path).substring(1));
 
-    if (checksum != null && !await _verifyChecksum(file, checksum)) {
-      throw Exception('Checksum verification failed for file: ${file.path}');
+    if (!isFileChecksum) {
+      final checksumPaths = _hashTypes.map((el) => '$relativeFilePath.$el');
+      File? checksum;
+      for (final path in checksumPaths) {
+        final checksumFile = await _fetchFile(path);
+        if (checksumFile != null) {
+          checksum = checksumFile;
+          break;
+        }
+      }
+
+      if (checksum != null && !await _verifyChecksum(file, checksum)) {
+        throw Exception('Checksum verification failed for file: ${file.path}');
+      }
     }
 
     return file;
