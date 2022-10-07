@@ -296,6 +296,8 @@ class ArtifactResolver {
     return [pom, ...parentPoms];
   }
 
+  final _alreadyResolved = <String>{};
+
   /// Resolve the [coordinate] artifact along with its dependencies.
   /// This is how the resolution works:
   /// 1. We fetch the POM of the artifact.
@@ -323,6 +325,9 @@ class ArtifactResolver {
     Version? version,
   ]) async {
     final metadata = ArtifactMetadata(coordinate);
+    if (_alreadyResolved.contains('$coordinate@$scope')) {
+      return [];
+    }
     final poms = await _resolvePomAndParents(coordinate);
     final pom = poms.first;
     final parentPoms = poms.skip(1);
@@ -357,28 +362,29 @@ class ArtifactResolver {
       return false;
     });
 
-    final result = <Artifact>[];
-    for (final dep in deps) {
-      final projectField = ['project.groupId', 'pom.groupId', '.groupId'];
-      if (projectField
-          .contains(dep.groupId.substring(2, dep.groupId.length - 1))) {
-        dep.groupId = pom.groupId!;
-      }
+    final resolvedDeps = await Future.wait(
+      deps.map((dep) {
+        final projectField = ['project.groupId', 'pom.groupId', '.groupId'];
+        if (projectField
+            .contains(dep.groupId.substring(2, dep.groupId.length - 1))) {
+          dep.groupId = pom.groupId!;
+        }
 
-      final resolvedVersion =
-          _resolveCoordVersion(dep.coordinate, pom, parentPoms);
-      final versionChanged =
-          resolvedVersion.toString() != resolvedVersion.originalVersionSpec;
+        final resolvedVersion =
+            _resolveCoordVersion(dep.coordinate, pom, parentPoms);
+        final versionChanged =
+            resolvedVersion.toString() != resolvedVersion.originalVersionSpec;
 
-      dep.version = resolvedVersion.toString();
-      result.addAll(await resolveArtifact(
-          dep.coordinate,
-          dep.scope.toScope(),
-          // Only pass the version object if the original version spec is different
-          // than the spec used to resolved the artifact. This can happen in only
-          // one case and that is when the original spec was a version range.
-          versionChanged ? resolvedVersion : null));
-    }
+        dep.version = resolvedVersion.toString();
+        return resolveArtifact(
+            dep.coordinate,
+            dep.scope.toScope(),
+            // Only pass the version object if the original version spec is different
+            // than the spec used to resolved the artifact. This can happen in only
+            // one case and that is when the original spec was a version range.
+            versionChanged ? resolvedVersion : null);
+      }),
+    );
 
     if (version != null) {
       final newCoordinate =
@@ -386,6 +392,7 @@ class ArtifactResolver {
       coordinate = newCoordinate;
     }
 
+    final result = resolvedDeps.flattened.toList();
     if (pom.packaging != 'pom') {
       result.insert(
         0,
@@ -401,6 +408,7 @@ class ArtifactResolver {
       );
     }
 
+    _alreadyResolved.add('$coordinate@$scope');
     return result;
   }
 
