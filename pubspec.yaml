@@ -36,3 +36,9 @@ dependencies:
   tint: ^2.0.0
   xml2json: ^5.3.4
   xrange: ^2.0.0
+
+dependency_overrides:
+  tint:
+    git:
+      url: https://github.com/shreyashsaitwal/tint
+      ref: main

@@ -1,14 +1,14 @@
+import 'package:args/command_runner.dart';
 import 'package:get_it/get_it.dart';
 import 'package:interact/interact.dart';
 import 'package:path/path.dart' as p;
 import 'package:tint/tint.dart';
 
-import 'package:rush_cli/src/command_runner.dart';
 import 'package:rush_cli/src/services/file_service.dart';
 import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
 
-class CleanCommand extends RushCommand {
+class CleanCommand extends Command<int> {
   final _fs = GetIt.I<FileService>();
   final _lgr = GetIt.I<Logger>();
 

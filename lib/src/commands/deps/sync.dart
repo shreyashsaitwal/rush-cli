@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:args/command_runner.dart';
 import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
@@ -10,7 +11,6 @@ import 'package:rush_cli/src/commands/create/templates/intellij_files.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
 import 'package:xrange/xrange.dart';
 
-import 'package:rush_cli/src/command_runner.dart';
 import 'package:rush_cli/src/config/config.dart';
 import 'package:rush_cli/src/resolver/artifact.dart';
 import 'package:rush_cli/src/resolver/resolver.dart';
@@ -29,7 +29,7 @@ const _buildToolCoords = [
   ...manifMergerAndDeps,
 ];
 
-class SyncSubCommand extends RushCommand {
+class SyncSubCommand extends Command<int> {
   final _fs = GetIt.I<FileService>();
   final _lgr = GetIt.I<Logger>();
 

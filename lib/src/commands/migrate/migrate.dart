@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:args/command_runner.dart';
 import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
@@ -9,12 +10,11 @@ import 'package:tint/tint.dart';
 
 import 'package:rush_cli/src/commands/migrate/old_config/old_config.dart'
     as old;
-import 'package:rush_cli/src/command_runner.dart';
 import 'package:rush_cli/src/config/config.dart';
 import 'package:rush_cli/src/services/file_service.dart';
 import 'package:rush_cli/src/services/logger.dart';
 
-class MigrateCommand extends RushCommand {
+class MigrateCommand extends Command<int> {
   final _fs = GetIt.I<FileService>();
   final _lgr = GetIt.I<Logger>();
 

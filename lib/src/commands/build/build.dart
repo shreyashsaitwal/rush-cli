@@ -2,11 +2,11 @@ import 'dart:convert' show jsonDecode;
 import 'dart:io' show File;
 
 import 'package:archive/archive_io.dart';
+import 'package:args/command_runner.dart';
 import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/src/command_runner.dart';
 import 'package:tint/tint.dart';
 
 import 'package:rush_cli/src/commands/build/utils.dart';
@@ -21,7 +21,7 @@ import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/constants.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
 
-class BuildCommand extends RushCommand {
+class BuildCommand extends Command<int> {
   final Logger _lgr = GetIt.I<Logger>();
   final FileService _fs = GetIt.I<FileService>();
   late final LibService _libService;

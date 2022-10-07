@@ -1,8 +1,9 @@
-import 'package:rush_cli/src/command_runner.dart';
+import 'package:args/command_runner.dart';
+
 import 'package:rush_cli/src/commands/deps/tree.dart';
 import 'package:rush_cli/src/commands/deps/sync.dart';
 
-class DepsCommand extends RushCommand {
+class DepsCommand extends Command<int> {
   DepsCommand() {
     addSubcommand(TreeSubCommand());
     addSubcommand(SyncSubCommand());

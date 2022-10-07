@@ -18,17 +18,45 @@ class RushCommandRunner extends CommandRunner<int> {
   RushCommandRunner()
       : super('rush',
             'Rush is a fast and feature rich extension builder for MIT App Inventor 2.') {
-    _printAsciiArt();
-
-    argParser.addFlag('version',
+    argParser
+      ..addFlag(
+        'verbose',
         abbr: 'v',
         negatable: false,
-        help: 'Prints the current version name.', callback: (v) {
-      if (v) {
-        Console().writeLine('Running on version ${packageVersion.cyan()}');
-        exit(0);
-      }
-    });
+        help: 'Turns on verbose logging.',
+        callback: (ok) {
+          GetIt.I<Logger>().debug = !ok;
+        },
+      )
+      ..addFlag(
+        'color',
+        abbr: 'c',
+        defaultsTo: true,
+        help:
+            'Whether output should be colorized or not. Defaults to true in terminals that support ANSI colors.',
+        callback: (ok) {
+          final noColorEnv =
+              int.tryParse(Platform.environment['NO_COLOR'] ?? '0');
+          if (noColorEnv != null && noColorEnv == 1) {
+            supportsAnsiColor = false;
+          } else {
+            supportsAnsiColor = ok;
+          }
+          _printLogo();
+        },
+      )
+      ..addFlag(
+        'version',
+        abbr: 'V',
+        negatable: false,
+        help: 'Prints the current version name.',
+        callback: (ok) {
+          if (ok) {
+            Console().writeLine('Running on version ${packageVersion.cyan()}');
+            exit(0);
+          }
+        },
+      );
 
     addCommand(BuildCommand());
     addCommand(CleanCommand());
@@ -38,30 +66,14 @@ class RushCommandRunner extends CommandRunner<int> {
     addCommand(UpgradeCommand());
   }
 
-  void _printAsciiArt() {
-    final art = r'''
+  void _printLogo() {
+    final logo = r'''
                     __
    _______  _______/ /_
   / ___/ / / / ___/ __ \
  / /  / /_/ (__  / / / /
 /_/   \__,_/____/_/ /_/
-'''
-        .blue();
-    Console().writeLine(art);
-  }
-}
-
-abstract class RushCommand extends Command<int> {
-  RushCommand() {
-    argParser.addFlag(
-      'verbose',
-      abbr: 'v',
-      help: 'Turns on verbose logging.',
-      callback: (v) {
-        if (v) {
-          GetIt.I<Logger>().debug = true;
-        }
-      },
-    );
+''';
+    Console().writeLine(logo.blue());
   }
 }

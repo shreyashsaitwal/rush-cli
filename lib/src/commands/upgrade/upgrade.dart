@@ -1,20 +1,20 @@
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
+import 'package:args/command_runner.dart';
 import 'package:get_it/get_it.dart';
 import 'package:github/github.dart';
 import 'package:collection/collection.dart';
 import 'package:http/http.dart';
 import 'package:path/path.dart' as p;
 
-import 'package:rush_cli/src/command_runner.dart';
 import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
 import 'package:rush_cli/src/services/file_service.dart';
 import 'package:rush_cli/src/version.dart';
 import 'package:tint/tint.dart';
 
-class UpgradeCommand extends RushCommand {
+class UpgradeCommand extends Command<int> {
   final _fs = GetIt.I<FileService>();
   final _lgr = GetIt.I<Logger>();
 
