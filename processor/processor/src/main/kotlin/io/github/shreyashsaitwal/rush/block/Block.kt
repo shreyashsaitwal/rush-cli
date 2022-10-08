@@ -1,7 +1,6 @@
 package io.github.shreyashsaitwal.rush.block
 
-import io.github.shreyashsaitwal.rush.util.Util
-import io.github.shreyashsaitwal.rush.util.yailTypeOf
+import io.github.shreyashsaitwal.rush.Utils
 import shaded.org.json.JSONObject
 import java.lang.Deprecated
 import javax.lang.model.element.ExecutableElement
@@ -77,7 +76,7 @@ abstract class ParameterizedBlock(element: ExecutableElement) : Block(element) {
         val helper = Helper.tryFrom(it)
         Parameter(
             it.simpleName.toString(),
-            Util.yailTypeOf(it.asType().toString(), helper != null),
+            Utils.yailTypeOf(it.asType(), helper != null),
             helper
         )
     }

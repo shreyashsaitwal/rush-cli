@@ -1,11 +1,11 @@
 package io.github.shreyashsaitwal.rush.block
 
 import com.google.appinventor.components.annotations.SimpleProperty
-import io.github.shreyashsaitwal.rush.util.Util
-import io.github.shreyashsaitwal.rush.util.yailTypeOf
+import io.github.shreyashsaitwal.rush.Utils
 import shaded.org.json.JSONObject
 import javax.annotation.processing.Messager
 import javax.lang.model.element.ExecutableElement
+import javax.lang.model.element.TypeElement
 import javax.lang.model.type.DeclaredType
 import javax.lang.model.type.TypeKind
 import javax.lang.model.util.Elements
@@ -33,7 +33,7 @@ class Property(
     }
 
     override fun runChecks() {
-        if (!Util.isPascalCase(name)) {
+        if (!Utils.isPascalCase(name)) {
             messager.printMessage(
                 Diagnostic.Kind.WARNING,
                 "Simple property \"$name\" should follow 'PascalCase' naming convention."
@@ -90,8 +90,7 @@ class Property(
         // Setter
         TypeKind.VOID -> element.parameters[0]
         // Getter
-        TypeKind.DECLARED -> (element.returnType as DeclaredType).asElement()
-        else -> TODO("Unreachable")
+        else -> element.returnType as TypeElement
     }
 
     override val helper = Helper.tryFrom(returnTypeElement)
@@ -101,9 +100,8 @@ class Property(
      * a getter. For getters, the "type" is the same as the actual return type, but for setters, it is equal to the type
      * this setter sets, i.e., it is equal to the type of its argument.
      */
-    override val returnType = Util.yailTypeOf(
-        // Primitive types when
-        returnTypeElement.asType().toString().replace("()", ""),
+    override val returnType = Utils.yailTypeOf(
+        returnTypeElement.asType(),
         helper != null
     )
 

@@ -1,8 +1,7 @@
 package io.github.shreyashsaitwal.rush.block
 
 import com.google.appinventor.components.annotations.SimpleEvent
-import io.github.shreyashsaitwal.rush.util.Util
-import io.github.shreyashsaitwal.rush.util.yailTypeOf
+import io.github.shreyashsaitwal.rush.Utils
 import shaded.org.json.JSONObject
 import javax.annotation.processing.Messager
 import javax.lang.model.element.ExecutableElement
@@ -31,8 +30,8 @@ class Event(
         }
 
     override val returnType = if (element.returnType.kind != TypeKind.VOID) {
-        Util.yailTypeOf(
-            element.returnType.toString(),
+        Utils.yailTypeOf(
+            element.returnType,
             HelperType.tryFrom(element) != null
         )
     } else {
@@ -41,7 +40,7 @@ class Event(
 
     override fun runChecks() {
         // Check method name
-        if (!Util.isPascalCase(name)) {
+        if (!Utils.isPascalCase(name)) {
             messager.printMessage(
                 Diagnostic.Kind.WARNING,
                 "Simple event \"$name\" should follow 'PascalCase' naming convention."
@@ -50,7 +49,7 @@ class Event(
 
         // Check param names
         params.forEach {
-            if (!Util.isCamelCase(it.name)) {
+            if (!Utils.isCamelCase(it.name)) {
                 messager.printMessage(
                     Diagnostic.Kind.WARNING,
                     "Parameter \"${it.name}\" in simple event \"$name\" should follow 'camelCase' naming convention."
