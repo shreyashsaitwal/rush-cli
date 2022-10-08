@@ -1,19 +1,51 @@
-![Banner](assets/banner.png)
+# ⚡ Rush
+**Rush** is a modern extension builder for MIT App Inventor 2.
 
-![dart action](https://github.com/ShreyashSaitwal/rush-cli/actions/workflows/ci.yml/badge.svg) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+## Features
+* Faster builds
+* Maven like dependency management
+* Kotlin language support
+* Support for AndroidManifest.xml
 
-Rush is a new, and probably, improved way of building App Inventor 2 extensions. It is a build tool, which aims to improve the developer experience by reducing the boilerplate code and making extension development feel more like Android development.
+## Installation
+> **Note**: Before installing Rush, make sure that you have JDK 8 or above installed.
 
-Check out the [wiki section](https://github.com/ShreyashSaitwal/rush-cli/wiki) for a detailed overview and getting started with Rush.
+### Windows
+In PowerShell, run:
+```ps1
+iwr https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.ps1 -useb | iex
+```
 
-## Building from sources
-1. Install [Dart SDK](https://dart.dev/get-dart).
-2. Clone this repo: `git clone https://github.com/shreyashsaitwal/rush-cli`.
-3. `cd` into the repo's base directory.
-4. Run `dart pub get`.
-5. Run the build script: `./scripts/build.sh -v VER_NAME`.
-6. The generated executable can be found in `./build` directory.
+### Linux and macOS
+1. In the terminal, run:
 
-## Helpful links
-1. [How to install Rush](https://youtu.be/ngMutIRWKbw) on YouTube.
-2. [Tutorial en Español de Rush para Windows](http://kio4.com/appinventor/145_extension_rush.htm)
+    ```sh
+    curl https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.sh -fsSL | sh
+    ```
+
+2. Add `$HOME/.rush/bin` to the `PATH` environment variable.
+
+## Quick start
+Now, that you've installed Rush, let's create a simple extension.
+
+1. Open the terminal in the directory where you want to create your extension project.
+
+2. Run `rush create <NAME_OF_THE_EXTENSION>`.
+This will show you some prompts.
+    - `Package name`: This is the package name in which your extension class will be placed.
+    - `Language`: The language in which you wish to write your extension. 
+    This is just for the sake of sample code generation, you can later manually change the language as per your desire or even use both languages together.
+    - `IDE`: Your favorite IDE or text editor.
+    This is required to generate the file required by these IDEs to support features like code completion and syntax highlighting.
+    You can of course use any other text editor as well, but it's very unlikely that it would work well with Rush projects even if it supports Java.
+
+3. `cd` into the generated project directory and run `rush build`.
+
+4. That's it, the generated extension file (AIX) can be found in the `out` directory.
+
+## Todo
+[] Core concepts of extension dev
+[] Faq
+[] Contributing
+[] Limitations
+[] List more features
