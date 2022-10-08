@@ -32,7 +32,7 @@ class Utils {
         /**
          * Returns a YAIL type from given [type].
          */
-        fun yailTypeOf(type: TypeMirror, isHelper: Boolean): String {
+        fun yailTypeOf(type: TypeMirror, isHelper: Boolean, allowBoxedTypes: Boolean = false): String {
             val kind = type.kind
 
             val numTypes = setOf(
@@ -49,12 +49,29 @@ class Utils {
                 return "boolean"
             }
 
+            if (kind == TypeKind.CHAR) {
+                return "char"
+            }
+
             if (kind == TypeKind.DECLARED) {
                 val typeElement = (type as DeclaredType).asElement() as TypeElement
-
                 val typeFqcn = typeElement.qualifiedName.toString()
-                val runtimeFqcn = "com.google.appinventor.components.runtime"
 
+                val boxedTypes = mapOf(
+                    "java.lang.Boolean" to "boolean",
+                    "java.lang.Byte" to "byte",
+                    "java.lang.Char" to "char",
+                    "java.lang.Short" to "short",
+                    "java.lang.Integer" to "int",
+                    "java.lang.Long" to "long",
+                    "java.lang.Float" to "float",
+                    "java.lang.Double" to "double",
+                )
+                if (allowBoxedTypes && boxedTypes.containsKey(type.toString())) {
+                    return boxedTypes[type.toString()]!!
+                }
+
+                val runtimeFqcn = "com.google.appinventor.components.runtime"
                 when (typeFqcn) {
                     "java.lang.Object" -> return "any"
                     "java.lang.String" -> return "text"
@@ -64,6 +81,7 @@ class Utils {
                     "$runtimeFqcn.util.YailObject" -> return "yailobject"
                     "$runtimeFqcn.util.YailDictionary" -> return "dictionary"
                     "$runtimeFqcn.Component" -> return "component"
+                    "$runtimeFqcn.util.Continuation" -> return "continuation"
                 }
 
                 // Every App Inventor component implements the `Component` interface

@@ -3,7 +3,12 @@ package io.github.shreyashsaitwal.rush.block
 import io.github.shreyashsaitwal.rush.Utils
 import shaded.org.json.JSONObject
 import java.lang.Deprecated
+import javax.annotation.processing.Messager
 import javax.lang.model.element.ExecutableElement
+import javax.lang.model.element.VariableElement
+import javax.lang.model.type.DeclaredType
+import javax.tools.Diagnostic
+import javax.tools.Diagnostic.Kind
 import kotlin.String
 
 /**
@@ -59,6 +64,7 @@ abstract class Block(val element: ExecutableElement) {
 abstract class ParameterizedBlock(element: ExecutableElement) : Block(element) {
 
     data class Parameter(
+        val element: VariableElement,
         val name: String,
         val type: String,
         val helper: Helper?,
@@ -75,6 +81,7 @@ abstract class ParameterizedBlock(element: ExecutableElement) : Block(element) {
     val params: List<Parameter> = this.element.parameters.map {
         val helper = Helper.tryFrom(it)
         Parameter(
+            it,
             it.simpleName.toString(),
             Utils.yailTypeOf(it.asType(), helper != null),
             helper
