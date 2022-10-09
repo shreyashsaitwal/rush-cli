@@ -3,7 +3,7 @@ subprojects {
     apply plugin: 'signing'
 
     group = 'io.github.shreyashsaitwal.rush'
-    version = '2.0.0-beta10'
+    version = '2.0.0-beta11'
 
     publishing {
         repositories {
