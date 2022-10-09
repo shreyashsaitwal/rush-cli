@@ -25,10 +25,8 @@ const kotlinGroupId = 'org.jetbrains.kotlin';
 
 class LibService {
   static final _fs = GetIt.I<FileService>();
-  static final _lgr = GetIt.I<Logger>();
 
   LibService._() {
-    _lgr.dbg('Initializing Hive in ${_fs.rushHomeDir.path}/cache');
     Hive
       ..registerAdapter(ArtifactAdapter())
       ..registerAdapter(ScopeAdapter());

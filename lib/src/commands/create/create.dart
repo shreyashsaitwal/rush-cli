@@ -87,9 +87,9 @@ class CreateCommand extends Command<int> {
     final editor = Select(
       prompt: 'IDE',
       options: [
-        'IntelliJ ${'(includes Android Studio and other JetBrains IDEs)'.grey()}',
-        'Eclipse  ${'(includes Visual Studio Code)'.grey()}',
-        'Both     ${'(includes every IDE mentioned above)'.grey()}',
+        'IntelliJ ${'(also includes Android Studio and other JetBrains IDEs)'.grey()}',
+        'Eclipse  ${'(also includes Visual Studio Code)'.grey()}',
+        'Both     ${'(also includes every IDE mentioned above)'.grey()}',
       ],
     ).interact();
 
@@ -100,8 +100,8 @@ class CreateCommand extends Command<int> {
             : '''
 ${'Success!'.green()} Generated a new extension project in ${p.relative(projectDir).blue()}.
   Next up,
-    - ${'cd'.yellow()} into ${p.relative(projectDir).blue()}, and
-    - run ${'rush build'.yellow()} to build your extension.
+  - ${'cd'.yellow()} into ${p.relative(projectDir).blue()}, and
+  - run ${'rush build'.yellow()} to build your extension.
 ''').interact();
 
     final extPath = p.joinAll([projectDir, 'src', ...orgName.split('.')]);

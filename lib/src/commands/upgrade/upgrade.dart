@@ -121,24 +121,20 @@ Check out the changelog for this release at: ${release.htmlUrl}
 
     if (Platform.isWindows) {
       final newExe = '${Platform.resolvedExecutable}.new';
-      final swapExe =
-          p.join(p.dirname(Platform.resolvedExecutable), '000swap.exe');
       if (newExe.asFile().existsSync()) {
+        print(successMsg);
         await Process.start(
-          swapExe,
-          [
-            '--old-exe',
-            Platform.resolvedExecutable,
-            '--message',
-            successMsg,
-          ],
+          'move',
+          ['/Y', newExe, Platform.resolvedExecutable],
           mode: ProcessStartMode.detached,
+          runInShell: true,
         );
       }
     } else {
       Process.runSync('chmod', ['+x', Platform.resolvedExecutable]);
       print(successMsg);
     }
+
     return 0;
   }
 
