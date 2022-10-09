@@ -1,10 +1,13 @@
 package io.github.shreyashsaitwal.rush
 
 import java.util.regex.Pattern
+import javax.annotation.processing.Messager
+import javax.lang.model.element.Element
 import javax.lang.model.element.TypeElement
 import javax.lang.model.type.DeclaredType
 import javax.lang.model.type.TypeKind
 import javax.lang.model.type.TypeMirror
+import javax.tools.Diagnostic
 
 class Utils {
     companion object {
@@ -32,7 +35,13 @@ class Utils {
         /**
          * Returns a YAIL type from given [type].
          */
-        fun yailTypeOf(type: TypeMirror, isHelper: Boolean, allowBoxedTypes: Boolean = false): String {
+        fun yailTypeOf(
+            element: Element,
+            type: TypeMirror,
+            isHelper: Boolean,
+            messager: Messager,
+            allowBoxedTypes: Boolean = false,
+        ): String? {
             val kind = type.kind
 
             val numTypes = setOf(
@@ -98,8 +107,8 @@ class Utils {
                 }
             }
 
-
-            throw IllegalArgumentException("Unsupported type: $type")
+            messager.printMessage(Diagnostic.Kind.ERROR, "Cannot convert Java type to YAIL type", element)
+            return null
         }
     }
 }

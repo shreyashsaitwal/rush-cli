@@ -7,13 +7,13 @@ import javax.annotation.processing.Messager
 import javax.lang.model.element.ExecutableElement
 import javax.lang.model.type.TypeKind
 import javax.lang.model.util.Elements
-import javax.tools.Diagnostic
+import javax.tools.Diagnostic.Kind
 
 class Event(
     element: ExecutableElement,
     private val messager: Messager,
     private val elementUtils: Elements,
-) : ParameterizedBlock(element) {
+) : ParameterizedBlock(element, messager) {
 
     init {
         runChecks()
@@ -21,7 +21,7 @@ class Event(
 
     override val description: String
         get() {
-            val desc = this.element.getAnnotation(SimpleEvent::class.java).description.let {
+            val desc = element.getAnnotation(SimpleEvent::class.java).description.let {
                 it.ifBlank {
                     elementUtils.getDocComment(element) ?: ""
                 }
@@ -31,8 +31,10 @@ class Event(
 
     override val returnType = if (element.returnType.kind != TypeKind.VOID) {
         Utils.yailTypeOf(
+            element,
             element.returnType,
-            HelperType.tryFrom(element) != null
+            HelperType.tryFrom(element) != null,
+            messager
         )
     } else {
         null
@@ -41,27 +43,22 @@ class Event(
     override fun runChecks() {
         // Check method name
         if (!Utils.isPascalCase(name)) {
-            messager.printMessage(
-                Diagnostic.Kind.WARNING,
-                "Simple event \"$name\" should follow 'PascalCase' naming convention."
-            )
+            messager.printMessage(Kind.WARNING, "Event should follow `PascalCase` naming convention.", element)
         }
 
         // Check param names
         params.forEach {
             if (!Utils.isCamelCase(it.name)) {
                 messager.printMessage(
-                    Diagnostic.Kind.WARNING,
-                    "Parameter \"${it.name}\" in simple event \"$name\" should follow 'camelCase' naming convention."
+                    Kind.WARNING,
+                    "Event parameters should follow `camelCase` naming convention.",
+                    it.element
                 )
             }
         }
 
         if (description.isBlank()) {
-            messager.printMessage(
-                Diagnostic.Kind.WARNING,
-                "Simple event \"$name\" is missing a description."
-            )
+            messager.printMessage(Kind.WARNING, "Event is missing a description.", element)
         }
     }
 

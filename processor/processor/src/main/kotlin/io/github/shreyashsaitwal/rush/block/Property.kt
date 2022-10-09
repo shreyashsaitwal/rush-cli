@@ -9,7 +9,7 @@ import javax.lang.model.element.TypeElement
 import javax.lang.model.type.DeclaredType
 import javax.lang.model.type.TypeKind
 import javax.lang.model.util.Elements
-import javax.tools.Diagnostic
+import javax.tools.Diagnostic.Kind
 
 private enum class PropertyAccessType(val value: String) {
     READ("read-only"),
@@ -34,17 +34,11 @@ class Property(
 
     override fun runChecks() {
         if (!Utils.isPascalCase(name)) {
-            messager.printMessage(
-                Diagnostic.Kind.WARNING,
-                "Simple property \"$name\" should follow 'PascalCase' naming convention."
-            )
+            messager.printMessage(Kind.WARNING, "Property should follow `PascalCase` naming convention.", element)
         }
 
         if (description.isBlank()) {
-            messager.printMessage(
-                Diagnostic.Kind.WARNING,
-                "Simple property \"$name\" is missing a description."
-            )
+            messager.printMessage(Kind.WARNING, "Property is missing a description.", element)
         }
 
         val isSetter = element.returnType.kind == TypeKind.VOID
@@ -52,15 +46,9 @@ class Property(
 
         // Total numbers of parameters for setters must be 1 and for getter must be 0.
         if (isSetter && noOfParams != 1) {
-            messager.printMessage(
-                Diagnostic.Kind.ERROR,
-                "The total number of parameters allowed on the setter type simple property \"$name\" is: 1"
-            )
+            messager.printMessage(Kind.ERROR, "Setter type properties should have exactly 1 parameter.", element)
         } else if (!isSetter && noOfParams != 0) {
-            messager.printMessage(
-                Diagnostic.Kind.ERROR,
-                "The total number of parameters allowed on the getter type simple property \"$name\" is: 0"
-            )
+            messager.printMessage(Kind.ERROR, "Getter type properties should have no parameters.", element)
         }
 
         val partnerProp = priorProperties.firstOrNull {
@@ -69,16 +57,13 @@ class Property(
 
         // Return types of getters and setters must match
         if (partnerProp != null && partnerProp.returnType != returnType) {
-            messager.printMessage(
-                Diagnostic.Kind.ERROR,
-                "Inconsistent types across getter and setter for simple property \"$name\"."
-            )
+            messager.printMessage(Kind.ERROR, "Inconsistent types across getter and setter for property.", element)
         }
     }
 
     override val description: String
         get() {
-            val desc = this.element.getAnnotation(SimpleProperty::class.java).description.let {
+            val desc = element.getAnnotation(SimpleProperty::class.java).description.let {
                 it.ifBlank {
                     elementUtils.getDocComment(element) ?: ""
                 }
@@ -101,8 +86,14 @@ class Property(
      * this setter sets, i.e., it is equal to the type of its argument.
      */
     override val returnType = when (element.returnType.kind) {
-        TypeKind.VOID -> Utils.yailTypeOf(element.parameters[0].asType(), helper != null)
-        else -> Utils.yailTypeOf(element.returnType, helper != null)
+        TypeKind.VOID -> Utils.yailTypeOf(
+            element.parameters[0],
+            element.parameters[0].asType(),
+            helper != null,
+            messager,
+        )
+
+        else -> Utils.yailTypeOf(element, element.returnType, helper != null, messager)
     }
 
     /**
@@ -151,7 +142,7 @@ class Property(
      *     "helper": {...}
      * }
      */
-    override fun asJsonObject() = JSONObject()
+    override fun asJsonObject(): JSONObject = JSONObject()
         .put("deprecated", deprecated.toString())
         .put("name", name)
         .put("description", description)

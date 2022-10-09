@@ -4,13 +4,14 @@ import com.google.appinventor.components.annotations.DesignerProperty
 import shaded.org.json.JSONObject
 import javax.annotation.processing.Messager
 import javax.lang.model.element.ExecutableElement
-import javax.tools.Diagnostic
+import javax.tools.Diagnostic.Kind
 
 class DesignerProperty(
     element: ExecutableElement,
     private val messager: Messager,
     private val properties: List<Property>,
 ) : Block(element) {
+
     init {
         runChecks()
     }
@@ -24,8 +25,9 @@ class DesignerProperty(
         val setterExist = properties.any { it.name == name }
         if (!setterExist) {
             messager.printMessage(
-                Diagnostic.Kind.ERROR,
-                "Unable to find corresponding @SimpleProperty annotation for designer property '$name'."
+                Kind.ERROR,
+                "Unable to find corresponding `@SimpleProperty` annotation for designer property.",
+                element
             )
         }
     }

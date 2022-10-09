@@ -16,7 +16,7 @@ import javax.lang.model.element.ExecutableElement
 import javax.lang.model.element.Modifier
 import javax.lang.model.element.TypeElement
 import javax.lang.model.util.Elements
-import javax.tools.Diagnostic
+import javax.tools.Diagnostic.Kind
 
 @AutoService(Processor::class)
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
@@ -54,23 +54,13 @@ class ExtensionProcessor : AbstractProcessor() {
             .groupBy { elementUtils.getPackageOf(it).qualifiedName }
             .apply {
                 if (this.size > 1) {
-                    val classes = this.map {
-                        val sb = StringBuilder()
-                        it.value.forEach { el ->
-                            sb.append("  - ${it.key}.${el.simpleName}\n")
-                        }
-                        sb.toString()
-                    }.joinToString("\n")
-
                     messager.printMessage(
-                        Diagnostic.Kind.ERROR,
-                        """
-                    |Classes annotated with @Meta annotation must reside in the same package.
-                    |The following classes have different packages:
-                    |$classes
-                    |NOTE Try moving all the above classes under the same package.
-                    """.trimMargin("|")
+                        Kind.ERROR,
+                        "Classes annotated with @${ExtensionComponent::class.simpleName} must be in the same package."
                     )
+                    for (el in this.values.flatten()) {
+                        messager.printMessage(Kind.ERROR, elementUtils.getPackageOf(el).qualifiedName, el)
+                    }
                 }
             }
 
@@ -130,7 +120,7 @@ class ExtensionProcessor : AbstractProcessor() {
             generator.generateComponentsJson()
             generator.generateBuildInfoJson()
         } catch (e: Throwable) {
-            messager.printMessage(Diagnostic.Kind.ERROR, e.message ?: e.stackTraceToString())
+            messager.printMessage(Kind.ERROR, e.message ?: e.stackTraceToString())
         }
     }
 
@@ -139,9 +129,9 @@ class ExtensionProcessor : AbstractProcessor() {
         val isPublic = element.modifiers.contains(Modifier.PUBLIC)
         if (!isPublic) {
             messager.printMessage(
-                Diagnostic.Kind.WARNING,
-                "Element \"${element.simpleName}\" is private. It should be public to be visible in" +
-                        " the blocks editor."
+                Kind.ERROR,
+                "Element should be public ${element.simpleName}",
+                element
             )
         }
         return isPublic

@@ -9,20 +9,21 @@ import javax.lang.model.type.DeclaredType
 import javax.lang.model.type.TypeKind
 import javax.lang.model.type.TypeMirror
 import javax.lang.model.util.Elements
-import javax.tools.Diagnostic
+import javax.tools.Diagnostic.Kind
 
 class Function(
     element: ExecutableElement,
     private val messager: Messager,
     private val elementUtils: Elements,
-) : ParameterizedBlock(element) {
+) : ParameterizedBlock(element, messager) {
+
     init {
         runChecks()
     }
 
     override val description: String
         get() {
-            val desc = this.element.getAnnotation(SimpleFunction::class.java).description.let {
+            val desc = element.getAnnotation(SimpleFunction::class.java).description.let {
                 it.ifBlank {
                     elementUtils.getDocComment(element) ?: ""
                 }
@@ -37,11 +38,11 @@ class Function(
 
             return if (continuationType != null) {
                 if (element.returnType.kind != TypeKind.VOID) {
-                    messager.printMessage(Diagnostic.Kind.ERROR, "Methods with continuation must be void.", element)
+                    messager.printMessage(Kind.ERROR, "Functions with continuation must be void.", element)
                 }
-                Utils.yailTypeOf(continuationType, helper != null, true)
+                Utils.yailTypeOf(element, continuationType, helper != null, messager, true)
             } else if (element.returnType.kind != TypeKind.VOID) {
-                Utils.yailTypeOf(element.returnType, helper != null)
+                Utils.yailTypeOf(element, element.returnType, helper != null, messager)
             } else {
                 null
             }
@@ -50,43 +51,36 @@ class Function(
     override fun runChecks() {
         // Check method name
         if (!Utils.isPascalCase(name)) {
-            messager.printMessage(
-                Diagnostic.Kind.WARNING,
-                "Simple function \"$name\" should follow 'PascalCase' naming convention."
-            )
+            messager.printMessage(Kind.WARNING, "Function should follow `PascalCase` naming convention.", element)
         }
 
         // Check param names
         params.forEach {
             if (!Utils.isCamelCase(it.name)) {
                 messager.printMessage(
-                    Diagnostic.Kind.WARNING,
-                    "Parameter \"${it.name}\" in simple function \"$name\" should follow 'camelCase' naming convention."
+                    Kind.WARNING,
+                    "Function parameters should follow `camelCase` naming convention.",
+                    element
                 )
             }
         }
 
         if (description.isBlank()) {
-            messager.printMessage(
-                Diagnostic.Kind.WARNING,
-                "Simple function \"$name\" is missing a description."
-            )
+            messager.printMessage(Kind.WARNING, "Function is missing a description.", element)
         }
 
         val continuations = params.filter { it.type == "continuation" }
         if (continuations.size > 1) {
             messager.printMessage(
-                Diagnostic.Kind.WARNING,
-                "Method should not have more than one continuation parameter.",
-                element
+                Kind.WARNING, "Function should not have more than one continuation parameter.", element
             )
         }
-        continuations.first().apply {
-            val typeArgs = (this.element.asType() as DeclaredType).typeArguments
+        continuations.firstOrNull()?.apply {
+            val typeArgs = (element.asType() as DeclaredType).typeArguments
             if (typeArgs.isEmpty()) {
                 messager.printMessage(
-                    Diagnostic.Kind.ERROR,
-                    "Continuation parameter must be specialized with a type.",
+                    Kind.ERROR,
+                    "Continuation parameter must be specialized with a type, like `Continuation<Boolean>`.",
                     element
                 )
             }
@@ -122,7 +116,7 @@ class Function(
         .put("name", name)
         .put("description", description)
         .put("returnType", returnType)
-        .put("params", this.params.filter { it.type != "continuation" }.map { it.asJsonObject() })
-        .put("continuation", continuationUnderlyingType() != null)
+        .put("params", params.filter { it.type != "continuation" }.map { it.asJsonObject() })
+        .put("continuation", if (continuationUnderlyingType() != null) true else null)
         .put("helper", helper?.asJsonObject())
 }

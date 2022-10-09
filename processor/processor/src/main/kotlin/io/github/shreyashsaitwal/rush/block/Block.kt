@@ -6,9 +6,6 @@ import java.lang.Deprecated
 import javax.annotation.processing.Messager
 import javax.lang.model.element.ExecutableElement
 import javax.lang.model.element.VariableElement
-import javax.lang.model.type.DeclaredType
-import javax.tools.Diagnostic
-import javax.tools.Diagnostic.Kind
 import kotlin.String
 
 /**
@@ -61,7 +58,7 @@ abstract class Block(val element: ExecutableElement) {
  *  - `SimpleFunction`
  *  - `SimpleEvent`
  */
-abstract class ParameterizedBlock(element: ExecutableElement) : Block(element) {
+abstract class ParameterizedBlock(element: ExecutableElement, private val messager: Messager) : Block(element) {
 
     data class Parameter(
         val element: VariableElement,
@@ -78,12 +75,12 @@ abstract class ParameterizedBlock(element: ExecutableElement) : Block(element) {
     /**
      * @return The parameters of this parameterized block.
      */
-    val params: List<Parameter> = this.element.parameters.map {
+    val params: List<Parameter> = element.parameters.map {
         val helper = Helper.tryFrom(it)
         Parameter(
             it,
             it.simpleName.toString(),
-            Utils.yailTypeOf(it.asType(), helper != null),
+            Utils.yailTypeOf(it, it.asType(), helper != null, messager)!!,
             helper
         )
     }
