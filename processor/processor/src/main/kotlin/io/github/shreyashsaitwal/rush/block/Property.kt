@@ -86,24 +86,24 @@ class Property(
             return desc
         }
 
-    private val returnTypeElement = when (element.returnType.kind) {
-        // Setter
-        TypeKind.VOID -> element.parameters[0]
-        // Getter
-        else -> element.returnType as TypeElement
+    override val helper = when (element.returnType.kind) {
+        // Setters
+        TypeKind.VOID -> Helper.tryFrom(element.parameters[0])
+        // Getters with [DeclaredType] return type
+        TypeKind.DECLARED -> Helper.tryFrom((element.returnType as DeclaredType).asElement() as TypeElement)
+        // Getters with primitive return type
+        else -> Helper.tryFrom(element)
     }
-
-    override val helper = Helper.tryFrom(returnTypeElement)
 
     /**
      * The return type of property type block, defined as "type" in components.json, depends on whether it's a setter or
      * a getter. For getters, the "type" is the same as the actual return type, but for setters, it is equal to the type
      * this setter sets, i.e., it is equal to the type of its argument.
      */
-    override val returnType = Utils.yailTypeOf(
-        returnTypeElement.asType(),
-        helper != null
-    )
+    override val returnType = when (element.returnType.kind) {
+        TypeKind.VOID -> Utils.yailTypeOf(element.parameters[0].asType(), helper != null)
+        else -> Utils.yailTypeOf(element.returnType, helper != null)
+    }
 
     /**
      * The access type of the current property.
