@@ -18,10 +18,11 @@ private enum class PropertyAccessType(val value: String) {
     INVISIBLE("invisible");
 }
 
+private val processedProperties = mutableListOf<Property>()
+
 class Property(
     element: ExecutableElement,
     private val messager: Messager,
-    private val priorProperties: MutableList<Property>,
     private val elementUtils: Elements,
 ) : Block(element) {
 
@@ -30,6 +31,7 @@ class Property(
     init {
         accessType = propertyAccessType()
         runChecks()
+        processedProperties.add(this)
     }
 
     override fun runChecks() {
@@ -38,7 +40,7 @@ class Property(
         }
 
         if (description.isBlank()) {
-            messager.printMessage(Kind.WARNING, "Property is missing a description.", element)
+            messager.printMessage(Kind.WARNING, "Property has no description.", element)
         }
 
         val isSetter = element.returnType.kind == TypeKind.VOID
@@ -51,7 +53,7 @@ class Property(
             messager.printMessage(Kind.ERROR, "Getter type properties should have no parameters.", element)
         }
 
-        val partnerProp = priorProperties.firstOrNull {
+        val partnerProp = processedProperties.firstOrNull {
             it.name == name && it !== this
         }
 
@@ -112,7 +114,7 @@ class Property(
         }
 
         // If the current property is a setter, this could be a getter and vice versa.
-        val partnerProp = priorProperties.firstOrNull {
+        val partnerProp = processedProperties.firstOrNull {
             it.name == name && it !== this
         }
 
@@ -123,11 +125,11 @@ class Property(
             accessType = PropertyAccessType.READ_WRITE
         }
 
-        // Remove the partner prop from the prior props lst. This is necessary because AI2 doesn't
+        // Remove the partner prop from the prior props list. This is necessary because AI2 doesn't
         // expect getter and setter to be defined separately. It checks the access type to decide
         // whether to generate getter (read-only), setter (write-only), both (read-write) or none
         // (invisible).
-        priorProperties.remove(partnerProp)
+        processedProperties.remove(partnerProp)
         return accessType
     }
 

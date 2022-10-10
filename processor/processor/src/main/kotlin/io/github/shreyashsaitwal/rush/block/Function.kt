@@ -66,7 +66,7 @@ class Function(
         }
 
         if (description.isBlank()) {
-            messager.printMessage(Kind.WARNING, "Function is missing a description.", element)
+            messager.printMessage(Kind.WARNING, "Function has no description.", element)
         }
 
         val continuations = params.filter { it.type == "continuation" }

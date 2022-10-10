@@ -17,6 +17,7 @@ import javax.lang.model.element.Modifier
 import javax.lang.model.element.TypeElement
 import javax.lang.model.util.Elements
 import javax.tools.Diagnostic.Kind
+import com.google.appinventor.components.annotations.DesignerProperty as DesignerPropertyAnnotation
 
 @AutoService(Processor::class)
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
@@ -50,41 +51,35 @@ class ExtensionProcessor : AbstractProcessor() {
         isFirstRound = false
 
         val elements = roundEnv.getElementsAnnotatedWith(ExtensionComponent::class.java)
-        val extensions = elements.map {
-            processExtensionElement(it, elementUtils)
+        val extensions = elements.map { processExtensionElement(it, elementUtils) }
+
+        val generator = InfoFilesGenerator(extensions)
+        try {
+            generator.generateComponentsJson()
+            generator.generateBuildInfoJson()
+        } catch (e: Throwable) {
+            messager.printMessage(Kind.ERROR, e.message ?: e.stackTraceToString())
         }
-        generateInfoFiles(extensions)
 
         return false
     }
 
     private fun processExtensionElement(element: Element, elementUtils: Elements): Extension {
-        // Process simple events
         val events = element.enclosedElements
             .filter { it.getAnnotation(SimpleEvent::class.java) != null && isPublic(it) }
             .map { Event(it as ExecutableElement, messager, elementUtils) }
 
-        // Process simple functions
         val functions = element.enclosedElements
             .filter { it.getAnnotation(SimpleFunction::class.java) != null && isPublic(it) }
             .map { Function(it as ExecutableElement, messager, elementUtils) }
 
-        // Process simple properties
-        val processedProperties = mutableListOf<Property>()
         val properties = element.enclosedElements
             .filter { it.getAnnotation(SimpleProperty::class.java) != null && isPublic(it) }
-            .map {
-                val property = Property(it as ExecutableElement, messager, processedProperties, elementUtils)
-                processedProperties.add(property)
-                property
-            }
+            .map { Property(it as ExecutableElement, messager, elementUtils) }
 
-        // Process designer properties
         val designerProperties = element.enclosedElements
-            .filter {
-                it.getAnnotation(com.google.appinventor.components.annotations.DesignerProperty::class.java) != null
-                        && isPublic(it)
-            }.map { DesignerProperty(it as ExecutableElement, messager, properties) }
+            .filter { it.getAnnotation(DesignerPropertyAnnotation::class.java) != null && isPublic(it) }
+            .map { DesignerProperty(it as ExecutableElement, messager, properties) }
 
         val packageName = elementUtils.getPackageOf(element).qualifiedName.toString()
         val fqcn = "$packageName.${element.simpleName}"
@@ -99,18 +94,9 @@ class ExtensionProcessor : AbstractProcessor() {
         )
     }
 
-    /** Generates the component info files (JSON). */
-    private fun generateInfoFiles(extensions: List<Extension>) {
-        val generator = InfoFilesGenerator(extensions)
-        try {
-            generator.generateComponentsJson()
-            generator.generateBuildInfoJson()
-        } catch (e: Throwable) {
-            messager.printMessage(Kind.ERROR, e.message ?: e.stackTraceToString())
-        }
-    }
-
-    /** @returns `true` if [element] is a public element. */
+    /**
+     * @returns `true` if [element] is a public element.
+     */
     private fun isPublic(element: Element): Boolean {
         val isPublic = element.modifiers.contains(Modifier.PUBLIC)
         if (!isPublic) {

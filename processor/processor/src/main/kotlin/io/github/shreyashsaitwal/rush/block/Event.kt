@@ -58,7 +58,7 @@ class Event(
         }
 
         if (description.isBlank()) {
-            messager.printMessage(Kind.WARNING, "Event is missing a description.", element)
+            messager.printMessage(Kind.WARNING, "Event has no description.", element)
         }
     }
 

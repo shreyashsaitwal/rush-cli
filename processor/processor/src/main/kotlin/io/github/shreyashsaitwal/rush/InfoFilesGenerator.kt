@@ -36,9 +36,7 @@ data class Extension(
     val designerProperties: List<DesignerProperty>,
 )
 
-class InfoFilesGenerator(
-    private val extensions: List<Extension>,
-) {
+class InfoFilesGenerator(private val extensions: List<Extension>) {
     private val projectRoot = System.getenv("RUSH_PROJECT_ROOT")
     private val rawBuildDir = Paths.get(projectRoot, ".rush", "build", "raw").apply {
         if (!this.exists()) this.createDirectory()
@@ -72,7 +70,7 @@ class InfoFilesGenerator(
                 .put("licenseName", yaml.license)
                 .put("versionName", yaml.version)
                 // Choosing version at random because it has no effect whatsoever.
-                .put("version", (0..999_999).random().toString())
+                .put("version", (0..999).random().toString())
                 .put("androidMinSdk", yaml.android.minSdk.coerceAtLeast(7))
 
             val urlPattern = Pattern.compile(
