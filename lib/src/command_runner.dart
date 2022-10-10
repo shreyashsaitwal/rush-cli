@@ -25,7 +25,7 @@ class RushCommandRunner extends CommandRunner<int> {
         negatable: false,
         help: 'Turns on verbose logging.',
         callback: (ok) {
-          GetIt.I<Logger>().debug = !ok;
+          GetIt.I<Logger>().debug = ok;
         },
       )
       ..addFlag(

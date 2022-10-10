@@ -64,13 +64,31 @@ class Compiler {
       );
     }
 
+    final compilationStartedOn = DateTime.now();
     try {
       await _processRunner.runExecutable((hasKtFiles ? 'java' : 'javac'), args);
     } catch (e) {
       rethrow;
     }
 
+    _cleanUpOldClassFiles(compilationStartedOn, keepHelpers: true);
     await timestampBox.put(helpersTimestampKey, DateTime.now());
+  }
+
+  static void _cleanUpOldClassFiles(DateTime compilationStartedOn,
+      {bool keepHelpers = false}) {
+    final files = _fs.buildClassesDir
+        .listSync(recursive: true)
+        .where((el) => p.extension(el.path) == '.class' && !keepHelpers
+            ? !el.path.split(p.separator).contains('helpers')
+            : true)
+        .whereType<File>();
+
+    for (final file in files) {
+      if (file.lastModifiedSync().isBefore(compilationStartedOn)) {
+        file.deleteSync();
+      }
+    }
   }
 
   static Future<void> compileJavaFiles(
@@ -82,13 +100,16 @@ class Compiler {
         .listSync(recursive: true)
         .where((el) => el is File && p.extension(el.path) == '.java')
         .map((el) => el.path);
+    final DateTime compilationStartedOn;
     try {
       await _compileHelpers(comptimeJars, timestampBox, java8: supportJava8);
       final args = _javacArgs(javaFiles, comptimeJars, supportJava8);
+      compilationStartedOn = DateTime.now();
       await _processRunner.runExecutable('javac', await args);
     } catch (e) {
       rethrow;
     }
+    _cleanUpOldClassFiles(compilationStartedOn);
   }
 
   static Future<List<String>> _javacArgs(
@@ -117,15 +138,18 @@ class Compiler {
     String kotlinVersion,
     LazyBox<DateTime> timestampBox,
   ) async {
+    final DateTime compilationStartedOn;
     try {
       await _compileHelpers(comptimeJars, timestampBox,
           ktVersion: kotlinVersion);
       final kotlincArgs =
           await _kotlincArgs(_fs.srcDir.path, comptimeJars, kotlinVersion);
+      compilationStartedOn = DateTime.now();
       await _processRunner.runExecutable('java', kotlincArgs);
     } catch (e) {
       rethrow;
     }
+    _cleanUpOldClassFiles(compilationStartedOn);
   }
 
   static Future<List<String>> _kotlincArgs(
