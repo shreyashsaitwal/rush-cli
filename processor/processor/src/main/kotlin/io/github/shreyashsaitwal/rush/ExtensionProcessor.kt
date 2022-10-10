@@ -50,20 +50,6 @@ class ExtensionProcessor : AbstractProcessor() {
         isFirstRound = false
 
         val elements = roundEnv.getElementsAnnotatedWith(ExtensionComponent::class.java)
-        elements
-            .groupBy { elementUtils.getPackageOf(it).qualifiedName }
-            .apply {
-                if (this.size > 1) {
-                    messager.printMessage(
-                        Kind.ERROR,
-                        "Classes annotated with @${ExtensionComponent::class.simpleName} must be in the same package."
-                    )
-                    for (el in this.values.flatten()) {
-                        messager.printMessage(Kind.ERROR, elementUtils.getPackageOf(el).qualifiedName, el)
-                    }
-                }
-            }
-
         val extensions = elements.map {
             processExtensionElement(it, elementUtils)
         }
