@@ -36,7 +36,7 @@ class UpgradeCommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    _lgr.info('Checking for new version');
+    _lgr.info('Checking for new version...');
 
     final gh = GitHub(
         auth: Authentication.withToken(argResults!['access-token'] as String?));
@@ -60,7 +60,7 @@ class UpgradeCommand extends Command<int> {
         release.assets?.firstWhereOrNull((el) => el.name == archiveName());
     if (archive == null || archive.browserDownloadUrl == null) {
       _lgr
-        ..err('Could not find asset ${archiveName()} at ${release.htmlUrl}')
+        ..err('Could not find release asset ${archiveName()} at ${release.htmlUrl}')
         ..log('This is not supposed to happen. Please report this issue.');
       return 1;
     }
@@ -111,29 +111,31 @@ class UpgradeCommand extends Command<int> {
     await inputStream.close();
     archiveDist.deleteSync(recursive: true);
 
-    final successMsg = '''
+    final exePath = Platform.resolvedExecutable;
 
-${'Success'.green()}! Rush $latestVersion has been installed. 🎉
-Now, run ${'`rush deps sync --dev-deps`'.blue()} to re-sync dev-dependencies.
-
-Check out the changelog for this release at: ${release.htmlUrl}
-''';
-
+    // On Windows, we can't replace the executable while it's running. So, we
+    // move it to `$RUSH_HOME/temp/rush.{version}.exe` and then rename the new
+    // exe, would have been downloaded in the bin directory with name `rush.new.exe`,
+    // to the old name.
     if (Platform.isWindows) {
-      final newExe = '${Platform.resolvedExecutable}.new';
-      if (newExe.asFile().existsSync()) {
-        print(successMsg);
-        await Process.start(
-          'move',
-          ['/Y', newExe, Platform.resolvedExecutable],
-          mode: ProcessStartMode.detached,
-          runInShell: true,
-        );
+      final newExe = p.join(p.dirname(exePath), 'rush.exe.new').asFile();
+      if (newExe.existsSync()) {
+        final tempDir = p.join(_fs.rushHomeDir.path, 'temp').asDir(true);
+        exePath.asFile().renameSync(p.join(tempDir.path, 'rush.$packageVersion.exe'));
+        newExe.renameSync(exePath);
       }
     } else {
       Process.runSync('chmod', ['+x', Platform.resolvedExecutable]);
-      print(successMsg);
     }
+
+    // ignore: avoid_print
+    print('''
+${'Success'.green()}! Rush $latestVersion has been installed. 🎉
+
+Now, run ${'`rush deps sync --dev-deps`'.blue()} to re-sync updated dev-dependencies.
+
+Check out the changelog for this release at: ${release.htmlUrl}
+''');
 
     return 0;
   }

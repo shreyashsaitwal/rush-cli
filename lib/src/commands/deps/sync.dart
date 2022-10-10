@@ -158,16 +158,8 @@ class SyncSubCommand extends Command<int> {
     final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
     final projectDepsBox = await Hive.openLazyBox<Artifact>(projectDepsBoxName);
 
-    // Re-fetch deps if they are outdated, ie, if the config file is modified
-    // or if the dep artifacts are missing
-    final configFileModified = (await timestampBox.get(configTimestampKey))
-            ?.isBefore(_fs.configFile.lastModifiedSync()) ??
-        true;
-    final isAnyDepMissing = (await libService.projectDepArtifacts()).any((el) =>
-        !el.artifactFile.endsWith('.pom') &&
-        !el.artifactFile.asFile().existsSync());
-
-    if (!onlyDevDeps && (configFileModified || isAnyDepMissing)) {
+    if (!onlyDevDeps &&
+        await projectDepsNeedSync(timestampBox, libService, _fs.configFile)) {
       _lgr.startTask('Syncing project dependencies');
 
       final projectDepCoords = {
@@ -212,12 +204,25 @@ class SyncSubCommand extends Command<int> {
     return 0;
   }
 
+  static Future<bool> projectDepsNeedSync(LazyBox<DateTime> timestampBox,
+      LibService libService, File configFile) async {
+    // Re-fetch deps if they are outdated, ie, if the config file is modified
+    // or if the dep artifacts are missing
+    final configFileModified = (await timestampBox.get(configTimestampKey))
+            ?.isBefore(configFile.lastModifiedSync()) ??
+        true;
+    final isAnyDepMissing = (await libService.projectDepArtifacts()).any((el) =>
+        !el.artifactFile.endsWith('.pom') &&
+        !el.artifactFile.asFile().existsSync());
+    return configFileModified || isAnyDepMissing;
+  }
+
   Future<List<Artifact>> sync({
     required LazyBox<Artifact> libCacheBox,
     required Map<Scope, Iterable<String>> coordinates,
     Iterable<String> repositories = const [],
     Iterable<Artifact> providedDepArtifacts = const [],
-    bool downloadSources = false,
+    bool downloadSources = false, 
   }) async {
     _lgr.info('Resolving ${coordinates.values.flattened.length} artifacts...');
     final resolver = ArtifactResolver(repos: repositories.toSet());

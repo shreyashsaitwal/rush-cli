@@ -60,17 +60,8 @@ class BuildCommand extends Command<int> {
 
     final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
 
-    // Re-fetch deps if they are outdated, ie, if the config file is modified
-    // or if the dep artifacts are missing
-    final configFileModified = (await timestampBox.get(configTimestampKey))
-            ?.isBefore(_fs.configFile.lastModifiedSync()) ??
-        true;
-    final isAnyDepMissing = (await _libService.projectDepArtifacts()).any(
-        (el) =>
-            !el.artifactFile.endsWith('.pom') &&
-            !el.artifactFile.asFile().existsSync());
-
-    if (configFileModified || isAnyDepMissing) {
+    if (await SyncSubCommand.projectDepsNeedSync(
+        timestampBox, _libService, _fs.configFile)) {
       final remoteDeps = {
         Scope.runtime: config.runtimeDeps
             .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
