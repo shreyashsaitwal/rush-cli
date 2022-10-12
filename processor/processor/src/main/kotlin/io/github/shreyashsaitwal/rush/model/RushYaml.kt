@@ -9,22 +9,16 @@ data class RushYaml(
     val license: String = "",
     val homepage: String = "",
     val desugar: Boolean = false,
+    @SerialName("min_sdk") val minSdk: Int = 7,
 
     val assets: List<String> = listOf(),
     val authors: List<String> = listOf(),
     val repositories: List<String> = listOf(),
 
-    val android: Android = Android(),
     val kotlin: Kotlin = Kotlin(),
 
     @SerialName("dependencies") val runtimeDeps: List<String> = listOf(),
     @SerialName("comptime_dependencies") val compileDeps: List<String> = listOf(),
-)
-
-@Serializable
-data class Android(
-    @SerialName("compile_sdk") val compileSdk: Int = 31,
-    @SerialName("min_sdk") val minSdk: Int = 7,
 )
 
 @Serializable

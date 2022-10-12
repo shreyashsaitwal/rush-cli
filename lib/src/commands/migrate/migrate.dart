@@ -43,13 +43,13 @@ class MigrateCommand extends Command<int> {
 
     final newConfig = Config(
       version: oldConfig.version.name.toString(),
+      minSdk: oldConfig.minSdk ?? 7,
       assets: oldConfig.assets.other ?? [],
       desugar: oldConfig.build?.desugar?.enable ?? false,
       runtimeDeps: oldConfig.deps ?? [],
       comptimeDeps: comptimeDeps.toList(),
       license: oldConfig.license ?? '',
       homepage: oldConfig.homepage ?? '',
-      android: Android(minSdk: oldConfig.minSdk),
       kotlin: Kotlin(
         compilerVersion: defaultKtVersion,
       ),
@@ -127,11 +127,10 @@ class MigrateCommand extends Command<int> {
   }
 
   void _updateConfig(Config config, bool enableKotlin) {
-    var contents = 'version: \'${config.version}\'\n\n';
-    contents += '''
-android:
-  min_sdk: ${config.android?.minSdk ?? 7}
-  compile_sdk: ${config.android?.compileSdk ?? 31}
+    var contents = '''
+version: '${config.version}'
+
+min_sdk: ${config.minSdk}
 
 ''';
 

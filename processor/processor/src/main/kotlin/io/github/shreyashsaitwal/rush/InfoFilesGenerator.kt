@@ -71,7 +71,7 @@ class InfoFilesGenerator(private val extensions: List<Extension>) {
                 .put("versionName", yaml.version)
                 // Choosing version at random because it has no effect whatsoever.
                 .put("version", (0..999).random().toString())
-                .put("androidMinSdk", yaml.android.minSdk.coerceAtLeast(7))
+                .put("androidMinSdk", yaml.minSdk.coerceAtLeast(7))
 
             val urlPattern = Pattern.compile(
                 """https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_+.~#?&//=]*)"""
@@ -119,7 +119,7 @@ class InfoFilesGenerator(private val extensions: List<Extension>) {
         for (ext in extensions) {
             val extJsonObj = JSONObject()
                 .put("type", ext.fqcn)
-                .put("androidMinSdk", listOf(yaml.android.minSdk.coerceAtLeast(7)))
+                .put("androidMinSdk", listOf(yaml.minSdk.coerceAtLeast(7)))
 
             // Put assets
             val assets = yaml.assets.map { it.trim() }

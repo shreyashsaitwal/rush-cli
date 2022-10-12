@@ -88,8 +88,8 @@ class BuildCommand extends Command<int> {
     _lgr.startTask('Compiling sources');
     try {
       await _mergeManifests(
+        config.minSdk,
         timestampBox,
-        config.android?.minSdk ?? 21,
         await _libService.runtimeAars(config.runtimeDeps),
       );
     } catch (e, s) {
@@ -175,8 +175,8 @@ class BuildCommand extends Command<int> {
   }
 
   Future<void> _mergeManifests(
-    LazyBox<DateTime> timestampBox,
     int minSdk,
+    LazyBox<DateTime> timestampBox,
     Iterable<String> runtimeDepAars,
   ) async {
     final depManifestPaths = runtimeDepAars.map((path) {
@@ -195,7 +195,6 @@ class BuildCommand extends Command<int> {
         p.join(_fs.buildFilesDir.path, 'AndroidManifest.xml').asFile();
 
     final lastMergeTime = await timestampBox.get(androidManifestTimestampKey);
-    _lgr.dbg('Last manifest merge time: $lastMergeTime');
 
     final needMerge = !await outputManifest.exists() ||
         (lastMergeTime?.isBefore(mainManifest.lastModifiedSync()) ?? true);

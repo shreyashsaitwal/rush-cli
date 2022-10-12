@@ -24,6 +24,9 @@ class Config {
   @JsonKey(name: 'comptime_dependencies')
   final List<String> comptimeDeps;
 
+  @JsonKey(name: 'min_sdk')
+  final int minSdk;
+
   final List<String> repositories;
 
   final String homepage;
@@ -36,12 +39,11 @@ class Config {
 
   final List<String> authors;
 
-  final Android? android;
-
   final Kotlin? kotlin;
 
   Config({
     required this.version,
+    this.minSdk = 7,
     this.homepage = '',
     this.license = '',
     this.desugar = false,
@@ -50,7 +52,6 @@ class Config {
     this.runtimeDeps = const [],
     this.comptimeDeps = const [],
     this.repositories = const [],
-    this.android,
     this.kotlin,
   });
 
