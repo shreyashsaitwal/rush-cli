@@ -6,8 +6,8 @@ import 'package:collection/collection.dart';
 import 'package:rush_cli/src/commands/build/utils.dart';
 import 'package:rush_cli/src/resolver/artifact.dart';
 import 'package:rush_cli/src/services/file_service.dart';
-import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/constants.dart';
+import 'package:rush_cli/src/utils/file_extension.dart';
 
 const rushApCoord =
     'io.github.shreyashsaitwal.rush:processor:$annotationProcVersion';
@@ -180,6 +180,25 @@ class LibService {
         ));
 
     return res;
+  }
+
+  Future<Iterable<String>> comptimeAars(Iterable<String> localRuntimeDeps,
+      Iterable<String> localComptimeDeps) async {
+    final aars = <String>[...await runtimeAars(localRuntimeDeps)];
+
+    final provided = await providedDepArtifacts();
+    aars.addAll(provided
+        .where((el) => el.packaging == 'aar')
+        .map((el) => el.artifactFile));
+
+    BuildUtils.extractAars(
+        localComptimeDeps.where((el) => p.extension(el) == '.aar'));
+    aars.addAll(localComptimeDeps.where((el) => p.extension(el) == '.aar'));
+
+    return aars
+        .map((el) => p.join(
+            p.dirname(el), p.basenameWithoutExtension(el), 'proguard.txt'))
+        .where((el) => el.asFile().existsSync());
   }
 
   Future<Iterable<String>> comptimeJars(Iterable<String> localRuntimeDeps,

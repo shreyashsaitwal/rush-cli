@@ -137,7 +137,12 @@ class BuildCommand extends Command<int> {
       try {
         final pgClasspath =
             (await _libService.pgJars()).join(BuildUtils.cpSeparator);
-        await Executor.execProGuard(artJarPath, comptimeDeps, pgClasspath);
+        await Executor.execProGuard(
+            artJarPath,
+            comptimeDeps,
+            pgClasspath,
+            await _libService.comptimeAars(
+                config.runtimeDeps, config.comptimeDeps));
       } catch (e, s) {
         _catchAndStop(e, s);
         return 1;

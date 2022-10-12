@@ -37,8 +37,20 @@ class Executor {
     String artJarPath,
     Iterable<String> comptimeJars,
     String pgClasspath,
+    Iterable<String> depRules,
   ) async {
-    final rulesPro = p.join(_fs.srcDir.path, 'proguard-rules.pro').asFile();
+    final mergedRules = p.join(_fs.buildFilesDir.path, 'proguard-rules.txt').asFile(true);
+    final projectRules = p.join(_fs.srcDir.path, 'proguard-rules.pro').asFile();
+
+    mergedRules.writeAsStringSync(projectRules.readAsStringSync());
+    for (final el in depRules) {
+      mergedRules.writeAsStringSync('''
+
+# Rules from: $el
+${el.asFile().readAsStringSync()}
+''', mode: FileMode.append);
+    }
+
     final optimizedJar =
         p.join(p.dirname(artJarPath), 'AndroidRuntime.optimized.jar').asFile();
 
@@ -48,7 +60,7 @@ class Executor {
       ...['-injars', artJarPath],
       ...['-outjars', optimizedJar.path],
       ...['-libraryjars', comptimeJars.join(BuildUtils.cpSeparator)],
-      '@${rulesPro.path}',
+      '@${mergedRules.path}',
     ];
 
     try {
