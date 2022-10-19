@@ -4,15 +4,15 @@ import 'package:args/command_runner.dart';
 import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/src/commands/deps/sync.dart';
-import 'package:rush_cli/src/utils/constants.dart';
 import 'package:tint/tint.dart';
 
+import 'package:rush_cli/src/commands/deps/sync.dart';
 import 'package:rush_cli/src/commands/migrate/old_config/old_config.dart'
     as old;
 import 'package:rush_cli/src/config/config.dart';
 import 'package:rush_cli/src/services/file_service.dart';
 import 'package:rush_cli/src/services/logger.dart';
+import 'package:rush_cli/src/utils/constants.dart';
 
 class MigrateCommand extends Command<int> {
   final _fs = GetIt.I<FileService>();
@@ -76,6 +76,7 @@ class MigrateCommand extends Command<int> {
     _deleteOldHiveBoxes();
     _lgr.stopTask();
 
+    // No need to start a task here since the sync command does that on its own.
     await SyncSubCommand().run();
     return 0;
   }
@@ -103,7 +104,7 @@ class MigrateCommand extends Command<int> {
     }
 
     final annotation = '''
-// You might want to shorten this annotation by importing `ExtensionComponent`.
+// FIXME: You might want to shorten this annotation by importing `ExtensionComponent`.
 @com.google.appinventor.components.annotations.ExtensionComponent(
     name = "${oldConfig.name}",
     description = "Extension component for ${oldConfig.name}. Built with <3 and Rush.",

@@ -19,10 +19,10 @@ ${!enableKt ? '' : '''
 
 # Kotlin specific configuration.
 kotlin:
-  compiler_version: '$defaultKtVersion'
+    compiler_version: '$defaultKtVersion'
 '''}
-# Java/Kotlin libraries your extension depends on. These can be local JARs or 
-# AARs stored in the "deps" directory or coordinates of remote Maven artifacts in
+# External libraries your extension depends on. These can be local JARs / AARs
+# stored in the "deps" directory or coordinates of remote Maven artifacts in
 # <groupId>:<artifactId>:<version> format. 
 ${enableKt ? 'dependencies:' : '# dependencies:'}
 ${enableKt ? '- $kotlinGroupId:kotlin-stdlib:$defaultKtVersion\n' : ''}# - example.jar                 # Local JAR or AAR file stored in "deps" directory
@@ -30,7 +30,7 @@ ${enableKt ? '- $kotlinGroupId:kotlin-stdlib:$defaultKtVersion\n' : ''}# - examp
 
 # Default Maven repositories includes Maven Central, Google Maven, JitPack and 
 # JCenter. If the library you want to use is not available in these repositories,
-# you can add additional repositories here.
+# you can add additional repositories by specifying their URLs here.
 # repositories:
 # - https://jitpack.io
 
@@ -39,11 +39,11 @@ ${enableKt ? '- $kotlinGroupId:kotlin-stdlib:$defaultKtVersion\n' : ''}# - examp
 # assets:
 # - data.json
 
-# Homepage of your extension. This can be the announcement thread on community 
+# Homepage of your extension. This may be the announcement thread on community 
 # forums or a link to your GitHub repository.
 # homepage: https://github.com/shreyashsaitwal/rush-cli
 
-# Path to the license file of your extension. This can be a path to a local file
+# Path to the license file of your extension. This should be a path to a local file
 # or link to something hosted online.
 # license: LICENSE.txt
 
@@ -63,7 +63,7 @@ String pgRules(String org) {
 }
 
 # ProGuard sometimes (randomly) renames references to the following classes in 
-# the extensions, this rule prevents that  from happening. Keep this rule even
+# the extensions, this rule prevents that from happening. Keep this rule even
 # if you don't use these classes in your extension.
 -keeppackagenames gnu.kawa**, gnu.expr**
 
@@ -82,14 +82,17 @@ const String dotGitignore = '''
 String androidManifestXml(String org) {
   return '''
 <?xml version="1.0" encoding="utf-8"?>
-<manifest 
-  xmlns:android="http://schemas.android.com/apk/res/android" 
-  package="$org"
->
-  <application>
-    <!-- Add your application level manifest tags here. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="$org">
 
-  </application>
+    <application>
+        <!-- You can use any manifest tag that goes inside the <application> tag -->
+        <!-- <service android:name="com.example.MyService"> ... </service> -->
+    </application>
+
+    <!-- Other than <application> level tags, you can use <uses-permission> & <queries> tags -->
+    <!-- <uses-permission android:name="android.permission.SEND_SMS"/> -->
+    <!-- <queries> ... </queries> -->
+
 </manifest>
 ''';
 }
@@ -97,7 +100,7 @@ String androidManifestXml(String org) {
 // TODO: Add build instructions and other basic info
 String readmeMd(String name) {
   return '''
-## $name
+# $name
 
 An App Inventor 2 extension created using Rush.
 ''';
