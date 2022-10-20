@@ -107,7 +107,21 @@ class BuildCommand extends Command<int> {
     }
     _lgr.stopTask();
 
-    _lgr.startTask('Processing resources');
+    _lgr.startTask('Processing');
+    final componentsJson =
+        p.join(_fs.buildRawDir.path, 'components.json').asFile();
+    final buildInfosJson = p
+        .join(_fs.buildRawDir.path, 'files', 'component_build_infos.json')
+        .asFile();
+    if (!componentsJson.existsSync() || !buildInfosJson.existsSync()) {
+      _lgr
+        ..err('Unable to find components.json or component_build_infos.json')
+        ..log(
+            '${'help '.green()} Make sure you have annotated your extension with @ExtensionComponent annotation')
+        ..stopTask(false);
+      return 1;
+    }
+
     final String artJarPath;
     try {
       BuildUtils.copyAssets(config);
