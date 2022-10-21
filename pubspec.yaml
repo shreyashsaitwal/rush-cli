@@ -4,7 +4,7 @@ version: 2.0.0-beta
 homepage: https://github.com/shreyashsaitwal/rush-cli
 
 executables:
-  rush: rush.dart
+  rush2: rush.dart
 
 environment:
   sdk: ">=2.17.0 <3.0.0"

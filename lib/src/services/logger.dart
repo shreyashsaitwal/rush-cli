@@ -8,12 +8,6 @@ final _console = Console();
 class Logger {
   bool debug = false;
 
-  int _errorCount = 0;
-  int get errorCount => _errorCount;
-
-  int _warningCount = 0;
-  int get warningCount => _warningCount;
-
   bool _isTaskRunning = false;
   bool _hasTaskLogged = false;
   final _taskStopwatch = Stopwatch();
@@ -30,12 +24,10 @@ class Logger {
 
   void warn(String message) {
     log(message, 'warn  '.yellow());
-    _warningCount++;
   }
 
   void err(String message) {
     log(message, 'error '.red());
-    _errorCount++;
   }
 
   final _warnRegex = RegExp('(warning:? ){1,2}', caseSensitive: false);
@@ -117,7 +109,7 @@ class Logger {
     final time = (_taskStopwatch.elapsedMilliseconds / 1000).toStringAsFixed(2);
     String line = (success ? '✅'.green() : '❌'.red()) +
         ' ' * 4 +
-        '... ($time)'.brightBlack();
+        '... (${time}s)'.brightBlack();
     if (_hasTaskLogged) {
       line = '└ '.brightBlack() + line;
     } else {

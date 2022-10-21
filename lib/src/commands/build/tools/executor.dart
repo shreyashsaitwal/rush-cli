@@ -18,7 +18,6 @@ class Executor {
       'com.android.tools.r8.D8',
       ...['--lib', p.join(_fs.libsDir.path, 'android.jar')],
       '--release',
-      '--intermediate',
       '--no-desugaring',
       '--output',
       p.join(_fs.buildRawDir.path, 'classes.jar'),

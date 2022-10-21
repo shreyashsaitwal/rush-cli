@@ -42,16 +42,17 @@ class BuildCommand extends Command<int> {
   @override
   String get name => 'build';
 
+  final _stopwatch = Stopwatch();
+
   /// Builds the extension in the current directory
   @override
   Future<int> run() async {
+    _stopwatch.start();
     _lgr.startTask('Initializing build');
 
-    _lgr.dbg('Waiting for lib service');
     await GetIt.I.isReady<LibService>();
     _libService = GetIt.I<LibService>();
 
-    _lgr.info('Loading config file');
     final config = await Config.load(_fs.configFile, _lgr);
     if (config == null) {
       _lgr.stopTask(false);
@@ -135,7 +136,7 @@ class BuildCommand extends Command<int> {
     _lgr.stopTask();
 
     if (config.desugar) {
-      _lgr.startTask('Desugaring Java8 langauge features');
+      _lgr.startTask('Desugaring Java 8 langauge features');
       try {
         await Executor.execDesugarer(
             await _libService.desugarJar(), artJarPath, comptimeDeps);
@@ -181,16 +182,30 @@ class BuildCommand extends Command<int> {
       return 1;
     }
     _lgr.stopTask();
+
+    _logFinalLine(true);
     return 0;
   }
 
   void _catchAndStop(Object e, StackTrace s) {
     if (e.toString().isNotEmpty) {
-      _lgr.err(e.toString());
+      _lgr.dbg(e.toString());
     }
     _lgr
       ..dbg(s.toString())
       ..stopTask(false);
+
+    _logFinalLine(false);
+  }
+
+  void _logFinalLine(bool success) {
+    var line = '\n';
+    line += success ? '• '.green() : '• '.red();
+    line += success ? 'BUILD SUCCESSFUL ' : 'BUILD FAILED ';
+
+    final time = (_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(2);
+    line += '(took ${time}s)'.grey();
+    _lgr.log(line);
   }
 
   Future<void> _mergeManifests(

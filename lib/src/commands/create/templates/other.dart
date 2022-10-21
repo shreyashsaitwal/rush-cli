@@ -19,7 +19,7 @@ ${!enableKt ? '' : '''
 
 # Kotlin specific configuration.
 kotlin:
-    compiler_version: '$defaultKtVersion'
+  compiler_version: '$defaultKtVersion'
 '''}
 # External libraries your extension depends on. These can be local JARs / AARs
 # stored in the "deps" directory or coordinates of remote Maven artifacts in
