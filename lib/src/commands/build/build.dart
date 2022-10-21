@@ -118,7 +118,7 @@ class BuildCommand extends Command<int> {
       _lgr
         ..err('Unable to find components.json or component_build_infos.json')
         ..log(
-            '${'help '.green()} Make sure you have annotated your extension with @ExtensionComponent annotation')
+            '${'help '.green()} Make sure you have annotated your extension with @Extension annotation')
         ..stopTask(false);
       return 1;
     }
@@ -149,15 +149,19 @@ class BuildCommand extends Command<int> {
 
     if (argResults!['optimize'] as bool) {
       _lgr.startTask('Optimizing and obfuscating the bytecode');
+
+      final comptimeAars = await _libService.comptimeAars(
+          config.runtimeDeps, config.comptimeDeps);
+      final proguardRules = comptimeAars
+          .map((el) => p.join(
+              p.dirname(el), p.basenameWithoutExtension(el), 'proguard.txt'))
+          .where((el) => el.asFile().existsSync());
+
       try {
         final pgClasspath =
             (await _libService.pgJars()).join(BuildUtils.cpSeparator);
-        await Executor.execProGuard(
-            artJarPath,
-            comptimeDeps,
-            pgClasspath,
-            await _libService.comptimeAars(
-                config.runtimeDeps, config.comptimeDeps));
+        await Executor.execProGuard(artJarPath, comptimeDeps.toSet(),
+            pgClasspath, proguardRules.toSet());
       } catch (e, s) {
         _catchAndStop(e, s);
         return 1;
