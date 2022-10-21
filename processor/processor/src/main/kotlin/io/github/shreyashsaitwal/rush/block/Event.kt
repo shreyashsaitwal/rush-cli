@@ -11,7 +11,7 @@ import javax.tools.Diagnostic.Kind
 
 class Event(
     element: ExecutableElement,
-    private val messager: Messager,
+    messager: Messager,
     private val elementUtils: Elements,
 ) : ParameterizedBlock(element, messager) {
 
@@ -41,21 +41,7 @@ class Event(
     }
 
     override fun runChecks() {
-        // Check method name
-        if (!Utils.isPascalCase(name)) {
-            messager.printMessage(Kind.WARNING, "Event should follow `PascalCase` naming convention.", element)
-        }
-
-        // Check param names
-        params.forEach {
-            if (!Utils.isCamelCase(it.name)) {
-                messager.printMessage(
-                    Kind.WARNING,
-                    "Event parameters should follow `camelCase` naming convention.",
-                    it.element
-                )
-            }
-        }
+        super.runChecks()
 
         if (description.isBlank()) {
             messager.printMessage(Kind.WARNING, "Event has no description.", element)

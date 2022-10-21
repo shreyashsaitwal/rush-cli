@@ -13,7 +13,7 @@ import javax.tools.Diagnostic.Kind
 
 class Function(
     element: ExecutableElement,
-    private val messager: Messager,
+    messager: Messager,
     private val elementUtils: Elements,
 ) : ParameterizedBlock(element, messager) {
 
@@ -49,21 +49,7 @@ class Function(
         }
 
     override fun runChecks() {
-        // Check method name
-        if (!Utils.isPascalCase(name)) {
-            messager.printMessage(Kind.WARNING, "Function should follow `PascalCase` naming convention.", element)
-        }
-
-        // Check param names
-        params.forEach {
-            if (!Utils.isCamelCase(it.name)) {
-                messager.printMessage(
-                    Kind.WARNING,
-                    "Function parameters should follow `camelCase` naming convention.",
-                    element
-                )
-            }
-        }
+        super.runChecks()
 
         if (description.isBlank()) {
             messager.printMessage(Kind.WARNING, "Function has no description.", element)

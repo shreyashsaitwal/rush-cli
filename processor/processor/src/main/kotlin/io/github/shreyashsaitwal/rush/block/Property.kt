@@ -22,9 +22,9 @@ private val processedProperties = mutableListOf<Property>()
 
 class Property(
     element: ExecutableElement,
-    private val messager: Messager,
+    messager: Messager,
     private val elementUtils: Elements,
-) : Block(element) {
+) : Block(element, messager) {
 
     private val accessType: PropertyAccessType
 
@@ -35,9 +35,7 @@ class Property(
     }
 
     override fun runChecks() {
-        if (!Utils.isPascalCase(name)) {
-            messager.printMessage(Kind.WARNING, "Property should follow `PascalCase` naming convention.", element)
-        }
+        super.runChecks()
 
         if (description.isBlank()) {
             messager.printMessage(Kind.WARNING, "Property has no description.", element)

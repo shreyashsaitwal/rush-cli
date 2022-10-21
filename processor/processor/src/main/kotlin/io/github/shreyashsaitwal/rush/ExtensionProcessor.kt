@@ -66,19 +66,19 @@ class ExtensionProcessor : AbstractProcessor() {
 
     private fun processExtensionElement(element: Element, elementUtils: Elements): Ext {
         val events = element.enclosedElements
-            .filter { it.getAnnotation(SimpleEvent::class.java) != null && isPublic(it) }
+            .filter { it.getAnnotation(SimpleEvent::class.java) != null }
             .map { Event(it as ExecutableElement, messager, elementUtils) }
 
         val functions = element.enclosedElements
-            .filter { it.getAnnotation(SimpleFunction::class.java) != null && isPublic(it) }
+            .filter { it.getAnnotation(SimpleFunction::class.java) != null }
             .map { Function(it as ExecutableElement, messager, elementUtils) }
 
         val properties = element.enclosedElements
-            .filter { it.getAnnotation(SimpleProperty::class.java) != null && isPublic(it) }
+            .filter { it.getAnnotation(SimpleProperty::class.java) != null }
             .map { Property(it as ExecutableElement, messager, elementUtils) }
 
         val designerProperties = element.enclosedElements
-            .filter { it.getAnnotation(DesignerPropertyAnnotation::class.java) != null && isPublic(it) }
+            .filter { it.getAnnotation(DesignerPropertyAnnotation::class.java) != null }
             .map { DesignerProperty(it as ExecutableElement, messager, properties) }
 
         val packageName = elementUtils.getPackageOf(element).qualifiedName.toString()
@@ -92,20 +92,5 @@ class ExtensionProcessor : AbstractProcessor() {
             properties,
             designerProperties
         )
-    }
-
-    /**
-     * @returns `true` if [element] is a public element.
-     */
-    private fun isPublic(element: Element): Boolean {
-        val isPublic = element.modifiers.contains(Modifier.PUBLIC)
-        if (!isPublic) {
-            messager.printMessage(
-                Kind.ERROR,
-                "Element should be public ${element.simpleName}",
-                element
-            )
-        }
-        return isPublic
     }
 }

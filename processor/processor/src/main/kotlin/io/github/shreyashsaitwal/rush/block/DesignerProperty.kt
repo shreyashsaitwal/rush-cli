@@ -8,9 +8,9 @@ import javax.tools.Diagnostic.Kind
 
 class DesignerProperty(
     element: ExecutableElement,
-    private val messager: Messager,
+    messager: Messager,
     private val properties: List<Property>,
-) : Block(element) {
+) : Block(element, messager) {
 
     init {
         runChecks()
@@ -21,6 +21,8 @@ class DesignerProperty(
     override val returnType: Nothing? = null
 
     override fun runChecks() {
+        // No need to invoke super.runChecks() as other checks will be done by the corresponding SimpleProperty.
+
         // Check if the corresponding setter simple property exists.
         val setterExist = properties.any { it.name == name }
         if (!setterExist) {

@@ -5,7 +5,9 @@ import shaded.org.json.JSONObject
 import java.lang.Deprecated
 import javax.annotation.processing.Messager
 import javax.lang.model.element.ExecutableElement
+import javax.lang.model.element.Modifier
 import javax.lang.model.element.VariableElement
+import javax.tools.Diagnostic
 import kotlin.String
 
 /**
@@ -15,7 +17,7 @@ import kotlin.String
  *  - `SimpleProperty`
  *  - `DesignerProperty`
  */
-abstract class Block(val element: ExecutableElement) {
+abstract class Block(val element: ExecutableElement, val messager: Messager) {
 
     /**
      * Name of this block.
@@ -45,7 +47,17 @@ abstract class Block(val element: ExecutableElement) {
     /**
      * Checks that are supposed to be performed on this block.
      */
-    abstract fun runChecks()
+    open fun runChecks() {
+        val type = this::class.java.simpleName.toString()
+
+        if (!Utils.isPascalCase(name)) {
+            messager.printMessage(Diagnostic.Kind.WARNING, "$type should follow `PascalCase` naming convention.", element)
+        }
+
+        if (!element.modifiers.contains(Modifier.PUBLIC)) {
+            messager.printMessage(Diagnostic.Kind.WARNING, "$type should be public.", element)
+        }
+    }
 
     /**
      * @return JSON representation of this block that is later used to construct the `components.json` descriptor file.
@@ -58,7 +70,7 @@ abstract class Block(val element: ExecutableElement) {
  *  - `SimpleFunction`
  *  - `SimpleEvent`
  */
-abstract class ParameterizedBlock(element: ExecutableElement, private val messager: Messager) : Block(element) {
+abstract class ParameterizedBlock(element: ExecutableElement, messager: Messager) : Block(element, messager) {
 
     data class Parameter(
         val element: VariableElement,
@@ -70,6 +82,21 @@ abstract class ParameterizedBlock(element: ExecutableElement, private val messag
             .put("name", name)
             .put("type", type)
             .put("helper", helper?.asJsonObject())
+    }
+
+    override fun runChecks() {
+        super.runChecks()
+
+        val type = this::class.java.simpleName.toString()
+        params.forEach {
+            if (!Utils.isCamelCase(it.name)) {
+                messager.printMessage(
+                    Diagnostic.Kind.WARNING,
+                    "$type parameters should follow `camelCase` naming convention.",
+                    element
+                )
+            }
+        }
     }
 
     /**
