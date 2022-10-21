@@ -222,7 +222,7 @@ class SyncSubCommand extends Command<int> {
     required Map<Scope, Iterable<String>> coordinates,
     Iterable<String> repositories = const [],
     Iterable<Artifact> providedDepArtifacts = const [],
-    bool downloadSources = false, 
+    bool downloadSources = false,
   }) async {
     _lgr.info('Resolving ${coordinates.values.flattened.length} artifacts...');
     final resolver = ArtifactResolver(repos: repositories.toSet());

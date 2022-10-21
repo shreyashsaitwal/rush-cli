@@ -18,9 +18,14 @@ String dotProject(String name) {
 ''';
 }
 
-String dotClasspath(Iterable<String> classesJars, Iterable<String> sourcesJars) {
-  final classes = classesJars.map((el) => '    <classpathentry kind="lib" path="$el"/>').join('\n');
-  final sources = sourcesJars.map((el) => '    <classpathentry kind="lib" path="$el"/>').join('\n');
+String dotClasspath(
+    Iterable<String> classesJars, Iterable<String> sourcesJars) {
+  final classes = classesJars
+      .map((el) => '    <classpathentry kind="lib" path="$el"/>')
+      .join('\n');
+  final sources = sourcesJars
+      .map((el) => '    <classpathentry kind="lib" path="$el"/>')
+      .join('\n');
   return '''
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>

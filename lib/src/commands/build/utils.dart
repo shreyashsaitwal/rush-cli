@@ -33,7 +33,7 @@ class BuildUtils {
   static void extractAars(Iterable<String> aars) {
     for (final aar in aars) {
       final String dist;
-      
+
       // Extract local AARs in .rush/build/extracted-aars dir, whereas remote AARs
       // in their original location under {aar_basename} dir.
       if (p.isWithin(_fs.localDepsDir.path, aar)) {

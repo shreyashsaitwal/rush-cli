@@ -10,7 +10,7 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
-public @interface ExtensionComponent {
+public @interface Extension {
     /**
      * The name of the extension. This is the name that will be displayed in the designer and blocks editor.
      *

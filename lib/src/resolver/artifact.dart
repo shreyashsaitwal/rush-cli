@@ -6,7 +6,6 @@ import 'package:collection/collection.dart';
 import 'package:xrange/xrange.dart';
 
 import 'package:rush_cli/src/utils/file_extension.dart';
-import 'package:rush_cli/src/commands/build/utils.dart';
 
 part 'artifact.g.dart';
 
@@ -14,7 +13,7 @@ part 'artifact.g.dart';
 enum Scope {
   @HiveField(0)
   compile('compile'),
-  
+
   @HiveField(1)
   runtime('runtime'),
 

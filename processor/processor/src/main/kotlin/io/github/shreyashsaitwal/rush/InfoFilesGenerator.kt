@@ -1,7 +1,7 @@
 package io.github.shreyashsaitwal.rush
 
 import com.charleskorn.kaml.Yaml
-import com.google.appinventor.components.annotations.ExtensionComponent
+import com.google.appinventor.components.annotations.Extension
 import io.github.shreyashsaitwal.rush.block.DesignerProperty
 import io.github.shreyashsaitwal.rush.block.Event
 import io.github.shreyashsaitwal.rush.block.Function
@@ -27,8 +27,8 @@ import javax.xml.parsers.ParserConfigurationException
 import kotlin.io.path.createDirectory
 import kotlin.io.path.exists
 
-data class Extension(
-    val extensionComponent: ExtensionComponent,
+data class Ext(
+    val extensionAnnotation: Extension,
     val fqcn: String,
     val events: List<Event>,
     val functions: List<Function>,
@@ -36,7 +36,7 @@ data class Extension(
     val designerProperties: List<DesignerProperty>,
 )
 
-class InfoFilesGenerator(private val extensions: List<Extension>) {
+class InfoFilesGenerator(private val extensions: List<Ext>) {
     private val projectRoot = System.getenv("RUSH_PROJECT_ROOT")
     private val rawBuildDir = Paths.get(projectRoot, ".rush", "build", "raw").apply {
         if (!this.exists()) this.createDirectory()
@@ -63,8 +63,8 @@ class InfoFilesGenerator(private val extensions: List<Extension>) {
                 .put("nonVisible", "true")
 
             extJsonObj
-                .put("name", ext.extensionComponent.name)
-                .put("helpString", parseMdString(ext.extensionComponent.description))
+                .put("name", ext.extensionAnnotation.name)
+                .put("helpString", parseMdString(ext.extensionAnnotation.description))
                 .put("type", ext.fqcn)
                 .put("helpUrl", yaml.homepage)
                 .put("licenseName", yaml.license)
@@ -76,7 +76,7 @@ class InfoFilesGenerator(private val extensions: List<Extension>) {
             val urlPattern = Pattern.compile(
                 """https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_+.~#?&//=]*)"""
             )
-            val icon = ext.extensionComponent.icon
+            val icon = ext.extensionAnnotation.icon
             if (urlPattern.matcher(icon).find()) {
                 extJsonObj.put("iconName", icon)
             } else {

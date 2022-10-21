@@ -19,7 +19,8 @@ class ProcessRunner {
       });
     } catch (e) {
       if (e.toString().contains('The system cannot find the file specified')) {
-        _lgr.err('Could not run `$exe`. Make sure it is installed and in PATH.');
+        _lgr.err(
+            'Could not run `$exe`. Make sure it is installed and in PATH.');
       }
       rethrow;
     }

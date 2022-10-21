@@ -1,6 +1,6 @@
 package io.github.shreyashsaitwal.rush
 
-import com.google.appinventor.components.annotations.ExtensionComponent
+import com.google.appinventor.components.annotations.Extension
 import com.google.appinventor.components.annotations.SimpleEvent
 import com.google.appinventor.components.annotations.SimpleFunction
 import com.google.appinventor.components.annotations.SimpleProperty
@@ -22,7 +22,7 @@ import com.google.appinventor.components.annotations.DesignerProperty as Designe
 @AutoService(Processor::class)
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
 @SupportedAnnotationTypes(
-    "com.google.appinventor.components.annotations.ExtensionComponent",
+    "com.google.appinventor.components.annotations.Extension",
     "com.google.appinventor.components.annotations.SimpleEvent",
     "com.google.appinventor.components.annotations.SimpleFunction",
     "com.google.appinventor.components.annotations.SimpleProperty",
@@ -50,7 +50,7 @@ class ExtensionProcessor : AbstractProcessor() {
         }
         isFirstRound = false
 
-        val elements = roundEnv.getElementsAnnotatedWith(ExtensionComponent::class.java)
+        val elements = roundEnv.getElementsAnnotatedWith(Extension::class.java)
         val extensions = elements.map { processExtensionElement(it, elementUtils) }
 
         val generator = InfoFilesGenerator(extensions)
@@ -64,7 +64,7 @@ class ExtensionProcessor : AbstractProcessor() {
         return false
     }
 
-    private fun processExtensionElement(element: Element, elementUtils: Elements): Extension {
+    private fun processExtensionElement(element: Element, elementUtils: Elements): Ext {
         val events = element.enclosedElements
             .filter { it.getAnnotation(SimpleEvent::class.java) != null && isPublic(it) }
             .map { Event(it as ExecutableElement, messager, elementUtils) }
@@ -84,8 +84,8 @@ class ExtensionProcessor : AbstractProcessor() {
         val packageName = elementUtils.getPackageOf(element).qualifiedName.toString()
         val fqcn = "$packageName.${element.simpleName}"
 
-        return Extension(
-            element.getAnnotation(ExtensionComponent::class.java),
+        return Ext(
+            element.getAnnotation(Extension::class.java),
             fqcn,
             events,
             functions,

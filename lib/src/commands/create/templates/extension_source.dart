@@ -2,14 +2,14 @@ String getExtensionTempJava(String name, String org) {
   return '''
 package $org;
 
-import com.google.appinventor.components.annotations.ExtensionComponent;
+import com.google.appinventor.components.annotations.Extension;
 import com.google.appinventor.components.annotations.SimpleFunction;
 import com.google.appinventor.components.runtime.util.YailList;
 import com.google.appinventor.components.runtime.ComponentContainer;
 import com.google.appinventor.components.runtime.errors.YailRuntimeError;
 import com.google.appinventor.components.runtime.AndroidNonvisibleComponent;
 
-@ExtensionComponent(
+@Extension(
     name = "$name",
     description = "Extension component for $name. Built with <3 and Rush.",
     icon = "icon.png"
@@ -42,13 +42,13 @@ String getExtensionTempKt(String name, String org) {
   return '''
 package $org
 
-import com.google.appinventor.components.annotations.ExtensionComponent
+import com.google.appinventor.components.annotations.Extension
 import com.google.appinventor.components.annotations.SimpleFunction
 import com.google.appinventor.components.runtime.AndroidNonvisibleComponent
 import com.google.appinventor.components.runtime.ComponentContainer
 import com.google.appinventor.components.runtime.util.YailList
 
-@ExtensionComponent(
+@Extension(
     name = "$name",
     description = "Extension component for $name. Built with <3 and Rush.",
     icon = "icon.png"

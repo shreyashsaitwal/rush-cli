@@ -60,7 +60,8 @@ class UpgradeCommand extends Command<int> {
         release.assets?.firstWhereOrNull((el) => el.name == archiveName());
     if (archive == null || archive.browserDownloadUrl == null) {
       _lgr
-        ..err('Could not find release asset ${archiveName()} at ${release.htmlUrl}')
+        ..err(
+            'Could not find release asset ${archiveName()} at ${release.htmlUrl}')
         ..log('This is not supposed to happen. Please report this issue.');
       return 1;
     }
@@ -121,7 +122,9 @@ class UpgradeCommand extends Command<int> {
       final newExe = p.join(p.dirname(exePath), 'rush.exe.new').asFile();
       if (newExe.existsSync()) {
         final tempDir = p.join(_fs.rushHomeDir.path, 'temp').asDir(true);
-        exePath.asFile().renameSync(p.join(tempDir.path, 'rush.$packageVersion.exe'));
+        exePath
+            .asFile()
+            .renameSync(p.join(tempDir.path, 'rush.$packageVersion.exe'));
         newExe.renameSync(exePath);
       }
     } else {

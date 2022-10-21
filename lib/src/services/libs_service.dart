@@ -7,7 +7,6 @@ import 'package:rush_cli/src/commands/build/utils.dart';
 import 'package:rush_cli/src/resolver/artifact.dart';
 import 'package:rush_cli/src/services/file_service.dart';
 import 'package:rush_cli/src/utils/constants.dart';
-import 'package:rush_cli/src/utils/file_extension.dart';
 
 const rushApCoord =
     'io.github.shreyashsaitwal.rush:processor:$annotationProcVersion';
@@ -195,10 +194,7 @@ class LibService {
         localComptimeDeps.where((el) => p.extension(el) == '.aar'));
     aars.addAll(localComptimeDeps.where((el) => p.extension(el) == '.aar'));
 
-    return aars
-        .map((el) => p.join(
-            p.dirname(el), p.basenameWithoutExtension(el), 'proguard.txt'))
-        .where((el) => el.asFile().existsSync());
+    return aars;
   }
 
   Future<Iterable<String>> comptimeJars(Iterable<String> localRuntimeDeps,

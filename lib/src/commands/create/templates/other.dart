@@ -56,9 +56,9 @@ ${enableKt ? '- $kotlinGroupId:kotlin-stdlib:$defaultKtVersion\n' : ''}# - examp
 
 String pgRules(String org) {
   return '''
-# Prevents extension classes (annotated with @ExtensionComponent) from being 
-# removed, renamed or repackged.
--keep @com.google.appinventor.components.annotations.ExtensionComponent public class * {
+# Prevents extension classes (annotated with `@Extension`) from being removed, 
+# renamed or repackged.
+-keep @com.google.appinventor.components.annotations.Extension public class * {
     public *;
 }
 
