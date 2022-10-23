@@ -55,7 +55,7 @@ abstract class Block(val element: ExecutableElement, val messager: Messager) {
         }
 
         if (!element.modifiers.contains(Modifier.PUBLIC)) {
-            messager.printMessage(Diagnostic.Kind.WARNING, "$type should be public.", element)
+            messager.printMessage(Diagnostic.Kind.ERROR, "$type should be public.", element)
         }
     }
 
@@ -93,7 +93,7 @@ abstract class ParameterizedBlock(element: ExecutableElement, messager: Messager
                 messager.printMessage(
                     Diagnostic.Kind.WARNING,
                     "$type parameters should follow `camelCase` naming convention.",
-                    element
+                    it.element
                 )
             }
         }
