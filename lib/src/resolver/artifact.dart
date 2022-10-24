@@ -95,9 +95,10 @@ class Artifact {
       ...dependencies
           .map((dependency) {
             final artifact = artifactIndex
-                .firstWhere((element) => element.coordinate == dependency);
-            return artifact.classpathJars(artifactIndex);
+                .firstWhereOrNull((el) => el.coordinate == dependency);
+            return artifact?.classpathJars(artifactIndex);
           })
+          .whereNotNull()
           .flattened
           .toSet()
     };

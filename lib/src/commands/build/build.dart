@@ -72,9 +72,9 @@ class BuildCommand extends Command<int> {
 
       try {
         await SyncSubCommand().sync(
-          libCacheBox: _libService.projectDepsBox,
+          cacheBox: _libService.projectDepsBox,
           coordinates: remoteDeps,
-          providedDepArtifacts: await _libService.providedDepArtifacts(),
+          providedArtifacts: await _libService.providedDepArtifacts(),
           repositories: config.repositories,
           downloadSources: true,
         );

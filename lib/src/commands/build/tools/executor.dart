@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import 'package:rush_cli/src/services/file_service.dart';
 import 'package:rush_cli/src/commands/build/utils.dart';
+import 'package:rush_cli/src/utils/constants.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
 import 'package:rush_cli/src/utils/process_runner.dart';
 
@@ -16,7 +17,7 @@ class Executor {
     final args = <String>[
       ...['-cp', r8Jar],
       'com.android.tools.r8.D8',
-      ...['--lib', p.join(_fs.libsDir.path, 'android.jar')],
+      ...['--lib', p.join(_fs.libsDir.path, 'android-$androidPlatformSdkVersion.jar')],
       '--release',
       '--no-desugaring',
       '--output',

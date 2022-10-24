@@ -83,15 +83,16 @@ class LibService {
     return [
       ...await _retrieveArtifactsFromBox(providedDepsBox),
       Artifact(
-        coordinate: '',
+        coordinate: 'android-$androidPlatformSdkVersion.jar',
         scope: Scope.compile,
-        artifactFile: p.join(_fs.libsDir.path, 'android.jar'),
+        artifactFile:
+            p.join(_fs.libsDir.path, 'android-$androidPlatformSdkVersion.jar'),
         sourcesJar: null,
         dependencies: [],
         packaging: 'jar',
       ),
       Artifact(
-        coordinate: '',
+        coordinate: 'kawa-1.11-modified.jar',
         scope: Scope.compile,
         artifactFile: p.join(_fs.libsDir.path, 'kawa-1.11-modified.jar'),
         sourcesJar: null,
@@ -99,7 +100,7 @@ class LibService {
         packaging: 'jar',
       ),
       Artifact(
-        coordinate: '',
+        coordinate: 'physicaloid-library.jar',
         scope: Scope.compile,
         artifactFile: p.join(_fs.libsDir.path, 'physicaloid-library.jar'),
         sourcesJar: null,

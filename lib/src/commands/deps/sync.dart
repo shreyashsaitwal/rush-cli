@@ -125,12 +125,12 @@ class SyncSubCommand extends Command<int> {
       try {
         await Future.wait([
           sync(
-            libCacheBox: libService.providedDepsBox,
+            cacheBox: libService.providedDepsBox,
             coordinates: {Scope.runtime: providedDepsToFetch},
             downloadSources: true,
           ),
           sync(
-            libCacheBox: libService.buildLibsBox,
+            cacheBox: libService.buildLibsBox,
             coordinates: {Scope.runtime: toolsToFetch},
           ),
         ]);
@@ -138,6 +138,16 @@ class SyncSubCommand extends Command<int> {
         _lgr.stopTask(false);
         return 1;
       }
+
+      await Future.wait([
+        _removeRogueDeps(toolsCoord, libService.buildLibsBox),
+        _removeRogueDeps([
+          ai2RuntimeCoord,
+          'android-$androidPlatformSdkVersion.jar',
+          'kawa-1.11-modified.jar',
+          'physicaloid-library.jar'
+        ], libService.providedDepsBox),
+      ]);
       _lgr.stopTask();
     } else if (!onlyProjectDeps) {
       _lgr
@@ -156,7 +166,6 @@ class SyncSubCommand extends Command<int> {
 
     Hive.init(_fs.dotRushDir.path);
     final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
-    final projectDepsBox = await Hive.openLazyBox<Artifact>(projectDepsBoxName);
 
     if (!onlyDevDeps &&
         await projectDepsNeedSync(timestampBox, libService, _fs.configFile)) {
@@ -164,17 +173,18 @@ class SyncSubCommand extends Command<int> {
 
       final projectDepCoords = {
         Scope.runtime: config.runtimeDeps
-            .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
+            .where((el) => !el.endsWith('.jar') && !el.endsWith('.aar')),
         Scope.compile: config.comptimeDeps
-            .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
+            .where((el) => !el.endsWith('.jar') && !el.endsWith('.aar')),
       };
+      print(projectDepCoords.values.flattened);
 
       try {
         await sync(
-          libCacheBox: projectDepsBox,
+          cacheBox: libService.projectDepsBox,
           coordinates: projectDepCoords,
           repositories: config.repositories,
-          providedDepArtifacts: providedDepArtifacts,
+          providedArtifacts: providedDepArtifacts,
           downloadSources: true,
         );
         await timestampBox.put(configTimestampKey, DateTime.now());
@@ -182,6 +192,8 @@ class SyncSubCommand extends Command<int> {
         _lgr.stopTask(false);
         return 1;
       }
+      await _removeRogueDeps(
+          projectDepCoords.values.flattened, libService.projectDepsBox);
       _lgr.stopTask();
     } else {
       _lgr
@@ -193,7 +205,7 @@ class SyncSubCommand extends Command<int> {
     final projectDepArtifacts = await libService.projectDepArtifacts();
 
     try {
-      _updateIjLibIndex(providedDepArtifacts, projectDepArtifacts);
+      _updateIntellijLibIndex(providedDepArtifacts, projectDepArtifacts);
       _updateEclipseClasspath(providedDepArtifacts, projectDepArtifacts);
     } catch (_) {
       _lgr.stopTask(false);
@@ -217,11 +229,45 @@ class SyncSubCommand extends Command<int> {
     return configFileModified || isAnyDepMissing;
   }
 
+  static Future<Iterable<Artifact>> _removeRogueDeps(
+      Iterable<String> primaryArtifactCoords, LazyBox<Artifact> cache,
+      [bool putInCache = true]) async {
+    final actualDeps = <Artifact>{};
+
+    for (final el in primaryArtifactCoords) {
+      final artifact = await cache.get(el);
+      if (artifact == null) {
+        continue;
+      }
+
+      actualDeps.add(artifact);
+
+      final depArtifacts = await Future.wait([
+        for (final dep in artifact.dependencies) cache.get(dep),
+      ]);
+      actualDeps.addAll(depArtifacts.whereNotNull());
+
+      final transDepArtifacts = await Future.wait([
+        for (final dep in depArtifacts.whereNotNull())
+          _removeRogueDeps(dep.dependencies, cache, false),
+      ]);
+      actualDeps.addAll(transDepArtifacts.whereNotNull().flattened);
+    }
+
+    if (putInCache) {
+      await cache.clear();
+      await cache.putAll({
+        for (final el in actualDeps) el.coordinate: el,
+      });
+    }
+    return actualDeps;
+  }
+
   Future<List<Artifact>> sync({
-    required LazyBox<Artifact> libCacheBox,
+    required LazyBox<Artifact> cacheBox,
     required Map<Scope, Iterable<String>> coordinates,
     Iterable<String> repositories = const [],
-    Iterable<Artifact> providedDepArtifacts = const [],
+    Iterable<Artifact> providedArtifacts = const [],
     bool downloadSources = false,
   }) async {
     _lgr.info('Resolving ${coordinates.values.flattened.length} artifacts...');
@@ -250,7 +296,7 @@ class SyncSubCommand extends Command<int> {
       // Resolve version comflicts
       _lgr.info('Resolving version conflicts...');
       resolvedDeps = (await _resolveVersionConflicts(
-              resolvedDeps, directDeps, resolver, providedDepArtifacts))
+              resolvedDeps, directDeps, resolver, providedArtifacts))
           .toList(growable: true);
     } catch (e) {
       resolver.closeHttpClient();
@@ -279,7 +325,7 @@ class SyncSubCommand extends Command<int> {
         for (final dep in resolvedDeps) resolver.downloadArtifact(dep),
         if (downloadSources)
           for (final dep in resolvedDeps) resolver.downloadSourcesJar(dep),
-        libCacheBox.putAll({
+        cacheBox.putAll({
           for (final dep in resolvedDeps) dep.coordinate: dep,
         }),
       ]);
@@ -531,7 +577,7 @@ class SyncSubCommand extends Command<int> {
     dotClasspathFile.writeAsStringSync(dotClasspath(classesJars, sourcesJars));
   }
 
-  void _updateIjLibIndex(
+  void _updateIntellijLibIndex(
       Iterable<Artifact> providedDeps, Iterable<Artifact> projectDeps) {
     final ideaDir = p.join(_fs.cwd, '.idea').asDir();
     if (!ideaDir.existsSync()) {

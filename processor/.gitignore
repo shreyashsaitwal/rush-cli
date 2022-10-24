@@ -5,4 +5,5 @@
 build
 
 /.idea
+/.fleet
 local.properties
