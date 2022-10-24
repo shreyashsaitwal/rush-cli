@@ -2,56 +2,50 @@
 
 $ErrorActionPreference = 'Stop'
 
-# Check if Rush is already installed; if it is, use the old path for storing
-# rush.exe
-if (Get-Command "rush.exe" -ErrorAction SilentlyContinue) {
-  $BinDir = (Get-Item (Get-Command "rush.exe").Path).DirectoryName
+if ($env:OS -ne "Windows_NT") {
+  Write-Error "This script is only for Windows"
+  Exit 1
+}
+
+if ($null -ne $env:RUSH_HOME) {
+  $RushHome = $env:RUSH_HOME
 }
 else {
-  $BinDir = "$Home/.rush/bin"
-  if (!(Test-Path $BinDir)) {
-    New-Item $BinDir -ItemType Directory | Out-Null
+  if (Get-Command "rush.exe" -ErrorAction SilentlyContinue) {
+    $RushHome = (Get-Item (Get-Command "rush.exe").Path).Directory.Parent.FullName
+  }
+  else {
+    $RushHome = "$Home\.rush"
+    if (!(Test-Path $RushHome)) {
+      New-Item $RushHome -ItemType Directory | Out-Null
+    }
   }
 }
 
-$ZipUrl = "https://github.com/shreyashsaitwal/rush-cli/releases/latest/download/rush-win.zip"
+$ZipUrl = "https://github.com/shreyashsaitwal/rush-cli/releases/latest/download/rush-x86_64-windows.zip"
+$ZipLocation = "$RushHome\rush-x86_64-windows.zip"
 
 # GitHub requires TLS 1.2
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-# Download rush-win.zip
-Invoke-WebRequest -OutFile "$BinDir/rush-win.zip" $ZipUrl -UseBasicParsing
+# Download $ZipUrl to $ZipLocation
+Invoke-WebRequest -OutFile $ZipLocation $ZipUrl -UseBasicParsing
 
 # Extract it
 if (Get-Command Expand-Archive -ErrorAction SilentlyContinue) {
-  Expand-Archive "$BinDir/rush-win.zip" -DestinationPath "$BinDir" -Force
+  Expand-Archive $ZipLocation -DestinationPath "$RushHome" -Force
 }
 else {
   Add-Type -AssemblyName System.IO.Compression.FileSystem
-  [IO.Compression.ZipFile]::ExtractToDirectory("$BinDir/rush-win.zip", $BinDir)
+  [IO.Compression.ZipFile]::ExtractToDirectory($ZipLocation, $RushHome)
 }
-Remove-Item "$BinDir/rush-win.zip"
+Remove-Item $ZipLocation
 
-$AppDataDir = "$env:APPDATA/rush"
+Write-Output "Successfully downloaded the Rush CLI binary at $RushHome\bin\rush.exe"
+Write-Output "Now, proceeding to download necessary Java libraries (approx size: SIZE)."
 
-# Delete the AppDataDir if it already exists
-if (Test-Path $AppDataDir) {
-  Remove-Item -Recurse $AppDataDir
-}
-
-# Then (re-)create it
-New-Item -ItemType Directory $AppDataDir | Out-Null
-
-# Delete old exes
-Remove-Item "$BinDir/rush.exe" -ErrorAction SilentlyContinue
-Remove-Item "$BinDir/swap.exe" -ErrorAction SilentlyContinue
-
-# Move files
-Move-Item "$BinDir/exe/win/*.exe" -Destination "$BinDir" -Force
-Remove-Item -Recurse "$BinDir/exe"
-
-# Pipe the output of [Get-ChildItem] to [Move-Item]
-Get-ChildItem "$BinDir" -Directory | Move-Item -Destination "$AppDataDir" -Force
+$BinDir = "$RushHome\bin"
+Start-Process -NoNewWindow -FilePath "$BinDir\rush.exe" -ArgumentList "deps","sync","--dev-deps" -Wait 
 
 # Update PATH
 $User = [EnvironmentVariableTarget]::User
@@ -61,5 +55,5 @@ if (!(";$Path;".ToLower() -like "*;$BinDir;*".ToLower())) {
   $Env:Path += ";$BinDir"
 }
 
-Write-Output "Success! Installed Rush at $BinDir\rush.exe!"
-Write-Output "Run 'rush --help' to get started.`n"
+Write-Output "`nSuccess! Installed Rush at $BinDir\rush.exe!"
+Write-Output "Run ``rush --help`` to get started."

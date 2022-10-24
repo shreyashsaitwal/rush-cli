@@ -4,88 +4,76 @@
 set -e
 
 if ! command -v unzip >/dev/null; then
-	echo "err: unzip is required to install Rush. Please install it and try again"
+	echo 'err: `unzip` is required to install Rush. Please install it and try again.'
 	exit 1
 fi
 
-# Check if Rush is already installed; if it is, use the old path for storing,
-# Rush executable
-if ! command -v rush >/dev/null; then
-  binDir="$HOME/.rush/bin"
-  if [ ! -d "$binDir" ]; then
-    mkdir -p "$binDir"
-  fi
+if [[ -v RUSH_HOME]]; then
+  rushHome="$RUSH_HOME"
 else
-  binDir="$(dirname $(which rush))"
+  if ! -v rush >/dev/null; then
+    rushHome="$HOME/.rush"
+  else
+    rushHome="$(dirname $(dirname $(which rush)))"
+  fi
 fi
 
-# Set the target and data dir
 if [ "$OS" = "Windows_NT" ]; then
-  target="win"
-  dataDir="$APPDATA/rush"
+  target="x86_64-windows"
 else
   case $(uname -sm) in
-  "Darwin x86_64")
-    target="mac"
-    dataDir="$HOME/Library/Application Support/rush"
-    ;;
-  *)
-    target="linux"
-    dataDir="$HOME/rush"
-    ;;
+  "Darwin x86_64") target="x86_64-apple-darwin" ;;
+  "Darwin arm64") target="arm64-apple-darwin" ;;
+  *) target="x86_64-linux" ;;
   esac
 fi
 
 zipUrl="https://github.com/shreyashsaitwal/rush-cli/releases/latest/download/rush-$target.zip"
+curl --location --progress-bar -o "$rushHome/rush-$target.zip" "$zipUrl"
 
-# Download and unzip rush-$target.zip
-curl --location --progress-bar -o "$binDir/rush-$target.zip" "$zipUrl"
-unzip -oq "$binDir/rush-$target.zip" -d "$binDir"/
-rm "$binDir/rush-$target.zip"
+unzip -oq "$rushHome/rush-$target.zip" -d "$rushHome"/
+rm "$rushHome/rush-$target.zip"
 
-# Delete dataDir if it already exists
-if [ -d "$dataDir" ]; then
-  rm -rf "$dataDir"
+# Make the Rush binary executable on Unix systems. 
+if [ ! "$OS" = "Windows_NT" ]; then
+  chmod +x "$rushHome/bin/rush"
 fi
 
-# Then (re-)create it
-mkdir "$dataDir"
-
-# Move the EXEs under the binDir
-mv "$binDir/exe/$target"/* "$binDir"
-rm -r "$binDir/exe/"
-
-# Move all the directories that were unzipped
-mv $(ls -d "$binDir"/*/) "$dataDir"
-
-# Give all the necessary scripts execution permission
-chmod +x "$binDir/rush"
-chmod +x "$dataDir/tools/kotlinc/bin/kotlinc"
-chmod +x "$dataDir/tools/kotlinc/bin/kapt"
-chmod +x "$dataDir/tools/jetifier-standalone/bin/jetifier-standalone"
-
+# Download the dev dependencies
 echo
-echo "Success! Installed Rush at $binDir/rush"
+echo "Successfully downloaded the Rush CLI binary at $rushHome/bin/rush"
+echo "Now, proceeding to download necessary Java libraries (approx size: SIZE)."
+
+if [ "$OS" = "Windows_NT" ]; then
+  "./$rushHome/bin/rush.exe" deps sync --dev-deps
+else
+  "./$rushHome/bin/rush" deps sync --dev-deps
+fi
+
 if ! command -v rush >/dev/null; then
+  echo
+  echo "Success! Installed Rush at $rushHome/bin/rush"
+  
   if [ "$OS" = "Windows_NT" ]; then
-    exp=" $dataDir/bin "
+    exp=" $rushHome/bin "
     echo
-    echo "Now, add the following entry to your 'PATH' environment variable:"
+    echo "Now, add the following directory to your 'PATH' environment variable:"
   else
     case $SHELL in
       /bin/zsh) shell_profile=".zshrc" ;;
       *) shell_profile=".bash_profile" ;;
     esac
 
-    exp=" export PATH=\"\$PATH:$binDir\" "
+    exp=" export PATH=\"\$PATH:$rushHome/bin\" "
     echo
-    echo "Now, manually add Rush's bin directory to your \$HOME/$shell_profile (or similar):"
+    echo "Now, add the following directory to your \$HOME/$shell_profile (or similar):"
   fi
 
-    edge=$(echo " $exp " | sed 's/./-/g')
-    echo "$edge"
-    echo "|$exp|"
-    echo "$edge"
+  edge=$(echo " $exp " | sed 's/./-/g')
+  echo "$edge"
+  echo "|$exp|"
+  echo "$edge"
+
+  echo
+  echo 'Run `rush --help` to get started.'
 fi
-echo
-echo "Run rush --help to get started."
