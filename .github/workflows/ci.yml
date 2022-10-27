@@ -25,7 +25,7 @@ jobs:
           chmod +x ./gradlew
           ./gradlew build
 
-  buildcli:
+  cli:
     strategy:
       matrix:
         include:
@@ -65,7 +65,7 @@ jobs:
 
   create-release:
     if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
-    needs: [build-cli, build-annotation-processor]
+    needs: [cli, annotation-processor]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
