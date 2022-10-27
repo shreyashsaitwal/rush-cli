@@ -23,7 +23,7 @@ class BuildUtils {
           final file = p.join(outputDirPath, el.name).asFile(true);
           file.writeAsBytesSync(bytes);
         } catch (e) {
-          _lgr.parseAndLog('error: ' + e.toString());
+          _lgr.parseAndLog('error: $e');
           rethrow;
         }
       }

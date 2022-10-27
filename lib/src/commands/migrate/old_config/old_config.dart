@@ -61,6 +61,7 @@ class OldConfig {
     this.homepage,
   });
 
+  // ignore: strict_raw_type
   factory OldConfig._fromJson(Map json) => _$OldConfigFromJson(json);
 
   static Future<OldConfig?> load(File configFile, Logger lgr) async {

@@ -54,6 +54,7 @@ class Pom {
     );
   }
 
+  // ignore: strict_raw_type
   static Set<Dependency> _constructDependencies(Map? map) {
     if (map == null || map.isEmpty) return <Dependency>{};
 

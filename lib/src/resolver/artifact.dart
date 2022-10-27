@@ -220,7 +220,7 @@ class Version extends Comparable<Version> {
         }
       }
     } else {
-      throw Exception(_originalVersionStr! + ' is not a valid range notation');
+      throw Exception('${_originalVersionStr!} is not a valid range notation');
     }
   }
 

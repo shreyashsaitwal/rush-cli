@@ -177,7 +177,6 @@ class SyncSubCommand extends Command<int> {
         Scope.compile: config.comptimeDeps
             .where((el) => !el.endsWith('.jar') && !el.endsWith('.aar')),
       };
-      print(projectDepCoords.values.flattened);
 
       try {
         await sync(

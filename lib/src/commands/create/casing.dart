@@ -36,7 +36,7 @@ class Casing {
       final firstLetter = word.split('').first;
       if (!isFirst) {
         result +=
-            word.replaceFirst(firstLetter, '-' + firstLetter.toLowerCase());
+            word.replaceFirst(firstLetter, '-${firstLetter.toLowerCase()}');
       } else {
         isFirst = false;
         result += word.replaceFirst(firstLetter, firstLetter.toLowerCase());

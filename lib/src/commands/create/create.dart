@@ -81,7 +81,7 @@ class CreateCommand extends Command<int> {
     final isOrgAndNameSame =
         orgName.split('.').last.toLowerCase() == camelCasedName.toLowerCase();
     if (!isOrgAndNameSame) {
-      orgName = orgName.toLowerCase() + '.' + camelCasedName.toLowerCase();
+      orgName = '${orgName.toLowerCase()}.${camelCasedName.toLowerCase()}';
     }
 
     final editor = Select(

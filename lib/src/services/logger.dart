@@ -113,7 +113,7 @@ class Logger {
     if (_hasTaskLogged) {
       line = '└ '.brightBlack() + line;
     } else {
-      line = '- '.brightBlack() + '$_taskTitle ' + line;
+      line = '${'- '.brightBlack()}$_taskTitle $line';
       _console
         ..cursorUp()
         ..eraseLine();
