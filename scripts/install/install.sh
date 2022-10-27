@@ -54,25 +54,14 @@ if ! command -v rush >/dev/null; then
   echo
   echo "Success! Installed Rush at $rushHome/bin/rush"
   
-  if [ "$OS" = "Windows_NT" ]; then
-    exp=" $rushHome/bin "
-    echo
-    echo "Now, add the following directory to your 'PATH' environment variable:"
-  else
-    case $SHELL in
-      /bin/zsh) shell_profile=".zshrc" ;;
-      *) shell_profile=".bash_profile" ;;
-    esac
+  case $SHELL in
+    /bin/zsh) shell_profile=".zshrc" ;;
+    *) shell_profile=".bash_profile" ;;
+  esac
 
-    exp=" export PATH=\"\$PATH:$rushHome/bin\" "
-    echo
-    echo "Now, add the following directory to your \$HOME/$shell_profile (or similar):"
-  fi
-
-  edge=$(echo " $exp " | sed 's/./-/g')
-  echo "$edge"
-  echo "|$exp|"
-  echo "$edge"
+  echo
+  echo "Now, add the following to your \$HOME/$shell_profile (or similar):"
+  echo "export PATH=\"\$PATH:$rushHome/bin\""
 
   echo
   echo 'Run `rush --help` to get started.'
