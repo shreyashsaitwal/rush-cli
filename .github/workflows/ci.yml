@@ -19,8 +19,8 @@ jobs:
         working-directory: processor
         uses: gradle/gradle-build-action@v2
         run: |
-        chmod +x ./gradlew
-        ./gradlew build
+          chmod +x ./gradlew
+          ./gradlew build
 
   build-cli:
     strategy:
