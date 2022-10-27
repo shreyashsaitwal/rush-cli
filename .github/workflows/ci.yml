@@ -1,111 +1,90 @@
-name: CI
+name: Rush CI
 
 on:
-  workflow_dispatch:
   push:
-    branches: [main, dev]
   pull_request:
-    branches: [main, dev]
+  # This let's us trigger the workflow manually from GitHub.
+  workflow_dispatch:
 
 jobs:
-  build:
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - os: windows-latest
-            os_short: win
-          - os: macos-latest
-            os_short: macos
-          - os: ubuntu-latest
-            os_short: linux
-
-    runs-on: ${{ matrix.os }}
-
+  build-annotation-processor:
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
-      - uses: dart-lang/setup-dart@v1
-
-      - name: Get deps
-        run: dart pub get
-
-      - name: Build the executable
-        shell: bash
-        run: |
-          chmod +x ./scripts/build.sh
-          ./scripts/build.sh -v 1.2.3
-
-      - name: Upload executable
-        if: ${{ github.ref != 'refs/heads/main' }}
-        uses: actions/upload-artifact@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
         with:
-          name: rush-${{ matrix.os_short }}
-          path: ./build/bin/*
+          distribution: openjdk
+          java-version: 11
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+      - name: Execute build
+        run: ./gradlew build
 
-      - name: Get jq
-        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
-        shell: bash
-        run: |
-          if [[ "$OSTYPE" == "linux-gnu"* ]]; then sudo apt-get install jq; fi
-          if [[ "$OSTYPE" == "darwin"* ]]; then brew install jq; fi
-          if [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "msys" ]]; then choco install jq; fi
-
-      - name: Upload exe to pack repo
-        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
-        shell: bash
-        run: |
-          chmod +x ./scripts/upload_exe.sh
-          ./scripts/upload_exe.sh ${{ secrets.GH_PAT }}
-
-  release:
-    needs: [build]
-    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
-
+  build-cli:
     strategy:
-      fail-fast: true
       matrix:
         include:
-          - os: windows-latest
-            os_short: win
-          - os: macos-latest
-            os_short: mac
-          - os: ubuntu-latest
-            os_short: linux
-
-    runs-on: ubuntu-latest
-
-    env:
-      BASE_DIR: build/${{ matrix.os_short }}
-
+          - os: ubuntu-22.04
+            target: x86_64-linux
+          - os: macos-12
+            target: x86_64-apple-darwin
+          - os: windows-2022
+            target: x86_64-windows
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Download pack repo
+      - uses: actions/checkout@v3
+      - uses: dart-lang/setup-dart@v1.3
+      - name: Install dependencies
+        run: dart pub get
+      - name: Verify formatting
+        run: dart format -o none --set-exit-if-changed .
+      - name: Analyze source
+        run: dart analyze
+      - name: Run build_runner
+        run: dart run build_runner build
+      - name: Build executable
         run: |
           mkdir build
-          curl -#Lo build/pack.zip -u "shreyashsaitwal:${{ secrets.GH_PAT }}" https://github.com/shreyashsaitwal/pack/archive/refs/heads/main.zip
-          unzip -o build/pack.zip -d build
-          rm build/pack.zip
+          if [ "$OS" = "Windows_NT" ]; then
+            dart compile exe -o build/rush.exe bin/rush.dart
+          else
+            dart compile exe -o build/rush bin/rush.dart
+          fi
+      - name: Upload executable
+        uses: actions/upload-artifact@v3
+        with:
+          if-no-files-found: error
+          name: rush-${{ matrix.target }}
+          path: build/*
 
-      - name: Add files to base directory
-        env:
-          PACK_DIR: build/pack-main
+  create-release:
+    # if: ${{ github.ref == 'refs/heads/main' }}
+    needs: build-cli
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+      - name: Download JAR dependencies
         run: |
-          mkdir -p $BASE_DIR/exe
-          cp -R $PACK_DIR/exe/${{ matrix.os_short }} $BASE_DIR/exe
-          cp -R $PACK_DIR/dev-deps $BASE_DIR
-          cp -R $PACK_DIR/tools $BASE_DIR
-
-      - name: Create ZIP
+          mkdir libs && cd libs
+          wget https://github.com/mit-cml/appinventor-sources/raw/master/appinventor/lib/kawa/kawa-1.11-modified.jar
+          wget https://github.com/mit-cml/appinventor-sources/raw/master/appinventor/lib/physicaloid/physicaloid-library.jar
+          wget https://dl.google.com/android/repository/platform-33_r02.zip && unzip platform-33_r02.zip && cp android-13/android.jar android-33.jar
+      - name: Create platform archives
         run: |
-          cd $BASE_DIR
-          zip -r rush-${{ matrix.os_short }}.zip *
-
-      - name: Release
+          mkdir archives
+          for VAR in x86_64-linux x86_64-windows x86_64-apple-darwin
+          do
+            # Move the executable to bin dir
+            mkdir rush-$VAR/bin && mv rush-$VAR/rush* rush-$VAR/bin
+            # Copy JARs downloaded in prev step
+            cp libs rush-$VAR
+            # Create ZIP
+            cd rush-$VAR && zip ../archives/rush-$VAR.zip . -r9
+          done
+      - name: Create a new draft release
         uses: softprops/action-gh-release@v1
         with:
           draft: true
-          tag_name: draft
-          files: ${{ env.BASE_DIR }}/rush-${{ matrix.os_short }}.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_unmatched_files: true
+          files: archives/*.zip
