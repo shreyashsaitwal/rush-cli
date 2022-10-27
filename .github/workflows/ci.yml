@@ -38,10 +38,10 @@ jobs:
         run: dart pub get
       - name: Verify formatting
         run: dart format -o none --set-exit-if-changed .
-      - name: Analyze source
-        run: dart analyze
       - name: Run build_runner
         run: dart run build_runner build
+      - name: Analyze source
+        run: dart analyze
       - name: Build executable
         run: |
           mkdir build
