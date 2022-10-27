@@ -15,11 +15,12 @@ jobs:
         with:
           distribution: zulu
           java-version: 11
-      - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
       - name: Execute build
         working-directory: processor
-        run: ./gradlew build
+        uses: gradle/gradle-build-action@v2
+        run: |
+        chmod +x ./gradlew
+        ./gradlew build
 
   build-cli:
     strategy:
@@ -80,7 +81,7 @@ jobs:
             # Move the executable to bin dir
             mkdir rush-$VAR/bin && mv rush-$VAR/rush* rush-$VAR/bin
             # Copy JARs downloaded in prev step
-            cp libs rush-$VAR
+            cp libs rush-$VAR -r
             # Create ZIP
             cd rush-$VAR && zip ../archives/rush-$VAR.zip . -r9
           done
