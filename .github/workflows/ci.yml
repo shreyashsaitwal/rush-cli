@@ -7,11 +7,14 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-annotation-processor:
+  annotation-processor:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - uses: gradle/gradle-build-action@v2
+        with:
+          cache-read-only: false
+          build-root-directory: processor
       - uses: actions/setup-java@v3
         with:
           distribution: zulu
@@ -22,7 +25,7 @@ jobs:
           chmod +x ./gradlew
           ./gradlew build
 
-  build-cli:
+  buildcli:
     strategy:
       matrix:
         include:
@@ -61,8 +64,8 @@ jobs:
           path: build/*
 
   create-release:
-    # if: ${{ github.ref == 'refs/heads/main' }}
-    needs: build-cli
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+    needs: [build-cli, build-annotation-processor]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
@@ -73,7 +76,7 @@ jobs:
           wget https://github.com/mit-cml/appinventor-sources/raw/master/appinventor/lib/kawa/kawa-1.11-modified.jar
           wget https://github.com/mit-cml/appinventor-sources/raw/master/appinventor/lib/physicaloid/physicaloid-library.jar
           wget https://dl.google.com/android/repository/platform-33_r02.zip && unzip platform-33_r02.zip 
-          cp android-13/android.jar android-33.jar 
+          cp android-13/android.jar android-33.jar
           rm -r android-13 platform-33_r02.zip
       - name: Create platform archives
         run: |
