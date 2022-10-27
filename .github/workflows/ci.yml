@@ -14,6 +14,7 @@ jobs:
       - uses: gradle/gradle-build-action@v2
         with:
           cache-read-only: false
+          cache-write-only: false
           build-root-directory: processor
       - uses: actions/setup-java@v3
         with:
