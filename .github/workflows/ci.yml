@@ -72,7 +72,9 @@ jobs:
           mkdir libs && cd libs
           wget https://github.com/mit-cml/appinventor-sources/raw/master/appinventor/lib/kawa/kawa-1.11-modified.jar
           wget https://github.com/mit-cml/appinventor-sources/raw/master/appinventor/lib/physicaloid/physicaloid-library.jar
-          wget https://dl.google.com/android/repository/platform-33_r02.zip && unzip platform-33_r02.zip && cp android-13/android.jar android-33.jar
+          wget https://dl.google.com/android/repository/platform-33_r02.zip && unzip platform-33_r02.zip 
+          cp android-13/android.jar android-33.jar 
+          rm -r android-13 platform-33_r02.zip
       - name: Create platform archives
         run: |
           mkdir archives
@@ -81,9 +83,10 @@ jobs:
             # Move the executable to bin dir
             mkdir rush-$VAR/bin && mv rush-$VAR/rush* rush-$VAR/bin
             # Copy JARs downloaded in prev step
-            cp libs rush-$VAR -r
+            cp libs/ rush-$VAR -r
             # Create ZIP
             cd rush-$VAR && zip ../archives/rush-$VAR.zip . -r9
+            cd ..
           done
       - name: Create a new draft release
         uses: softprops/action-gh-release@v1
