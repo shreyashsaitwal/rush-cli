@@ -17,7 +17,10 @@ class Executor {
     final args = <String>[
       ...['-cp', r8Jar],
       'com.android.tools.r8.D8',
-      ...['--lib', p.join(_fs.libsDir.path, 'android-$androidPlatformSdkVersion.jar')],
+      ...[
+        '--lib',
+        p.join(_fs.libsDir.path, 'android-$androidPlatformSdkVersion.jar')
+      ],
       '--release',
       '--no-desugaring',
       '--output',
