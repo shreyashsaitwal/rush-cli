@@ -18,6 +18,7 @@ jobs:
           build-root-directory: processor
       - uses: actions/setup-java@v3
         with:
+          cache: gradle
           distribution: zulu
           java-version: 11
       - name: Execute build
