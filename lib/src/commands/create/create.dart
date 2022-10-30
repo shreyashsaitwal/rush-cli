@@ -3,12 +3,12 @@ import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:interact/interact.dart';
 import 'package:path/path.dart' as p;
+import 'package:recase/recase.dart';
 import 'package:rush_cli/src/commands/create/templates/eclipse_files.dart';
 import 'package:tint/tint.dart';
 
 import 'package:rush_cli/src/services/libs_service.dart';
 import 'package:rush_cli/src/services/logger.dart';
-import 'package:rush_cli/src/commands/create/casing.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
 import 'package:rush_cli/src/services/file_service.dart';
 import 'package:rush_cli/src/commands/create/templates/extension_source.dart';
@@ -41,7 +41,7 @@ class CreateCommand extends Command<int> {
   /// Creates a new extension project in the current directory.
   @override
   Future<int> run() async {
-    late String name;
+    final String name;
     if (argResults!.rest.length == 1) {
       name = argResults!.rest.first;
     } else {
@@ -49,8 +49,7 @@ class CreateCommand extends Command<int> {
       return 64; // Exit code 64 indicates usage error
     }
 
-    final kebabCasedName = Casing.kebabCase(name);
-    final projectDir = p.join(_fs.cwd, kebabCasedName);
+    final projectDir = p.join(_fs.cwd, name);
 
     final dir = projectDir.asDir();
     if (await dir.exists() && dir.listSync().isNotEmpty) {
@@ -73,8 +72,8 @@ class CreateCommand extends Command<int> {
       lang = opts[index];
     }
 
-    final camelCasedName = Casing.camelCase(name);
-    final pascalCasedName = Casing.pascalCase(name);
+    final camelCasedName = name.camelCase;
+    final pascalCasedName = name.pascalCase;
 
     // If the last word after '.' in package name is not same as the extension
     // name, then append `.$extName` to orgName.
@@ -141,13 +140,13 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
         p.join(ideaDir, 'libraries', 'local-deps.xml'): ijLocalDepsXml,
         p.join(ideaDir, 'libraries', 'provided-deps.xml'):
             ijProvidedDepsXml(providedDepJars, providedDepSources),
-        p.join(ideaDir, '$kebabCasedName.iml'):
+        p.join(ideaDir, '${name.paramCase}.iml'):
             ijImlXml(['provided-deps', 'local-deps']),
-        p.join(ideaDir, 'modules.xml'): ijModulesXml(kebabCasedName),
+        p.join(ideaDir, 'modules.xml'): ijModulesXml(name.paramCase),
       },
       // Eclipse files
       if (editor == 1 || editor == 2) ...{
-        p.join(projectDir, '.project'): dotProject(kebabCasedName),
+        p.join(projectDir, '.project'): dotProject(name.paramCase),
         p.join(projectDir, '.classpath'): dotClasspath(providedDepJars, []),
       },
     };

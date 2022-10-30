@@ -32,6 +32,7 @@ dependencies:
   interact: ^2.1.1
   json_annotation: ^4.6.0
   path: ^1.8.2
+  recase: ^4.1.0
   tint: ^2.0.0
   xml2json: ^5.3.4
   xrange: ^2.0.0

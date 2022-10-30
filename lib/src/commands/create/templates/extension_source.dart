@@ -10,9 +10,9 @@ import com.google.appinventor.components.runtime.errors.YailRuntimeError;
 import com.google.appinventor.components.runtime.AndroidNonvisibleComponent;
 
 @Extension(
-    name = "$name",
-    description = "Extension component for $name. Built with <3 and Rush.",
-    icon = "icon.png"
+        name = "$name",
+        description = "Extension component for $name. Built with <3 and Rush.",
+        icon = "icon.png"
 )
 public class $name extends AndroidNonvisibleComponent {
 
@@ -49,9 +49,9 @@ import com.google.appinventor.components.runtime.ComponentContainer
 import com.google.appinventor.components.runtime.util.YailList
 
 @Extension(
-    name = "$name",
-    description = "Extension component for $name. Built with <3 and Rush.",
-    icon = "icon.png"
+        name = "$name",
+        description = "Extension component for $name. Built with <3 and Rush.",
+        icon = "icon.png"
 )
 class $name(
     private val container: ComponentContainer
