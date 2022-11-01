@@ -72,7 +72,7 @@ class SyncSubCommand extends Command<int> {
         await libService.providedDepsBox.clear();
         await libService.buildLibsBox.clear();
       }
-      if (!onlyDevDeps) {
+      if (!onlyDevDeps && config != null) {
         await libService.projectDepsBox.clear();
       }
     }
@@ -282,6 +282,7 @@ class SyncSubCommand extends Command<int> {
           .flattened
           .toList(growable: true);
     } catch (e, s) {
+      resolver.closeHttpConn();
       _lgr
         ..err(e.toString())
         ..dbg(s.toString());
@@ -298,7 +299,7 @@ class SyncSubCommand extends Command<int> {
               resolvedDeps, directDeps, resolver, providedArtifacts))
           .toList(growable: true);
     } catch (e) {
-      resolver.closeHttpClient();
+      resolver.closeHttpConn();
       rethrow;
     }
 
@@ -329,11 +330,11 @@ class SyncSubCommand extends Command<int> {
         }),
       ]);
     } catch (e) {
-      resolver.closeHttpClient();
+      resolver.closeHttpConn();
       rethrow;
     }
 
-    resolver.closeHttpClient();
+    resolver.closeHttpConn();
     BuildUtils.extractAars(
       resolvedDeps
           .where((el) => el.artifactFile.endsWith('.aar'))

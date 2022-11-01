@@ -19,9 +19,9 @@ class ArtifactMetadata {
 
   ArtifactMetadata(String coordinate) {
     final parts = coordinate.split(':');
-    if (parts.length > 4 || parts.length < 3) {
+    if (parts.length < 3 || parts.length > 4) {
       throw Exception(
-          'Invalid artifact coordinate format: $coordinate\nExpected format: <groupId>:<artifactId>:<version> or <groupId>:<artifactId>:<version>:<classifier>');
+          'Invalid artifact coordinate format: $coordinate\nExpected format: <groupId>:<artifactId>:<version>:<classifier?>');
     }
     groupId = parts[0];
     artifactId = parts[1];
@@ -55,12 +55,6 @@ class ArtifactResolver {
     'https://repo1.maven.org/maven2',
     'https://dl.google.com/dl/android/maven2',
     'https://repo.maven.apache.org/maven2',
-    // com.github.PhilJay:MPAndroidChart:v3.1.0 (transitive dep of ai2-runtime)
-    // is hosted on JitPack.
-    'https://jitpack.io',
-    // JCenter is deprecated but one of the AI2 provided dep, org.webrtc.google-webrtc.1.0.23995,
-    // is hosted there, so, we add it.
-    'https://jcenter.bintray.com',
   };
   final _client = http.Client();
 
@@ -115,7 +109,7 @@ class ArtifactResolver {
 
   Future<File?> _fetchFile(String relativeFilePath) async {
     final file = p.join(_localMvnRepo, relativeFilePath).asFile();
-    if (file.existsSync() && file.lengthSync() > 0) {
+    if (file.existsSync() && file.statSync().size > 0) {
       return file;
     }
 
@@ -135,7 +129,7 @@ class ArtifactResolver {
       }
     }
 
-    if (!file.existsSync() || file.lengthSync() <= 0) {
+    if (!file.existsSync() || file.statSync().size <= 0) {
       return null;
     }
 
@@ -161,7 +155,7 @@ class ArtifactResolver {
     return file;
   }
 
-  void closeHttpClient() {
+  void closeHttpConn() {
     _client.close();
   }
 

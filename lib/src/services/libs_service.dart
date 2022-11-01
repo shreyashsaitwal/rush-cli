@@ -92,9 +92,33 @@ class LibService {
         packaging: 'jar',
       ),
       Artifact(
+        coordinate: 'google-webrtc-1.0.19742.jar',
+        scope: Scope.compile,
+        artifactFile: p.join(_fs.libsDir.path, 'google-webrtc-1.0.19742.jar'),
+        sourcesJar: null,
+        dependencies: [],
+        packaging: 'jar',
+      ),
+      Artifact(
         coordinate: 'kawa-1.11-modified.jar',
         scope: Scope.compile,
         artifactFile: p.join(_fs.libsDir.path, 'kawa-1.11-modified.jar'),
+        sourcesJar: null,
+        dependencies: [],
+        packaging: 'jar',
+      ),
+      Artifact(
+        coordinate: 'mp-android-chart-3.1.0.jar',
+        scope: Scope.compile,
+        artifactFile: p.join(_fs.libsDir.path, 'mp-android-chart-3.1.0.jar'),
+        sourcesJar: null,
+        dependencies: [],
+        packaging: 'jar',
+      ),
+      Artifact(
+        coordinate: 'osmdroid-5.6.6.jar',
+        scope: Scope.compile,
+        artifactFile: p.join(_fs.libsDir.path, 'osmdroid-5.6.6.jar'),
         sourcesJar: null,
         dependencies: [],
         packaging: 'jar',
@@ -106,7 +130,7 @@ class LibService {
         sourcesJar: null,
         dependencies: [],
         packaging: 'jar',
-      )
+      ),
     ];
   }
 
