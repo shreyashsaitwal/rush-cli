@@ -42,10 +42,19 @@ else {
 Remove-Item $ZipLocation
 
 Write-Output "Successfully downloaded the Rush CLI binary at $RushHome\bin\rush.exe"
-Write-Output "Now, proceeding to download necessary Java libraries (approx size: SIZE)."
 
-$BinDir = "$RushHome\bin"
-Start-Process -NoNewWindow -FilePath "$BinDir\rush.exe" -ArgumentList "deps","sync","--dev-deps" -Wait 
+# Prompt user if they want to download dev dependencies now
+$Yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes"
+$No = New-Object System.Management.Automation.Host.ChoiceDescription "&No"
+$Options = [System.Management.Automation.Host.ChoiceDescription[]]($Yes, $No)
+
+$Title = "Now, proceeding to download necessary Java libraries (approx size: 170 MB)."
+$Message = "Do you want to continue?"
+$Result = $host.ui.PromptForChoice($Title, $Message, $Options, 0)
+if ($Result -eq 0) {
+  $BinDir = "$RushHome\bin"
+  Start-Process -NoNewWindow -FilePath "$BinDir\rush.exe" -ArgumentList "deps", "sync", "--dev-deps", "--no-logo" -Wait 
+}
 
 # Update PATH
 $User = [EnvironmentVariableTarget]::User
@@ -55,5 +64,11 @@ if (!(";$Path;".ToLower() -like "*;$BinDir;*".ToLower())) {
   $Env:Path += ";$BinDir"
 }
 
-Write-Output "`nSuccess! Installed Rush at $BinDir\rush.exe!"
-Write-Output "Run ``rush --help`` to get started."
+if ($Result -eq 0) {
+  Write-Output "`nSuccess! Installed Rush at $BinDir\rush.exe!"
+  Write-Output "Run ``rush --help`` to get started."
+}
+else {
+  Write-Output "`nRush has been partially installed at $BinDir\rush.exe!"
+  Write-Output "Please run ``rush deps sync --dev-deps`` to download necessary Java libraries."
+}

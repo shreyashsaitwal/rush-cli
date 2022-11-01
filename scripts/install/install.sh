@@ -39,30 +39,38 @@ if [ ! "$OS" = "Windows_NT" ]; then
   chmod +x "$rushHome/bin/rush"
 fi
 
-# Download the dev dependencies
 echo
 echo "Successfully downloaded the Rush CLI binary at $rushHome/bin/rush"
-echo "Now, proceeding to download necessary Java libraries (approx size: SIZE)."
 
-if [ "$OS" = "Windows_NT" ]; then
-  "./$rushHome/bin/rush.exe" deps sync --dev-deps
-else
-  "./$rushHome/bin/rush" deps sync --dev-deps
+# Prompt user of they want to download dev dependencies now.
+echo "Now, proceeding to download necessary Java libraries (approx size: 170 MB)."
+read -p "Do you want to continue? (Y/n) " -n 1 -r
+echo
+
+if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+  if [ "$OS" = "Windows_NT" ]; then
+    "./$rushHome/bin/rush.exe" deps sync --dev-deps --no-logo
+  else
+    "./$rushHome/bin/rush" deps sync --dev-deps --no-logo
+  fi
 fi
 
-if ! command -v rush >/dev/null; then
-  echo
+echo
+if [[ ! $REPLY =~ ^[Nn]$ ]]; then
   echo "Success! Installed Rush at $rushHome/bin/rush"
-  
-  case $SHELL in
-    /bin/zsh) shell_profile=".zshrc" ;;
-    *) shell_profile=".bash_profile" ;;
-  esac
-
-  echo
-  echo "Now, add the following to your \$HOME/$shell_profile (or similar):"
-  echo "export PATH=\"\$PATH:$rushHome/bin\""
-
-  echo
-  echo 'Run `rush --help` to get started.'
+else
+  echo "Rush has been partially installed at $rushHome/bin/rush"
+  echo 'Please run `rush deps sync --dev-deps` to download the necessary Java libraries.'
 fi
+
+case $SHELL in
+  /bin/zsh) shell_profile=".zshrc" ;;
+  *) shell_profile=".bash_profile" ;;
+esac
+
+echo
+echo "Now, add the following to your \$HOME/$shell_profile (or similar):"
+echo "export PATH=\"\$PATH:$rushHome/bin\""
+
+echo
+echo 'Run `rush --help` to get started.'

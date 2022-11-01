@@ -42,7 +42,6 @@ class RushCommandRunner extends CommandRunner<int> {
           } else {
             supportsAnsiColor = ok;
           }
-          _printLogo();
         },
       )
       ..addFlag(
@@ -55,6 +54,15 @@ class RushCommandRunner extends CommandRunner<int> {
             Console().writeLine('Running on version ${packageVersion.cyan()}');
             exit(0);
           }
+        },
+      )
+      ..addFlag(
+        'logo',
+        abbr: 'l',
+        defaultsTo: true,
+        hide: true,
+        callback: (ok) {
+          if (ok) _printLogo();
         },
       );
 
