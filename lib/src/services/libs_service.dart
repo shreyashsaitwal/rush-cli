@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:collection/collection.dart';
 
 import 'package:rush_cli/src/commands/build/utils.dart';
+import 'package:rush_cli/src/config/config.dart';
 import 'package:rush_cli/src/resolver/artifact.dart';
 import 'package:rush_cli/src/services/file_service.dart';
 import 'package:rush_cli/src/utils/constants.dart';
@@ -62,83 +63,103 @@ class LibService {
 
   /// Returns a list of all the artifacts and their dependencies in a box.
   Future<List<Artifact>> _retrieveArtifactsFromBox(
-    LazyBox<Artifact> cacheBox,
-  ) async {
+      LazyBox<Artifact> cacheBox) async {
     final artifacts = <Artifact?>{};
     for (final key in cacheBox.keys) {
       final artifact = await cacheBox.get(key);
       artifacts.add(artifact!);
-
-      if (artifact.dependencies.isNotEmpty) {
-        final deps = await Future.wait([
-          for (final dep in artifact.dependencies) cacheBox.get(dep),
-        ]);
-        artifacts.addAll(deps);
-      }
     }
     return artifacts.whereNotNull().toList();
   }
 
-  Future<List<Artifact>> providedDepArtifacts() async {
+  Future<List<Artifact>> providedDependencies() async {
+    final local = [
+      'android-$androidPlatformSdkVersion.jar',
+      'google-webrtc-1.0.19742.jar',
+      'kawa-1.11-modified.jar',
+      'mp-android-chart-3.1.0.jar',
+      'osmdroid-5.6.6.jar',
+      'physicaloid-library.jar',
+    ].map((el) => Artifact(
+          coordinate: el,
+          scope: Scope.compile,
+          artifactFile: p.join(_fs.libsDir.path, el),
+          packaging: 'jar',
+          dependencies: [],
+          sourcesJar: null,
+        ));
+
     return [
       ...await _retrieveArtifactsFromBox(providedDepsBox),
-      Artifact(
-        coordinate: 'android-$androidPlatformSdkVersion.jar',
-        scope: Scope.compile,
-        artifactFile:
-            p.join(_fs.libsDir.path, 'android-$androidPlatformSdkVersion.jar'),
-        sourcesJar: null,
-        dependencies: [],
-        packaging: 'jar',
-      ),
-      Artifact(
-        coordinate: 'google-webrtc-1.0.19742.jar',
-        scope: Scope.compile,
-        artifactFile: p.join(_fs.libsDir.path, 'google-webrtc-1.0.19742.jar'),
-        sourcesJar: null,
-        dependencies: [],
-        packaging: 'jar',
-      ),
-      Artifact(
-        coordinate: 'kawa-1.11-modified.jar',
-        scope: Scope.compile,
-        artifactFile: p.join(_fs.libsDir.path, 'kawa-1.11-modified.jar'),
-        sourcesJar: null,
-        dependencies: [],
-        packaging: 'jar',
-      ),
-      Artifact(
-        coordinate: 'mp-android-chart-3.1.0.jar',
-        scope: Scope.compile,
-        artifactFile: p.join(_fs.libsDir.path, 'mp-android-chart-3.1.0.jar'),
-        sourcesJar: null,
-        dependencies: [],
-        packaging: 'jar',
-      ),
-      Artifact(
-        coordinate: 'osmdroid-5.6.6.jar',
-        scope: Scope.compile,
-        artifactFile: p.join(_fs.libsDir.path, 'osmdroid-5.6.6.jar'),
-        sourcesJar: null,
-        dependencies: [],
-        packaging: 'jar',
-      ),
-      Artifact(
-        coordinate: 'physicaloid-library.jar',
-        scope: Scope.compile,
-        artifactFile: p.join(_fs.libsDir.path, 'physicaloid-library.jar'),
-        sourcesJar: null,
-        dependencies: [],
-        packaging: 'jar',
-      ),
+      ...local,
+    ];
+  }
+
+  Future<List<Artifact>> extensionDependencies(
+    Config config, {
+    bool includeProvided = false,
+    bool includeLocal = true,
+  }) async {
+    final allExtRemoteDeps = await _retrieveArtifactsFromBox(projectDepsBox);
+
+    // The cache contains 
+    final directRemoteDeps = [
+      ...config.comptimeDeps.map((el) {
+        return allExtRemoteDeps.firstWhereOrNull(
+            (dep) => dep.coordinate == el && dep.scope == Scope.compile);
+      }),
+      ...config.runtimeDeps.map((el) {
+        return allExtRemoteDeps.firstWhereOrNull(
+            (dep) => dep.coordinate == el && dep.scope == Scope.runtime);
+      }),
+    ].whereNotNull();
+    final requiredRemoteDeps = directRemoteDeps.expand((el) {
+      final transitiveDeps = el.dependencies
+          .map((dep) => allExtRemoteDeps
+              .firstWhereOrNull((element) => element.coordinate == dep))
+          .whereNotNull();
+      return [el, ...transitiveDeps];
+    }).toSet();
+
+    final localDeps = [
+      ...config.comptimeDeps
+          .where((el) => el.endsWith('.jar') || el.endsWith('.aar'))
+          .map((el) {
+        return Artifact(
+          scope: Scope.compile,
+          coordinate: el,
+          artifactFile: p.join(_fs.libsDir.path, el),
+          packaging: p.extension(el).substring(1),
+          dependencies: [],
+          sourcesJar: null,
+        );
+      }),
+      ...config.runtimeDeps
+          .where((el) => el.endsWith('.jar') || el.endsWith('.aar'))
+          .map((el) {
+        return Artifact(
+          scope: Scope.runtime,
+          coordinate: el,
+          artifactFile: p.join(_fs.libsDir.path, el),
+          packaging: p.extension(el).substring(1),
+          dependencies: [],
+          sourcesJar: null,
+        );
+      }),
+    ];
+    BuildUtils.extractAars(localDeps
+        .where((el) => el.packaging == 'aar')
+        .map((el) => el.artifactFile));
+
+    return [
+      ...requiredRemoteDeps,
+      if (includeLocal) ...localDeps,
+      if (includeProvided) ...await providedDependencies(),
     ];
   }
 
   Future<List<Artifact>> buildLibArtifacts() async =>
       (await _retrieveArtifactsFromBox(buildLibsBox)).toList();
-
-  Future<Iterable<Artifact>> projectDepArtifacts() async =>
-      (await _retrieveArtifactsFromBox(projectDepsBox)).toList();
 
   Future<String> processorJar() async =>
       (await buildLibsBox.get(rushApCoord))!.classesJar!;
@@ -167,78 +188,4 @@ class LibService {
       (await buildLibsBox.get(
               '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion'))!
           .classpathJars(await buildLibArtifacts());
-
-  Future<Iterable<String>> runtimeAars(
-      Iterable<String> localRuntimeDeps) async {
-    final res = <String>[];
-
-    final remote =
-        (await projectDepArtifacts()).where((el) => el.scope == Scope.runtime);
-    res.addAll(remote
-        .where((el) => el.packaging == 'aar')
-        .map((el) => el.artifactFile));
-
-    BuildUtils.extractAars(
-        localRuntimeDeps.where((el) => p.extension(el) == '.aar'));
-    res.addAll(localRuntimeDeps.where((el) => p.extension(el) == '.aar').map(
-          (el) => p.join(_fs.localDepsDir.path, el),
-        ));
-
-    return res;
-  }
-
-  Future<Iterable<String>> runtimeJars(
-      Iterable<String> localRuntimeDeps) async {
-    final res = <String>[];
-
-    final remote =
-        (await projectDepArtifacts()).where((el) => el.scope == Scope.runtime);
-    res.addAll(remote.map((el) => el.classesJar!));
-
-    res.addAll(localRuntimeDeps
-        .where((el) => p.extension(el) == '.jar')
-        .map((el) => p.join(_fs.localDepsDir.path, el)));
-    res.addAll(localRuntimeDeps.where((el) => p.extension(el) == '.aar').map(
-          (el) => p.join(_fs.buildAarsDir.path, p.basenameWithoutExtension(el),
-              'classes.jar'),
-        ));
-
-    return res;
-  }
-
-  Future<Iterable<String>> comptimeAars(Iterable<String> localRuntimeDeps,
-      Iterable<String> localComptimeDeps) async {
-    final aars = <String>[...await runtimeAars(localRuntimeDeps)];
-
-    final provided = await providedDepArtifacts();
-    aars.addAll(provided
-        .where((el) => el.packaging == 'aar')
-        .map((el) => el.artifactFile));
-
-    BuildUtils.extractAars(
-        localComptimeDeps.where((el) => p.extension(el) == '.aar'));
-    aars.addAll(localComptimeDeps.where((el) => p.extension(el) == '.aar'));
-
-    return aars;
-  }
-
-  Future<Iterable<String>> comptimeJars(Iterable<String> localRuntimeDeps,
-      Iterable<String> localComptimeDeps) async {
-    final res = <String>[...await runtimeJars(localRuntimeDeps)];
-
-    final provided = (await providedDepArtifacts());
-    res.addAll(provided.map((el) => el.classesJar!));
-
-    BuildUtils.extractAars(
-        localComptimeDeps.where((el) => p.extension(el) == '.aar'));
-    res.addAll(localComptimeDeps
-        .where((el) => p.extension(el) == '.jar')
-        .map((el) => p.join(_fs.localDepsDir.path, el)));
-    res.addAll(localComptimeDeps.where((el) => p.extension(el) == '.aar').map(
-          (el) => p.join(_fs.buildAarsDir.path, p.basenameWithoutExtension(el),
-              'classes.jar'),
-        ));
-
-    return res;
-  }
 }

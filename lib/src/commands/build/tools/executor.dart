@@ -1,21 +1,26 @@
 import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush_cli/src/config/config.dart';
+import 'package:rush_cli/src/resolver/artifact.dart';
 
 import 'package:rush_cli/src/services/file_service.dart';
 import 'package:rush_cli/src/commands/build/utils.dart';
+import 'package:rush_cli/src/services/libs_service.dart';
 import 'package:rush_cli/src/utils/constants.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
 import 'package:rush_cli/src/utils/process_runner.dart';
 
 class Executor {
   static final _fs = GetIt.I<FileService>();
+  static final _libService = GetIt.I<LibService>();
   static final processRunner = ProcessRunner();
 
-  static Future<void> execD8(String artJarPath, String r8Jar) async {
+  static Future<void> execD8(String artJarPath) async {
     final args = <String>[
-      ...['-cp', r8Jar],
+      ...['-cp', await _libService.r8Jar()],
       'com.android.tools.r8.D8',
       ...[
         '--lib',
@@ -37,24 +42,41 @@ class Executor {
   }
 
   static Future<void> execProGuard(
+    Config config,
     String artJarPath,
-    Set<String> comptimeJars,
-    String pgClasspath,
     Set<String> aarProguardRules,
   ) async {
     final rulesFile = p.join(_fs.srcDir.path, 'proguard-rules.pro').asFile();
     final optimizedJar =
         p.join(p.dirname(artJarPath), 'AndroidRuntime.optimized.jar').asFile();
 
+    final pgJars = await _libService.pgJars();
+
+    final providedDeps = await _libService.providedDependencies();
+    // Take only comptime extension dependencies because the runtime deps would
+    // have already been added to the AndroidRuntime.jar
+    final extDeps = await _libService.extensionDependencies(config);
+    final comptimeExtDeps = extDeps.where((el) => el.scope == Scope.compile);
+
+    final requiredDeps = [...providedDeps, ...comptimeExtDeps];
+    final libraryJars = requiredDeps
+        .map((e) => e.classpathJars(requiredDeps))
+        .flattened
+        .toSet();
+
     final args = <String>[
-      ...['-cp', pgClasspath],
+      ...['-cp', pgJars.join(BuildUtils.cpSeparator)],
       'proguard.ProGuard',
       ...['-injars', artJarPath],
       ...['-outjars', optimizedJar.path],
-      ...['-libraryjars', comptimeJars.join(BuildUtils.cpSeparator)],
+      ...['-libraryjars', libraryJars.join(BuildUtils.cpSeparator)],
       ...[for (final el in aarProguardRules) '-include $el'],
       '@${rulesFile.path}',
     ];
+    p
+        .join(_fs.buildFilesDir.path, 'pg.args')
+        .asFile(true)
+        .writeAsStringSync(args.toString());
 
     try {
       await processRunner.runExecutable(
@@ -70,12 +92,11 @@ class Executor {
   static Future<void> execManifMerger(
     int minSdk,
     String mainManifest,
-    Set<String> depManifests,
-    Iterable<String> manifMergerJars,
+    Set<String> manifests,
   ) async {
     final classpath = <String>[
-      ...manifMergerJars,
-      p.join(_fs.libsDir.path, 'android.jar'),
+      ...await _libService.manifMergerJars(),
+      p.join(_fs.libsDir.path, 'android-$androidPlatformSdkVersion.jar'),
     ].join(BuildUtils.cpSeparator);
 
     final output = p.join(_fs.buildFilesDir.path, 'AndroidManifest.xml');
@@ -83,7 +104,7 @@ class Executor {
       ...['-cp', classpath],
       'com.android.manifmerger.Merger',
       ...['--main', mainManifest],
-      ...['--libs', depManifests.join(BuildUtils.cpSeparator)],
+      ...['--libs', manifests.join(BuildUtils.cpSeparator)],
       ...['--property', 'MIN_SDK_VERSION=${minSdk.toString()}'],
       ...['--out', output],
       ...['--log', 'INFO'],
@@ -98,9 +119,8 @@ class Executor {
   }
 
   static Future<void> execDesugarer(
-    String desugarJar,
     String artJarPath,
-    Iterable<String> comptimeDepJars,
+    Config config,
   ) async {
     final outputJar = p
         .join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.dsgr.jar')
@@ -128,13 +148,20 @@ class Executor {
           .asFile();
     }();
 
+    final dependencies =
+        await _libService.extensionDependencies(config, includeProvided: true);
+    final classpathJars = dependencies
+        .map((el) => el.classpathJars(dependencies))
+        .flattened
+        .toSet();
+
     final desugarerArgs = <String>[
       '--desugar_try_with_resources_if_needed',
       '--copy_bridges_from_classpath',
       ...['--bootclasspath_entry', '\'${bootclasspath.path}\''],
       ...['--input', '\'$artJarPath\''],
       ...['--output', '\'${outputJar.path}\''],
-      ...comptimeDepJars.map((dep) => '--classpath_entry' '\n' '\'$dep\''),
+      ...classpathJars.map((dep) => '--classpath_entry' '\n' '\'$dep\''),
     ];
     final argsFile =
         p.join(_fs.buildFilesDir.path, 'desugar.args').asFile(true);
@@ -145,7 +172,7 @@ class Executor {
       // Required on JDK 11 (>11.0.9.1)
       // https://github.com/bazelbuild/bazel/commit/cecb3f1650d642dc626d6f418282bd802c29f6d7
       '-Djdk.internal.lambda.dumpProxyClasses=${tempDir.path}',
-      ...['-cp', desugarJar],
+      ...['-cp', await _libService.desugarJar()],
       'com.google.devtools.build.android.desugar.Desugar',
       '@${argsFile.path}',
     ];

@@ -21,7 +21,7 @@ class Compiler {
   static final _processRunner = ProcessRunner();
 
   static Future<void> _compileHelpers(
-    Iterable<String> comptimeJars,
+    Set<String> classpathJars,
     LazyBox<DateTime> timestampBox, {
     String? ktVersion,
     bool java8 = false,
@@ -50,15 +50,15 @@ class Compiler {
     if (hasKtFiles) {
       args = await _kotlincArgs(
         helperFiles.first.parent.path,
-        comptimeJars,
+        classpathJars,
         ktVersion!,
-        files: helperFiles.map((e) => e.path),
+        files: helperFiles.map((e) => e.path).toSet(),
         withProc: false,
       );
     } else {
       args = await _javacArgs(
-        helperFiles.map((e) => e.path),
-        comptimeJars,
+        helperFiles.map((e) => e.path).toSet(),
+        classpathJars,
         java8,
         withProc: false,
       );
@@ -92,18 +92,20 @@ class Compiler {
   }
 
   static Future<void> compileJavaFiles(
-    Iterable<String> comptimeJars,
+    Set<String> classpathJars,
     bool supportJava8,
     LazyBox<DateTime> timestampBox,
   ) async {
     final javaFiles = _fs.srcDir
         .listSync(recursive: true)
         .where((el) => el is File && p.extension(el.path) == '.java')
-        .map((el) => el.path);
+        .map((el) => el.path)
+        .toSet();
+
     final DateTime compilationStartedOn;
     try {
-      await _compileHelpers(comptimeJars, timestampBox, java8: supportJava8);
-      final args = _javacArgs(javaFiles, comptimeJars, supportJava8);
+      await _compileHelpers(classpathJars, timestampBox, java8: supportJava8);
+      final args = _javacArgs(javaFiles, classpathJars, supportJava8);
       compilationStartedOn = DateTime.now();
       await _processRunner.runExecutable('javac', await args);
     } catch (e) {
@@ -113,12 +115,12 @@ class Compiler {
   }
 
   static Future<List<String>> _javacArgs(
-    Iterable<String> files,
-    Iterable<String> comptimeJars,
+    Set<String> files,
+    Set<String> classpathJars,
     bool supportJava8, {
     bool withProc = true,
   }) async {
-    final classpath = comptimeJars.join(BuildUtils.cpSeparator);
+    final classpath = classpathJars.join(BuildUtils.cpSeparator);
     final procClasspath = await _libService.processorJar();
     final args = <String>[
       ...['-source', supportJava8 ? '1.8' : '1.7'],
@@ -134,16 +136,16 @@ class Compiler {
   }
 
   static Future<void> compileKtFiles(
-    Iterable<String> comptimeJars,
+    Set<String> classpathJars,
     String kotlinVersion,
     LazyBox<DateTime> timestampBox,
   ) async {
     final DateTime compilationStartedOn;
     try {
-      await _compileHelpers(comptimeJars, timestampBox,
+      await _compileHelpers(classpathJars, timestampBox,
           ktVersion: kotlinVersion);
       final kotlincArgs =
-          await _kotlincArgs(_fs.srcDir.path, comptimeJars, kotlinVersion);
+          await _kotlincArgs(_fs.srcDir.path, classpathJars, kotlinVersion);
       compilationStartedOn = DateTime.now();
       await _processRunner.runExecutable('java', kotlincArgs);
     } catch (e) {
@@ -154,10 +156,10 @@ class Compiler {
 
   static Future<List<String>> _kotlincArgs(
     String srcDir,
-    Iterable<String> comptimeJars,
+    Set<String> classpathJars,
     String kotlinVersion, {
     bool withProc = true,
-    Iterable<String>? files,
+    Set<String>? files,
   }) async {
     // Here, we are copying the kotlin-annotation-processing-embeddable jar
     // in the it's own directory but with name: kotlin-annotation-processing.jar
@@ -190,7 +192,7 @@ class Compiler {
     final procClasspath = await _libService.processorJar();
 
     final kotlincArgs = <String>[
-      ...['-cp', comptimeJars.join(BuildUtils.cpSeparator)],
+      ...['-cp', classpathJars.join(BuildUtils.cpSeparator)],
       if (withProc) ...[
         // KaptCli args
         '-Kapt-classes=${_fs.buildKaptDir.path}',

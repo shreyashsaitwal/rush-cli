@@ -1,4 +1,5 @@
 import 'package:args/command_runner.dart';
+import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/src/services/libs_service.dart';
@@ -29,9 +30,11 @@ class TreeSubCommand extends Command<int> {
     }
 
     await GetIt.I.isReady<LibService>();
+    final libService = GetIt.I<LibService>();
 
-    final remoteDeps = await GetIt.I<LibService>().projectDepArtifacts();
-    final directDeps = remoteDeps
+    final remoteExtDeps =
+        await libService.extensionDependencies(config, includeLocal: false);
+    final requiredRemoteDeps = remoteExtDeps
         .where((el) =>
             config.runtimeDeps.contains(el.coordinate) ||
             config.comptimeDeps.contains(el.coordinate))
@@ -42,26 +45,28 @@ class TreeSubCommand extends Command<int> {
 
     // Print local deps first
     final runtimeLocal = _localDepGraph(
-        config.runtimeDeps.where(
-            (el) => p.extension(el) == '.jar' || p.extension(el) == '.aar'),
-        false,
-        remoteDeps.isEmpty);
+      config.runtimeDeps.where(
+          (el) => p.extension(el) == '.jar' || p.extension(el) == '.aar'),
+      false,
+      remoteExtDeps.isEmpty,
+    );
     if (runtimeLocal.isNotEmpty) {
       _lgr.log(runtimeLocal);
     }
 
     final comptimeLocal = _localDepGraph(
-        config.comptimeDeps.where(
-            (el) => p.extension(el) == '.jar' || p.extension(el) == '.aar'),
-        true,
-        remoteDeps.isEmpty);
+      config.comptimeDeps.where(
+          (el) => p.extension(el) == '.jar' || p.extension(el) == '.aar'),
+      true,
+      remoteExtDeps.isEmpty,
+    );
     if (comptimeLocal.isNotEmpty) {
       _lgr.log(comptimeLocal);
     }
 
     final remoteDepsGraph = <String>{
-      for (final dep in directDeps)
-        _remoteDepsGraph(remoteDeps, dep, dep == directDeps.last)
+      for (final dep in requiredRemoteDeps)
+        _remoteDepsGraph(dep, remoteExtDeps, dep == requiredRemoteDeps.last)
     }.join();
     _lgr.log(remoteDepsGraph);
 
@@ -91,8 +96,8 @@ class TreeSubCommand extends Command<int> {
   final alreadyPrinted = <Artifact>{};
 
   String _remoteDepsGraph(
-    Iterable<Artifact> depList,
     Artifact dep,
+    Iterable<Artifact> depIndex,
     bool isLast, [
     String prefix = '',
   ]) {
@@ -137,9 +142,9 @@ class TreeSubCommand extends Command<int> {
           (isLast ? Connector.empty : Connector.vertical) +
           Connector.empty * branchGap;
       final artifact =
-          depList.firstWhere((element) => element.coordinate == el);
+          depIndex.firstWhere((element) => element.coordinate == el);
       connector += _remoteDepsGraph(
-          depList, artifact, el == dep.dependencies.last, newPrefix);
+          artifact, depIndex, el == dep.dependencies.last, newPrefix);
     }
 
     alreadyPrinted.add(dep);

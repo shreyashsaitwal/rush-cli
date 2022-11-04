@@ -88,4 +88,14 @@ class BuildUtils {
       license.copySync(p.join(dest.path, 'LICENSE'));
     }
   }
+
+  static File resourceFromAar(String aarPath, String resourceName) {
+    final String dist;
+    if (p.isWithin(_fs.localDepsDir.path, aarPath)) {
+      dist = p.join(_fs.buildAarsDir.path, p.basenameWithoutExtension(aarPath));
+    } else {
+      dist = p.join(p.dirname(aarPath), p.basenameWithoutExtension(aarPath));
+    }
+    return p.join(dist, resourceName).asFile();
+  }
 }

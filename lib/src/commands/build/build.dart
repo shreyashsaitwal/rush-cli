@@ -62,7 +62,7 @@ class BuildCommand extends Command<int> {
     final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
 
     if (await SyncSubCommand.projectDepsNeedSync(
-        timestampBox, _libService, _fs.configFile)) {
+        timestampBox, await _libService.extensionDependencies(config))) {
       final remoteDeps = {
         Scope.runtime: config.runtimeDeps
             .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
@@ -74,7 +74,7 @@ class BuildCommand extends Command<int> {
         await SyncSubCommand().sync(
           cacheBox: _libService.projectDepsBox,
           coordinates: remoteDeps,
-          providedArtifacts: await _libService.providedDepArtifacts(),
+          providedArtifacts: await _libService.providedDependencies(),
           repositories: config.repositories,
           downloadSources: true,
         );
@@ -89,19 +89,16 @@ class BuildCommand extends Command<int> {
     _lgr.startTask('Compiling sources');
     try {
       await _mergeManifests(
-        config.minSdk,
+        config,
         timestampBox,
-        await _libService.runtimeAars(config.runtimeDeps),
       );
     } catch (e, s) {
       _catchAndStop(e, s);
       return 1;
     }
 
-    final comptimeDeps =
-        await _libService.comptimeJars(config.runtimeDeps, config.comptimeDeps);
     try {
-      await _compile(comptimeDeps, config, timestampBox);
+      await _compile(config, timestampBox);
     } catch (e, s) {
       _catchAndStop(e, s);
       return 1;
@@ -127,8 +124,7 @@ class BuildCommand extends Command<int> {
     try {
       BuildUtils.copyAssets(config);
       BuildUtils.copyLicense(config);
-      artJarPath = await _createArtJar(
-          config, await _libService.runtimeJars(config.runtimeDeps));
+      artJarPath = await _createArtJar(config);
     } catch (e, s) {
       _catchAndStop(e, s);
       return 1;
@@ -138,8 +134,7 @@ class BuildCommand extends Command<int> {
     if (config.desugar) {
       _lgr.startTask('Desugaring Java 8 langauge features');
       try {
-        await Executor.execDesugarer(
-            await _libService.desugarJar(), artJarPath, comptimeDeps);
+        await Executor.execDesugarer(artJarPath, config);
       } catch (e, s) {
         _catchAndStop(e, s);
         return 1;
@@ -150,18 +145,21 @@ class BuildCommand extends Command<int> {
     if (argResults!['optimize'] as bool) {
       _lgr.startTask('Optimizing and obfuscating the bytecode');
 
-      final comptimeAars = await _libService.comptimeAars(
-          config.runtimeDeps, config.comptimeDeps);
+      final deps = await _libService.extensionDependencies(config,
+          includeProvided: true);
+
+      // This also includes transitive comptime deps of runtime deps
+      final comptimeDeps = deps.where((el) => el.scope == Scope.compile);
+      final comptimeAars = comptimeDeps.where((el) => el.packaging == 'aar');
+
       final proguardRules = comptimeAars
-          .map((el) => p.join(
-              p.dirname(el), p.basenameWithoutExtension(el), 'proguard.txt'))
-          .where((el) => el.asFile().existsSync());
+          .map((el) =>
+              BuildUtils.resourceFromAar(el.artifactFile, 'proguard.txt'))
+          .where((el) => el.existsSync())
+          .map((el) => el.path);
 
       try {
-        final pgClasspath =
-            (await _libService.pgJars()).join(BuildUtils.cpSeparator);
-        await Executor.execProGuard(artJarPath, comptimeDeps.toSet(),
-            pgClasspath, proguardRules.toSet());
+        await Executor.execProGuard(config, artJarPath, proguardRules.toSet());
       } catch (e, s) {
         _catchAndStop(e, s);
         return 1;
@@ -171,7 +169,7 @@ class BuildCommand extends Command<int> {
 
     _lgr.startTask('Generating DEX bytecode');
     try {
-      await Executor.execD8(artJarPath, await _libService.r8Jar());
+      await Executor.execD8(artJarPath);
     } catch (e, s) {
       _catchAndStop(e, s);
       return 1;
@@ -213,16 +211,20 @@ class BuildCommand extends Command<int> {
   }
 
   Future<void> _mergeManifests(
-    int minSdk,
+    Config config,
     LazyBox<DateTime> timestampBox,
-    Iterable<String> runtimeDepAars,
   ) async {
-    final depManifestPaths = runtimeDepAars.map((path) {
-      final outputDir = p.withoutExtension(path).asDir(true);
-      return p.join(outputDir.path, 'AndroidManifest.xml');
-    });
+    final deps = await _libService.extensionDependencies(config);
+    final runtimeAars =
+        deps.where((el) => el.scope == Scope.runtime && el.packaging == 'aar');
 
-    if (depManifestPaths.isEmpty) {
+    final manifests = runtimeAars
+        .map((el) =>
+            BuildUtils.resourceFromAar(el.artifactFile, 'AndroidManifest.xml'))
+        .where((el) => el.existsSync())
+        .map((el) => el.path);
+
+    if (manifests.isEmpty) {
       _lgr.dbg('No manifests found in dependencies; skipping manifest merge');
       return;
     }
@@ -230,29 +232,27 @@ class BuildCommand extends Command<int> {
     final mainManifest =
         p.join(_fs.srcDir.path, 'AndroidManifest.xml').asFile();
     final outputManifest =
-        p.join(_fs.buildFilesDir.path, 'AndroidManifest.xml').asFile();
+        p.join(_fs.buildFilesDir.path, 'AndroidManifest.xml').asFile(true);
 
     final lastMergeTime = await timestampBox.get(androidManifestTimestampKey);
-
     final needMerge = !await outputManifest.exists() ||
         (lastMergeTime?.isBefore(mainManifest.lastModifiedSync()) ?? true);
-
-    _lgr.info('Merging Android manifests...');
-
     if (!needMerge) {
       return;
     }
 
-    await outputManifest.create(recursive: true);
-    await Executor.execManifMerger(minSdk, mainManifest.path,
-        depManifestPaths.toSet(), await _libService.manifMergerJars());
+    _lgr.info('Merging Android manifests...');
+    await Executor.execManifMerger(
+      config.minSdk,
+      mainManifest.path,
+      manifests.toSet(),
+    );
 
     await timestampBox.put(androidManifestTimestampKey, DateTime.now());
   }
 
   /// Compiles extension's source files.
   Future<void> _compile(
-    Iterable<String> comptimeJars,
     Config config,
     LazyBox<DateTime> timestampBox,
   ) async {
@@ -268,15 +268,22 @@ class BuildCommand extends Command<int> {
     final fileCount = javaFiles.length + ktFiles.length;
     _lgr.info('Picked $fileCount source file${fileCount > 1 ? 's' : ''}');
 
+    final dependencies =
+        await _libService.extensionDependencies(config, includeProvided: true);
+    final classpathJars = dependencies
+        .map((el) => el.classpathJars(dependencies))
+        .flattened
+        .toSet();
+
     try {
       if (ktFiles.isNotEmpty) {
         await Compiler.compileKtFiles(
-            comptimeJars, config.kotlin!.compilerVersion, timestampBox);
+            classpathJars, config.kotlin!.compilerVersion, timestampBox);
       }
 
       if (javaFiles.isNotEmpty) {
         await Compiler.compileJavaFiles(
-            comptimeJars, config.desugar, timestampBox);
+            classpathJars, config.desugar, timestampBox);
       }
     } catch (e, s) {
       _lgr
@@ -286,12 +293,14 @@ class BuildCommand extends Command<int> {
     }
   }
 
-  Future<String> _createArtJar(
-      Config config, Iterable<String> runtimeJars) async {
+  Future<String> _createArtJar(Config config) async {
     final artJarPath =
         p.join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.jar');
-
     final zipEncoder = ZipFileEncoder()..create(artJarPath);
+
+    final deps = await _libService.extensionDependencies(config);
+    final runtimeDeps = deps.where((el) => el.scope == Scope.runtime);
+    final runtimeJars = runtimeDeps.map((el) => el.classesJar).whereNotNull();
 
     // Add class files from all required runtime deps into the ART.jar
     if (runtimeJars.isNotEmpty) {

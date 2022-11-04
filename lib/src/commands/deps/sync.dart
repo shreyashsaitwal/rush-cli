@@ -30,8 +30,8 @@ const _buildToolCoords = [
 ];
 
 class SyncSubCommand extends Command<int> {
-  final _fs = GetIt.I<FileService>();
-  final _lgr = GetIt.I<Logger>();
+  static final _fs = GetIt.I<FileService>();
+  static final _lgr = GetIt.I<Logger>();
 
   SyncSubCommand() {
     argParser
@@ -88,7 +88,7 @@ class SyncSubCommand extends Command<int> {
     final providedDepsToFetch = <String>{};
     final toolsToFetch = <String>{};
 
-    var providedDepArtifacts = await libService.providedDepArtifacts();
+    var providedDepArtifacts = await libService.providedDependencies();
     var buildLibArtifacts = await libService.buildLibArtifacts();
 
     // Add every un-cached dev dep to fetch list.
@@ -140,7 +140,6 @@ class SyncSubCommand extends Command<int> {
       }
 
       await Future.wait([
-        _removeRogueDeps(toolsCoord, libService.buildLibsBox),
         _removeRogueDeps([
           ai2RuntimeCoord,
           'android-$androidPlatformSdkVersion.jar',
@@ -161,14 +160,15 @@ class SyncSubCommand extends Command<int> {
     }
 
     // Update the vars after syncing dev deps.
-    providedDepArtifacts = await libService.providedDepArtifacts();
+    providedDepArtifacts = await libService.providedDependencies();
     buildLibArtifacts = await libService.buildLibArtifacts();
 
     Hive.init(_fs.dotRushDir.path);
     final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
 
-    if (!onlyDevDeps &&
-        await projectDepsNeedSync(timestampBox, libService, _fs.configFile)) {
+    final needSync = await projectDepsNeedSync(
+        timestampBox, await libService.extensionDependencies(config));
+    if (useForce || (!onlyDevDeps && needSync)) {
       _lgr.startTask('Syncing project dependencies');
 
       final projectDepCoords = {
@@ -201,7 +201,7 @@ class SyncSubCommand extends Command<int> {
     }
 
     _lgr.startTask('Adding resolved dependencies to your IDE\'s lib index');
-    final projectDepArtifacts = await libService.projectDepArtifacts();
+    final projectDepArtifacts = await libService.extensionDependencies(config);
 
     try {
       _updateIntellijLibIndex(providedDepArtifacts, projectDepArtifacts);
@@ -216,13 +216,13 @@ class SyncSubCommand extends Command<int> {
   }
 
   static Future<bool> projectDepsNeedSync(LazyBox<DateTime> timestampBox,
-      LibService libService, File configFile) async {
+      List<Artifact> extensionDependencies) async {
     // Re-fetch deps if they are outdated, ie, if the config file is modified
     // or if the dep artifacts are missing
     final configFileModified = (await timestampBox.get(configTimestampKey))
-            ?.isBefore(configFile.lastModifiedSync()) ??
+            ?.isBefore(_fs.configFile.lastModifiedSync()) ??
         true;
-    final isAnyDepMissing = (await libService.projectDepArtifacts()).any((el) =>
+    final isAnyDepMissing = extensionDependencies.any((el) =>
         !el.artifactFile.endsWith('.pom') &&
         !el.artifactFile.asFile().existsSync());
     return configFileModified || isAnyDepMissing;
@@ -295,12 +295,29 @@ class SyncSubCommand extends Command<int> {
     try {
       // Resolve version comflicts
       _lgr.info('Resolving version conflicts...');
-      resolvedDeps = (await _resolveVersionConflicts(
-              resolvedDeps, directDeps, resolver, providedArtifacts))
-          .toList(growable: true);
+      resolvedDeps =
+          (await _resolveVersionConflicts(resolvedDeps, directDeps, resolver))
+              .toList(growable: true);
     } catch (e) {
       resolver.closeHttpConn();
       rethrow;
+    }
+
+    // Remove provided deps
+    final removed = <String>{};
+    resolvedDeps.removeWhere((el) {
+      final provided = _providedAlternative(
+          '${el.groupId}:${el.artifactId}', providedArtifacts);
+      if (provided != null) {
+        removed.add(el.coordinate);
+        _lgr.dbg(
+            'Provided alternative found for ${el.coordinate}: ${provided.coordinate}');
+        return true;
+      }
+      return false;
+    });
+    for (final el in resolvedDeps) {
+      el.dependencies.removeWhere((el) => removed.contains(el));
     }
 
     // Update the versions of transitive dependencies once the version conflicts
@@ -344,11 +361,9 @@ class SyncSubCommand extends Command<int> {
   }
 
   Future<Iterable<Artifact>> _resolveVersionConflicts(
-    Iterable<Artifact> resolvedArtifacts,
-    Iterable<String> directDeps,
-    ArtifactResolver resolver,
-    Iterable<Artifact> providedDepArtifacts,
-  ) async {
+      Iterable<Artifact> resolvedArtifacts,
+      Iterable<String> directDeps,
+      ArtifactResolver resolver) async {
     final sameArtifacts = resolvedArtifacts
         .groupListsBy((el) => '${el.groupId}:${el.artifactId}')
         .entries;
@@ -365,9 +380,7 @@ class SyncSubCommand extends Command<int> {
       final rangedVersionDeps =
           entry.value.where((el) => el.version.range != null).toSet();
 
-      final providedAlternative =
-          await _providedAlternative(entry.key, providedDepArtifacts);
-      final scope = entry.value.any((el) => el.scope == Scope.runtime)
+      final updatedScope = entry.value.any((el) => el.scope == Scope.runtime)
           ? Scope.runtime
           : Scope.compile;
 
@@ -402,16 +415,9 @@ class SyncSubCommand extends Command<int> {
               pickedArtifact.version.range!.upper!
             ].join(':');
 
-            // Ignore this artifact if it is provided by App Inventor.
-            if (providedAlternative != null &&
-                pickedArtifact.coordinate == providedAlternative.coordinate) {
-              _lgr.dbg('Provided alternative found for ${entry.key}');
-              continue;
-            }
-
             _lgr.dbg(
                 '${entry.value.length} versions for ${entry.key} found; using ${pickedArtifact.version} because its a direct dep');
-            result.add(pickedArtifact..scope = scope);
+            result.add(pickedArtifact..scope = updatedScope);
             continue;
           }
         }
@@ -425,12 +431,6 @@ class SyncSubCommand extends Command<int> {
           throw Exception(
               'Unable to resolve version conflict for ${entry.key}:\n'
               'multiple versions found: ${rangedVersionDeps.map((e) => e.version.range).join(', ')}');
-        }
-
-        if (providedAlternative != null &&
-            intersection.contains(providedAlternative.version)) {
-          _lgr.dbg('Provided alternative found for ${entry.key}');
-          continue;
         }
 
         Version? pickedVersion;
@@ -466,16 +466,17 @@ class SyncSubCommand extends Command<int> {
         // this artifact wasn't resolved. We store such artifacts and there deps
         // in the `newArtifactsToReResolve` list and resolve them later.
         if (pickedArtifacts.isEmpty) {
-          newCoordsToReResolve.putIfAbsent(pickedCoordinate, () => scope);
+          newCoordsToReResolve.putIfAbsent(
+              pickedCoordinate, () => updatedScope);
           continue;
         }
 
-        result.add(pickedArtifacts.first..scope = scope);
+        result.add(pickedArtifacts.first..scope = updatedScope);
         continue;
       }
 
       if (entry.value.length == 1) {
-        result.add(entry.value.first..scope = scope);
+        result.add(entry.value.first..scope = updatedScope);
         continue;
       }
 
@@ -491,7 +492,7 @@ class SyncSubCommand extends Command<int> {
             '${entry.value.length} versions for ${entry.key} found; using ${directDep.first.split(':').last} because its a direct dep');
         final artifact =
             entry.value.firstWhere((el) => el.coordinate == directDep.first);
-        result.add(artifact..scope = scope);
+        result.add(artifact..scope = updatedScope);
         continue;
       }
 
@@ -503,7 +504,7 @@ class SyncSubCommand extends Command<int> {
           .first;
       _lgr.dbg(
           '${entry.value.length} versions for ${entry.key} found; using ${highestVersionDep.version} because its the highest');
-      result.add(highestVersionDep..scope = scope);
+      result.add(highestVersionDep..scope = updatedScope);
     }
 
     // Resolve any new coordinates that were added to the `newArtifactsToReResolve`
@@ -528,15 +529,14 @@ class SyncSubCommand extends Command<int> {
         [...resolvedArtifactsNew.flattened, ...result],
         directDeps,
         resolver,
-        providedDepArtifacts,
       );
     }
 
     return result;
   }
 
-  Future<Artifact?> _providedAlternative(
-      String artifactIdent, Iterable<Artifact> providedDepArtifacts) async {
+  Artifact? _providedAlternative(
+      String artifactIdent, Iterable<Artifact> providedDepArtifacts) {
     for (final val in providedDepArtifacts) {
       if (val.coordinate.startsWith(artifactIdent)) {
         return val;
