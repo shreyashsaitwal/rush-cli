@@ -49,8 +49,8 @@ class LibService {
     );
 
     if (_fs.configFile.existsSync()) {
-      instance.projectDepsBox = await Hive.openLazyBox<Artifact>(
-        projectDepsBoxName,
+      instance.extensionDepsBox = await Hive.openLazyBox<Artifact>(
+        extensionDepsBoxName,
         path: _fs.dotRushDir.path,
       );
     }
@@ -59,7 +59,7 @@ class LibService {
 
   late final LazyBox<Artifact> providedDepsBox;
   late final LazyBox<Artifact> buildLibsBox;
-  late final LazyBox<Artifact> projectDepsBox;
+  late final LazyBox<Artifact> extensionDepsBox;
 
   /// Returns a list of all the artifacts and their dependencies in a box.
   Future<List<Artifact>> _retrieveArtifactsFromBox(
@@ -100,7 +100,7 @@ class LibService {
     bool includeProvided = false,
     bool includeLocal = true,
   }) async {
-    final allExtRemoteDeps = await _retrieveArtifactsFromBox(projectDepsBox);
+    final allExtRemoteDeps = await _retrieveArtifactsFromBox(extensionDepsBox);
 
     // The cache contains 
     final directRemoteDeps = [

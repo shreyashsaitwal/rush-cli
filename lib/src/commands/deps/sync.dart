@@ -55,7 +55,7 @@ class SyncSubCommand extends Command<int> {
     _lgr.startTask('Initializing');
 
     final onlyDevDeps = argResults!['dev-deps'] as bool;
-    final onlyProjectDeps = argResults!['project-deps'] as bool;
+    final onlyExtDeps = argResults!['project-deps'] as bool;
     final useForce = argResults!['force'] as bool;
 
     final config = await Config.load(_fs.configFile, _lgr);
@@ -68,12 +68,12 @@ class SyncSubCommand extends Command<int> {
 
     // Clear all the cache if force is used.
     if (useForce) {
-      if (!onlyProjectDeps) {
+      if (!onlyExtDeps) {
         await libService.providedDepsBox.clear();
         await libService.buildLibsBox.clear();
       }
       if (!onlyDevDeps && config != null) {
-        await libService.projectDepsBox.clear();
+        await libService.extensionDepsBox.clear();
       }
     }
 
@@ -119,7 +119,7 @@ class SyncSubCommand extends Command<int> {
     // Stop the init task
     _lgr.stopTask();
 
-    if (!onlyProjectDeps &&
+    if (!onlyExtDeps &&
         (providedDepsToFetch.isNotEmpty || toolsToFetch.isNotEmpty)) {
       _lgr.startTask('Syncing dev-dependencies');
       try {
@@ -148,7 +148,7 @@ class SyncSubCommand extends Command<int> {
         ], libService.providedDepsBox),
       ]);
       _lgr.stopTask();
-    } else if (!onlyProjectDeps) {
+    } else if (!onlyExtDeps) {
       _lgr
         ..startTask('Syncing dev-dependencies')
         ..stopTask();
@@ -166,12 +166,12 @@ class SyncSubCommand extends Command<int> {
     Hive.init(_fs.dotRushDir.path);
     final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
 
-    final needSync = await projectDepsNeedSync(
+    final needSync = await extensionDepsNeedSync(
         timestampBox, await libService.extensionDependencies(config));
     if (useForce || (!onlyDevDeps && needSync)) {
       _lgr.startTask('Syncing project dependencies');
 
-      final projectDepCoords = {
+      final extDepCoords = {
         Scope.runtime: config.runtimeDeps
             .where((el) => !el.endsWith('.jar') && !el.endsWith('.aar')),
         Scope.compile: config.comptimeDeps
@@ -180,8 +180,8 @@ class SyncSubCommand extends Command<int> {
 
       try {
         await sync(
-          cacheBox: libService.projectDepsBox,
-          coordinates: projectDepCoords,
+          cacheBox: libService.extensionDepsBox,
+          coordinates: extDepCoords,
           repositories: config.repositories,
           providedArtifacts: providedDepArtifacts,
           downloadSources: true,
@@ -192,7 +192,7 @@ class SyncSubCommand extends Command<int> {
         return 1;
       }
       await _removeRogueDeps(
-          projectDepCoords.values.flattened, libService.projectDepsBox);
+          extDepCoords.values.flattened, libService.extensionDepsBox);
       _lgr.stopTask();
     } else {
       _lgr
@@ -201,11 +201,11 @@ class SyncSubCommand extends Command<int> {
     }
 
     _lgr.startTask('Adding resolved dependencies to your IDE\'s lib index');
-    final projectDepArtifacts = await libService.extensionDependencies(config);
 
     try {
-      _updateIntellijLibIndex(providedDepArtifacts, projectDepArtifacts);
-      _updateEclipseClasspath(providedDepArtifacts, projectDepArtifacts);
+      final extensionDeps = await libService.extensionDependencies(config);
+      _updateIntellijLibIndex(providedDepArtifacts, extensionDeps);
+      _updateEclipseClasspath(providedDepArtifacts, extensionDeps);
     } catch (_) {
       _lgr.stopTask(false);
       return 1;
@@ -215,7 +215,7 @@ class SyncSubCommand extends Command<int> {
     return 0;
   }
 
-  static Future<bool> projectDepsNeedSync(LazyBox<DateTime> timestampBox,
+  static Future<bool> extensionDepsNeedSync(LazyBox<DateTime> timestampBox,
       List<Artifact> extensionDependencies) async {
     // Re-fetch deps if they are outdated, ie, if the config file is modified
     // or if the dep artifacts are missing
@@ -560,7 +560,7 @@ class SyncSubCommand extends Command<int> {
   }
 
   void _updateEclipseClasspath(
-      Iterable<Artifact> providedDeps, Iterable<Artifact> projectDeps) {
+      Iterable<Artifact> providedDeps, Iterable<Artifact> extensionDeps) {
     final dotClasspathFile = p.join(_fs.cwd, '.classpath').asFile();
     if (!dotClasspathFile.existsSync()) {
       return;
@@ -568,17 +568,17 @@ class SyncSubCommand extends Command<int> {
 
     final classesJars = [
       ...providedDeps.map((el) => el.classesJar).whereNotNull(),
-      ...projectDeps.map((el) => el.classesJar).whereNotNull(),
+      ...extensionDeps.map((el) => el.classesJar).whereNotNull(),
     ];
     final sourcesJars = [
       ...providedDeps.map((el) => el.sourcesJar).whereNotNull(),
-      ...projectDeps.map((el) => el.sourcesJar).whereNotNull(),
+      ...extensionDeps.map((el) => el.sourcesJar).whereNotNull(),
     ];
     dotClasspathFile.writeAsStringSync(dotClasspath(classesJars, sourcesJars));
   }
 
   void _updateIntellijLibIndex(
-      Iterable<Artifact> providedDeps, Iterable<Artifact> projectDeps) {
+      Iterable<Artifact> providedDeps, Iterable<Artifact> extensionDeps) {
     final ideaDir = p.join(_fs.cwd, '.idea').asDir();
     if (!ideaDir.existsSync()) {
       return;
@@ -594,7 +594,7 @@ class SyncSubCommand extends Command<int> {
     );
 
     final libNames = <String>['deps', 'provided-deps'];
-    for (final lib in projectDeps) {
+    for (final lib in extensionDeps) {
       final fileName = lib.coordinate.replaceAll(RegExp(r'(:|\.)'), '_');
       final xml =
           p.join(_fs.cwd, '.idea', 'libraries', '$fileName.xml').asFile(true);

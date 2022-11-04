@@ -61,7 +61,7 @@ class BuildCommand extends Command<int> {
 
     final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
 
-    if (await SyncSubCommand.projectDepsNeedSync(
+    if (await SyncSubCommand.extensionDepsNeedSync(
         timestampBox, await _libService.extensionDependencies(config))) {
       final remoteDeps = {
         Scope.runtime: config.runtimeDeps
@@ -72,7 +72,7 @@ class BuildCommand extends Command<int> {
 
       try {
         await SyncSubCommand().sync(
-          cacheBox: _libService.projectDepsBox,
+          cacheBox: _libService.extensionDepsBox,
           coordinates: remoteDeps,
           providedArtifacts: await _libService.providedDependencies(),
           repositories: config.repositories,

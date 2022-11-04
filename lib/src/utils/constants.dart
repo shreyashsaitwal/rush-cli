@@ -1,6 +1,6 @@
 const providedDepsBoxName = 'provided-deps';
 const buildLibsBoxName = 'build-libs';
-const projectDepsBoxName = 'deps';
+const extensionDepsBoxName = 'deps';
 
 const timestampBoxName = 'timestamps';
 const configTimestampKey = 'rush-yaml';
