@@ -1,5 +1,4 @@
-import 'dart:convert';
-import 'dart:io' show Process, ProcessException;
+import 'dart:io' show Process, ProcessException, systemEncoding;
 
 import 'package:get_it/get_it.dart';
 import 'package:rush_cli/src/services/file_service.dart';
@@ -26,10 +25,10 @@ class ProcessRunner {
     }
 
     process
-      ..stdout.transform(utf8.decoder).listen((chunk) {
+      ..stdout.transform(systemEncoding.decoder).listen((chunk) {
         _lgr.parseAndLog(chunk);
       })
-      ..stderr.transform(utf8.decoder).listen((chunk) {
+      ..stderr.transform(systemEncoding.decoder).listen((chunk) {
         _lgr.parseAndLog(chunk);
       });
 
