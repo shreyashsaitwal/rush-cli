@@ -64,11 +64,9 @@ class LibService {
   /// Returns a list of all the artifacts and their dependencies in a box.
   Future<List<Artifact>> _retrieveArtifactsFromBox(
       LazyBox<Artifact> cacheBox) async {
-    final artifacts = <Artifact?>{};
-    for (final key in cacheBox.keys) {
-      final artifact = await cacheBox.get(key);
-      artifacts.add(artifact!);
-    }
+    final artifacts = await Future.wait([
+      for (final key in cacheBox.keys) cacheBox.get(key),
+    ]);
     return artifacts.whereNotNull().toList();
   }
 
@@ -95,6 +93,19 @@ class LibService {
     ];
   }
 
+  List<Artifact> _requiredDeps(
+      Iterable<Artifact> allDeps, Iterable<Artifact> directDeps) {
+    final res = <Artifact>{};
+    for (final dep in directDeps) {
+      res.add(dep);
+      final depArtifacts = dep.dependencies
+          .map((el) => allDeps.firstWhereOrNull((a) => a.coordinate == el))
+          .whereNotNull();
+      res.addAll(_requiredDeps(allDeps, depArtifacts));
+    }
+    return res.toList();
+  }
+
   Future<List<Artifact>> extensionDependencies(
     Config config, {
     bool includeProvided = false,
@@ -102,7 +113,6 @@ class LibService {
   }) async {
     final allExtRemoteDeps = await _retrieveArtifactsFromBox(extensionDepsBox);
 
-    // The cache contains 
     final directRemoteDeps = [
       ...config.comptimeDeps.map((el) {
         return allExtRemoteDeps.firstWhereOrNull(
@@ -113,13 +123,8 @@ class LibService {
             (dep) => dep.coordinate == el && dep.scope == Scope.runtime);
       }),
     ].whereNotNull();
-    final requiredRemoteDeps = directRemoteDeps.expand((el) {
-      final transitiveDeps = el.dependencies
-          .map((dep) => allExtRemoteDeps
-              .firstWhereOrNull((element) => element.coordinate == dep))
-          .whereNotNull();
-      return [el, ...transitiveDeps];
-    }).toSet();
+    final requiredRemoteDeps =
+        _requiredDeps(allExtRemoteDeps, directRemoteDeps);
 
     final localDeps = [
       ...config.comptimeDeps
@@ -128,7 +133,7 @@ class LibService {
         return Artifact(
           scope: Scope.compile,
           coordinate: el,
-          artifactFile: p.join(_fs.libsDir.path, el),
+          artifactFile: p.join(_fs.localDepsDir.path, el),
           packaging: p.extension(el).substring(1),
           dependencies: [],
           sourcesJar: null,
@@ -140,7 +145,7 @@ class LibService {
         return Artifact(
           scope: Scope.runtime,
           coordinate: el,
-          artifactFile: p.join(_fs.libsDir.path, el),
+          artifactFile: p.join(_fs.localDepsDir.path, el),
           packaging: p.extension(el).substring(1),
           dependencies: [],
           sourcesJar: null,
