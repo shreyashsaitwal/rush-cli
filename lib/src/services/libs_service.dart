@@ -97,11 +97,12 @@ class LibService {
       Iterable<Artifact> allDeps, Iterable<Artifact> directDeps) {
     final res = <Artifact>{};
     for (final dep in directDeps) {
-      res.add(dep);
       final depArtifacts = dep.dependencies
           .map((el) => allDeps.firstWhereOrNull((a) => a.coordinate == el))
           .whereNotNull();
-      res.addAll(_requiredDeps(allDeps, depArtifacts));
+      res
+        ..add(dep)
+        ..addAll(_requiredDeps(allDeps, depArtifacts));
     }
     return res.toList();
   }

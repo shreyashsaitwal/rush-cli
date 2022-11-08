@@ -185,6 +185,7 @@ class SyncSubCommand extends Command<int> {
           repositories: config.repositories,
           providedArtifacts: providedDepArtifacts,
           downloadSources: true,
+          removeProvided: true,
         );
         await timestampBox.put(configTimestampKey, DateTime.now());
       } catch (_) {
@@ -268,6 +269,7 @@ class SyncSubCommand extends Command<int> {
     Iterable<String> repositories = const [],
     Iterable<Artifact> providedArtifacts = const [],
     bool downloadSources = false,
+    bool removeProvided = false,
   }) async {
     _lgr.info('Resolving ${coordinates.values.flattened.length} artifacts...');
     final resolver = ArtifactResolver(repos: repositories.toSet());
@@ -303,21 +305,27 @@ class SyncSubCommand extends Command<int> {
       rethrow;
     }
 
-    // Remove provided deps
-    final removed = <String>{};
-    resolvedDeps.removeWhere((el) {
-      final provided = _providedAlternative(
-          '${el.groupId}:${el.artifactId}', providedArtifacts);
-      if (provided != null) {
-        removed.add(el.coordinate);
-        _lgr.dbg(
-            'Provided alternative found for ${el.coordinate}: ${provided.coordinate}');
-        return true;
+    // When resolving extension deps, remove provided deps from dependencies 
+    // field and add them to the providedDependencies field of each artifact.
+    if (removeProvided) {
+      final providedDeps = <String>{};
+      resolvedDeps.removeWhere((el) {
+        final provided = _providedAlternative(
+          '${el.groupId}:${el.artifactId}',
+          providedArtifacts,
+          coordinates.values.flattened,
+        );
+        if (provided != null) {
+          providedDeps.add(el.coordinate);
+          _lgr.dbg(
+              'Provided alternative found for ${el.coordinate}: ${provided.coordinate}');
+          return true;
+        }
+        return false;
+      });
+      for (final el in resolvedDeps) {
+        el.dependencies.removeWhere((coord) => providedDeps.contains(coord));
       }
-      return false;
-    });
-    for (final el in resolvedDeps) {
-      el.dependencies.removeWhere((el) => removed.contains(el));
     }
 
     // Update the versions of transitive dependencies once the version conflicts
@@ -535,10 +543,14 @@ class SyncSubCommand extends Command<int> {
     return result;
   }
 
-  Artifact? _providedAlternative(
-      String artifactIdent, Iterable<Artifact> providedDepArtifacts) {
+  static Artifact? _providedAlternative(
+    String artifactIdent,
+    Iterable<Artifact> providedDepArtifacts,
+    Iterable<String> primaryArtifactCoords,
+  ) {
     for (final val in providedDepArtifacts) {
-      if (val.coordinate.startsWith(artifactIdent)) {
+      if (val.coordinate.startsWith(artifactIdent) &&
+          !primaryArtifactCoords.contains(val.coordinate)) {
         return val;
       }
     }

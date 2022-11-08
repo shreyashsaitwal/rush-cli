@@ -1,5 +1,4 @@
 import 'package:args/command_runner.dart';
-import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/src/services/libs_service.dart';
@@ -32,15 +31,14 @@ class TreeSubCommand extends Command<int> {
     await GetIt.I.isReady<LibService>();
     final libService = GetIt.I<LibService>();
 
-    final remoteExtDeps =
+    final remoteExtDepIndex =
         await libService.extensionDependencies(config, includeLocal: false);
-    final requiredRemoteDeps = remoteExtDeps
+    final requiredRemoteDeps = remoteExtDepIndex
         .where((el) =>
             config.runtimeDeps.contains(el.coordinate) ||
             config.comptimeDeps.contains(el.coordinate))
         .toList(growable: true);
 
-    // TODO: Colorize the output + print additional info like dep scope, etc.
     _lgr.log(p.basename(_fs.cwd).cyan().bold());
 
     // Print local deps first
@@ -48,7 +46,7 @@ class TreeSubCommand extends Command<int> {
       config.runtimeDeps.where(
           (el) => p.extension(el) == '.jar' || p.extension(el) == '.aar'),
       false,
-      remoteExtDeps.isEmpty,
+      remoteExtDepIndex.isEmpty,
     );
     if (runtimeLocal.isNotEmpty) {
       _lgr.log(runtimeLocal);
@@ -58,7 +56,7 @@ class TreeSubCommand extends Command<int> {
       config.comptimeDeps.where(
           (el) => p.extension(el) == '.jar' || p.extension(el) == '.aar'),
       true,
-      remoteExtDeps.isEmpty,
+      remoteExtDepIndex.isEmpty,
     );
     if (comptimeLocal.isNotEmpty) {
       _lgr.log(comptimeLocal);
@@ -66,7 +64,12 @@ class TreeSubCommand extends Command<int> {
 
     final remoteDepsGraph = <String>{
       for (final dep in requiredRemoteDeps)
-        _remoteDepsGraph(dep, remoteExtDeps, dep == requiredRemoteDeps.last)
+        _remoteDepsGraph(
+          dep,
+          config,
+          remoteExtDepIndex,
+          isLast: dep == requiredRemoteDeps.last,
+        )
     }.join();
     _lgr.log(remoteDepsGraph);
 
@@ -79,7 +82,7 @@ class TreeSubCommand extends Command<int> {
     for (final dep in deps) {
       final isLast = dep == deps.last && noRemoteDeps;
       var branch = isLast ? Connector.lastSibling : Connector.sibling;
-      branch += Connector.horizontal * (branchGap + 1) + Connector.empty;
+      branch += Connector.horizontal * (_branchGap + 1) + Connector.empty;
       if (isComptime) {
         branch += dep.blue() + ' (comptime, local)'.grey();
       } else {
@@ -90,73 +93,80 @@ class TreeSubCommand extends Command<int> {
     return graph.join('\n');
   }
 
-  static const String newLine = '\n';
-  static const int branchGap = 2;
+  static const String _newLine = '\n';
+  static const int _branchGap = 2;
 
   final alreadyPrinted = <Artifact>{};
 
   String _remoteDepsGraph(
-    Artifact dep,
-    Iterable<Artifact> depIndex,
-    bool isLast, [
+    Artifact artifact,
+    Config config,
+    List<Artifact> extDepIndex, {
+    required bool isLast,
     String prefix = '',
-  ]) {
+  }) {
     String connector = prefix;
     connector += isLast ? Connector.lastSibling : Connector.sibling;
-    connector += Connector.horizontal * branchGap;
+    connector += Connector.horizontal * _branchGap;
 
-    final isPrinted = alreadyPrinted
-        .any((el) => el.coordinate == dep.coordinate && el.scope == dep.scope);
-    connector += dep.dependencies.isNotEmpty && !isPrinted
-        ? Connector.childDeps
-        : Connector.horizontal;
+    final hasDeps = artifact.dependencies.isNotEmpty;
+
+    final isPrinted = alreadyPrinted.any((el) =>
+        el.coordinate == artifact.coordinate && el.scope == artifact.scope);
+    connector +=
+        hasDeps && !isPrinted ? Connector.childDeps : Connector.horizontal;
     connector += Connector.empty;
 
-    if (dep.scope == Scope.runtime) {
-      connector += dep.groupId.green() +
-          ':'.brightBlack() +
-          dep.artifactId.green() +
-          ':'.brightBlack() +
-          dep.version.toString().green() +
-          ' (runtime)'.brightBlack();
+    if (artifact.scope == Scope.runtime) {
+      connector += artifact.groupId.green() +
+          ':'.grey() +
+          artifact.artifactId.green() +
+          ':'.grey() +
+          artifact.version.toString().green() +
+          ' (runtime)'.grey();
     } else {
-      connector += dep.groupId.blue() +
-          ':'.brightBlack() +
-          dep.artifactId.blue() +
-          ':'.brightBlack() +
-          dep.version.toString().blue() +
-          ' (comptime)'.brightBlack();
+      connector += artifact.groupId.blue() +
+          ':'.grey() +
+          artifact.artifactId.blue() +
+          ':'.grey() +
+          artifact.version.toString().blue() +
+          ' (comptime)'.grey();
     }
 
-    if (isPrinted && dep.dependencies.isNotEmpty) {
-      connector = connector.italic() + ' *'.brightBlack().italic();
+    if (isPrinted && hasDeps) {
+      connector = connector.italic() + ' *'.grey().italic();
     }
-    connector += newLine;
+    connector += _newLine;
 
     if (isPrinted) {
       return connector;
     }
 
-    for (final el in dep.dependencies) {
+    for (final dep in artifact.dependencies) {
       final newPrefix = prefix +
           (isLast ? Connector.empty : Connector.vertical) +
-          Connector.empty * branchGap;
-      final artifact =
-          depIndex.firstWhere((element) => element.coordinate == el);
+          Connector.empty * _branchGap;
+      final depArtifact =
+          extDepIndex.firstWhere((element) => element.coordinate == dep);
       connector += _remoteDepsGraph(
-          artifact, depIndex, el == dep.dependencies.last, newPrefix);
+        depArtifact,
+        config,
+        extDepIndex,
+        isLast: dep == artifact.dependencies.last,
+        prefix: newPrefix,
+      );
     }
 
-    alreadyPrinted.add(dep);
+    alreadyPrinted.add(artifact);
     return connector;
   }
 }
 
 class Connector {
-  static final sibling = '├'.brightBlack();
-  static final lastSibling = '└'.brightBlack();
-  static final childDeps = '┬'.brightBlack();
-  static final horizontal = '─'.brightBlack();
-  static final vertical = '│'.brightBlack();
-  static final empty = ' '.brightBlack();
+  static final sibling = '├'.grey();
+  static final lastSibling = '└'.grey();
+  static final childDeps = '┬'.grey();
+  static final horizontal = '─'.grey();
+  static final vertical = '│'.grey();
+  static final empty = ' '.grey();
 }
