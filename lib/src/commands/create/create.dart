@@ -7,7 +7,7 @@ import 'package:recase/recase.dart';
 import 'package:rush_cli/src/commands/create/templates/eclipse_files.dart';
 import 'package:tint/tint.dart';
 
-import 'package:rush_cli/src/services/libs_service.dart';
+import 'package:rush_cli/src/services/lib_service.dart';
 import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
 import 'package:rush_cli/src/services/file_service.dart';

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:get_it/get_it.dart';
 
-import './libs_service.dart';
+import 'lib_service.dart';
 import './file_service.dart';
 import './logger.dart';
 

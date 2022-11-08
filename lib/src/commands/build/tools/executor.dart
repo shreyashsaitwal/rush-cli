@@ -8,7 +8,7 @@ import 'package:rush_cli/src/resolver/artifact.dart';
 
 import 'package:rush_cli/src/services/file_service.dart';
 import 'package:rush_cli/src/commands/build/utils.dart';
-import 'package:rush_cli/src/services/libs_service.dart';
+import 'package:rush_cli/src/services/lib_service.dart';
 import 'package:rush_cli/src/utils/constants.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
 import 'package:rush_cli/src/utils/process_runner.dart';

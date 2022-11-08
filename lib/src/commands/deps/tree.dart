@@ -1,7 +1,7 @@
 import 'package:args/command_runner.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/src/services/libs_service.dart';
+import 'package:rush_cli/src/services/lib_service.dart';
 import 'package:tint/tint.dart';
 
 import 'package:rush_cli/src/config/config.dart';

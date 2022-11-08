@@ -15,7 +15,7 @@ import 'package:rush_cli/src/commands/build/tools/executor.dart';
 import 'package:rush_cli/src/commands/deps/sync.dart';
 import 'package:rush_cli/src/config/config.dart';
 import 'package:rush_cli/src/resolver/artifact.dart';
-import 'package:rush_cli/src/services/libs_service.dart';
+import 'package:rush_cli/src/services/lib_service.dart';
 import 'package:rush_cli/src/services/file_service.dart';
 import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/constants.dart';
