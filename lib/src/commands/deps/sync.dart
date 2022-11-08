@@ -305,7 +305,7 @@ class SyncSubCommand extends Command<int> {
       rethrow;
     }
 
-    // When resolving extension deps, remove provided deps from dependencies 
+    // When resolving extension deps, remove provided deps from dependencies
     // field and add them to the providedDependencies field of each artifact.
     if (removeProvided) {
       final providedDeps = <String>{};
