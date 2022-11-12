@@ -5,11 +5,11 @@ import 'package:crypto/crypto.dart';
 import 'package:github/github.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
+import 'package:xml2json/xml2json.dart';
 
 import 'package:rush_cli/src/resolver/artifact.dart';
 import 'package:rush_cli/src/resolver/pom.dart';
 import 'package:rush_cli/src/utils/file_extension.dart';
-import 'package:xml2json/xml2json.dart';
 
 class ArtifactMetadata {
   late final String groupId;
@@ -315,11 +315,13 @@ class ArtifactResolver {
   /// 6. Finally, we wrap this nicely in an [Artifact] and return.
   Future<List<Artifact>> resolveArtifact(
     String coordinate,
-    Scope scope, [
+    Scope scope, {
     Version? version,
-  ]) async {
+    List<String> exclude = const [],
+  }) async {
     final metadata = ArtifactMetadata(coordinate);
-    if (_alreadyResolved.contains('$coordinate@$scope')) {
+    if (_alreadyResolved.contains('$coordinate@$scope') ||
+        exclude.contains(coordinate)) {
       return [];
     }
     final poms = await _resolvePomAndParents(coordinate);
@@ -371,12 +373,13 @@ class ArtifactResolver {
 
         dep.version = resolvedVersion.toString();
         return resolveArtifact(
-            dep.coordinate,
-            dep.scope.toScope(),
-            // Only pass the version object if the original version spec is different
-            // than the spec used to resolved the artifact. This can happen in only
-            // one case and that is when the original spec was a version range.
-            versionChanged ? resolvedVersion : null);
+          dep.coordinate, dep.scope.toScope(),
+          // Only pass the version object if the original version spec is different
+          // than the spec used to resolved the artifact. This can happen in only
+          // one case and that is when the original spec was a version range.
+          version: versionChanged ? resolvedVersion : null,
+          exclude: exclude,
+        );
       }),
     );
 

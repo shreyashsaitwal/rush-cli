@@ -128,6 +128,7 @@ class SyncSubCommand extends Command<int> {
             cacheBox: libService.providedDepsBox,
             coordinates: {Scope.runtime: providedDepsToFetch},
             downloadSources: true,
+            excludeCoordinates: ['com.google.android:android:2.1.2'],
           ),
           sync(
             cacheBox: libService.buildLibsBox,
@@ -270,6 +271,7 @@ class SyncSubCommand extends Command<int> {
     Iterable<Artifact> providedArtifacts = const [],
     bool downloadSources = false,
     bool removeProvided = false,
+    List<String> excludeCoordinates = const [],
   }) async {
     _lgr.info('Resolving ${coordinates.values.flattened.length} artifacts...');
     final resolver = ArtifactResolver(repos: repositories.toSet());
@@ -279,7 +281,8 @@ class SyncSubCommand extends Command<int> {
       resolvedDeps = (await Future.wait([
         for (final entry in coordinates.entries)
           for (final coord in entry.value)
-            resolver.resolveArtifact(coord, entry.key),
+            resolver.resolveArtifact(coord, entry.key,
+                exclude: excludeCoordinates),
       ]))
           .flattened
           .toList(growable: true);
