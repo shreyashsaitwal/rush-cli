@@ -224,15 +224,16 @@ class BuildCommand extends Command<int> {
         .where((el) => el.existsSync())
         .map((el) => el.path);
 
-    if (manifests.isEmpty) {
-      _lgr.dbg('No manifests found in dependencies; skipping manifest merge');
-      return;
-    }
-
     final mainManifest =
         p.join(_fs.srcDir.path, 'AndroidManifest.xml').asFile();
     final outputManifest =
         p.join(_fs.buildFilesDir.path, 'AndroidManifest.xml').asFile(true);
+
+    if (manifests.isEmpty) {
+      _lgr.dbg('No manifests found in dependencies; skipping manifest merge');
+      outputManifest.deleteSync();
+      return;
+    }
 
     final lastMergeTime = await timestampBox.get(androidManifestTimestampKey);
     final needMerge = !await outputManifest.exists() ||

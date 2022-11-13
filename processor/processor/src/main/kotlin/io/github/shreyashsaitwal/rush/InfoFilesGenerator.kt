@@ -238,7 +238,7 @@ class InfoFilesGenerator(private val extensions: List<Ext>) {
         if (node.nodeName == "uses-permission") {
             val permission = node.attributes.getNamedItem("android:name")
             return if (permission != null) {
-                permission.nodeValue
+                permission.nodeValue.replace("\${applicationId}", "%packageName%")
             } else {
                 throw DOMException(
                     1.toShort(), "error: No android:name attribute found in <uses-permission>"
@@ -277,7 +277,7 @@ class InfoFilesGenerator(private val extensions: List<Ext>) {
             }
         }
 
-        return sb.toString()
+        return sb.toString().replace("\${applicationId}", "%packageName%")
     }
 
     /**
