@@ -85,6 +85,7 @@ class ExtensionProcessor : AbstractProcessor() {
         val fqcn = "$packageName.${element.simpleName}"
 
         return Ext(
+            element.simpleName.toString(),
             element.getAnnotation(Extension::class.java),
             fqcn,
             events,

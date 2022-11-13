@@ -106,7 +106,6 @@ class MigrateCommand extends Command<int> {
     final annotation = '''
 // FIXME: You might want to shorten this annotation by importing `@Extension` annotation.
 @com.google.appinventor.components.annotations.Extension(
-    name = "${oldConfig.name}",
     description = "Extension component for ${oldConfig.name}. Built with <3 and Rush.",
     icon = "${oldConfig.assets.icon}"
 )

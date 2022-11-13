@@ -12,13 +12,6 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 public @interface Extension {
     /**
-     * The name of the extension. This is the name that will be displayed in the designer and blocks editor.
-     *
-     * @return the name of the extension
-     */
-    String name();
-
-    /**
      * The description of the extension. This is the description that will be displayed in the designer.
      *
      * @return the description of the extension

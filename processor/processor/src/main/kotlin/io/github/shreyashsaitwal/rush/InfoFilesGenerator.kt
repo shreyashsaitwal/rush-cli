@@ -28,7 +28,8 @@ import kotlin.io.path.createDirectory
 import kotlin.io.path.exists
 
 data class Ext(
-    val extensionAnnotation: Extension,
+    val name: String,
+    val annotation: Extension,
     val fqcn: String,
     val events: List<Event>,
     val functions: List<Function>,
@@ -63,8 +64,8 @@ class InfoFilesGenerator(private val extensions: List<Ext>) {
                 .put("nonVisible", "true")
 
             extJsonObj
-                .put("name", ext.extensionAnnotation.name)
-                .put("helpString", parseMdString(ext.extensionAnnotation.description))
+                .put("name", ext.name)
+                .put("helpString", parseMdString(ext.annotation.description))
                 .put("type", ext.fqcn)
                 .put("helpUrl", yaml.homepage)
                 .put("licenseName", yaml.license)
@@ -76,7 +77,7 @@ class InfoFilesGenerator(private val extensions: List<Ext>) {
             val urlPattern = Pattern.compile(
                 """https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_+.~#?&//=]*)"""
             )
-            val icon = ext.extensionAnnotation.icon
+            val icon = ext.annotation.icon
             if (urlPattern.matcher(icon).find()) {
                 extJsonObj.put("iconName", icon)
             } else {
