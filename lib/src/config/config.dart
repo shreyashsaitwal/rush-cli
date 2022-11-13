@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:checked_yaml/checked_yaml.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:rush_cli/src/services/logger.dart';
+import 'package:rush_cli/src/utils/constants.dart';
 
 part 'android.dart';
 part 'kotlin.dart';
@@ -10,36 +11,44 @@ part 'kotlin.dart';
 part 'config.g.dart';
 
 @JsonSerializable(
-    anyMap: true,
-    checked: true,
-    disallowUnrecognizedKeys: true,
-    includeIfNull: false)
+  anyMap: true,
+  checked: true,
+  disallowUnrecognizedKeys: true,
+  includeIfNull: false,
+)
 class Config {
   @JsonKey(required: true)
   final String version;
 
-  @JsonKey(name: 'dependencies')
+  @JsonKey(name: 'dependencies', disallowNullValue: true)
   final List<String> runtimeDeps;
 
-  @JsonKey(name: 'comptime_dependencies')
+  @JsonKey(name: 'comptime_dependencies', disallowNullValue: true)
   final List<String> comptimeDeps;
 
-  @JsonKey(name: 'min_sdk')
+  @JsonKey(name: 'min_sdk', disallowNullValue: true)
   final int minSdk;
 
+  @JsonKey(disallowNullValue: true)
   final List<String> repositories;
 
+  @JsonKey(disallowNullValue: true)
   final String homepage;
 
+  @JsonKey(disallowNullValue: true)
   final String license;
 
+  @JsonKey(disallowNullValue: true)
   final bool desugar;
 
+  @JsonKey(disallowNullValue: true)
   final List<String> assets;
 
+  @JsonKey(disallowNullValue: true)
   final List<String> authors;
 
-  final Kotlin? kotlin;
+  @JsonKey(disallowNullValue: true)
+  final Kotlin kotlin;
 
   Config({
     required this.version,
@@ -52,7 +61,7 @@ class Config {
     this.runtimeDeps = const [],
     this.comptimeDeps = const [],
     this.repositories = const [],
-    this.kotlin,
+    this.kotlin = const Kotlin(compilerVersion: defaultKtVersion),
   });
 
   // ignore: strict_raw_type

@@ -77,7 +77,7 @@ class SyncSubCommand extends Command<int> {
       }
     }
 
-    final ktVersion = config?.kotlin?.compilerVersion ?? defaultKtVersion;
+    final ktVersion = config?.kotlin.compilerVersion ?? defaultKtVersion;
     final toolsCoord = _buildToolCoords +
         [
           '$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',

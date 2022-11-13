@@ -158,7 +158,7 @@ ${config.assets.map((el) => '- $el').join('\n')}
     if (enableKotlin) {
       contents += '''
 kotlin:
-  compiler_version: '${config.kotlin!.compilerVersion}'
+  compiler_version: '${config.kotlin.compilerVersion}'
 
 ''';
     }
@@ -168,7 +168,7 @@ kotlin:
 # Runtime dependencies of your extension. These can be local JARs or AARs stored in the deps/ directory or coordinates
 # of remote Maven artifacts in <groupId>:<artifactId>:<version> or <groupId>:<artifactId>:<version>:<classifier> format.
 dependencies:
-${enableKotlin ? 'org.jetbrains.kotlin:kotlin-stdlib:${config.kotlin!.compilerVersion}\n' : ''}${config.runtimeDeps.map((el) => '- $el').join('\n')}
+${enableKotlin ? 'org.jetbrains.kotlin:kotlin-stdlib:${config.kotlin.compilerVersion}\n' : ''}${config.runtimeDeps.map((el) => '- $el').join('\n')}
 ''';
     }
 

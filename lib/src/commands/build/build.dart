@@ -278,7 +278,7 @@ class BuildCommand extends Command<int> {
     try {
       if (ktFiles.isNotEmpty) {
         await Compiler.compileKtFiles(
-            classpathJars, config.kotlin!.compilerVersion, timestampBox);
+            classpathJars, config.kotlin.compilerVersion, timestampBox);
       }
 
       if (javaFiles.isNotEmpty) {

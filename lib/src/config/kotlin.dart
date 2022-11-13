@@ -6,10 +6,10 @@ part of 'config.dart';
   disallowUnrecognizedKeys: true,
 )
 class Kotlin {
-  @JsonKey(required: true, name: 'compiler_version', defaultValue: '1.7.10')
+  @JsonKey(required: true, name: 'compiler_version', disallowNullValue: true)
   final String compilerVersion;
 
-  Kotlin({
+  const Kotlin({
     required this.compilerVersion,
   });
 
