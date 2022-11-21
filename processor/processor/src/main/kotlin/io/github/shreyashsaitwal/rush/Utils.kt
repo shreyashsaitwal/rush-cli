@@ -89,8 +89,10 @@ class Utils {
                     "$runtimeFqcn.util.YailList" -> return "list"
                     "$runtimeFqcn.util.YailObject" -> return "yailobject"
                     "$runtimeFqcn.util.YailDictionary" -> return "dictionary"
-                    "$runtimeFqcn.Component" -> return "component"
                     "$runtimeFqcn.util.Continuation" -> return "continuation"
+                    else -> if (typeFqcn.startsWith("$runtimeFqcn.")) {
+                        return "component"
+                    }
                 }
 
                 // Every App Inventor component implements the `Component` interface
