@@ -4,7 +4,7 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
-version = '2.0.2'
+version = '2.0.3'
 
 compileKotlin {
     kotlinOptions {
