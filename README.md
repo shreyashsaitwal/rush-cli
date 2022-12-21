@@ -44,8 +44,8 @@ This will show you some prompts.
 4. That's it, the generated extension file (AIX) can be found in the `out` directory.
 
 ## Todo
-[ ] Core concepts of extension dev
-[ ] Faq
-[ ] Contributing
-[ ] Limitations
-[ ] List more features
+- [ ] Core concepts of extension dev
+- [ ] Faq
+- [ ] Contributing
+- [ ] Limitations
+- [ ] List more features
