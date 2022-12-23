@@ -171,7 +171,7 @@ class Compiler {
     kaptJar.asFile().copySync(duplicateKaptJar);
 
     final toolsJar = await () async {
-      final String javaExe;
+      String javaExe;
       if (Platform.isWindows) {
         final res = await Process.run('where', ['java'], runInShell: true);
         javaExe = res.stdout.toString().trim();
@@ -180,6 +180,7 @@ class Compiler {
         javaExe = res.stdout.toString().trim();
       }
 
+      javaExe = javaExe.asFile().resolveSymbolicLinksSync();
       return p.join(p.dirname(p.dirname(javaExe)), 'lib', 'tools.jar').asFile();
     }();
 

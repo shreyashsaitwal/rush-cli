@@ -123,7 +123,7 @@ class Executor {
         .asFile();
 
     final bootclasspath = await () async {
-      final String javaExe;
+      String javaExe;
       if (Platform.isWindows) {
         final res = await Process.run('where', ['java'], runInShell: true);
         javaExe = res.stdout.toString().trim();
@@ -132,6 +132,7 @@ class Executor {
         javaExe = res.stdout.toString().trim();
       }
 
+      javaExe = javaExe.asFile().resolveSymbolicLinksSync();
       final forJdk8AndBelow = p
           .join(p.dirname(p.dirname(javaExe)), 'jre', 'lib', 'rt.jar')
           .asFile();
