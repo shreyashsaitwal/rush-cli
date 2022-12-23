@@ -73,10 +73,6 @@ class Executor {
       ...[for (final el in aarProguardRules) '-include $el'],
       '@${rulesFile.path}',
     ];
-    p
-        .join(_fs.buildFilesDir.path, 'pg.args')
-        .asFile(true)
-        .writeAsStringSync(args.toString());
 
     try {
       await processRunner.runExecutable(

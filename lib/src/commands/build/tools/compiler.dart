@@ -126,10 +126,10 @@ class Compiler {
       ...['-source', supportJava8 ? '1.8' : '1.7'],
       ...['-target', supportJava8 ? '1.8' : '1.7'],
       ...['-encoding', 'UTF8'],
-      ...['-d', _fs.buildClassesDir.path],
-      ...['-cp', classpath],
-      if (withProc) ...['-processorpath', procClasspath],
-      ...files,
+      ...['-d', '"${_fs.buildClassesDir.path}"'],
+      ...['-cp', '"$classpath"'],
+      if (withProc) ...['-processorpath', '"$procClasspath"'],
+      ...files.map((el) => '"$el"'),
     ].map((el) => el.replaceAll('\\', '/')).join('\n');
     _fs.javacArgsFile.writeAsStringSync(args);
     return ['@${_fs.javacArgsFile.path}'];
