@@ -20,7 +20,7 @@ class MigrateCommand extends Command<int> {
 
   @override
   String get description =>
-      'Migrates extension projects built with Rush v1.*.* to Rush v2.*.*';
+      'Migrates extension projects built with Rush v1 to Rush v2';
 
   @override
   String get name => 'migrate';
