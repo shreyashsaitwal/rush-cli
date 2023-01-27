@@ -153,10 +153,8 @@ private object HelperSingleton {
 
     init {
         val classesDir = Paths.get(System.getenv("RUSH_PROJECT_ROOT"), ".rush", "build", "classes")
-        val libDir = Paths.get(System.getenv("RUSH_HOME"), "libs")
-
-        val annotationsJar = Paths.get(libDir.toString(), "annotations.jar")
-        val runtimeJar = Paths.get(libDir.toString(), "runtime.jar")
+        val annotationsJar = Paths.get(System.getenv("RUSH_ANNOTATIONS_JAR"))
+        val runtimeJar = Paths.get(System.getenv("RUSH_RUNTIME_JAR"))
 
         // TODO: Should the external dependencies be added as well?
 

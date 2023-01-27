@@ -58,7 +58,7 @@ class ExtensionProcessor : AbstractProcessor() {
             generator.generateComponentsJson()
             generator.generateBuildInfoJson()
         } catch (e: Throwable) {
-            messager.printMessage(Kind.ERROR, e.message ?: e.stackTraceToString())
+            messager.printMessage(Kind.ERROR, e.message + "\n" + e.stackTraceToString())
         }
 
         return false
