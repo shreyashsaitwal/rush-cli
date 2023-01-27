@@ -77,18 +77,17 @@ class MigrateCommand extends Command<int> {
     _lgr.stopTask();
 
     // No need to start a task here since the sync command does that on its own.
-    await SyncSubCommand().run();
+    await SyncSubCommand().run(title: 'Syncing dependencies');
     return 0;
   }
 
   void _editSourceFile(File srcFile, old.OldConfig oldConfig) {
     final RegExp regex;
     if (p.extension(srcFile.path) == '.java') {
-      regex =
-          RegExp(r'public\s+class.+\s+extends\s+AndroidNonvisibleComponent.*');
+      regex = RegExp(r'.*class.+\s+extends\s+AndroidNonvisibleComponent.*');
     } else {
       regex = RegExp(
-          r'class\s+.+\s*\((.|\n)*\)\s+:\s+AndroidNonvisibleComponent.*');
+          r'.*class\s+.+\s*\((.|\n)*\)\s+:\s+AndroidNonvisibleComponent.*');
     }
 
     final fileContent = srcFile.readAsStringSync();
@@ -103,10 +102,13 @@ class MigrateCommand extends Command<int> {
       throw Exception();
     }
 
+    final description = oldConfig.description.isNotEmpty
+        ? oldConfig.description
+        : 'Extension component for ${oldConfig.name}. Built with <3 and Rush.';
     final annotation = '''
-// FIXME: You might want to shorten this annotation by importing `@Extension` annotation.
+// FIXME: You might want to shorten this by importing `@Extension` annotation.
 @com.google.appinventor.components.annotations.Extension(
-    description = "Extension component for ${oldConfig.name}. Built with <3 and Rush.",
+    description = "$description",
     icon = "${oldConfig.assets.icon}"
 )
 ''';
@@ -128,22 +130,34 @@ class MigrateCommand extends Command<int> {
 
   void _updateConfig(Config config, bool enableKotlin) {
     var contents = '''
+# This is the version name of your extension. You should update it everytime you
+# publish a new version of your extension.
 version: '${config.version}'
 
+# The minimum Android SDK level your extension supports. Minimum SDK defined in
+# AndroidManifest.xml is ignored, you should always define it here.
 min_sdk: ${config.minSdk}
 
 ''';
 
     if (config.homepage.isNotEmpty) {
-      contents += '${config.homepage}\n\n';
+      contents += '''
+# Homepage of your extension. This may be the announcement thread on community 
+# forums or a link to your GitHub repository.
+${config.homepage}\n\n''';
     }
 
     if (config.license.isNotEmpty) {
-      contents += '${config.license}\n\n';
+      contents += '''
+# Path to the license file of your extension. This should be a path to a local file
+# or link to something hosted online.
+${config.license}\n\n''';
     }
 
     if (config.assets.isNotEmpty) {
       contents += '''
+# Assets that your extension needs. Every asset file must be stored in the assets
+# directory as well as declared here. Assets can be of any type.
 assets:
 ${config.assets.map((el) => '- $el').join('\n')}
 
@@ -151,11 +165,16 @@ ${config.assets.map((el) => '- $el').join('\n')}
     }
 
     if (config.desugar) {
-      contents += 'desugar: true\n\n';
+      contents += '''
+# Desuagring allows you to use Java 8 language features in your extension. You 
+# also need to enable desugaring if any of your dependencies use Java 8 language
+# features.
+desugar: true\n\n''';
     }
 
     if (enableKotlin) {
       contents += '''
+# Kotlin specific configuration.
 kotlin:
   compiler_version: '${config.kotlin.compilerVersion}'
 
@@ -164,15 +183,19 @@ kotlin:
 
     if (config.runtimeDeps.isNotEmpty || enableKotlin) {
       contents += '''
-# Runtime dependencies of your extension. These can be local JARs or AARs stored in the deps/ directory or coordinates
-# of remote Maven artifacts in <groupId>:<artifactId>:<version> or <groupId>:<artifactId>:<version>:<classifier> format.
+# External libraries your extension depends on. These can be local JARs / AARs
+# stored in the "deps" directory or coordinates of remote Maven artifacts in
+# <groupId>:<artifactId>:<version> format. 
 dependencies:
 ${enableKotlin ? 'org.jetbrains.kotlin:kotlin-stdlib:${config.kotlin.compilerVersion}\n' : ''}${config.runtimeDeps.map((el) => '- $el').join('\n')}
+
 ''';
     }
 
     if (config.comptimeDeps.isNotEmpty) {
       contents += '''
+# Similar to dependencies, except libraries defined as comptime (compile-time)
+# are only available during compilation and not included in the resulting AIX.
 comptime_dependencies:
 ${config.comptimeDeps.map((el) => '- $el').join('\n')}
 ''';

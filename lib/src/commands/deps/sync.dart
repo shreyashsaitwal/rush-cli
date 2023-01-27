@@ -51,12 +51,12 @@ class SyncSubCommand extends Command<int> {
   String get name => 'sync';
 
   @override
-  Future<int> run() async {
-    _lgr.startTask('Initializing');
+  Future<int> run({String title = 'Initializing'}) async {
+    _lgr.startTask(title);
 
-    final onlyDevDeps = argResults!['dev-deps'] as bool;
-    final onlyExtDeps = argResults!['project-deps'] as bool;
-    final useForce = argResults!['force'] as bool;
+    final onlyDevDeps = (argResults?['dev-deps'] ?? false) as bool;
+    final onlyExtDeps = (argResults?['project-deps'] ?? false) as bool;
+    final useForce = (argResults?['force'] ?? false) as bool;
 
     final config = await Config.load(_fs.configFile, _lgr);
     if (config == null && !onlyDevDeps) {
@@ -76,7 +76,7 @@ class SyncSubCommand extends Command<int> {
         await libService.extensionDepsBox.clear();
       }
     }
-
+ 
     final ktVersion = config?.kotlin.compilerVersion ?? defaultKtVersion;
     final toolsCoord = _buildToolCoords +
         [
