@@ -7,7 +7,9 @@ import 'package:rush_cli/src/commands/build/utils.dart';
 import 'package:rush_cli/src/config/config.dart';
 import 'package:rush_cli/src/resolver/artifact.dart';
 import 'package:rush_cli/src/services/file_service.dart';
+import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/constants.dart';
+import 'package:tint/tint.dart';
 
 const rushApCoord =
     'io.github.shreyashsaitwal.rush:processor:$annotationProcVersion';
@@ -25,6 +27,7 @@ const kotlinGroupId = 'org.jetbrains.kotlin';
 
 class LibService {
   static final _fs = GetIt.I<FileService>();
+  static final _lgr = GetIt.I<Logger>();
 
   LibService._() {
     Hive
@@ -167,31 +170,44 @@ class LibService {
   Future<List<Artifact>> buildLibArtifacts() async =>
       (await _retrieveArtifactsFromBox(buildLibsBox)).toList();
 
+  Future<Artifact> _findArtifact(LazyBox<Artifact> box, String coord) async {
+    final artifact = await box.get(coord);
+    if (artifact == null || artifact.classesJar == null) {
+      _lgr
+        ..err('Unable to find a required library in cache: $coord')
+        ..log('Try running `rush deps sync`', 'help  '.green());
+      throw Exception();
+    }
+    return artifact;
+  }
+
   Future<String> processorJar() async =>
-      (await buildLibsBox.get(rushApCoord))!.classesJar!;
+      (await _findArtifact(buildLibsBox, rushApCoord)).classesJar!;
 
   Future<String> r8Jar() async =>
-      (await buildLibsBox.get(r8Coord))!.classesJar!;
+      (await _findArtifact(buildLibsBox, r8Coord)).classesJar!;
 
-  Future<Iterable<String>> pgJars() async => (await buildLibsBox.get(pgCoord))!
-      .classpathJars(await buildLibArtifacts());
+  Future<Iterable<String>> pgJars() async =>
+      (await _findArtifact(buildLibsBox, pgCoord))
+          .classpathJars(await buildLibArtifacts());
 
   Future<String> desugarJar() async =>
-      (await buildLibsBox.get(desugarCoord))!.classesJar!;
+      (await _findArtifact(buildLibsBox, desugarCoord)).classesJar!;
 
   Future<Iterable<String>> manifMergerJars() async => [
         for (final lib in manifMergerAndDeps)
-          (await buildLibsBox.get(lib))!
+          (await _findArtifact(buildLibsBox, lib))
               .classpathJars(await buildLibArtifacts())
       ].flattened;
 
   Future<Iterable<String>> kotlincJars(String ktVersion) async =>
-      (await buildLibsBox
-              .get('$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion'))!
+      (await _findArtifact(buildLibsBox,
+              '$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion'))
           .classpathJars(await buildLibArtifacts());
 
-  Future<Iterable<String>> kaptJars(String ktVersion) async =>
-      (await buildLibsBox.get(
-              '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion'))!
-          .classpathJars(await buildLibArtifacts());
+  Future<
+      Iterable<String>> kaptJars(String ktVersion) async => (await _findArtifact(
+          buildLibsBox,
+          '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion'))
+      .classpathJars(await buildLibArtifacts());
 }
