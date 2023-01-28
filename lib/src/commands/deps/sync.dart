@@ -76,7 +76,7 @@ class SyncSubCommand extends Command<int> {
         await libService.extensionDepsBox.clear();
       }
     }
- 
+
     final ktVersion = config?.kotlin.compilerVersion ?? defaultKtVersion;
     final toolsCoord = _buildToolCoords +
         [

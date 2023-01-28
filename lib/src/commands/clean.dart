@@ -26,7 +26,7 @@ class CleanCommand extends Command<int> {
     }
 
     final spinner = Spinner(
-        icon: '\n✅ '.green(),
+        icon: '\n✔ '.green(),
         rightPrompt: (done) => done
             ? '${'Success!'.green()} Deleted build files and caches'
             : 'Cleaning...').interact();
