@@ -41,7 +41,7 @@ class BuildUtils {
       } else {
         dist = p.join(p.dirname(aar), p.basenameWithoutExtension(aar));
       }
-      BuildUtils.unzip(aar, dist);
+      unzip(aar, dist);
     }
   }
 
@@ -89,7 +89,7 @@ class BuildUtils {
     }
   }
 
-  static File resourceFromAar(String aarPath, String resourceName) {
+  static File resourceFromExtractedAar(String aarPath, String resourceName) {
     final String dist;
     if (p.isWithin(_fs.localDepsDir.path, aarPath)) {
       dist = p.join(_fs.buildAarsDir.path, p.basenameWithoutExtension(aarPath));

@@ -154,6 +154,16 @@ class SyncSubCommand extends Command<int> {
         ..startTask('Syncing dev-dependencies')
         ..stopTask();
     }
+    BuildUtils.extractAars(
+      providedDepArtifacts
+          .where((el) => el.artifactFile.endsWith('.aar'))
+          .where((el) =>
+              !(el.classesJar?.asFile().existsSync() ?? false) ||
+              !BuildUtils.resourceFromExtractedAar(
+                      el.artifactFile, 'AndroidManifest.xml')
+                  .existsSync())
+          .map((el) => el.artifactFile),
+    );
 
     // Exit if this is not a Rush project.
     if (config == null) {
@@ -167,8 +177,8 @@ class SyncSubCommand extends Command<int> {
     Hive.init(_fs.dotRushDir.path);
     final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
 
-    final needSync = await extensionDepsNeedSync(
-        timestampBox, await libService.extensionDependencies(config));
+    final extensionDeps = await libService.extensionDependencies(config);
+    final needSync = await extensionDepsNeedSync(timestampBox, extensionDeps);
     if (useForce || (!onlyDevDeps && needSync)) {
       _lgr.startTask('Syncing project dependencies');
 
@@ -196,11 +206,21 @@ class SyncSubCommand extends Command<int> {
       await _removeRogueDeps(
           extDepCoords.values.flattened, libService.extensionDepsBox);
       _lgr.stopTask();
-    } else {
+    } else if (!onlyDevDeps) {
       _lgr
         ..startTask('Syncing project dependencies')
         ..stopTask();
     }
+    BuildUtils.extractAars(
+      extensionDeps
+          .where((el) => el.artifactFile.endsWith('.aar'))
+          .where((el) =>
+              !(el.classesJar?.asFile().existsSync() ?? false) ||
+              !BuildUtils.resourceFromExtractedAar(
+                      el.artifactFile, 'AndroidManifest.xml')
+                  .existsSync())
+          .map((el) => el.artifactFile),
+    );
 
     _lgr.startTask('Adding resolved dependencies to your IDE\'s lib index');
 
@@ -363,11 +383,6 @@ class SyncSubCommand extends Command<int> {
     }
 
     resolver.closeHttpConn();
-    BuildUtils.extractAars(
-      resolvedDeps
-          .where((el) => el.artifactFile.endsWith('.aar'))
-          .map((el) => el.artifactFile),
-    );
     return resolvedDeps;
   }
 

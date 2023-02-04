@@ -154,7 +154,7 @@ class BuildCommand extends Command<int> {
 
       final proguardRules = comptimeAars
           .map((el) =>
-              BuildUtils.resourceFromAar(el.artifactFile, 'proguard.txt'))
+              BuildUtils.resourceFromExtractedAar(el.artifactFile, 'proguard.txt'))
           .where((el) => el.existsSync())
           .map((el) => el.path);
 
@@ -220,7 +220,7 @@ class BuildCommand extends Command<int> {
 
     final manifests = runtimeAars
         .map((el) =>
-            BuildUtils.resourceFromAar(el.artifactFile, 'AndroidManifest.xml'))
+            BuildUtils.resourceFromExtractedAar(el.artifactFile, 'AndroidManifest.xml'))
         .where((el) => el.existsSync())
         .map((el) => el.path);
 
