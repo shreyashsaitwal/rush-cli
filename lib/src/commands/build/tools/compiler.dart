@@ -180,7 +180,13 @@ class Compiler {
         javaExe = res.stdout.toString().trim();
       }
 
-      javaExe = javaExe.asFile().resolveSymbolicLinksSync();
+      if (javaExe.contains('\n')) {
+        javaExe = javaExe.split('\n').first;
+      }
+
+      try {
+        javaExe = javaExe.asFile().resolveSymbolicLinksSync();
+      } catch (_) {}
       return p.join(p.dirname(p.dirname(javaExe)), 'lib', 'tools.jar').asFile();
     }();
 

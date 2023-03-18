@@ -18,7 +18,7 @@ const pgCoord = 'com.guardsquare:proguard-base:7.2.2';
 const desugarCoord = 'io.github.shreyashsaitwal:desugar:1.0.0';
 
 const manifMergerAndDeps = <String>[
-  'com.android.tools.build:manifest-merger:30.2.2',
+  'com.android.tools.build:manifest-merger:30.0.0',
   'org.w3c:dom:2.3.0-jaxb-1.0.6',
   'xml-apis:xml-apis:1.4.01',
 ];

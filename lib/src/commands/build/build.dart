@@ -327,7 +327,7 @@ class BuildCommand extends Command<int> {
           return p.extension(el.name) == '.class';
         });
         for (final file in decodedJar) {
-          zipEncoder.addArchiveFile(file);
+          zipEncoder.addArchiveFile(file..compress = false);
           addedPaths.add(file.name);
         }
       }
