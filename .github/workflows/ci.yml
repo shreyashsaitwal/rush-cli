@@ -46,10 +46,12 @@ jobs:
       - name: Install dependencies
         run: dart pub get
       - name: Verify formatting
+        if: ${{ github.event_name == 'pull_request' }}
         run: dart format -o none --set-exit-if-changed .
       - name: Run build_runner
         run: dart run build_runner build --delete-conflicting-outputs
       - name: Analyze source
+        if: ${{ github.event_name == 'pull_request' }}
         run: dart analyze
       - name: Build executable
         shell: bash
