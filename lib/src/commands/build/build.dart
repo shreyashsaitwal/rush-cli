@@ -77,6 +77,7 @@ class BuildCommand extends Command<int> {
           providedArtifacts: await _libService.providedDependencies(),
           repositories: config.repositories,
           downloadSources: true,
+          removeProvided: true,
         );
         await timestampBox.put(configTimestampKey, DateTime.now());
       } catch (e, s) {
