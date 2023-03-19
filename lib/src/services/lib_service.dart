@@ -9,6 +9,7 @@ import 'package:rush_cli/src/resolver/artifact.dart';
 import 'package:rush_cli/src/services/file_service.dart';
 import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/constants.dart';
+import 'package:rush_cli/src/utils/file_extension.dart';
 import 'package:tint/tint.dart';
 
 const rushApCoord =
@@ -172,7 +173,7 @@ class LibService {
 
   Future<Artifact> _findArtifact(LazyBox<Artifact> box, String coord) async {
     final artifact = await box.get(coord);
-    if (artifact == null || artifact.classesJar == null) {
+    if (artifact == null || !artifact.artifactFile.asFile().existsSync()) {
       _lgr
         ..err('Unable to find a required library in cache: $coord')
         ..log('Try running `rush deps sync`', 'help  '.green());
@@ -182,17 +183,17 @@ class LibService {
   }
 
   Future<String> processorJar() async =>
-      (await _findArtifact(buildLibsBox, rushApCoord)).classesJar!;
+      (await _findArtifact(buildLibsBox, rushApCoord)).classesJar;
 
   Future<String> r8Jar() async =>
-      (await _findArtifact(buildLibsBox, r8Coord)).classesJar!;
+      (await _findArtifact(buildLibsBox, r8Coord)).classesJar;
 
   Future<Iterable<String>> pgJars() async =>
       (await _findArtifact(buildLibsBox, pgCoord))
           .classpathJars(await buildLibArtifacts());
 
   Future<String> desugarJar() async =>
-      (await _findArtifact(buildLibsBox, desugarCoord)).classesJar!;
+      (await _findArtifact(buildLibsBox, desugarCoord)).classesJar;
 
   Future<Iterable<String>> manifMergerJars() async => [
         for (final lib in manifMergerAndDeps)

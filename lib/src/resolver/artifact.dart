@@ -65,7 +65,7 @@ class Artifact {
     required this.packaging,
   });
 
-  String? get classesJar {
+  String get classesJar {
     if (packaging == 'jar') {
       return artifactFile;
     }
@@ -91,7 +91,7 @@ class Artifact {
 
   Set<String> classpathJars(Iterable<Artifact> artifactIndex) {
     return {
-      if (classesJar != null) classesJar!,
+      classesJar,
       ...dependencies
           .map((dependency) {
             final artifact = artifactIndex

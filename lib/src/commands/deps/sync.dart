@@ -158,7 +158,7 @@ class SyncSubCommand extends Command<int> {
       providedDepArtifacts
           .where((el) => el.artifactFile.endsWith('.aar'))
           .where((el) =>
-              !(el.classesJar?.asFile().existsSync() ?? false) ||
+              !el.classesJar.asFile().existsSync() ||
               !BuildUtils.resourceFromExtractedAar(
                       el.artifactFile, 'AndroidManifest.xml')
                   .existsSync())
@@ -211,21 +211,22 @@ class SyncSubCommand extends Command<int> {
         ..startTask('Syncing project dependencies')
         ..stopTask();
     }
-    BuildUtils.extractAars(
-      extensionDeps
-          .where((el) => el.artifactFile.endsWith('.aar'))
-          .where((el) =>
-              !(el.classesJar?.asFile().existsSync() ?? false) ||
-              !BuildUtils.resourceFromExtractedAar(
-                      el.artifactFile, 'AndroidManifest.xml')
-                  .existsSync())
-          .map((el) => el.artifactFile),
-    );
 
     _lgr.startTask('Adding resolved dependencies to your IDE\'s lib index');
 
     try {
       final extensionDeps = await libService.extensionDependencies(config);
+      BuildUtils.extractAars(
+        extensionDeps
+            .where((el) => el.artifactFile.endsWith('.aar'))
+            .where((el) =>
+                !el.classesJar.asFile().existsSync() ||
+                !BuildUtils.resourceFromExtractedAar(
+                        el.artifactFile, 'AndroidManifest.xml')
+                    .existsSync())
+            .map((el) => el.artifactFile),
+      );
+
       _updateIntellijLibIndex(providedDepArtifacts, extensionDeps);
       _updateEclipseClasspath(providedDepArtifacts, extensionDeps);
     } catch (_) {

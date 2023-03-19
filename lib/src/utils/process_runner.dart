@@ -22,12 +22,12 @@ class ProcessRunner {
             .singleWhere((el) =>
                 el.coordinate ==
                 'io.github.shreyashsaitwal.rush:annotations:$ai2AnnotationVersion')
-            .artifactFile,
+            .classesJar,
         'RUSH_RUNTIME_JAR': providedDeps
             .singleWhere((el) =>
                 el.coordinate ==
                 'io.github.shreyashsaitwal.rush:runtime:$ai2RuntimeVersion')
-            .artifactFile,
+            .classesJar,
       });
     } catch (e) {
       if (e.toString().contains('The system cannot find the file specified')) {

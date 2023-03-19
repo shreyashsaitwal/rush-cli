@@ -311,7 +311,7 @@ class BuildCommand extends Command<int> {
       for (final jarPath in runtimeJars) {
         final jar = jarPath.asFile();
         if (!jar.existsSync()) {
-          throw Exception('Unable to find required library \'$jar)\'');
+          _lgr.err('Unable to find required JAR: $jarPath');
         }
 
         final decodedJar = ZipDecoder()
