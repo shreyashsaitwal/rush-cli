@@ -1,6 +1,8 @@
 # ⚡ Rush
 **Rush** is a modern extension builder for MIT App Inventor 2.
 
+> **Note**: This README is for an unreleased version of Rush. Head over to [main](https://github.com/shreyashsaitwal/rush-cli/tree/main) for current stable version.
+
 ## Features
 * Faster builds
 * Maven like dependency management
