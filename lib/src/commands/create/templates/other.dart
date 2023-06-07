@@ -14,7 +14,7 @@ min_sdk: 7
 # Desuagring allows you to use Java 8 language features in your extension. You 
 # also need to enable desugaring if any of your dependencies use Java 8 language
 # features.
-# desugar: true
+${!enableKt ? '# ' : ''}desugar: true
 ${!enableKt ? '' : '''
 
 # Kotlin specific configuration.

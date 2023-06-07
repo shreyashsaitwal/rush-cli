@@ -57,9 +57,12 @@ class MigrateCommand extends Command<int> {
     _lgr.stopTask();
 
     _lgr.startTask('Parsing old source files');
-    final srcFile = _fs.srcDir.listSync(recursive: true).firstWhereOrNull(
-        (el) => p.basenameWithoutExtension(el.path) == oldConfig.name);
-    if (srcFile == null || srcFile is! File) {
+    final srcFile = _fs.srcDir
+        .listSync(recursive: true)
+        .whereType<File>()
+        .firstWhereOrNull(
+            (el) => p.basenameWithoutExtension(el.path) == oldConfig.name);
+    if (srcFile == null) {
       _lgr
         ..err('Unable to find the main extension source file.')
         ..log(
@@ -187,7 +190,9 @@ kotlin:
 # stored in the "deps" directory or coordinates of remote Maven artifacts in
 # <groupId>:<artifactId>:<version> format. 
 dependencies:
-${enableKotlin ? 'org.jetbrains.kotlin:kotlin-stdlib:${config.kotlin.compilerVersion}\n' : ''}${config.runtimeDeps.map((el) => '- $el').join('\n')}
+${enableKotlin ? 'org.jetbrains.kotlin:kotlin-stdlib:${config.kotlin.compilerVersion}\n' : ''}${config.runtimeDeps.map((el) {
+  if (el != '.placeholder') return '- $el';
+}).join('\n')}
 
 ''';
     }
@@ -197,7 +202,9 @@ ${enableKotlin ? 'org.jetbrains.kotlin:kotlin-stdlib:${config.kotlin.compilerVer
 # Similar to dependencies, except libraries defined as comptime (compile-time)
 # are only available during compilation and not included in the resulting AIX.
 comptime_dependencies:
-${config.comptimeDeps.map((el) => '- $el').join('\n')}
+${config.comptimeDeps.map((el) {
+  if (el != '.placeholder') return '- $el';
+}).join('\n')}
 ''';
     }
 

@@ -20,6 +20,14 @@ class Compiler {
 
   static final _processRunner = ProcessRunner();
 
+  static String _javaExe(bool getJavac) {
+    final javaHome = Platform.environment['JAVA_HOME'];
+    if (javaHome != null) {
+      return p.join(javaHome, 'bin', getJavac ? 'javac' : 'java');
+    }
+    return getJavac ? 'javac' : 'java';
+  }
+
   static Future<void> _compileHelpers(
     Set<String> classpathJars,
     LazyBox<DateTime> timestampBox, {
@@ -66,7 +74,7 @@ class Compiler {
 
     final compilationStartedOn = DateTime.now();
     try {
-      await _processRunner.runExecutable((hasKtFiles ? 'java' : 'javac'), args);
+      await _processRunner.runExecutable(_javaExe(!hasKtFiles), args);
     } catch (e) {
       rethrow;
     }
@@ -147,7 +155,7 @@ class Compiler {
       final kotlincArgs =
           await _kotlincArgs(_fs.srcDir.path, classpathJars, kotlinVersion);
       compilationStartedOn = DateTime.now();
-      await _processRunner.runExecutable('java', kotlincArgs);
+      await _processRunner.runExecutable(_javaExe(false), kotlincArgs);
     } catch (e) {
       rethrow;
     }
@@ -171,17 +179,19 @@ class Compiler {
     kaptJar.asFile().copySync(duplicateKaptJar);
 
     final toolsJar = await () async {
-      String javaExe;
-      if (Platform.isWindows) {
-        final res = await Process.run('where', ['java'], runInShell: true);
-        javaExe = res.stdout.toString().trim();
-      } else {
-        final res = await Process.run('which', ['java'], runInShell: true);
-        javaExe = res.stdout.toString().trim();
-      }
+      String javaExe = _javaExe(false);
+      if (!javaExe.asFile().existsSync()) {
+        if (Platform.isWindows) {
+          final res = await Process.run('where', ['java'], runInShell: true);
+          javaExe = res.stdout.toString().trim();
+        } else {
+          final res = await Process.run('which', ['java'], runInShell: true);
+          javaExe = res.stdout.toString().trim();
+        }
 
-      if (javaExe.contains('\n')) {
-        javaExe = javaExe.split('\n').first;
+        if (javaExe.contains('\n')) {
+          javaExe = javaExe.split('\n').first;
+        }
       }
 
       try {
