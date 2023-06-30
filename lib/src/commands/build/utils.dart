@@ -1,4 +1,5 @@
-import 'dart:io' show File, Platform;
+import 'dart:convert';
+import 'dart:io' show File, Platform, Process;
 
 import 'package:archive/archive.dart';
 import 'package:get_it/get_it.dart';
@@ -15,7 +16,7 @@ class BuildUtils {
 
   static void unzip(String zipFilePath, String outputDirPath) {
     final archive =
-        ZipDecoder().decodeBytes(File(zipFilePath).readAsBytesSync());
+        ZipDecoder().decodeBytes(zipFilePath.asFile().readAsBytesSync());
     for (final el in archive.files) {
       if (el.isFile) {
         final bytes = el.content as List<int>;
@@ -97,5 +98,33 @@ class BuildUtils {
       dist = p.join(p.dirname(aarPath), p.basenameWithoutExtension(aarPath));
     }
     return p.join(dist, resourceName).asFile();
+  }
+
+  static String javaHomeDir() {
+    final javaHomeEnv = Platform.environment['JAVA_HOME'];
+    if (javaHomeEnv != null) {
+      return javaHomeEnv;
+    }
+
+    final process = Process.runSync(
+        Platform.isWindows ? 'where' : 'which', ['java'],
+        runInShell: true);
+    var exe = process.stdout.toString().trim();
+    if (LineSplitter.split(exe).length > 1) {
+      exe = LineSplitter.split(exe).first;
+    }
+
+    try {
+      exe = exe.asFile().resolveSymbolicLinksSync();
+    } catch (_) {}
+    return p.dirname(p.dirname(exe));
+  }
+
+  static String javaExe([bool getJavac = false]) {
+    final javaHome = Platform.environment['JAVA_HOME'];
+    if (javaHome != null) {
+      return p.join(javaHome, 'bin', getJavac ? 'javac' : 'java');
+    }
+    return getJavac ? 'javac' : 'java';
   }
 }

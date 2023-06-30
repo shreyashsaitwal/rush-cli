@@ -1,4 +1,4 @@
-import 'dart:io' show File, Platform, Process;
+import 'dart:io' show File;
 
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
@@ -19,14 +19,6 @@ class Compiler {
   static final _lgr = GetIt.I<Logger>();
 
   static final _processRunner = ProcessRunner();
-
-  static String _javaExe(bool getJavac) {
-    final javaHome = Platform.environment['JAVA_HOME'];
-    if (javaHome != null) {
-      return p.join(javaHome, 'bin', getJavac ? 'javac' : 'java');
-    }
-    return getJavac ? 'javac' : 'java';
-  }
 
   static Future<void> _compileHelpers(
     Set<String> classpathJars,
@@ -74,7 +66,7 @@ class Compiler {
 
     final compilationStartedOn = DateTime.now();
     try {
-      await _processRunner.runExecutable(_javaExe(!hasKtFiles), args);
+      await _processRunner.runExecutable(BuildUtils.javaExe(!hasKtFiles), args);
     } catch (e) {
       rethrow;
     }
@@ -115,7 +107,7 @@ class Compiler {
       await _compileHelpers(classpathJars, timestampBox, java8: supportJava8);
       final args = _javacArgs(javaFiles, classpathJars, supportJava8);
       compilationStartedOn = DateTime.now();
-      await _processRunner.runExecutable('javac', await args);
+      await _processRunner.runExecutable(BuildUtils.javaExe(true), await args);
     } catch (e) {
       rethrow;
     }
@@ -155,7 +147,7 @@ class Compiler {
       final kotlincArgs =
           await _kotlincArgs(_fs.srcDir.path, classpathJars, kotlinVersion);
       compilationStartedOn = DateTime.now();
-      await _processRunner.runExecutable(_javaExe(false), kotlincArgs);
+      await _processRunner.runExecutable(BuildUtils.javaExe(), kotlincArgs);
     } catch (e) {
       rethrow;
     }
@@ -178,27 +170,8 @@ class Compiler {
         p.join(p.dirname(kaptJar), 'kotlin-annotation-processing.jar');
     kaptJar.asFile().copySync(duplicateKaptJar);
 
-    final toolsJar = await () async {
-      String javaExe = _javaExe(false);
-      if (!javaExe.asFile().existsSync()) {
-        if (Platform.isWindows) {
-          final res = await Process.run('where', ['java'], runInShell: true);
-          javaExe = res.stdout.toString().trim();
-        } else {
-          final res = await Process.run('which', ['java'], runInShell: true);
-          javaExe = res.stdout.toString().trim();
-        }
-
-        if (javaExe.contains('\n')) {
-          javaExe = javaExe.split('\n').first;
-        }
-      }
-
-      try {
-        javaExe = javaExe.asFile().resolveSymbolicLinksSync();
-      } catch (_) {}
-      return p.join(p.dirname(p.dirname(javaExe)), 'lib', 'tools.jar').asFile();
-    }();
+    final toolsJar =
+        p.join(BuildUtils.javaHomeDir(), 'lib', 'tools.jar').asFile();
 
     final classpath = [
       ...(await _libService.kotlincJars(kotlinVersion)),

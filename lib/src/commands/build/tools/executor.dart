@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
@@ -34,8 +32,8 @@ class Executor {
     ];
 
     try {
-      await processRunner.runExecutable(
-          'java', args.map((el) => el.replaceAll('\\', '/')).toList());
+      await processRunner.runExecutable(BuildUtils.javaExe(),
+          args.map((el) => el.replaceAll('\\', '/')).toList());
     } catch (e) {
       rethrow;
     }
@@ -75,8 +73,8 @@ class Executor {
     ];
 
     try {
-      await processRunner.runExecutable(
-          'java', args.map((el) => el.replaceAll('\\', '/')).toList());
+      await processRunner.runExecutable(BuildUtils.javaExe(),
+          args.map((el) => el.replaceAll('\\', '/')).toList());
     } catch (e) {
       rethrow;
     }
@@ -107,8 +105,8 @@ class Executor {
     ];
 
     try {
-      await processRunner.runExecutable(
-          'java', args.map((el) => el.replaceAll('\\', '/')).toList());
+      await processRunner.runExecutable(BuildUtils.javaExe(),
+          args.map((el) => el.replaceAll('\\', '/')).toList());
     } catch (e) {
       rethrow;
     }
@@ -122,27 +120,13 @@ class Executor {
         .join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.dsgr.jar')
         .asFile();
 
-    final bootclasspath = await () async {
-      String javaExe;
-      if (Platform.isWindows) {
-        final res = await Process.run('where', ['java'], runInShell: true);
-        javaExe = res.stdout.toString().trim();
-      } else {
-        final res = await Process.run('which', ['java'], runInShell: true);
-        javaExe = res.stdout.toString().trim();
-      }
-
-      javaExe = javaExe.asFile().resolveSymbolicLinksSync();
-      final forJdk8AndBelow = p
-          .join(p.dirname(p.dirname(javaExe)), 'jre', 'lib', 'rt.jar')
-          .asFile();
+    final bootclasspath = () {
+      final javaHome = BuildUtils.javaHomeDir();
+      final forJdk8AndBelow = p.join(javaHome, 'jre', 'lib', 'rt.jar').asFile();
       if (forJdk8AndBelow.existsSync()) {
         return forJdk8AndBelow;
       }
-
-      return p
-          .join(p.dirname(p.dirname(javaExe)), 'jmods', 'java.base.jmod')
-          .asFile();
+      return p.join(javaHome, 'jmods', 'java.base.jmod').asFile();
     }();
 
     final dependencies =
@@ -175,7 +159,7 @@ class Executor {
     ];
 
     try {
-      await processRunner.runExecutable('java', args);
+      await processRunner.runExecutable(BuildUtils.javaExe(), args);
     } catch (_) {
       rethrow;
     } finally {

@@ -167,6 +167,7 @@ class SyncSubCommand extends Command<int> {
 
     // Exit if this is not a Rush project.
     if (config == null) {
+      _lgr.stopTask();
       return 0;
     }
 
