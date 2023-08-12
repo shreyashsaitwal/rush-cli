@@ -17,10 +17,17 @@ enum Scope {
   @HiveField(1)
   runtime('runtime'),
 
-  /// We don't handle dependencies with the below scopes.
+  // We don't handle dependencies with the following scopes.
+  @HiveField(2)
   provided('provided'),
+  
+  @HiveField(3)
   test('test'),
+  
+  @HiveField(4)
   system('system'),
+  
+  @HiveField(5)
   import('import');
 
   final String _name;
@@ -119,7 +126,7 @@ class Artifact {
 }
 
 @HiveType(typeId: 3)
-class Version extends Comparable<Version> {
+class Version implements Comparable<Version> {
   @HiveField(0)
   String _versionStr;
 

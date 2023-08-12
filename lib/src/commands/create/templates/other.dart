@@ -43,8 +43,8 @@ ${enableKt ? '- $kotlinGroupId:kotlin-stdlib:$defaultKtVersion\n' : ''}# - examp
 # forums or a link to your GitHub repository.
 # homepage: https://github.com/shreyashsaitwal/rush-cli
 
-# Path to the license file of your extension. This should be a path to a local file
-# or link to something hosted online.
+# Path to the license file of your extension. This should be a path to a local
+# file or link to something hosted online.
 # license: LICENSE.txt
 
 # Similar to dependencies, except libraries defined as comptime (compile-time)

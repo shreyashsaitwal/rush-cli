@@ -7,3 +7,6 @@ build
 /.idea
 /.fleet
 local.properties
+
+bin/
+.settings/
