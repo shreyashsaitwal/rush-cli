@@ -120,10 +120,10 @@ class Executor {
         .join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.dsgr.jar')
         .asFile();
 
-    final bootclasspath = () {
-      final javaHome = BuildUtils.javaHomeDir();
+    final bootclasspath = await () async {
+      final javaHome = await BuildUtils.javaHomeDir();
       final forJdk8AndBelow = p.join(javaHome, 'jre', 'lib', 'rt.jar').asFile();
-      if (forJdk8AndBelow.existsSync()) {
+      if (await forJdk8AndBelow.exists()) {
         return forJdk8AndBelow;
       }
       return p.join(javaHome, 'jmods', 'java.base.jmod').asFile();
@@ -148,7 +148,7 @@ class Executor {
         p.join(_fs.buildFilesDir.path, 'desugar.args').asFile(true);
     await argsFile.writeAsString(desugarerArgs.join('\n'));
 
-    final tempDir = p.join(_fs.buildFilesDir.path).asDir().createTempSync();
+    final tempDir = await p.join(_fs.buildFilesDir.path).asDir().createTemp();
     final args = <String>[
       // Required on JDK 11 (>11.0.9.1)
       // https://github.com/bazelbuild/bazel/commit/cecb3f1650d642dc626d6f418282bd802c29f6d7
@@ -163,7 +163,7 @@ class Executor {
     } catch (_) {
       rethrow;
     } finally {
-      tempDir.deleteSync(recursive: true);
+      await tempDir.delete(recursive: true);
     }
 
     await outputJar.copy(artJarPath);

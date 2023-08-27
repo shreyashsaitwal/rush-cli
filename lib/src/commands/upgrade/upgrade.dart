@@ -79,9 +79,8 @@ class UpgradeCommand extends Command<int> {
         return 1;
       }
 
-      archiveDist
-        ..createSync(recursive: true)
-        ..writeAsBytesSync(response.bodyBytes);
+      await archiveDist.create(recursive: true);
+      await archiveDist.writeAsBytes(response.bodyBytes);
     } catch (e) {
       _lgr
         ..err('Something went wrong...')
@@ -110,7 +109,7 @@ class UpgradeCommand extends Command<int> {
       }
     }
     await inputStream.close();
-    archiveDist.deleteSync(recursive: true);
+    await archiveDist.delete(recursive: true);
 
     final exePath = Platform.resolvedExecutable;
 
@@ -120,15 +119,15 @@ class UpgradeCommand extends Command<int> {
     // to the old name.
     if (Platform.isWindows) {
       final newExe = p.join(p.dirname(exePath), 'rush.exe.new').asFile();
-      if (newExe.existsSync()) {
+      if (await newExe.exists()) {
         final tempDir = p.join(_fs.rushHomeDir.path, 'temp').asDir(true);
-        exePath
+        await exePath
             .asFile()
-            .renameSync(p.join(tempDir.path, 'rush.$packageVersion.exe'));
-        newExe.renameSync(exePath);
+            .rename(p.join(tempDir.path, 'rush.$packageVersion.exe'));
+        await newExe.rename(exePath);
       }
     } else {
-      Process.runSync('chmod', ['+x', Platform.resolvedExecutable]);
+      await Process.run('chmod', ['+x', Platform.resolvedExecutable]);
     }
 
     // ignore: avoid_print

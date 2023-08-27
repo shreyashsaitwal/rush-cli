@@ -88,28 +88,28 @@ class ArtifactResolver {
 
   Future<bool> _verifyChecksum(File file, File checksumFile) async {
     final ext = p.extension(checksumFile.path);
-    final fileChecksum = () {
+    final fileChecksum = await () async {
       if (ext == '.sha1') {
-        return sha1.convert(file.readAsBytesSync());
+        return sha1.convert(await file.readAsBytes());
       } else if (ext == '.md5') {
-        return md5.convert(file.readAsBytesSync());
+        return md5.convert(await file.readAsBytes());
       } else if (ext == '.sha256') {
-        return sha256.convert(file.readAsBytesSync());
+        return sha256.convert(await file.readAsBytes());
       } else if (ext == '.sha512') {
-        return sha512.convert(file.readAsBytesSync());
+        return sha512.convert(await file.readAsBytes());
       } else {
         throw Exception('Unsupported checksum type: $ext');
       }
     }();
 
     final requiredChecksum =
-        checksumFile.readAsStringSync().trim().split(RegExp(r'\s+')).first;
+        (await checksumFile.readAsString()).trim().split(RegExp(r'\s+')).first;
     return fileChecksum.toString() == requiredChecksum;
   }
 
   Future<File?> _fetchFile(String relativeFilePath) async {
     final file = p.join(_localMvnRepo, relativeFilePath).asFile();
-    if (file.existsSync() && file.statSync().size > 0) {
+    if (await file.exists() && (await file.stat()).size > 0) {
       return file;
     }
 
@@ -118,9 +118,8 @@ class ArtifactResolver {
       try {
         final response = await _client.get(uri);
         if (response.statusCode == StatusCodes.OK) {
-          file
-            ..createSync(recursive: true)
-            ..writeAsBytesSync(response.bodyBytes, flush: true);
+          await file.create(recursive: true);
+          await file.writeAsBytes(response.bodyBytes, flush: true);
           break;
         }
         continue;
@@ -129,7 +128,7 @@ class ArtifactResolver {
       }
     }
 
-    if (!file.existsSync() || file.statSync().size <= 0) {
+    if (!await file.exists() || (await file.stat()).size <= 0) {
       return null;
     }
 
@@ -263,7 +262,7 @@ class ArtifactResolver {
 
     final Pom pom;
     try {
-      pom = Pom.fromXml(pomFile.readAsStringSync());
+      pom = Pom.fromXml(await pomFile.readAsString());
     } on Xml2JsonException catch (e) {
       throw Exception('Error while parsing POM file for $coordinate:\n$e');
     }

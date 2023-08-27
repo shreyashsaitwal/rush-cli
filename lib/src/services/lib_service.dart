@@ -52,7 +52,7 @@ class LibService {
       path: p.join(_fs.rushHomeDir.path, 'cache'),
     );
 
-    if (_fs.configFile.existsSync()) {
+    if (await _fs.configFile.exists()) {
       instance.extensionDepsBox = await Hive.openLazyBox<Artifact>(
         extensionDepsBoxName,
         path: _fs.dotRushDir.path,
@@ -157,7 +157,7 @@ class LibService {
         );
       }),
     ];
-    BuildUtils.extractAars(localDeps
+    await BuildUtils.extractAars(localDeps
         .where((el) => el.packaging == 'aar')
         .map((el) => el.artifactFile));
 
@@ -173,7 +173,7 @@ class LibService {
 
   Future<Artifact> _findArtifact(LazyBox<Artifact> box, String coord) async {
     final artifact = await box.get(coord);
-    if (artifact == null || !artifact.artifactFile.asFile().existsSync()) {
+    if (artifact == null || !await artifact.artifactFile.asFile().exists()) {
       _lgr
         ..err('Unable to find a required library in cache: $coord')
         ..log('Try running `rush deps sync`', 'help  '.green());

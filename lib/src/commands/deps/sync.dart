@@ -154,7 +154,7 @@ class SyncSubCommand extends Command<int> {
         ..startTask('Syncing dev-dependencies')
         ..stopTask();
     }
-    BuildUtils.extractAars(
+    await BuildUtils.extractAars(
       providedDepArtifacts
           .where((el) => el.artifactFile.endsWith('.aar'))
           .where((el) =>
@@ -217,7 +217,7 @@ class SyncSubCommand extends Command<int> {
 
     try {
       final extensionDeps = await libService.extensionDependencies(config);
-      BuildUtils.extractAars(
+      await BuildUtils.extractAars(
         extensionDeps
             .where((el) => el.artifactFile.endsWith('.aar'))
             .where((el) =>
@@ -228,8 +228,8 @@ class SyncSubCommand extends Command<int> {
             .map((el) => el.artifactFile),
       );
 
-      _updateIntellijLibIndex(providedDepArtifacts, extensionDeps);
-      _updateEclipseClasspath(providedDepArtifacts, extensionDeps);
+      await _updateIntellijLibIndex(providedDepArtifacts, extensionDeps);
+      await _updateEclipseClasspath(providedDepArtifacts, extensionDeps);
     } catch (_) {
       _lgr.stopTask(false);
       return 1;
@@ -591,10 +591,10 @@ class SyncSubCommand extends Command<int> {
     return result;
   }
 
-  void _updateEclipseClasspath(
-      Iterable<Artifact> providedDeps, Iterable<Artifact> extensionDeps) {
+  Future<void> _updateEclipseClasspath(
+      Iterable<Artifact> providedDeps, Iterable<Artifact> extensionDeps) async {
     final dotClasspathFile = p.join(_fs.cwd, '.classpath').asFile();
-    if (!dotClasspathFile.existsSync()) {
+    if (!await dotClasspathFile.exists()) {
       return;
     }
 
@@ -606,19 +606,19 @@ class SyncSubCommand extends Command<int> {
       ...providedDeps.map((el) => el.sourcesJar).whereNotNull(),
       ...extensionDeps.map((el) => el.sourcesJar).whereNotNull(),
     ];
-    dotClasspathFile.writeAsStringSync(dotClasspath(classesJars, sourcesJars));
+    await dotClasspathFile.writeAsString(dotClasspath(classesJars, sourcesJars));
   }
 
-  void _updateIntellijLibIndex(
-      Iterable<Artifact> providedDeps, Iterable<Artifact> extensionDeps) {
+  Future<void> _updateIntellijLibIndex(
+      Iterable<Artifact> providedDeps, Iterable<Artifact> extensionDeps) async {
     final ideaDir = p.join(_fs.cwd, '.idea').asDir();
-    if (!ideaDir.existsSync()) {
+    if (!await ideaDir.exists()) {
       return;
     }
 
     final providedDepsLibXml =
         p.join(_fs.cwd, '.idea', 'libraries', 'provided-deps.xml').asFile(true);
-    providedDepsLibXml.writeAsStringSync(
+    await providedDepsLibXml.writeAsString(
       ijProvidedDepsXml(
         providedDeps.map((el) => el.classesJar).whereNotNull(),
         providedDeps.map((el) => el.sourcesJar).whereNotNull(),
@@ -631,7 +631,7 @@ class SyncSubCommand extends Command<int> {
       final xml =
           p.join(_fs.cwd, '.idea', 'libraries', '$fileName.xml').asFile(true);
 
-      xml.writeAsStringSync('''
+      await xml.writeAsString('''
 <component name="libraryTable">
   <library name="${lib.coordinate}">
     <CLASSES>
@@ -657,6 +657,6 @@ class SyncSubCommand extends Command<int> {
       throw Exception('Unable to find project\'s .iml file in .idea directory');
     }
 
-    imlXml.path.asFile().writeAsStringSync(ijImlXml(libNames));
+    await imlXml.path.asFile().writeAsString(ijImlXml(libNames));
   }
 }

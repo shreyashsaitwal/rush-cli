@@ -31,7 +31,7 @@ class CleanCommand extends Command<int> {
             ? '${'Success!'.green()} Deleted build files and caches'
             : 'Cleaning...').interact();
     for (final file in _fs.dotRushDir.listSync()) {
-      file.deleteSync(recursive: true);
+      await file.delete(recursive: true);
     }
 
     spinner.done();

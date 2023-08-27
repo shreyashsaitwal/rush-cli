@@ -71,12 +71,12 @@ class Compiler {
       rethrow;
     }
 
-    _cleanUpOldClassFiles(compilationStartedOn, keepHelpers: true);
+    await _cleanUpOldClassFiles(compilationStartedOn, keepHelpers: true);
     await timestampBox.put(helpersTimestampKey, DateTime.now());
   }
 
-  static void _cleanUpOldClassFiles(DateTime compilationStartedOn,
-      {bool keepHelpers = false}) {
+  static Future<void> _cleanUpOldClassFiles(DateTime compilationStartedOn,
+      {bool keepHelpers = false}) async {
     final files = _fs.buildClassesDir
         .listSync(recursive: true)
         .where((el) => p.extension(el.path) == '.class' && !keepHelpers
@@ -85,8 +85,8 @@ class Compiler {
         .whereType<File>();
 
     for (final file in files) {
-      if (file.lastModifiedSync().isBefore(compilationStartedOn)) {
-        file.deleteSync();
+      if ((await file.lastModified()).isBefore(compilationStartedOn)) {
+        await file.delete();
       }
     }
   }
@@ -111,7 +111,7 @@ class Compiler {
     } catch (e) {
       rethrow;
     }
-    _cleanUpOldClassFiles(compilationStartedOn);
+    await _cleanUpOldClassFiles(compilationStartedOn);
   }
 
   static Future<List<String>> _javacArgs(
@@ -131,7 +131,7 @@ class Compiler {
       if (withProc) ...['-processorpath', '"$procClasspath"'],
       ...files.map((el) => '"$el"'),
     ].map((el) => el.replaceAll('\\', '/')).join('\n');
-    _fs.javacArgsFile.writeAsStringSync(args);
+    await _fs.javacArgsFile.writeAsString(args);
     return ['@${_fs.javacArgsFile.path}'];
   }
 
@@ -151,7 +151,7 @@ class Compiler {
     } catch (e) {
       rethrow;
     }
-    _cleanUpOldClassFiles(compilationStartedOn);
+    await _cleanUpOldClassFiles(compilationStartedOn);
   }
 
   static Future<List<String>> _kotlincArgs(
@@ -168,15 +168,15 @@ class Compiler {
     final kaptJar = (await _libService.kaptJars(kotlinVersion)).first;
     final duplicateKaptJar =
         p.join(p.dirname(kaptJar), 'kotlin-annotation-processing.jar');
-    kaptJar.asFile().copySync(duplicateKaptJar);
+    await kaptJar.asFile().copy(duplicateKaptJar);
 
     final toolsJar =
-        p.join(BuildUtils.javaHomeDir(), 'lib', 'tools.jar').asFile();
+        p.join(await BuildUtils.javaHomeDir(), 'lib', 'tools.jar').asFile();
 
     final classpath = [
       ...(await _libService.kotlincJars(kotlinVersion)),
       if (withProc) ...(await _libService.kaptJars(kotlinVersion)),
-      if (withProc && toolsJar.existsSync()) toolsJar.path,
+      if (withProc && await toolsJar.exists()) toolsJar.path,
     ].join(BuildUtils.cpSeparator);
 
     final procClasspath = await _libService.processorJar();
@@ -198,7 +198,8 @@ class Compiler {
       if (files != null) ...files else srcDir,
     ].map((el) => el.replaceAll('\\', '/')).join('\n');
 
-    final argsFile = _fs.kotlincArgsFile..writeAsStringSync(kotlincArgs);
+    final argsFile = _fs.kotlincArgsFile;
+    await argsFile.writeAsString(kotlincArgs);
     return <String>[
       // This -cp flag belongs to the java cmdline tool, required to run the
       // below KaptCli class

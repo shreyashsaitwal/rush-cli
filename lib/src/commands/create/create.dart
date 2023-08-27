@@ -154,14 +154,14 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
     // Creates the required files for the extension.
     try {
       filesToCreate.forEach((path, contents) async {
-        path.asFile(true).writeAsStringSync(contents);
+        await path.asFile(true).writeAsString(contents);
       });
       p.join(projectDir, 'assets').asDir(true);
       // Copy icon
-      p
+      await p
           .join(_fs.rushHomeDir.path, 'icon.png')
           .asFile()
-          .copySync(p.join(projectDir, 'assets', 'icon.png'));
+          .copy(p.join(projectDir, 'assets', 'icon.png'));
     } catch (e) {
       GetIt.I<Logger>().err(e.toString());
       rethrow;

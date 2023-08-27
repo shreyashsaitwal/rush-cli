@@ -112,7 +112,7 @@ class BuildCommand extends Command<int> {
     final buildInfosJson = p
         .join(_fs.buildRawDir.path, 'files', 'component_build_infos.json')
         .asFile();
-    if (!componentsJson.existsSync() || !buildInfosJson.existsSync()) {
+    if (!await componentsJson.exists() || !await buildInfosJson.exists()) {
       _lgr
         ..err('Unable to find components.json or component_build_infos.json')
         ..log(
@@ -123,8 +123,8 @@ class BuildCommand extends Command<int> {
 
     final String artJarPath;
     try {
-      BuildUtils.copyAssets(config);
-      BuildUtils.copyLicense(config);
+      await BuildUtils.copyAssets(config);
+      await BuildUtils.copyLicense(config);
       artJarPath = await _createArtJar(config);
     } catch (e, s) {
       _catchAndStop(e, s);
@@ -232,13 +232,13 @@ class BuildCommand extends Command<int> {
 
     if (manifests.isEmpty) {
       _lgr.dbg('No manifests found in dependencies; skipping manifest merge');
-      outputManifest.deleteSync();
+      await outputManifest.delete();
       return;
     }
 
     final lastMergeTime = await timestampBox.get(androidManifestTimestampKey);
     final needMerge = !await outputManifest.exists() ||
-        (lastMergeTime?.isBefore(mainManifest.lastModifiedSync()) ?? true);
+        (lastMergeTime?.isBefore(await mainManifest.lastModified()) ?? true);
     if (!needMerge) {
       return;
     }
@@ -311,12 +311,12 @@ class BuildCommand extends Command<int> {
       final addedPaths = <String>{};
       for (final jarPath in runtimeJars) {
         final jar = jarPath.asFile();
-        if (!jar.existsSync()) {
+        if (!await jar.exists()) {
           _lgr.err('Unable to find required JAR: $jarPath');
         }
 
         final decodedJar = ZipDecoder()
-            .decodeBytes(jar.readAsBytesSync())
+            .decodeBytes(await jar.readAsBytes())
             .files
             .whereNot((el) =>
                 addedPaths.contains(el.name) || el.name.startsWith('META-INF'))
@@ -350,11 +350,11 @@ class BuildCommand extends Command<int> {
   }
 
   Future<void> _assemble() async {
-    final org = () {
+    final org = () async {
       final componentsJsonFile =
           p.join(_fs.buildDir.path, 'raw', 'components.json').asFile();
 
-      final json = jsonDecode(componentsJsonFile.readAsStringSync());
+      final json = jsonDecode(await componentsJsonFile.readAsString());
       final type = json[0]['type'] as String;
 
       final split = type.split('.')..removeLast();
@@ -362,14 +362,14 @@ class BuildCommand extends Command<int> {
     }();
 
     final outputDir = p.join(_fs.cwd, 'out').asDir(true);
-    final aix = p.join(outputDir.path, '$org.aix');
+    final aix = p.join(outputDir.path, '${await org}.aix');
     final zipEncoder = ZipFileEncoder()..create(aix);
 
     try {
       for (final file in _fs.buildRawDir.listSync(recursive: true)) {
         if (file is File) {
           final name = p.relative(file.path, from: _fs.buildRawDir.path);
-          await zipEncoder.addFile(file, p.join(org, name));
+          await zipEncoder.addFile(file, p.join(await org, name));
         }
       }
       _lgr.info('Generated AIX file at ${aix.blue()}');

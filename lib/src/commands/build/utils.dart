@@ -14,15 +14,15 @@ class BuildUtils {
   static final _fs = GetIt.I<FileService>();
   static final _lgr = GetIt.I<Logger>();
 
-  static void unzip(String zipFilePath, String outputDirPath) {
+  static Future<void> unzip(String zipFilePath, String outputDirPath) async {
     final archive =
-        ZipDecoder().decodeBytes(zipFilePath.asFile().readAsBytesSync());
+        ZipDecoder().decodeBytes(await zipFilePath.asFile().readAsBytes());
     for (final el in archive.files) {
       if (el.isFile) {
         final bytes = el.content as List<int>;
         try {
           final file = p.join(outputDirPath, el.name).asFile(true);
-          file.writeAsBytesSync(bytes);
+          await file.writeAsBytes(bytes);
         } catch (e) {
           _lgr.parseAndLog('error: $e');
           rethrow;
@@ -31,7 +31,7 @@ class BuildUtils {
     }
   }
 
-  static void extractAars(Iterable<String> aars) {
+  static Future<void> extractAars(Iterable<String> aars) async {
     for (final aar in aars) {
       final String dist;
 
@@ -42,7 +42,7 @@ class BuildUtils {
       } else {
         dist = p.join(p.dirname(aar), p.basenameWithoutExtension(aar));
       }
-      unzip(aar, dist);
+      await unzip(aar, dist);
     }
   }
 
@@ -50,20 +50,19 @@ class BuildUtils {
   static String get cpSeparator => Platform.isWindows ? ';' : ':';
 
   /// Copies extension's assets to the raw directory.
-  static void copyAssets(Config config) {
+  static Future<void> copyAssets(Config config) async {
     final assets = config.assets;
     if (assets.isEmpty) {
       return;
     }
 
     final assetsDir = p.join(_fs.cwd, 'assets');
-    final assetsDestDir = p.join(_fs.buildRawDir.path, 'assets').asDir()
-      ..createSync(recursive: true);
+    final assetsDestDir = p.join(_fs.buildRawDir.path, 'assets').asDir(true);
 
     for (final el in assets) {
       final asset = p.join(assetsDir, el).asFile();
-      if (asset.existsSync()) {
-        asset.copySync(p.join(assetsDestDir.path, el));
+      if (await asset.exists()) {
+        await asset.copy(p.join(assetsDestDir.path, el));
       } else {
         throw Exception('Asset $el does not exist');
       }
@@ -71,7 +70,7 @@ class BuildUtils {
   }
 
   /// Copies LICENSE file if there's any.
-  static void copyLicense(Config config) {
+  static Future<void> copyLicense(Config config) async {
     // Pattern to match URL
     final urlPattern = RegExp(
         r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_\+.~#?&\/\/=]*)',
@@ -85,8 +84,8 @@ class BuildUtils {
     }
 
     final dest = p.join(_fs.buildRawDir.path, 'aiwebres').asDir(true);
-    if (license.existsSync()) {
-      license.copySync(p.join(dest.path, 'LICENSE'));
+    if (await license.exists()) {
+      await license.copy(p.join(dest.path, 'LICENSE'));
     }
   }
 
@@ -100,13 +99,13 @@ class BuildUtils {
     return p.join(dist, resourceName).asFile();
   }
 
-  static String javaHomeDir() {
+  static Future<String> javaHomeDir() async {
     final javaHomeEnv = Platform.environment['JAVA_HOME'];
     if (javaHomeEnv != null) {
       return javaHomeEnv;
     }
 
-    final process = Process.runSync(
+    final process = await Process.run(
         Platform.isWindows ? 'where' : 'which', ['java'],
         runInShell: true);
     var exe = process.stdout.toString().trim();
@@ -115,7 +114,7 @@ class BuildUtils {
     }
 
     try {
-      exe = exe.asFile().resolveSymbolicLinksSync();
+      exe = await exe.asFile().resolveSymbolicLinks();
     } catch (_) {}
     return p.dirname(p.dirname(exe));
   }
