@@ -12,8 +12,8 @@ import javax.tools.Diagnostic.Kind
 class Event(
     element: ExecutableElement,
     messager: Messager,
-    private val elementUtils: Elements,
-) : ParameterizedBlock(element, messager) {
+    elementUtils: Elements,
+) : ParameterizedBlock(element, messager, elementUtils) {
 
     init {
         runChecks()

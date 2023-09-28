@@ -23,8 +23,8 @@ private val processedProperties = mutableListOf<Property>()
 class Property(
     element: ExecutableElement,
     messager: Messager,
-    private val elementUtils: Elements,
-) : Block(element, messager) {
+    elementUtils: Elements,
+) : Block(element, messager, elementUtils) {
 
     private val accessType: PropertyAccessType
 
@@ -73,11 +73,11 @@ class Property(
 
     override val helper = when (element.returnType.kind) {
         // Setters
-        TypeKind.VOID -> Helper.tryFrom(element.parameters[0])
+        TypeKind.VOID -> Helper.tryFrom(element.parameters[0], elementUtils)
         // Getters with [DeclaredType] return type
-        TypeKind.DECLARED -> Helper.tryFrom((element.returnType as DeclaredType).asElement() as TypeElement)
+        TypeKind.DECLARED -> Helper.tryFrom((element.returnType as DeclaredType).asElement() as TypeElement, elementUtils)
         // Getters with primitive return type
-        else -> Helper.tryFrom(element)
+        else -> Helper.tryFrom(element, elementUtils)
     }
 
     /**

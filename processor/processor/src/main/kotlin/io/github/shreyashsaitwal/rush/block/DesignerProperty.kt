@@ -4,13 +4,15 @@ import com.google.appinventor.components.annotations.DesignerProperty
 import shaded.org.json.JSONObject
 import javax.annotation.processing.Messager
 import javax.lang.model.element.ExecutableElement
+import javax.lang.model.util.Elements
 import javax.tools.Diagnostic.Kind
 
 class DesignerProperty(
     element: ExecutableElement,
     messager: Messager,
+    elementUtils: Elements,
     private val properties: List<Property>,
-) : Block(element, messager) {
+) : Block(element, messager, elementUtils) {
 
     init {
         runChecks()

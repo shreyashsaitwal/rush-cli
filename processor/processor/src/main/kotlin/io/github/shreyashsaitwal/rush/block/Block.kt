@@ -2,13 +2,12 @@ package io.github.shreyashsaitwal.rush.block
 
 import io.github.shreyashsaitwal.rush.Utils
 import shaded.org.json.JSONObject
-import java.lang.Deprecated
 import javax.annotation.processing.Messager
 import javax.lang.model.element.ExecutableElement
 import javax.lang.model.element.Modifier
 import javax.lang.model.element.VariableElement
+import javax.lang.model.util.Elements
 import javax.tools.Diagnostic
-import kotlin.String
 
 /**
  * Represents AI2 block types:
@@ -17,7 +16,7 @@ import kotlin.String
  *  - `SimpleProperty`
  *  - `DesignerProperty`
  */
-abstract class Block(val element: ExecutableElement, val messager: Messager) {
+abstract class Block(val element: ExecutableElement, val messager: Messager, val elementUtils: Elements) {
 
     /**
      * Name of this block.
@@ -37,12 +36,12 @@ abstract class Block(val element: ExecutableElement, val messager: Messager) {
     /**
      * Helper (dropdown blocks) definition of this block.
      */
-    open val helper = Helper.tryFrom(element)
+    open val helper = Helper.tryFrom(element, elementUtils)
 
     /**
      * Whether this block is deprecated.
      */
-    val deprecated = element.getAnnotation(Deprecated::class.java) != null
+    val deprecated = elementUtils.isDeprecated(element)
 
     /**
      * Checks that are supposed to be performed on this block.
@@ -51,7 +50,11 @@ abstract class Block(val element: ExecutableElement, val messager: Messager) {
         val type = this::class.java.simpleName.toString()
 
         if (!Utils.isPascalCase(name)) {
-            messager.printMessage(Diagnostic.Kind.WARNING, "$type should follow `PascalCase` naming convention.", element)
+            messager.printMessage(
+                Diagnostic.Kind.WARNING,
+                "$type should follow `PascalCase` naming convention.",
+                element
+            )
         }
 
         if (!element.modifiers.contains(Modifier.PUBLIC)) {
@@ -70,7 +73,8 @@ abstract class Block(val element: ExecutableElement, val messager: Messager) {
  *  - `SimpleFunction`
  *  - `SimpleEvent`
  */
-abstract class ParameterizedBlock(element: ExecutableElement, messager: Messager) : Block(element, messager) {
+abstract class ParameterizedBlock(element: ExecutableElement, messager: Messager, elementUtil: Elements) :
+    Block(element, messager, elementUtil) {
 
     data class Parameter(
         val element: VariableElement,
@@ -103,7 +107,7 @@ abstract class ParameterizedBlock(element: ExecutableElement, messager: Messager
      * @return The parameters of this parameterized block.
      */
     val params: List<Parameter> = element.parameters.map {
-        val helper = Helper.tryFrom(it)
+        val helper = Helper.tryFrom(it, elementUtil)
         Parameter(
             it,
             it.simpleName.toString(),

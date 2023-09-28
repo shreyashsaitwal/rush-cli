@@ -13,6 +13,7 @@ import javax.lang.model.element.ExecutableElement
 import javax.lang.model.element.TypeElement
 import javax.lang.model.type.DeclaredType
 import javax.lang.model.type.MirroredTypeException
+import javax.lang.model.util.Elements
 
 /**
  * Possible types of helper blocks.
@@ -74,7 +75,7 @@ data class Helper(
         /**
          * @return Generates [Helper] from [element] if it is of valid [HelperType], otherwise null.
          */
-        fun tryFrom(element: Element): Helper? {
+        fun tryFrom(element: Element, elementUtils: Elements): Helper? {
             val helperType = HelperType.tryFrom(element)
             return when (helperType) {
                 HelperType.ASSET -> {
@@ -111,7 +112,7 @@ data class Helper(
                     val data = if (isCached) {
                         HelperSingleton.optionListCache[optionListEnumName]!!
                     } else {
-                        OptionListData(helperElement).apply {
+                        OptionListData(helperElement, elementUtils).apply {
                             HelperSingleton.optionListCache.putIfAbsent(optionListEnumName, this)
                         }
                     }
@@ -168,7 +169,7 @@ private object HelperSingleton {
     }
 }
 
-private class OptionListData(private val element: Element) : HelperData() {
+private class OptionListData(element: Element, private val elementUtils: Elements) : HelperData() {
 
     data class Option(
         val deprecated: Boolean,
@@ -217,7 +218,8 @@ private class OptionListData(private val element: Element) : HelperData() {
         val enclosedElements = (elementType as DeclaredType).asElement().enclosedElements
         val enumElements = enclosedElements.filter { enumConsts.containsKey(it.simpleName.toString()) }
 
-        defaultOption = enumElements.singleOrNull { it.getAnnotation(Default::class.java) != null }
+        defaultOption = enumElements
+            .singleOrNull { it.getAnnotation(Default::class.java) != null }
             ?.simpleName?.toString() ?: enumConsts.keys.first()
 
         // The typeName property returns name like this: com.google.appinventor.components.common.OptionList<java.lang.String>
@@ -226,7 +228,9 @@ private class OptionListData(private val element: Element) : HelperData() {
 
         return enumConsts.map {
             Option(
-                deprecated = element.getAnnotation(Deprecated::class.java) != null,
+                deprecated = elementUtils.isDeprecated(enumElements.singleOrNull { el ->
+                    el.simpleName.toString() == it.key
+                }),
                 name = it.key,
                 value = it.value,
             ).asJsonObject()

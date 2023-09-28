@@ -13,7 +13,6 @@ import javax.annotation.processing.*
 import javax.lang.model.SourceVersion
 import javax.lang.model.element.Element
 import javax.lang.model.element.ExecutableElement
-import javax.lang.model.element.Modifier
 import javax.lang.model.element.TypeElement
 import javax.lang.model.util.Elements
 import javax.tools.Diagnostic.Kind
@@ -51,7 +50,7 @@ class ExtensionProcessor : AbstractProcessor() {
         isFirstRound = false
 
         val elements = roundEnv.getElementsAnnotatedWith(Extension::class.java)
-        val extensions = elements.map { processExtensionElement(it, elementUtils) }
+        val extensions = elements.map { processExtensionElement(it) }
 
         val generator = InfoFilesGenerator(extensions)
         try {
@@ -64,7 +63,7 @@ class ExtensionProcessor : AbstractProcessor() {
         return false
     }
 
-    private fun processExtensionElement(element: Element, elementUtils: Elements): Ext {
+    private fun processExtensionElement(element: Element): Ext {
         val events = element.enclosedElements
             .filter { it.getAnnotation(SimpleEvent::class.java) != null }
             .map { Event(it as ExecutableElement, messager, elementUtils) }
@@ -79,7 +78,7 @@ class ExtensionProcessor : AbstractProcessor() {
 
         val designerProperties = element.enclosedElements
             .filter { it.getAnnotation(DesignerPropertyAnnotation::class.java) != null }
-            .map { DesignerProperty(it as ExecutableElement, messager, properties) }
+            .map { DesignerProperty(it as ExecutableElement, messager, elementUtils, properties) }
 
         val packageName = elementUtils.getPackageOf(element).qualifiedName.toString()
         val fqcn = "$packageName.${element.simpleName}"

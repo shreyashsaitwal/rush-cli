@@ -14,8 +14,8 @@ import javax.tools.Diagnostic.Kind
 class Function(
     element: ExecutableElement,
     messager: Messager,
-    private val elementUtils: Elements,
-) : ParameterizedBlock(element, messager) {
+    elementUtils: Elements,
+) : ParameterizedBlock(element, messager, elementUtils) {
 
     init {
         runChecks()
@@ -34,7 +34,7 @@ class Function(
     override val returnType: String?
         get() {
             val continuationType = continuationUnderlyingType()
-            val helper = Helper.tryFrom(element)
+            val helper = Helper.tryFrom(element, elementUtils)
 
             return if (continuationType != null) {
                 if (element.returnType.kind != TypeKind.VOID) {
