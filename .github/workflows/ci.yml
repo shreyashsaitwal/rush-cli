@@ -10,7 +10,7 @@ jobs:
   annotation-processor:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: gradle/gradle-build-action@v2
         with:
           # Set this both to false otherwise it will either only read from cache
@@ -41,8 +41,8 @@ jobs:
             target: x86_64-windows
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: dart-lang/setup-dart@v1.3
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1.5.1
       - name: Install dependencies
         run: dart pub get
       - name: Verify formatting
@@ -74,7 +74,7 @@ jobs:
     needs: [cli, annotation-processor]
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v3
       - name: Download JAR dependencies
         run: |
