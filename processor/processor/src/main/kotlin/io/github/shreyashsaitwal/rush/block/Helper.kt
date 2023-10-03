@@ -179,9 +179,9 @@ private class OptionListData(element: Element, private val elementUtils: Element
         fun asJsonObject(): JSONObject {
             return JSONObject()
                 .put("name", name)
-                .put("deprecated", deprecated)
+                .put("deprecated", deprecated.toString())
                 .put("value", value)
-                .put("description", "") // Getting enum consts' description doesn't work (also not in AI2)
+                .put("description", "Option for $name") // Getting enum consts' description doesn't work (also not in AI2)
         }
     }
 
