@@ -13,10 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: gradle/gradle-build-action@v2
         with:
-          # Set this both to false otherwise it will either only read from cache
-          # or write from it.
-          cache-read-only: false
-          cache-write-only: false
+          gradle-version: 8.3
           build-root-directory: processor
       - uses: actions/setup-java@v3
         with:
