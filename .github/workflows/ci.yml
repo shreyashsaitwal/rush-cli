@@ -11,15 +11,14 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v3
+        with:
+          distribution: zulu
+          java-version: 8
       - uses: gradle/gradle-build-action@v2
         with:
           gradle-version: 8.3
           build-root-directory: processor
-      - uses: actions/setup-java@v3
-        with:
-          cache: gradle
-          distribution: zulu
-          java-version: 8
       - name: Execute build
         working-directory: processor
         run: |

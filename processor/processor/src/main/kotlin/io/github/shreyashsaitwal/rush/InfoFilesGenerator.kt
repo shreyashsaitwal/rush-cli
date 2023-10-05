@@ -142,15 +142,10 @@ class InfoFilesGenerator(private val extensions: List<Ext>) {
         val builder = DocumentBuilderFactory.newInstance().newDocumentBuilder()
         val doc = builder.parse(manifest)
 
-        // Put children of <application> element
+        // Children of <application> element
         val appElements = applicationElementsXmlString(doc).filter { it.isNotBlank() }
-        // We put all the elements under the activities tag. This lets us use the tags which aren't
-        // yet added to AI2 and don't have a dedicated key in the build info JSON file.
-        // The reason why this works is that AI compiler doesn't perform any checks on these
-        // manifest arrays in the build info file, and just adds them to the final manifest file.
-        buildInfoJsonArray.getJSONObject(0).put("activities", appElements)
 
-        // Put <uses-permission> tags
+        // <uses-permission> elements
         val permissionNodes = doc.getElementsByTagName("uses-permission")
         val permissions = JSONArray()
         if (permissionNodes.length > 0) {
@@ -161,9 +156,8 @@ class InfoFilesGenerator(private val extensions: List<Ext>) {
                 }
             }
         }
-        buildInfoJsonArray.getJSONObject(0).put("permissions", permissions)
 
-        // Put <queries> tags.
+        // <queries> elements
         val queriesNodes = doc.getElementsByTagName("queries")
         val queries = JSONArray()
         if (queriesNodes.length > 0) {
@@ -181,7 +175,22 @@ class InfoFilesGenerator(private val extensions: List<Ext>) {
 
             }
         }
-        buildInfoJsonArray.getJSONObject(0).put("queries", queries)
+
+        // TODO: Instead of adding everything to every component, only add the elements that a specific component need.
+        // We might need introducing a new attribute for manifest file that would store the name of the component class
+        // that requires the given element.
+        buildInfoJsonArray.forEach {
+            if (it is JSONObject) {
+                // We put all the elements under the activities tag. This lets us use the tags which aren't
+                // yet added to AI2 and don't have a dedicated key in the build info JSON file.
+                // The reason why this works is that AI compiler doesn't perform any checks on these
+                // manifest arrays in the build info file, and just adds them to the final manifest file.
+                it
+                    .put("activities", appElements)
+                    .put("permissions", permissions)
+                    .put("queries", queries)
+            }
+        }
 
         val buildInfoJsonFile =
             Paths.get(rawBuildDir.toString(), "files", "component_build_infos.json").toFile().apply {
