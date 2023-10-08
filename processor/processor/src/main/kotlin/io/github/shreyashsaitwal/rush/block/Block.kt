@@ -1,7 +1,7 @@
 package io.github.shreyashsaitwal.rush.block
 
 import io.github.shreyashsaitwal.rush.Utils
-import shaded.org.json.JSONObject
+import org.json.JSONObject
 import javax.annotation.processing.Messager
 import javax.lang.model.element.ExecutableElement
 import javax.lang.model.element.Modifier

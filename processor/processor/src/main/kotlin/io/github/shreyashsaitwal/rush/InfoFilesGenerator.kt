@@ -13,9 +13,9 @@ import org.commonmark.parser.Parser
 import org.commonmark.renderer.html.HtmlRenderer
 import org.w3c.dom.*
 import org.xml.sax.SAXException
-import shaded.org.json.JSONArray
-import shaded.org.json.JSONException
-import shaded.org.json.JSONObject
+import org.json.JSONArray
+import org.json.JSONException
+import org.json.JSONObject
 import java.io.FileInputStream
 import java.io.IOException
 import java.nio.file.Paths

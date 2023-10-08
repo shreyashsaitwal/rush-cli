@@ -3,8 +3,7 @@ name: Rush CI
 on:
   push:
   pull_request:
-  # This let's us trigger the workflow manually from GitHub.
-  workflow_dispatch:
+  workflow_dispatch: # This let's us trigger the workflow manually from GitHub.
 
 jobs:
   annotation-processor:

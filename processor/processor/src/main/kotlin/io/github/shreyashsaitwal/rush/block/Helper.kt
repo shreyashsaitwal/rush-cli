@@ -3,8 +3,8 @@ package io.github.shreyashsaitwal.rush.block
 import com.google.appinventor.components.annotations.Asset
 import com.google.appinventor.components.annotations.Options
 import com.google.appinventor.components.common.Default
-import shaded.org.json.JSONArray
-import shaded.org.json.JSONObject
+import org.json.JSONArray
+import org.json.JSONObject
 import java.lang.reflect.Method
 import java.net.URLClassLoader
 import java.nio.file.Paths

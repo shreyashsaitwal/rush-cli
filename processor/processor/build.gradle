@@ -32,8 +32,8 @@ dependencies {
 
     implementation 'com.charleskorn.kaml:kaml-jvm:0.50.0'
     implementation 'org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.4.1'
+    implementation("org.json:json:20230618")
 
-    implementation files('libs/shaded-json.jar')
     implementation project(':annotations')
 }
 
