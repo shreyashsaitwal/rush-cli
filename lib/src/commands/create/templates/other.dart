@@ -56,10 +56,14 @@ ${enableKt ? '- $kotlinGroupId:kotlin-stdlib:$defaultKtVersion\n' : ''}# - examp
 
 String pgRules(String org) {
   return '''
-# Prevents extension classes (annotated with `@Extension`) from being removed, 
-# renamed or repackged.
+# Prevents extension classes (annotated with `@Extension`) from being removed, renamed or repackged.
 -keep @com.google.appinventor.components.annotations.Extension public class * {
-    public *;
+  public *;
+}
+
+# Prevents helper classes from being removed, renamed or repackaged
+-keepnames class * implements com.google.appinventor.components.common.OptionList {
+  *;
 }
 
 # ProGuard sometimes (randomly) renames references to the following classes in 
