@@ -107,7 +107,7 @@ class Logger {
     }
 
     final time = (_taskStopwatch.elapsedMilliseconds / 1000).toStringAsFixed(2);
-    String line = (success ? '✔'.green() : '🗙'.red()) +
+    String line = (success ? '✓'.green() : '×'.red()) +
         ' ' * 4 +
         '... (${time}s)'.brightBlack();
     if (_hasTaskLogged) {

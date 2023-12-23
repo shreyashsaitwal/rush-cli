@@ -93,7 +93,7 @@ class CreateCommand extends Command<int> {
     ).interact();
 
     final processing = Spinner(
-        icon: '\n✔ '.green(),
+        icon: '\n✓ '.green(),
         rightPrompt: (done) => !done
             ? 'Getting things ready...'
             : '''
