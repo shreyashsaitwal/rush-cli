@@ -72,9 +72,10 @@ class ExtensionProcessor : AbstractProcessor() {
             .filter { it.getAnnotation(SimpleFunction::class.java) != null }
             .map { Function(it as ExecutableElement, messager, elementUtils) }
 
+        val processedProperties = mutableListOf<Property>()
         val properties = element.enclosedElements
             .filter { it.getAnnotation(SimpleProperty::class.java) != null }
-            .map { Property(it as ExecutableElement, messager, elementUtils) }
+            .map { Property(it as ExecutableElement, messager, elementUtils, processedProperties) }
 
         val designerProperties = element.enclosedElements
             .filter { it.getAnnotation(DesignerPropertyAnnotation::class.java) != null }

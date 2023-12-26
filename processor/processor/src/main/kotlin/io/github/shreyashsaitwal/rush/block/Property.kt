@@ -18,12 +18,11 @@ private enum class PropertyAccessType(val value: String) {
     INVISIBLE("invisible");
 }
 
-private val processedProperties = mutableListOf<Property>()
-
 class Property(
     element: ExecutableElement,
     messager: Messager,
     elementUtils: Elements,
+    private val processedProperties: MutableList<Property>
 ) : Block(element, messager, elementUtils) {
 
     private val accessType: PropertyAccessType
