@@ -46,11 +46,6 @@ ${enableKt ? '- $kotlinGroupId:kotlin-stdlib:$defaultKtVersion\n' : ''}# - examp
 # Path to the license file of your extension. This should be a path to a local
 # file or link to something hosted online.
 # license: LICENSE.txt
-
-# Similar to dependencies, except libraries defined as comptime (compile-time)
-# are only available during compilation and not included in the resulting AIX.
-# comptime_dependencies:
-# - com.example:foo-bar:1.2.3
 ''';
 }
 

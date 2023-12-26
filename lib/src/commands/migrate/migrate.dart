@@ -36,18 +36,20 @@ class MigrateCommand extends Command<int> {
       return 1;
     }
 
-    final comptimeDeps = _fs.localDepsDir
-        .listSync()
-        .map((el) => p.basename(el.path))
-        .where((el) => !(oldConfig.deps?.contains(el) ?? true));
+    // TODO
+    // final comptimeDeps = _fs.localDepsDir
+    //     .listSync()
+    //     .map((el) => p.basename(el.path))
+    //     .where((el) => !(oldConfig.deps?.contains(el) ?? true));
 
     final newConfig = Config(
       version: oldConfig.version.name.toString(),
       minSdk: oldConfig.minSdk ?? 7,
       assets: oldConfig.assets.other ?? [],
       desugar: oldConfig.build?.desugar?.enable ?? false,
-      runtimeDeps: oldConfig.deps ?? [],
-      comptimeDeps: comptimeDeps.toList(),
+      dependencies: oldConfig.deps ?? [],
+      // TODO
+      // comptimeDeps: comptimeDeps.toList(),
       license: oldConfig.license ?? '',
       homepage: oldConfig.homepage ?? '',
       kotlin: Kotlin(
@@ -184,29 +186,30 @@ kotlin:
 ''';
     }
 
-    if (config.runtimeDeps.isNotEmpty || enableKotlin) {
+    if (config.dependencies.isNotEmpty || enableKotlin) {
       contents += '''
 # External libraries your extension depends on. These can be local JARs / AARs
 # stored in the "deps" directory or coordinates of remote Maven artifacts in
 # <groupId>:<artifactId>:<version> format. 
 dependencies:
-${enableKotlin ? 'org.jetbrains.kotlin:kotlin-stdlib:${config.kotlin.compilerVersion}\n' : ''}${config.runtimeDeps.map((el) {
-  if (el != '.placeholder') return '- $el';
-}).join('\n')}
+${enableKotlin ? 'org.jetbrains.kotlin:kotlin-stdlib:${config.kotlin.compilerVersion}\n' : ''}${config.dependencies.map((el) {
+        if (el != '.placeholder') return '- $el';
+      }).join('\n')}
 
 ''';
     }
 
-    if (config.comptimeDeps.isNotEmpty) {
-      contents += '''
-# Similar to dependencies, except libraries defined as comptime (compile-time)
-# are only available during compilation and not included in the resulting AIX.
-comptime_dependencies:
-${config.comptimeDeps.map((el) {
-  if (el != '.placeholder') return '- $el';
-}).join('\n')}
-''';
-    }
+    // TODO
+//     if (config.comptimeDeps.isNotEmpty) {
+//       contents += '''
+// # Similar to dependencies, except libraries defined as comptime (compile-time)
+// # are only available during compilation and not included in the resulting AIX.
+// comptime_dependencies:
+// ${config.comptimeDeps.map((el) {
+//   if (el != '.placeholder') return '- $el';
+// }).join('\n')}
+// ''';
+//     }
 
     _fs.configFile.writeAsStringSync(contents);
   }

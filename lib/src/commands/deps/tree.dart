@@ -34,33 +34,34 @@ class TreeSubCommand extends Command<int> {
     final remoteExtDepIndex =
         await libService.extensionDependencies(config, includeLocal: false);
     final requiredRemoteDeps = remoteExtDepIndex
-        .where((el) =>
-            config.runtimeDeps.contains(el.coordinate) ||
-            config.comptimeDeps.contains(el.coordinate))
+        .where((el) => config.dependencies.contains(el.coordinate)
+            // TODO
+            // || config.comptimeDeps.contains(el.coordinate)
+            )
         .toList(growable: true);
 
     _lgr.log(p.basename(_fs.cwd).cyan().bold());
 
     // Print local deps first
-    final runtimeLocal = _localDepGraph(
-      config.runtimeDeps.where(
+    final local = _localDepGraph(
+      config.dependencies.where(
           (el) => p.extension(el) == '.jar' || p.extension(el) == '.aar'),
-      false,
       remoteExtDepIndex.isEmpty,
     );
-    if (runtimeLocal.isNotEmpty) {
-      _lgr.log(runtimeLocal);
+    if (local.isNotEmpty) {
+      _lgr.log(local);
     }
 
-    final comptimeLocal = _localDepGraph(
-      config.comptimeDeps.where(
-          (el) => p.extension(el) == '.jar' || p.extension(el) == '.aar'),
-      true,
-      remoteExtDepIndex.isEmpty,
-    );
-    if (comptimeLocal.isNotEmpty) {
-      _lgr.log(comptimeLocal);
-    }
+    // TODO
+    // final comptimeLocal = _localDepGraph(
+    //   config.comptimeDeps.where(
+    //       (el) => p.extension(el) == '.jar' || p.extension(el) == '.aar'),
+    //   true,
+    //   remoteExtDepIndex.isEmpty,
+    // );
+    // if (comptimeLocal.isNotEmpty) {
+    //   _lgr.log(comptimeLocal);
+    // }
 
     final remoteDepsGraph = <String>{
       for (final dep in requiredRemoteDeps)
@@ -76,18 +77,13 @@ class TreeSubCommand extends Command<int> {
     return 0;
   }
 
-  String _localDepGraph(
-      Iterable<String> deps, bool isComptime, bool noRemoteDeps) {
+  String _localDepGraph(Iterable<String> deps, bool noRemoteDeps) {
     final graph = <String>[];
     for (final dep in deps) {
       final isLast = dep == deps.last && noRemoteDeps;
       var branch = isLast ? Connector.lastSibling : Connector.sibling;
       branch += Connector.horizontal * (_branchGap + 1) + Connector.empty;
-      if (isComptime) {
-        branch += dep.blue() + ' (comptime, local)'.grey();
-      } else {
-        branch += dep.green() + ' (runtime, local)'.grey();
-      }
+      branch += dep.blue() + ' (compile, local)'.grey();
       graph.add(branch);
     }
     return graph.join('\n');
@@ -130,7 +126,7 @@ class TreeSubCommand extends Command<int> {
           artifact.artifactId.blue() +
           ':'.grey() +
           artifact.version.toString().blue() +
-          ' (comptime)'.grey();
+          ' (compile)'.grey();
     }
 
     if (isPrinted && hasDeps) {

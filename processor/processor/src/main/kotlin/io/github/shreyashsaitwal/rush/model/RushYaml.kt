@@ -18,7 +18,7 @@ data class RushYaml(
     val kotlin: Kotlin = Kotlin(),
 
     @SerialName("dependencies") val runtimeDeps: List<String> = listOf(),
-    @SerialName("comptime_dependencies") val compileDeps: List<String> = listOf(),
+    // TODO @SerialName("comptime_dependencies") val compileDeps: List<String> = listOf(),
 )
 
 @Serializable

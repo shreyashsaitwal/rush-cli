@@ -84,7 +84,7 @@ class LibService {
       'physicaloid-library.jar',
     ].map((el) => Artifact(
           coordinate: el,
-          scope: Scope.compile,
+          scope: Scope.provided,
           artifactFile: p.join(_fs.libsDir.path, el),
           packaging: 'jar',
           dependencies: [],
@@ -113,50 +113,30 @@ class LibService {
 
   Future<List<Artifact>> extensionDependencies(
     Config config, {
-    bool includeProvided = false,
+    bool includeProvidedDeps = false,
     bool includeLocal = true,
   }) async {
     final allExtRemoteDeps = await _retrieveArtifactsFromBox(extensionDepsBox);
 
-    final directRemoteDeps = [
-      ...config.comptimeDeps.map((el) {
-        return allExtRemoteDeps.firstWhereOrNull(
-            (dep) => dep.coordinate == el && dep.scope == Scope.compile);
-      }),
-      ...config.runtimeDeps.map((el) {
-        return allExtRemoteDeps.firstWhereOrNull(
-            (dep) => dep.coordinate == el && dep.scope == Scope.runtime);
-      }),
-    ].whereNotNull();
+    final directRemoteDeps = config.dependencies
+        .map((el) =>
+            allExtRemoteDeps.firstWhereOrNull((dep) => dep.coordinate == el))
+        .whereNotNull();
     final requiredRemoteDeps =
         _requiredDeps(allExtRemoteDeps, directRemoteDeps);
 
-    final localDeps = [
-      ...config.comptimeDeps
-          .where((el) => el.endsWith('.jar') || el.endsWith('.aar'))
-          .map((el) {
-        return Artifact(
-          scope: Scope.compile,
-          coordinate: el,
-          artifactFile: p.join(_fs.localDepsDir.path, el),
-          packaging: p.extension(el).substring(1),
-          dependencies: [],
-          sourcesJar: null,
-        );
-      }),
-      ...config.runtimeDeps
-          .where((el) => el.endsWith('.jar') || el.endsWith('.aar'))
-          .map((el) {
-        return Artifact(
-          scope: Scope.runtime,
-          coordinate: el,
-          artifactFile: p.join(_fs.localDepsDir.path, el),
-          packaging: p.extension(el).substring(1),
-          dependencies: [],
-          sourcesJar: null,
-        );
-      }),
-    ];
+    final localDeps = config.dependencies
+        .where((el) => el.endsWith('.jar') || el.endsWith('.aar'))
+        .map((el) {
+      return Artifact(
+        scope: Scope.compile,
+        coordinate: el,
+        artifactFile: p.join(_fs.localDepsDir.path, el),
+        packaging: p.extension(el).substring(1),
+        dependencies: [],
+        sourcesJar: null,
+      );
+    });
     await BuildUtils.extractAars(localDeps
         .where((el) => el.packaging == 'aar')
         .map((el) => el.artifactFile));
@@ -164,7 +144,7 @@ class LibService {
     return [
       ...requiredRemoteDeps,
       if (includeLocal) ...localDeps,
-      if (includeProvided) ...await providedDependencies(),
+      if (includeProvidedDeps) ...await providedDependencies(),
     ];
   }
 
@@ -188,27 +168,29 @@ class LibService {
   Future<String> r8Jar() async =>
       (await _findArtifact(buildLibsBox, r8Coord)).classesJar;
 
-  Future<Iterable<String>> pgJars() async =>
+  Future<Set<String>> pgJars() async =>
       (await _findArtifact(buildLibsBox, pgCoord))
           .classpathJars(await buildLibArtifacts());
 
   Future<String> desugarJar() async =>
       (await _findArtifact(buildLibsBox, desugarCoord)).classesJar;
 
-  Future<Iterable<String>> manifMergerJars() async => [
+  Future<Set<String>> manifMergerJars() async => [
         for (final lib in manifMergerAndDeps)
           (await _findArtifact(buildLibsBox, lib))
               .classpathJars(await buildLibArtifacts())
-      ].flattened;
+      ].flattened.toSet();
 
-  Future<Iterable<String>> kotlincJars(String ktVersion) async =>
-      (await _findArtifact(buildLibsBox,
-              '$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion'))
+  Future<Set<String>> kotlincJars(String ktVersion) async =>
+      (await _findArtifact(
+        buildLibsBox,
+        '$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
+      ))
           .classpathJars(await buildLibArtifacts());
 
-  Future<
-      Iterable<String>> kaptJars(String ktVersion) async => (await _findArtifact(
-          buildLibsBox,
-          '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion'))
-      .classpathJars(await buildLibArtifacts());
+  Future<Set<String>> kaptJars(String ktVersion) async => (await _findArtifact(
+        buildLibsBox,
+        '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
+      ))
+          .classpathJars(await buildLibArtifacts());
 }

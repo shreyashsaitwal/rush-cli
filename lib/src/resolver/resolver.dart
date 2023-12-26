@@ -161,10 +161,7 @@ class ArtifactResolver {
   /// For details on how this (roughly) works:
   /// https://maven.apache.org/guides/introduction/introduction-to-the-pom.html#project-interpolation-and-variables
   Version _resolveCoordVersion(
-    String coordinate,
-    Pom dependentPom,
-    Iterable<Pom> dependentPomsParentPoms,
-  ) {
+      String coordinate, Pom dependentPom, List<Pom> parentsOfDepPom) {
     final metadata = ArtifactMetadata(coordinate);
     var version = metadata.version == 'null' ? null : metadata.version;
     final error =
@@ -191,10 +188,10 @@ class ArtifactResolver {
       },
       // If not found, check in the all parent POM's dependencyManagement section.
       orElse: () {
-        if (dependentPomsParentPoms.isEmpty) {
+        if (parentsOfDepPom.isEmpty) {
           throw Exception(error);
         }
-        return dependentPomsParentPoms
+        return parentsOfDepPom
             .map((el) => el.dependencyManagement)
             .flattened
             .firstWhere(
@@ -211,7 +208,7 @@ class ArtifactResolver {
       },
     ).version!;
 
-    // The below implementation of varible interpolation isn't (probably?) the
+    // The below implementation of variable interpolation isn't (probably?) the
     // most correct way to do this, but (I think) should work most of the times.
     // Quote from Maven documentation:
     // "One factor to note is that these variables are processed after inheritance
@@ -233,7 +230,7 @@ class ArtifactResolver {
 
       // When the variable is a POM property.
       final properties = dependentPom.properties;
-      for (final el in dependentPomsParentPoms) {
+      for (final el in parentsOfDepPom) {
         properties.addAll(el.properties);
       }
 
@@ -248,7 +245,7 @@ class ArtifactResolver {
     return Version.from(version);
   }
 
-  Future<Iterable<Pom>> _resolvePomAndParents(String? coordinate) async {
+  Future<List<Pom>> _resolvePomAndParents(String? coordinate) async {
     if (coordinate == null) {
       return const [];
     }
@@ -276,13 +273,13 @@ class ArtifactResolver {
     final imports = List.of(pom.dependencyManagement
         .whereNot((el) => el.coordinate.contains('+'))
         .where((el) => el.scope == Scope.import.name));
-    await Future.wait(imports.map((i) async {
-      i.version =
-          _resolveCoordVersion(i.coordinate, pom, parentPoms).toString();
-      final impPoms = await _resolvePomAndParents(i.coordinate);
+    await Future.wait(imports.map((el) async {
+      el.version =
+          _resolveCoordVersion(el.coordinate, pom, parentPoms).toString();
+      final impPoms = await _resolvePomAndParents(el.coordinate);
       final impDeps = impPoms.map((e) => e.dependencyManagement).flattened;
       pom.dependencyManagement
-        ..remove(i)
+        ..remove(el)
         ..addAll(impDeps);
     }));
 
@@ -325,7 +322,7 @@ class ArtifactResolver {
     }
     final poms = await _resolvePomAndParents(coordinate);
     final pom = poms.first;
-    final parentPoms = poms.skip(1);
+    final parentPoms = poms.skip(1).toList();
 
     // Resolve the transitive parents.
     if (pom.parent != null) {
@@ -345,21 +342,24 @@ class ArtifactResolver {
         // transitive dependency, that use this. Ideally, we should handle this,
         // but for now, we just ignore these dependencies.
         // Related issue: https://github.com/gradle/gradle/issues/1232
-        .whereNot((dep) => dep.coordinate.contains('+'))
+        .whereNot((dep) {
+          // TODO: Log this
+          return dep.coordinate.contains('+');
+        })
         .whereNot((dep) => dep.optional ?? false)
         .where((dep) {
-      if (scope == Scope.compile) {
-        return dep.scope == Scope.compile.name;
-      } else if (scope == Scope.runtime) {
-        return dep.scope == Scope.runtime.name ||
-            dep.scope == Scope.compile.name;
-      }
-      return false;
-    });
+          if (scope == Scope.compile || scope == Scope.runtime) {
+            return dep.scope == Scope.compile.name ||
+                dep.scope == Scope.runtime.name;
+          }
+          return false;
+        });
 
     final resolvedDeps = await Future.wait(
       deps.map((dep) {
         final projectField = ['project.groupId', 'pom.groupId', '.groupId'];
+        // If group id is in variable form (e.g. ${project.groupId}), then
+        // interpolate it.
         if (projectField
             .contains(dep.groupId.substring(2, dep.groupId.length - 1))) {
           dep.groupId = pom.groupId!;

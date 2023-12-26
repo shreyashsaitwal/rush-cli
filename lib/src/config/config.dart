@@ -6,6 +6,7 @@ import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/utils/constants.dart';
 
 part 'android.dart';
+
 part 'kotlin.dart';
 
 part 'config.g.dart';
@@ -20,11 +21,11 @@ class Config {
   @JsonKey(required: true)
   final String version;
 
-  @JsonKey(name: 'dependencies', disallowNullValue: true)
-  final List<String> runtimeDeps;
+  @JsonKey(disallowNullValue: true)
+  final List<String> dependencies;
 
-  @JsonKey(name: 'comptime_dependencies', disallowNullValue: true)
-  final List<String> comptimeDeps;
+  // @JsonKey(name: 'comptime_dependencies', disallowNullValue: true)
+  // final List<String> comptimeDeps;
 
   @JsonKey(name: 'min_sdk', disallowNullValue: true)
   final int minSdk;
@@ -58,8 +59,8 @@ class Config {
     this.desugar = false,
     this.assets = const [],
     this.authors = const [],
-    this.runtimeDeps = const [],
-    this.comptimeDeps = const [],
+    this.dependencies = const [],
+    // this.comptimeDeps = const [],
     this.repositories = const [],
     this.kotlin = const Kotlin(compilerVersion: defaultKtVersion),
   });

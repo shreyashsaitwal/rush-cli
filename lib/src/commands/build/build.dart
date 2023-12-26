@@ -61,23 +61,20 @@ class BuildCommand extends Command<int> {
 
     final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
 
-    if (await SyncSubCommand.extensionDepsNeedSync(
-        timestampBox, await _libService.extensionDependencies(config))) {
-      final remoteDeps = {
-        Scope.runtime: config.runtimeDeps
-            .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
-        Scope.compile: config.comptimeDeps
-            .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar')),
-      };
+    final needSync = await SyncSubCommand.extensionDepsNeedSync(
+        timestampBox, await _libService.extensionDependencies(config));
+    if (needSync) {
+      final dependencies = config.dependencies
+          .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar'));
 
       try {
         await SyncSubCommand().sync(
           cacheBox: _libService.extensionDepsBox,
-          coordinates: remoteDeps,
+          coordinates: {Scope.compile: dependencies},
           providedArtifacts: await _libService.providedDependencies(),
           repositories: config.repositories,
           downloadSources: true,
-          removeProvided: true,
+          includeAiProvided: false,
         );
         await timestampBox.put(configTimestampKey, DateTime.now());
       } catch (e, s) {
@@ -93,12 +90,6 @@ class BuildCommand extends Command<int> {
         config,
         timestampBox,
       );
-    } catch (e, s) {
-      _catchAndStop(e, s);
-      return 1;
-    }
-
-    try {
       await _compile(config, timestampBox);
     } catch (e, s) {
       _catchAndStop(e, s);
@@ -147,15 +138,12 @@ class BuildCommand extends Command<int> {
       _lgr.startTask('Optimizing and obfuscating the bytecode');
 
       final deps = await _libService.extensionDependencies(config,
-          includeProvided: true);
+          includeProvidedDeps: true);
+      final aars = deps.where((el) => el.packaging == 'aar');
 
-      // This also includes transitive comptime deps of runtime deps
-      final comptimeDeps = deps.where((el) => el.scope == Scope.compile);
-      final comptimeAars = comptimeDeps.where((el) => el.packaging == 'aar');
-
-      final proguardRules = comptimeAars
-          .map((el) =>
-              BuildUtils.resourceFromExtractedAar(el.artifactFile, 'proguard.txt'))
+      final proguardRules = aars
+          .map((el) => BuildUtils.resourceFromExtractedAar(
+              el.artifactFile, 'proguard.txt'))
           .where((el) => el.existsSync())
           .map((el) => el.path);
 
@@ -216,12 +204,14 @@ class BuildCommand extends Command<int> {
     LazyBox<DateTime> timestampBox,
   ) async {
     final deps = await _libService.extensionDependencies(config);
-    final runtimeAars =
-        deps.where((el) => el.scope == Scope.runtime && el.packaging == 'aar');
+    final requiredAars = deps.where((el) =>
+        el.scope == Scope.runtime &&
+        el.scope == Scope.compile &&
+        el.packaging == 'aar');
 
-    final manifests = runtimeAars
-        .map((el) =>
-            BuildUtils.resourceFromExtractedAar(el.artifactFile, 'AndroidManifest.xml'))
+    final manifests = requiredAars
+        .map((el) => BuildUtils.resourceFromExtractedAar(
+            el.artifactFile, 'AndroidManifest.xml'))
         .where((el) => el.existsSync())
         .map((el) => el.path);
 
@@ -254,10 +244,7 @@ class BuildCommand extends Command<int> {
   }
 
   /// Compiles extension's source files.
-  Future<void> _compile(
-    Config config,
-    LazyBox<DateTime> timestampBox,
-  ) async {
+  Future<void> _compile(Config config, LazyBox<DateTime> timestampBox) async {
     final srcFiles =
         _fs.srcDir.path.asDir().listSync(recursive: true).whereType<File>();
     final javaFiles = srcFiles
@@ -270,9 +257,10 @@ class BuildCommand extends Command<int> {
     final fileCount = javaFiles.length + ktFiles.length;
     _lgr.info('Picked $fileCount source file${fileCount > 1 ? 's' : ''}');
 
-    final dependencies =
-        await _libService.extensionDependencies(config, includeProvided: true);
-    final classpathJars = dependencies
+    final dependencies = await _libService.extensionDependencies(config,
+        includeProvidedDeps: true);
+    final compileClasspathJars = dependencies
+        .where((el) => el.scope == Scope.compile || el.scope == Scope.provided)
         .map((el) => el.classpathJars(dependencies))
         .flattened
         .toSet();
@@ -280,12 +268,12 @@ class BuildCommand extends Command<int> {
     try {
       if (ktFiles.isNotEmpty) {
         await Compiler.compileKtFiles(
-            classpathJars, config.kotlin.compilerVersion, timestampBox);
+            compileClasspathJars, config.kotlin.compilerVersion, timestampBox);
       }
 
       if (javaFiles.isNotEmpty) {
         await Compiler.compileJavaFiles(
-            classpathJars, config.desugar, timestampBox);
+            compileClasspathJars, config.desugar, timestampBox);
       }
     } catch (e, s) {
       _lgr
@@ -301,15 +289,17 @@ class BuildCommand extends Command<int> {
     final zipEncoder = ZipFileEncoder()..create(artJarPath);
 
     final deps = await _libService.extensionDependencies(config);
-    final runtimeDeps = deps.where((el) => el.scope == Scope.runtime);
-    final runtimeJars = runtimeDeps.map((el) => el.classesJar).whereNotNull();
+    final requiredDeps = deps
+        .where((el) => el.scope == Scope.compile || el.scope == Scope.runtime);
+    final requiredJars =
+        requiredDeps.map((el) => el.classesJar).whereNotNull().toSet();
 
-    // Add class files from all required runtime deps into the ART.jar
-    if (runtimeJars.isNotEmpty) {
+    // Add class files from all required deps into the ART.jar
+    if (requiredJars.isNotEmpty) {
       _lgr.info('Merging dependencies into a single JAR...');
 
       final addedPaths = <String>{};
-      for (final jarPath in runtimeJars) {
+      for (final jarPath in requiredJars) {
         final jar = jarPath.asFile();
         if (!await jar.exists()) {
           _lgr.err('Unable to find required JAR: $jarPath');

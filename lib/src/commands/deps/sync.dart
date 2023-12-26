@@ -126,13 +126,13 @@ class SyncSubCommand extends Command<int> {
         await Future.wait([
           sync(
             cacheBox: libService.providedDepsBox,
-            coordinates: {Scope.runtime: providedDepsToFetch},
+            coordinates: {Scope.compile: providedDepsToFetch},
             downloadSources: true,
             excludeCoordinates: ['com.google.android:android:2.1.2'],
           ),
           sync(
             cacheBox: libService.buildLibsBox,
-            coordinates: {Scope.runtime: toolsToFetch},
+            coordinates: {Scope.compile: toolsToFetch},
           ),
         ]);
       } catch (_) {
@@ -183,29 +183,24 @@ class SyncSubCommand extends Command<int> {
     if (useForce || (!onlyDevDeps && needSync)) {
       _lgr.startTask('Syncing project dependencies');
 
-      final extDepCoords = {
-        Scope.runtime: config.runtimeDeps
-            .where((el) => !el.endsWith('.jar') && !el.endsWith('.aar')),
-        Scope.compile: config.comptimeDeps
-            .where((el) => !el.endsWith('.jar') && !el.endsWith('.aar')),
-      };
+      final extDepCoords = config.dependencies
+          .where((el) => !el.endsWith('.jar') && !el.endsWith('.aar'));
 
       try {
         await sync(
           cacheBox: libService.extensionDepsBox,
-          coordinates: extDepCoords,
+          coordinates: {Scope.compile: extDepCoords},
           repositories: config.repositories,
           providedArtifacts: providedDepArtifacts,
           downloadSources: true,
-          removeProvided: true,
+          includeAiProvided: false,
         );
         await timestampBox.put(configTimestampKey, DateTime.now());
       } catch (_) {
         _lgr.stopTask(false);
         return 1;
       }
-      await _removeRogueDeps(
-          extDepCoords.values.flattened, libService.extensionDepsBox);
+      await _removeRogueDeps(extDepCoords, libService.extensionDepsBox);
       _lgr.stopTask();
     } else if (!onlyDevDeps) {
       _lgr
@@ -292,7 +287,7 @@ class SyncSubCommand extends Command<int> {
     Iterable<String> repositories = const [],
     Iterable<Artifact> providedArtifacts = const [],
     bool downloadSources = false,
-    bool removeProvided = false,
+    bool includeAiProvided = true,
     List<String> excludeCoordinates = const [],
   }) async {
     _lgr.info('Resolving ${coordinates.values.flattened.length} artifacts...');
@@ -320,7 +315,7 @@ class SyncSubCommand extends Command<int> {
         {for (final entry in coordinates.entries) entry.value}.flattened;
 
     try {
-      // Resolve version comflicts
+      // Resolve version conflicts
       _lgr.info('Resolving version conflicts...');
       resolvedDeps =
           (await _resolveVersionConflicts(resolvedDeps, directDeps, resolver))
@@ -330,9 +325,9 @@ class SyncSubCommand extends Command<int> {
       rethrow;
     }
 
-    // When resolving extension deps, remove provided deps from dependencies
+    // When resolving extension deps, remove AI2 provided deps from dependencies
     // field and add them to the providedDependencies field of each artifact.
-    if (removeProvided) {
+    if (!includeAiProvided) {
       final providedDeps = <String>{};
       resolvedDeps.removeWhere((el) {
         final provided = _providedAlternative(
@@ -408,9 +403,9 @@ class SyncSubCommand extends Command<int> {
       final rangedVersionDeps =
           entry.value.where((el) => el.version.range != null).toSet();
 
-      final updatedScope = entry.value.any((el) => el.scope == Scope.runtime)
-          ? Scope.runtime
-          : Scope.compile;
+      final updatedScope = entry.value.any((el) => el.scope == Scope.compile)
+          ? Scope.compile
+          : Scope.runtime;
 
       if (rangedVersionDeps.isNotEmpty) {
         _lgr.dbg('Total ranged: ${rangedVersionDeps.length}');
@@ -606,7 +601,8 @@ class SyncSubCommand extends Command<int> {
       ...providedDeps.map((el) => el.sourcesJar).whereNotNull(),
       ...extensionDeps.map((el) => el.sourcesJar).whereNotNull(),
     ];
-    await dotClasspathFile.writeAsString(dotClasspath(classesJars, sourcesJars));
+    await dotClasspathFile
+        .writeAsString(dotClasspath(classesJars, sourcesJars));
   }
 
   Future<void> _updateIntellijLibIndex(

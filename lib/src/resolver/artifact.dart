@@ -20,13 +20,13 @@ enum Scope {
   // We don't handle dependencies with the following scopes.
   @HiveField(2)
   provided('provided'),
-  
+
   @HiveField(3)
   test('test'),
-  
+
   @HiveField(4)
   system('system'),
-  
+
   @HiveField(5)
   import('import');
 

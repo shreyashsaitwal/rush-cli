@@ -2,7 +2,6 @@ import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 import 'package:rush_cli/src/config/config.dart';
-import 'package:rush_cli/src/resolver/artifact.dart';
 
 import 'package:rush_cli/src/services/file_service.dart';
 import 'package:rush_cli/src/commands/build/utils.dart';
@@ -14,7 +13,7 @@ import 'package:rush_cli/src/utils/process_runner.dart';
 class Executor {
   static final _fs = GetIt.I<FileService>();
   static final _libService = GetIt.I<LibService>();
-  static final processRunner = ProcessRunner();
+  static final _processRunner = ProcessRunner();
 
   static Future<void> execD8(String artJarPath) async {
     final args = <String>[
@@ -32,7 +31,7 @@ class Executor {
     ];
 
     try {
-      await processRunner.runExecutable(BuildUtils.javaExe(),
+      await _processRunner.runExecutable(BuildUtils.javaExe(),
           args.map((el) => el.replaceAll('\\', '/')).toList());
     } catch (e) {
       rethrow;
@@ -50,15 +49,11 @@ class Executor {
 
     final pgJars = await _libService.pgJars();
 
+    // Take only provided deps since compile and runtime scoped deps have already
+    // been added to the art jar
     final providedDeps = await _libService.providedDependencies();
-    // Take only comptime extension dependencies because the runtime deps would
-    // have already been added to the AndroidRuntime.jar
-    final extDeps = await _libService.extensionDependencies(config);
-    final comptimeExtDeps = extDeps.where((el) => el.scope == Scope.compile);
-
-    final requiredDeps = [...providedDeps, ...comptimeExtDeps];
-    final libraryJars = requiredDeps
-        .map((e) => e.classpathJars(requiredDeps))
+    final libraryJars = providedDeps
+        .map((el) => el.classpathJars(providedDeps))
         .flattened
         .toSet();
 
@@ -73,7 +68,7 @@ class Executor {
     ];
 
     try {
-      await processRunner.runExecutable(BuildUtils.javaExe(),
+      await _processRunner.runExecutable(BuildUtils.javaExe(),
           args.map((el) => el.replaceAll('\\', '/')).toList());
     } catch (e) {
       rethrow;
@@ -86,7 +81,7 @@ class Executor {
   static Future<void> execManifMerger(
     int minSdk,
     String mainManifest,
-    Set<String> manifests,
+    Set<String> depManifests,
   ) async {
     final classpath = <String>[
       ...await _libService.manifMergerJars(),
@@ -98,24 +93,21 @@ class Executor {
       ...['-cp', classpath],
       'com.android.manifmerger.Merger',
       ...['--main', mainManifest],
-      ...['--libs', manifests.join(BuildUtils.cpSeparator)],
+      ...['--libs', depManifests.join(BuildUtils.cpSeparator)],
       ...['--property', 'MIN_SDK_VERSION=${minSdk.toString()}'],
       ...['--out', output],
       ...['--log', 'INFO'],
     ];
 
     try {
-      await processRunner.runExecutable(BuildUtils.javaExe(),
+      await _processRunner.runExecutable(BuildUtils.javaExe(),
           args.map((el) => el.replaceAll('\\', '/')).toList());
     } catch (e) {
       rethrow;
     }
   }
 
-  static Future<void> execDesugarer(
-    String artJarPath,
-    Config config,
-  ) async {
+  static Future<void> execDesugarer(String artJarPath, Config config) async {
     final outputJar = p
         .join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.dsgr.jar')
         .asFile();
@@ -129,10 +121,9 @@ class Executor {
       return p.join(javaHome, 'jmods', 'java.base.jmod').asFile();
     }();
 
-    final dependencies =
-        await _libService.extensionDependencies(config, includeProvided: true);
-    final classpathJars = dependencies
-        .map((el) => el.classpathJars(dependencies))
+    final providedDeps = await _libService.providedDependencies();
+    final classpathJars = providedDeps
+        .map((el) => el.classpathJars(providedDeps))
         .flattened
         .toSet();
 
@@ -159,7 +150,7 @@ class Executor {
     ];
 
     try {
-      await processRunner.runExecutable(BuildUtils.javaExe(), args);
+      await _processRunner.runExecutable(BuildUtils.javaExe(), args);
     } catch (_) {
       rethrow;
     } finally {
