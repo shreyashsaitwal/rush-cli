@@ -85,7 +85,7 @@ class Logger {
     if (_isTaskRunning) {
       prefix = '│ '.brightBlack() + prefix;
     }
-    _console.writeLine(prefix + message);
+    _console.writeLine(prefix + message.trimRight());
   }
 
   void startTask(String title) {

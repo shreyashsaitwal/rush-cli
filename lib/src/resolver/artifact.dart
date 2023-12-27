@@ -238,8 +238,8 @@ class Version implements Comparable<Version> {
   int compareTo(Version other) {
     if (_versionStr == other._versionStr) return 0;
 
-    final minLenght = min(_elements.length, other._elements.length);
-    for (var i = 0; i < minLenght - 1; i++) {
+    final minLength = min(_elements.length, other._elements.length);
+    for (var i = 0; i < minLength - 1; i++) {
       final a = _elements[i];
       final b = other._elements[i];
       if (a != b) {
@@ -247,8 +247,8 @@ class Version implements Comparable<Version> {
       }
     }
 
-    final a = _elements[minLenght - 1];
-    final b = other._elements[minLenght - 1];
+    final a = _elements[minLength - 1];
+    final b = other._elements[minLength - 1];
     if (a != b) {
       return _stringOrNumComparison(a, b);
     }

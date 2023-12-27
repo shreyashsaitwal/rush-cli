@@ -524,7 +524,7 @@ class SyncSubCommand extends Command<int> {
           entry.value.where((el) => el.version.range == null);
       final highestVersionDep = nonRangedVersionDeps
           .sorted((a, b) => a.version.compareTo(b.version))
-          .first;
+          .last;
       _lgr.dbg(
           '${entry.value.length} versions for ${entry.key} found; using ${highestVersionDep.version} because its the highest');
       result.add(highestVersionDep..scope = updatedScope);
