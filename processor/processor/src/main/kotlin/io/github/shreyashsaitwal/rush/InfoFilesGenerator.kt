@@ -22,14 +22,15 @@ import java.nio.file.Paths
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
+import javax.lang.model.util.Elements
+import javax.lang.model.element.Element as JavaElement
 import javax.xml.parsers.DocumentBuilderFactory
 import javax.xml.parsers.ParserConfigurationException
 import kotlin.io.path.createDirectory
 import kotlin.io.path.exists
 
-data class Ext(
-    val name: String,
-    val annotation: Extension,
+data class ExtensionModel(
+    val element: JavaElement,
     val fqcn: String,
     val events: List<Event>,
     val functions: List<Function>,
@@ -37,7 +38,7 @@ data class Ext(
     val designerProperties: List<DesignerProperty>,
 )
 
-class InfoFilesGenerator(private val extensions: List<Ext>) {
+class InfoFilesGenerator(private val extensions: List<ExtensionModel>, private val elementUtils: Elements) {
     private val projectRoot = System.getenv("RUSH_PROJECT_ROOT")
     private val rawBuildDir = Paths.get(projectRoot, ".rush", "build", "raw").apply {
         if (!this.exists()) this.createDirectory()
@@ -63,9 +64,15 @@ class InfoFilesGenerator(private val extensions: List<Ext>) {
                 .put("showOnPalette", "true")
                 .put("nonVisible", "true")
 
+            val extAnnotation = ext.element.getAnnotation(Extension::class.java)
+            val description = extAnnotation.description.let {
+                it.ifBlank {
+                    elementUtils.getDocComment(ext.element) ?: ""
+                }
+            }
             extJsonObj
-                .put("name", ext.name)
-                .put("helpString", parseMdString(ext.annotation.description))
+                .put("name", ext.element.simpleName.toString())
+                .put("helpString", parseMdString(description))
                 .put("type", ext.fqcn)
                 .put("helpUrl", yaml.homepage)
                 .put("licenseName", yaml.license)
@@ -77,7 +84,7 @@ class InfoFilesGenerator(private val extensions: List<Ext>) {
             val urlPattern = Pattern.compile(
                 """https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_+.~#?&//=]*)"""
             )
-            val icon = ext.annotation.icon
+            val icon = extAnnotation.icon
             if (urlPattern.matcher(icon).find()) {
                 extJsonObj.put("iconName", icon)
             } else {

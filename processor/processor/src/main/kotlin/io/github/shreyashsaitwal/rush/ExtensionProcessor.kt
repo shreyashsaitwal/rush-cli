@@ -52,7 +52,7 @@ class ExtensionProcessor : AbstractProcessor() {
         val elements = roundEnv.getElementsAnnotatedWith(Extension::class.java)
         val extensions = elements.map { processExtensionElement(it) }
 
-        val generator = InfoFilesGenerator(extensions)
+        val generator = InfoFilesGenerator(extensions, elementUtils)
         try {
             generator.generateComponentsJson()
             generator.generateBuildInfoJson()
@@ -63,7 +63,7 @@ class ExtensionProcessor : AbstractProcessor() {
         return false
     }
 
-    private fun processExtensionElement(element: Element): Ext {
+    private fun processExtensionElement(element: Element): ExtensionModel {
         val events = element.enclosedElements
             .filter { it.getAnnotation(SimpleEvent::class.java) != null }
             .map { Event(it as ExecutableElement, messager, elementUtils) }
@@ -84,9 +84,8 @@ class ExtensionProcessor : AbstractProcessor() {
         val packageName = elementUtils.getPackageOf(element).qualifiedName.toString()
         val fqcn = "$packageName.${element.simpleName}"
 
-        return Ext(
-            element.simpleName.toString(),
-            element.getAnnotation(Extension::class.java),
+        return ExtensionModel(
+            element,
             fqcn,
             events,
             functions,
