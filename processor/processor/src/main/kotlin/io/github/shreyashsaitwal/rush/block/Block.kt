@@ -49,7 +49,7 @@ abstract class Block(val element: ExecutableElement, val messager: Messager, val
     open fun runChecks() {
         val type = this::class.java.simpleName.toString()
 
-        if (!Utils.isPascalCase(name)) {
+        if (!Utils.isPascalCase(name) && !deprecated) {
             messager.printMessage(
                 Diagnostic.Kind.WARNING,
                 "$type should follow `PascalCase` naming convention.",

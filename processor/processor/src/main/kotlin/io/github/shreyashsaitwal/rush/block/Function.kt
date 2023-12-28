@@ -51,12 +51,12 @@ class Function(
     override fun runChecks() {
         super.runChecks()
 
-        if (description.isBlank()) {
+        if (description.isBlank() && !deprecated) {
             messager.printMessage(Kind.WARNING, "Function has no description.", element)
         }
 
         val continuations = params.filter { it.type == "continuation" }
-        if (continuations.size > 1) {
+        if (continuations.size > 1 && !deprecated) {
             messager.printMessage(
                 Kind.WARNING, "Function should not have more than one continuation parameter.", element
             )
@@ -66,7 +66,7 @@ class Function(
             if (typeArgs.isEmpty()) {
                 messager.printMessage(
                     Kind.ERROR,
-                    "Continuation parameter must be specialized with a type, like `Continuation<Boolean>`.",
+                    "Continuation parameter must be specialized with a type, for e.g. `Continuation<Boolean>`.",
                     element
                 )
             }
