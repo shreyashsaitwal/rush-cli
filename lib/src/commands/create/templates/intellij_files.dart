@@ -68,7 +68,7 @@ $sources
 
 const String ijLocalDepsXml = '''
 <component name="libraryTable">
-    <library name="deps">
+    <library name="local-deps">
         <CLASSES>
             <root url="file://\$PROJECT_DIR\$/deps" />
         </CLASSES>

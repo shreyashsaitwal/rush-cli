@@ -36,7 +36,7 @@ class Property(
     override fun runChecks() {
         super.runChecks()
 
-        if (description.isBlank()) {
+        if (description.isBlank() && !deprecated) {
             messager.printMessage(Kind.WARNING, "Property has no description.", element)
         }
 
