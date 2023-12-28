@@ -5,6 +5,7 @@ import 'package:rush_cli/src/services/file_service.dart';
 import 'package:rush_cli/src/services/logger.dart';
 import 'package:rush_cli/src/services/lib_service.dart';
 import 'package:rush_cli/src/utils/constants.dart';
+import 'package:rush_cli/src/version.dart';
 
 class ProcessRunner {
   final _fs = GetIt.I<FileService>();
@@ -28,6 +29,7 @@ class ProcessRunner {
                 el.coordinate ==
                 'io.github.shreyashsaitwal.rush:runtime:$ai2RuntimeVersion')
             .classesJar,
+        'RUSH_VERSION': packageVersion,
       });
     } catch (e) {
       if (e.toString().contains('The system cannot find the file specified')) {

@@ -123,9 +123,11 @@ class InfoFilesGenerator(private val extensions: List<ExtensionModel>, private v
     fun generateBuildInfoJson() {
         val yaml = metadataFile()
         val buildInfoJsonArray = JSONArray()
+        val rushVersion = System.getenv("RUSH_VERSION")
 
         for (ext in extensions) {
             val extJsonObj = JSONObject()
+                .put("rushVersion", rushVersion)
                 .put("type", ext.fqcn)
                 .put("androidMinSdk", listOf(yaml.minSdk.coerceAtLeast(7)))
 
