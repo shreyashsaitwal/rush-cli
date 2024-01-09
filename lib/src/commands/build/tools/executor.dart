@@ -15,10 +15,11 @@ class Executor {
   static final _libService = GetIt.I<LibService>();
   static final _processRunner = ProcessRunner();
 
-  static Future<void> execD8(String artJarPath) async {
+  static Future<void> execD8(Config config, String artJarPath) async {
     final args = <String>[
       ...['-cp', await _libService.r8Jar()],
       'com.android.tools.r8.D8',
+      ...['--min-api', '${config.minSdk}'],
       ...[
         '--lib',
         p.join(_fs.libsDir.path, 'android-$androidPlatformSdkVersion.jar')
@@ -134,6 +135,7 @@ class Executor {
       ...['--input', '\'$artJarPath\''],
       ...['--output', '\'${outputJar.path}\''],
       ...classpathJars.map((dep) => '--classpath_entry' '\n' '\'$dep\''),
+      ...['--min_sdk_version', '${config.minSdk}'],
     ];
     final argsFile =
         p.join(_fs.buildFilesDir.path, 'desugar.args').asFile(true);
