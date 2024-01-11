@@ -158,7 +158,7 @@ class BuildCommand extends Command<int> {
 
     _lgr.startTask('Generating DEX bytecode');
     try {
-      await Executor.execD8(artJarPath);
+      await Executor.execD8(config, artJarPath);
     } catch (e, s) {
       _catchAndStop(e, s);
       return 1;
