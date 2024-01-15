@@ -12,7 +12,6 @@ import 'package:tint/tint.dart';
 import 'package:rush_cli/src/commands/build/utils.dart';
 import 'package:rush_cli/src/commands/build/tools/compiler.dart';
 import 'package:rush_cli/src/commands/build/tools/executor.dart';
-import 'package:rush_cli/src/commands/deps/sync.dart';
 import 'package:rush_cli/src/config/config.dart';
 import 'package:rush_cli/src/resolver/artifact.dart';
 import 'package:rush_cli/src/services/lib_service.dart';
@@ -58,33 +57,11 @@ class BuildCommand extends Command<int> {
       _lgr.stopTask(false);
       return 1;
     }
-
-    final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
-
-    final needSync = await SyncSubCommand.extensionDepsNeedSync(
-        timestampBox, await _libService.extensionDependencies(config));
-    if (needSync) {
-      final dependencies = config.dependencies
-          .whereNot((el) => el.endsWith('.jar') || el.endsWith('.aar'));
-
-      try {
-        await SyncSubCommand().sync(
-          cacheBox: _libService.extensionDepsBox,
-          coordinates: {Scope.compile: dependencies},
-          providedArtifacts: await _libService.providedDependencies(config),
-          repositories: config.repositories,
-          downloadSources: true,
-        );
-        await timestampBox.put(configTimestampKey, DateTime.now());
-      } catch (e, s) {
-        _catchAndStop(e, s);
-        return 1;
-      }
-    }
     _lgr.stopTask();
 
     _lgr.startTask('Compiling sources');
     try {
+      final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
       await _mergeManifests(
         config,
         timestampBox,
