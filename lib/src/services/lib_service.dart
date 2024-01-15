@@ -41,6 +41,10 @@ class LibService {
     }
   }
 
+  late final LazyBox<Artifact> providedDepsBox;
+  late final LazyBox<Artifact> buildLibsBox;
+  late final LazyBox<Artifact> extensionDepsBox;
+
   static Future<LibService> instantiate() async {
     final instance = LibService._();
     instance.providedDepsBox = await Hive.openLazyBox<Artifact>(
@@ -61,10 +65,6 @@ class LibService {
     return instance;
   }
 
-  late final LazyBox<Artifact> providedDepsBox;
-  late final LazyBox<Artifact> buildLibsBox;
-  late final LazyBox<Artifact> extensionDepsBox;
-
   /// Returns a list of all the artifacts and their dependencies in a box.
   Future<List<Artifact>> _retrieveArtifactsFromBox(
       LazyBox<Artifact> cacheBox) async {
@@ -74,7 +74,7 @@ class LibService {
     return artifacts.whereNotNull().toList();
   }
 
-  Future<List<Artifact>> providedDependencies() async {
+  Future<List<Artifact>> providedDependencies(Config? config) async {
     final local = [
       'android-$androidPlatformSdkVersion.jar',
       'google-webrtc-1.0.19742.jar',
@@ -91,8 +91,30 @@ class LibService {
           sourcesJar: null,
         ));
 
+    final allExtRemoteDeps = await _retrieveArtifactsFromBox(extensionDepsBox);
+    final extProvidedDeps = config?.providedDependencies
+        .map((el) =>
+            allExtRemoteDeps.firstWhereOrNull((dep) => dep.coordinate == el))
+        .whereNotNull();
+    final extLocalProvided = config?.providedDependencies
+        .where((el) => el.endsWith('.jar') || el.endsWith('.aar'))
+        .map((el) {
+      return Artifact(
+        scope: Scope.provided,
+        coordinate: el,
+        artifactFile: p.join(_fs.localDepsDir.path, el),
+        packaging: p.extension(el).substring(1),
+        dependencies: [],
+        sourcesJar: null,
+      );
+    });
+
     return [
       ...await _retrieveArtifactsFromBox(providedDepsBox),
+      if (extProvidedDeps != null)
+        ...(_requiredDeps(await _retrieveArtifactsFromBox(extensionDepsBox),
+            extProvidedDeps)),
+      if (extLocalProvided != null) ...extLocalProvided,
       ...local,
     ];
   }
@@ -113,7 +135,8 @@ class LibService {
 
   Future<List<Artifact>> extensionDependencies(
     Config config, {
-    bool includeProvidedDeps = false,
+    bool includeAi2ProvidedDeps = false,
+    bool includeProjectProvidedDeps = false,
     bool includeLocal = true,
   }) async {
     final allExtRemoteDeps = await _retrieveArtifactsFromBox(extensionDepsBox);
@@ -124,6 +147,13 @@ class LibService {
         .whereNotNull();
     final requiredRemoteDeps =
         _requiredDeps(allExtRemoteDeps, directRemoteDeps);
+
+    final projectProvidedDeps = config.providedDependencies
+        .map((el) =>
+            allExtRemoteDeps.firstWhereOrNull((dep) => dep.coordinate == el))
+        .whereNotNull();
+    final requiredProjectProvidedDeps =
+        _requiredDeps(allExtRemoteDeps, projectProvidedDeps);
 
     final localDeps = config.dependencies
         .where((el) => el.endsWith('.jar') || el.endsWith('.aar'))
@@ -144,7 +174,8 @@ class LibService {
     return [
       ...requiredRemoteDeps,
       if (includeLocal) ...localDeps,
-      if (includeProvidedDeps) ...await providedDependencies(),
+      if (includeAi2ProvidedDeps) ...await providedDependencies(config),
+      if (includeProjectProvidedDeps) ...requiredProjectProvidedDeps,
     ];
   }
 

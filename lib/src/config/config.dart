@@ -24,8 +24,8 @@ class Config {
   @JsonKey(disallowNullValue: true)
   final List<String> dependencies;
 
-  // @JsonKey(name: 'comptime_dependencies', disallowNullValue: true)
-  // final List<String> comptimeDeps;
+  @JsonKey(name: 'provided_dependencies', disallowNullValue: true)
+  final List<String> providedDependencies;
 
   @JsonKey(name: 'min_sdk', disallowNullValue: true)
   final int minSdk;
@@ -60,7 +60,7 @@ class Config {
     this.assets = const [],
     this.authors = const [],
     this.dependencies = const [],
-    // this.comptimeDeps = const [],
+    this.providedDependencies = const [],
     this.repositories = const [],
     this.kotlin = const Kotlin(compilerVersion: defaultKtVersion),
   });

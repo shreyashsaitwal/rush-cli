@@ -14,7 +14,7 @@ min_sdk: 7
 # Desuagring allows you to use Java 8 language features in your extension. You 
 # also need to enable desugaring if any of your dependencies use Java 8 language
 # features.
-${!enableKt ? '# ' : ''}desugar: true
+${!enableKt ? '#' : ''}desugar: true
 ${!enableKt ? '' : '''
 
 # Kotlin specific configuration.
@@ -24,28 +24,35 @@ kotlin:
 # External libraries your extension depends on. These can be local JARs / AARs
 # stored in the "deps" directory or coordinates of remote Maven artifacts in
 # <groupId>:<artifactId>:<version> format. 
-${enableKt ? 'dependencies:' : '# dependencies:'}
-${enableKt ? '- $kotlinGroupId:kotlin-stdlib:$defaultKtVersion\n' : ''}# - example.jar                 # Local JAR or AAR file stored in "deps" directory
-# - com.example:foo-bar:1.2.3   # Coordinate of some remote Maven artifact
+${enableKt ? 'dependencies:' : '#dependencies:'}
+${enableKt ? '- $kotlinGroupId:kotlin-stdlib:$defaultKtVersion\n' : ''}#- example.jar                 # Local JAR or AAR file stored in "deps" directory
+#- com.example:foo-bar:1.2.3   # Coordinate of some remote Maven artifact
 
 # Default Maven repositories includes Maven Central, Google Maven, JitPack and 
 # JCenter. If the library you want to use is not available in these repositories,
 # you can add additional repositories by specifying their URLs here.
-# repositories:
-# - https://jitpack.io
+#repositories:
+#- https://jitpack.io
 
 # Assets that your extension needs. Every asset file must be stored in the assets
 # directory as well as declared here. Assets can be of any type.
-# assets:
-# - data.json
+#assets:
+#- data.json
 
 # Homepage of your extension. This may be the announcement thread on community 
 # forums or a link to your GitHub repository.
-# homepage: https://github.com/shreyashsaitwal/rush-cli
+#homepage: https://github.com/shreyashsaitwal/rush-cli
 
 # Path to the license file of your extension. This should be a path to a local
 # file or link to something hosted online.
-# license: LICENSE.txt
+#license: LICENSE.txt
+
+# Similar to dependencies, except libraries defined as provided are not included
+# in the final AIX. This is useful when you want to use a library in your
+# extension but don't want to include it in the final AIX because it's already
+# included in the App Inventor.
+#provided_dependencies:
+#- com.example:foo-bar:1.2.3
 ''';
 }
 

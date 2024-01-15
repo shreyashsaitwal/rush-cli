@@ -71,10 +71,9 @@ class BuildCommand extends Command<int> {
         await SyncSubCommand().sync(
           cacheBox: _libService.extensionDepsBox,
           coordinates: {Scope.compile: dependencies},
-          providedArtifacts: await _libService.providedDependencies(),
+          providedArtifacts: await _libService.providedDependencies(config),
           repositories: config.repositories,
           downloadSources: true,
-          includeAiProvided: false,
         );
         await timestampBox.put(configTimestampKey, DateTime.now());
       } catch (e, s) {
@@ -138,7 +137,7 @@ class BuildCommand extends Command<int> {
       _lgr.startTask('Optimizing and obfuscating the bytecode');
 
       final deps = await _libService.extensionDependencies(config,
-          includeProvidedDeps: true);
+          includeAi2ProvidedDeps: true, includeProjectProvidedDeps: true);
       final aars = deps.where((el) => el.packaging == 'aar');
 
       final proguardRules = aars
@@ -200,9 +199,7 @@ class BuildCommand extends Command<int> {
   }
 
   Future<void> _mergeManifests(
-    Config config,
-    LazyBox<DateTime> timestampBox,
-  ) async {
+      Config config, LazyBox<DateTime> timestampBox) async {
     final deps = await _libService.extensionDependencies(config);
     final requiredAars = deps.where((el) =>
         el.scope == Scope.runtime &&
@@ -258,7 +255,7 @@ class BuildCommand extends Command<int> {
     _lgr.info('Picked $fileCount source file${fileCount > 1 ? 's' : ''}');
 
     final dependencies = await _libService.extensionDependencies(config,
-        includeProvidedDeps: true);
+        includeAi2ProvidedDeps: true, includeProjectProvidedDeps: true);
     final compileClasspathJars = dependencies
         .where((el) => el.scope == Scope.compile || el.scope == Scope.provided)
         .map((el) => el.classpathJars(dependencies))

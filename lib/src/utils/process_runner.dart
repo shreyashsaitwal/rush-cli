@@ -14,17 +14,17 @@ class ProcessRunner {
 
   Future<void> runExecutable(String exe, List<String> args) async {
     final Process process;
-    final providedDeps = await _libService.providedDependencies();
+    final ai2ProvidedDeps = await _libService.providedDependencies(null);
     try {
       process = await Process.start(exe, args, environment: {
         // These variables are used by the annotation processor
         'RUSH_PROJECT_ROOT': _fs.cwd,
-        'RUSH_ANNOTATIONS_JAR': providedDeps
+        'RUSH_ANNOTATIONS_JAR': ai2ProvidedDeps
             .singleWhere((el) =>
                 el.coordinate ==
                 'io.github.shreyashsaitwal.rush:annotations:$ai2AnnotationVersion')
             .classesJar,
-        'RUSH_RUNTIME_JAR': providedDeps
+        'RUSH_RUNTIME_JAR': ai2ProvidedDeps
             .singleWhere((el) =>
                 el.coordinate ==
                 'io.github.shreyashsaitwal.rush:runtime:$ai2RuntimeVersion')

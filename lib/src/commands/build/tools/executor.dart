@@ -52,7 +52,7 @@ class Executor {
 
     // Take only provided deps since compile and runtime scoped deps have already
     // been added to the art jar
-    final providedDeps = await _libService.providedDependencies();
+    final providedDeps = await _libService.providedDependencies(config);
     final libraryJars = providedDeps
         .map((el) => el.classpathJars(providedDeps))
         .flattened
@@ -122,7 +122,7 @@ class Executor {
       return p.join(javaHome, 'jmods', 'java.base.jmod').asFile();
     }();
 
-    final providedDeps = await _libService.providedDependencies();
+    final providedDeps = await _libService.providedDependencies(config);
     final classpathJars = providedDeps
         .map((el) => el.classpathJars(providedDeps))
         .flattened

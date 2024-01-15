@@ -109,7 +109,7 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
     await GetIt.I.isReady<LibService>();
     final libService = GetIt.I<LibService>();
 
-    final artifacts = await libService.providedDependencies();
+    final artifacts = await libService.providedDependencies(null);
     final providedDepJars = artifacts.map((el) => el.classesJar).whereNotNull();
     final providedDepSources =
         artifacts.map((el) => el.sourcesJar).whereNotNull();

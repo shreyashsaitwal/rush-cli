@@ -85,15 +85,16 @@ class SyncSubCommand extends Command<int> {
         ];
 
     // Dev deps to be resolved
-    final providedDepsToFetch = <String>{};
+    final ai2ProvidedDepsToFetch = <String>{};
     final toolsToFetch = <String>{};
 
-    var providedDepArtifacts = await libService.providedDependencies();
+    var ai2ProvidedDepArtifacts = await libService.providedDependencies(null);
     var buildLibArtifacts = await libService.buildLibArtifacts();
 
     // Add every un-cached dev dep to fetch list.
-    if (providedDepArtifacts.none((el) => el.coordinate == ai2RuntimeCoord)) {
-      providedDepsToFetch.add(ai2RuntimeCoord);
+    if (ai2ProvidedDepArtifacts
+        .none((el) => el.coordinate == ai2RuntimeCoord)) {
+      ai2ProvidedDepsToFetch.add(ai2RuntimeCoord);
     }
     for (final coord in toolsCoord) {
       if (buildLibArtifacts.none((el) => el.coordinate == coord)) {
@@ -103,8 +104,8 @@ class SyncSubCommand extends Command<int> {
 
     // Add every non existent dev dep to the fetch list. This can happen when
     // the said dep was deleted or the local Maven repo location was changed.
-    providedDepsToFetch.addAll(
-      providedDepArtifacts
+    ai2ProvidedDepsToFetch.addAll(
+      ai2ProvidedDepArtifacts
           .where((el) => !el.artifactFile.asFile().existsSync())
           .map((el) => el.coordinate)
           .where((el) => el.trim().isNotEmpty),
@@ -120,13 +121,13 @@ class SyncSubCommand extends Command<int> {
     _lgr.stopTask();
 
     if (!onlyExtDeps &&
-        (providedDepsToFetch.isNotEmpty || toolsToFetch.isNotEmpty)) {
+        (ai2ProvidedDepsToFetch.isNotEmpty || toolsToFetch.isNotEmpty)) {
       _lgr.startTask('Syncing dev-dependencies');
       try {
         await Future.wait([
           sync(
             cacheBox: libService.providedDepsBox,
-            coordinates: {Scope.compile: providedDepsToFetch},
+            coordinates: {Scope.compile: ai2ProvidedDepsToFetch},
             downloadSources: true,
             excludeCoordinates: ['com.google.android:android:2.1.2'],
           ),
@@ -155,7 +156,7 @@ class SyncSubCommand extends Command<int> {
         ..stopTask();
     }
     await BuildUtils.extractAars(
-      providedDepArtifacts
+      ai2ProvidedDepArtifacts
           .where((el) => el.artifactFile.endsWith('.aar'))
           .where((el) =>
               !el.classesJar.asFile().existsSync() ||
@@ -172,7 +173,7 @@ class SyncSubCommand extends Command<int> {
     }
 
     // Update the vars after syncing dev deps.
-    providedDepArtifacts = await libService.providedDependencies();
+    ai2ProvidedDepArtifacts = await libService.providedDependencies(null);
     buildLibArtifacts = await libService.buildLibArtifacts();
 
     Hive.init(_fs.dotRushDir.path);
@@ -185,15 +186,25 @@ class SyncSubCommand extends Command<int> {
 
       final extDepCoords = config.dependencies
           .where((el) => !el.endsWith('.jar') && !el.endsWith('.aar'));
+      final extProvidedDepCoord = config.providedDependencies
+          .where((el) => !el.endsWith('.jar') && !el.endsWith('.aar'));
 
       try {
+        await sync(
+          cacheBox: libService.extensionDepsBox,
+          coordinates: {Scope.provided: extProvidedDepCoord},
+          repositories: config.repositories,
+          downloadSources: true,
+        );
+
+        final providedDepArtifacts =
+            await libService.providedDependencies(config);
         await sync(
           cacheBox: libService.extensionDepsBox,
           coordinates: {Scope.compile: extDepCoords},
           repositories: config.repositories,
           providedArtifacts: providedDepArtifacts,
           downloadSources: true,
-          includeAiProvided: false,
         );
         await timestampBox.put(configTimestampKey, DateTime.now());
       } catch (_) {
@@ -211,7 +222,8 @@ class SyncSubCommand extends Command<int> {
     _lgr.startTask('Adding resolved dependencies to your IDE\'s lib index');
 
     try {
-      final extensionDeps = await libService.extensionDependencies(config);
+      final extensionDeps = await libService.extensionDependencies(config,
+          includeProjectProvidedDeps: true);
       await BuildUtils.extractAars(
         extensionDeps
             .where((el) => el.artifactFile.endsWith('.aar'))
@@ -223,8 +235,8 @@ class SyncSubCommand extends Command<int> {
             .map((el) => el.artifactFile),
       );
 
-      await _updateIntellijLibIndex(providedDepArtifacts, extensionDeps);
-      await _updateEclipseClasspath(providedDepArtifacts, extensionDeps);
+      await _updateIntellijLibIndex(ai2ProvidedDepArtifacts, extensionDeps);
+      await _updateEclipseClasspath(ai2ProvidedDepArtifacts, extensionDeps);
     } catch (_) {
       _lgr.stopTask(false);
       return 1;
@@ -287,7 +299,6 @@ class SyncSubCommand extends Command<int> {
     Iterable<String> repositories = const [],
     Iterable<Artifact> providedArtifacts = const [],
     bool downloadSources = false,
-    bool includeAiProvided = true,
     List<String> excludeCoordinates = const [],
   }) async {
     _lgr.info('Resolving ${coordinates.values.flattened.length} artifacts...');
@@ -327,7 +338,7 @@ class SyncSubCommand extends Command<int> {
 
     // When resolving extension deps, remove AI2 provided deps from dependencies
     // field and add them to the providedDependencies field of each artifact.
-    if (!includeAiProvided) {
+    if (providedArtifacts.isNotEmpty) {
       final providedDeps = <String>{};
       resolvedDeps.removeWhere((el) {
         final provided = _providedAlternative(

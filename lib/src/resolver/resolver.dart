@@ -352,6 +352,8 @@ class ArtifactResolver {
             return dep.scope == Scope.compile.name ||
                 dep.scope == Scope.runtime.name;
           }
+          // We don't resolve dependencies of any other scopes, specifically the 
+          // provided scope
           return false;
         });
 
