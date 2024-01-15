@@ -43,7 +43,7 @@ class LibService {
 
   late final LazyBox<Artifact> providedDepsBox;
   late final LazyBox<Artifact> buildLibsBox;
-  late final LazyBox<Artifact> extensionDepsBox;
+  late final LazyBox<Artifact>? extensionDepsBox;
 
   static Future<LibService> instantiate() async {
     final instance = LibService._();
@@ -61,6 +61,8 @@ class LibService {
         extensionDepsBoxName,
         path: _fs.dotRushDir.path,
       );
+    } else {
+      instance.extensionDepsBox = null;
     }
     return instance;
   }
@@ -91,12 +93,19 @@ class LibService {
           sourcesJar: null,
         ));
 
-    final allExtRemoteDeps = await _retrieveArtifactsFromBox(extensionDepsBox);
-    final extProvidedDeps = config?.providedDependencies
+    if (config == null) {
+      return [
+        ...await _retrieveArtifactsFromBox(providedDepsBox),
+        ...local,
+      ];
+    }
+
+    final allExtRemoteDeps = await _retrieveArtifactsFromBox(extensionDepsBox!);
+    final extProvidedDeps = config.providedDependencies
         .map((el) =>
             allExtRemoteDeps.firstWhereOrNull((dep) => dep.coordinate == el))
         .whereNotNull();
-    final extLocalProvided = config?.providedDependencies
+    final extLocalProvided = config.providedDependencies
         .where((el) => el.endsWith('.jar') || el.endsWith('.aar'))
         .map((el) {
       return Artifact(
@@ -111,10 +120,9 @@ class LibService {
 
     return [
       ...await _retrieveArtifactsFromBox(providedDepsBox),
-      if (extProvidedDeps != null)
-        ...(_requiredDeps(await _retrieveArtifactsFromBox(extensionDepsBox),
-            extProvidedDeps)),
-      if (extLocalProvided != null) ...extLocalProvided,
+      ...(_requiredDeps(
+          await _retrieveArtifactsFromBox(extensionDepsBox!), extProvidedDeps)),
+      ...extLocalProvided,
       ...local,
     ];
   }
@@ -139,7 +147,7 @@ class LibService {
     bool includeProjectProvidedDeps = false,
     bool includeLocal = true,
   }) async {
-    final allExtRemoteDeps = await _retrieveArtifactsFromBox(extensionDepsBox);
+    final allExtRemoteDeps = await _retrieveArtifactsFromBox(extensionDepsBox!);
 
     final directRemoteDeps = config.dependencies
         .map((el) =>

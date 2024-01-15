@@ -60,9 +60,12 @@ class ArtifactResolver {
 
   late final String _localMvnRepo;
 
-  ArtifactResolver({String? localMvnRepo, required Set<String> repos}) {
-    if (localMvnRepo != null) {
-      _localMvnRepo = localMvnRepo;
+  ArtifactResolver({required Set<String> repos}) {
+    if (Platform.environment.containsKey('M2_HOME')) {
+      _localMvnRepo = p
+          .join(Platform.environment['M2_HOME']!, 'repository')
+          .asDir(true)
+          .path;
     } else if (Platform.isWindows) {
       _localMvnRepo = p
           .join(Platform.environment['UserProfile']!, '.m2', 'repository')

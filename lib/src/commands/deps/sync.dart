@@ -73,7 +73,7 @@ class SyncSubCommand extends Command<int> {
         await libService.buildLibsBox.clear();
       }
       if (!onlyDevDeps && config != null) {
-        await libService.extensionDepsBox.clear();
+        await libService.extensionDepsBox!.clear();
       }
     }
 
@@ -168,7 +168,6 @@ class SyncSubCommand extends Command<int> {
 
     // Exit if this is not a Rush project.
     if (config == null) {
-      _lgr.stopTask();
       return 0;
     }
 
@@ -191,7 +190,7 @@ class SyncSubCommand extends Command<int> {
 
       try {
         await sync(
-          cacheBox: libService.extensionDepsBox,
+          cacheBox: libService.extensionDepsBox!,
           coordinates: {Scope.provided: extProvidedDepCoord},
           repositories: config.repositories,
           downloadSources: true,
@@ -200,7 +199,7 @@ class SyncSubCommand extends Command<int> {
         final providedDepArtifacts =
             await libService.providedDependencies(config);
         await sync(
-          cacheBox: libService.extensionDepsBox,
+          cacheBox: libService.extensionDepsBox!,
           coordinates: {Scope.compile: extDepCoords},
           repositories: config.repositories,
           providedArtifacts: providedDepArtifacts,
@@ -211,7 +210,7 @@ class SyncSubCommand extends Command<int> {
         _lgr.stopTask(false);
         return 1;
       }
-      await _removeRogueDeps(extDepCoords, libService.extensionDepsBox);
+      await _removeRogueDeps(extDepCoords, libService.extensionDepsBox!);
       _lgr.stopTask();
     } else if (!onlyDevDeps) {
       _lgr
