@@ -1,4 +1,4 @@
-const providedDepsBoxName = 'provided-deps';
+const providedDepsBoxName = 'ai2-provided-deps';
 const buildLibsBoxName = 'build-libs';
 const extensionDepsBoxName = 'deps';
 

@@ -41,13 +41,13 @@ class LibService {
     }
   }
 
-  late final LazyBox<Artifact> providedDepsBox;
+  late final LazyBox<Artifact> ai2ProvidedDepsBox;
   late final LazyBox<Artifact> buildLibsBox;
   late final LazyBox<Artifact>? extensionDepsBox;
 
   static Future<LibService> instantiate() async {
     final instance = LibService._();
-    instance.providedDepsBox = await Hive.openLazyBox<Artifact>(
+    instance.ai2ProvidedDepsBox = await Hive.openLazyBox<Artifact>(
       providedDepsBoxName,
       path: p.join(_fs.rushHomeDir.path, 'cache'),
     );
@@ -95,7 +95,7 @@ class LibService {
 
     if (config == null) {
       return [
-        ...await _retrieveArtifactsFromBox(providedDepsBox),
+        ...await _retrieveArtifactsFromBox(ai2ProvidedDepsBox),
         ...local,
       ];
     }
@@ -119,9 +119,8 @@ class LibService {
     });
 
     return [
-      ...await _retrieveArtifactsFromBox(providedDepsBox),
-      ...(_requiredDeps(
-          await _retrieveArtifactsFromBox(extensionDepsBox!), extProvidedDeps)),
+      ...await _retrieveArtifactsFromBox(ai2ProvidedDepsBox),
+      ...extProvidedDeps,
       ...extLocalProvided,
       ...local,
     ];
@@ -149,12 +148,11 @@ class LibService {
   }) async {
     final allExtRemoteDeps = await _retrieveArtifactsFromBox(extensionDepsBox!);
 
-    final directRemoteDeps = config.dependencies
+    final projectDeps = config.dependencies
         .map((el) =>
             allExtRemoteDeps.firstWhereOrNull((dep) => dep.coordinate == el))
         .whereNotNull();
-    final requiredRemoteDeps =
-        _requiredDeps(allExtRemoteDeps, directRemoteDeps);
+    final requiredDeps = _requiredDeps(allExtRemoteDeps, projectDeps);
 
     final projectProvidedDeps = config.providedDependencies
         .map((el) =>
@@ -180,7 +178,7 @@ class LibService {
         .map((el) => el.artifactFile));
 
     return [
-      ...requiredRemoteDeps,
+      ...requiredDeps,
       if (includeLocal) ...localDeps,
       if (includeAi2ProvidedDeps) ...await providedDependencies(config),
       if (includeProjectProvidedDeps) ...requiredProjectProvidedDeps,

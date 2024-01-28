@@ -69,7 +69,7 @@ class SyncSubCommand extends Command<int> {
     // Clear all the cache if force is used.
     if (useForce) {
       if (!onlyExtDeps) {
-        await libService.providedDepsBox.clear();
+        await libService.ai2ProvidedDepsBox.clear();
         await libService.buildLibsBox.clear();
       }
       if (!onlyDevDeps && config != null) {
@@ -126,7 +126,7 @@ class SyncSubCommand extends Command<int> {
       try {
         await Future.wait([
           sync(
-            cacheBox: libService.providedDepsBox,
+            cacheBox: libService.ai2ProvidedDepsBox,
             coordinates: {Scope.compile: ai2ProvidedDepsToFetch},
             downloadSources: true,
             excludeCoordinates: ['com.google.android:android:2.1.2'],
@@ -147,7 +147,7 @@ class SyncSubCommand extends Command<int> {
           'android-$androidPlatformSdkVersion.jar',
           'kawa-1.11-modified.jar',
           'physicaloid-library.jar'
-        ], libService.providedDepsBox),
+        ], libService.ai2ProvidedDepsBox),
       ]);
       _lgr.stopTask();
     } else if (!onlyExtDeps) {
@@ -179,19 +179,19 @@ class SyncSubCommand extends Command<int> {
     final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
 
     final extensionDeps = await libService.extensionDependencies(config);
-    final needSync = await extensionDepsNeedSync(timestampBox, extensionDeps);
+    final needSync = await _doProjectDepsNeedSync(timestampBox, extensionDeps);
     if (useForce || (!onlyDevDeps && needSync)) {
       _lgr.startTask('Syncing project dependencies');
 
       final extDepCoords = config.dependencies
           .where((el) => !el.endsWith('.jar') && !el.endsWith('.aar'));
-      final extProvidedDepCoord = config.providedDependencies
+      final extProvidedDepCoords = config.providedDependencies
           .where((el) => !el.endsWith('.jar') && !el.endsWith('.aar'));
 
       try {
         await sync(
           cacheBox: libService.extensionDepsBox!,
-          coordinates: {Scope.provided: extProvidedDepCoord},
+          coordinates: {Scope.provided: extProvidedDepCoords},
           repositories: config.repositories,
           downloadSources: true,
         );
@@ -210,7 +210,8 @@ class SyncSubCommand extends Command<int> {
         _lgr.stopTask(false);
         return 1;
       }
-      await _removeRogueDeps(extDepCoords, libService.extensionDepsBox!);
+      await _removeRogueDeps({...extDepCoords, ...extProvidedDepCoords},
+          libService.extensionDepsBox!);
       _lgr.stopTask();
     } else if (!onlyDevDeps) {
       _lgr
@@ -245,14 +246,14 @@ class SyncSubCommand extends Command<int> {
     return 0;
   }
 
-  static Future<bool> extensionDepsNeedSync(LazyBox<DateTime> timestampBox,
-      List<Artifact> extensionDependencies) async {
+  static Future<bool> _doProjectDepsNeedSync(
+      LazyBox<DateTime> timestampBox, List<Artifact> projectDeps) async {
     // Re-fetch deps if they are outdated, ie, if the config file is modified
     // or if the dep artifacts are missing
     final configFileModified = (await timestampBox.get(configTimestampKey))
             ?.isBefore(_fs.configFile.lastModifiedSync()) ??
         true;
-    final isAnyDepMissing = extensionDependencies.any((el) =>
+    final isAnyDepMissing = projectDeps.any((el) =>
         !el.artifactFile.endsWith('.pom') &&
         !el.artifactFile.asFile().existsSync());
     return configFileModified || isAnyDepMissing;
