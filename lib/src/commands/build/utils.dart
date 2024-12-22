@@ -5,10 +5,10 @@ import 'package:archive/archive.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 
-import 'package:rush_cli/src/config/config.dart';
-import 'package:rush_cli/src/services/file_service.dart';
-import 'package:rush_cli/src/services/logger.dart';
-import 'package:rush_cli/src/utils/file_extension.dart';
+import 'package:rush/src/config/config.dart';
+import 'package:rush/src/services/file_service.dart';
+import 'package:rush/src/services/logger.dart';
+import 'package:rush/src/utils/file_extension.dart';
 
 class BuildUtils {
   static final _fs = GetIt.I<FileService>();

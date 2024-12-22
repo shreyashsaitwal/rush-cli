@@ -4,9 +4,9 @@ import 'package:interact/interact.dart';
 import 'package:path/path.dart' as p;
 import 'package:tint/tint.dart';
 
-import 'package:rush_cli/src/services/file_service.dart';
-import 'package:rush_cli/src/services/logger.dart';
-import 'package:rush_cli/src/utils/file_extension.dart';
+import 'package:rush/src/services/file_service.dart';
+import 'package:rush/src/services/logger.dart';
+import 'package:rush/src/utils/file_extension.dart';
 
 class CleanCommand extends Command<int> {
   final _fs = GetIt.I<FileService>();

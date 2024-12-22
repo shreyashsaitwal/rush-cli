@@ -7,9 +7,9 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:xml2json/xml2json.dart';
 
-import 'package:rush_cli/src/resolver/artifact.dart';
-import 'package:rush_cli/src/resolver/pom.dart';
-import 'package:rush_cli/src/utils/file_extension.dart';
+import 'package:rush/src/resolver/artifact.dart';
+import 'package:rush/src/resolver/pom.dart';
+import 'package:rush/src/utils/file_extension.dart';
 
 class ArtifactMetadata {
   late final String groupId;

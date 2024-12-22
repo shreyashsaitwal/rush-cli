@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/src/services/logger.dart';
-import 'package:rush_cli/src/utils/file_extension.dart';
+import 'package:rush/src/services/logger.dart';
+import 'package:rush/src/utils/file_extension.dart';
 
 class FileService {
   final String cwd;

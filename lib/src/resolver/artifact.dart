@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:collection/collection.dart';
 import 'package:xrange/xrange.dart';
 
-import 'package:rush_cli/src/utils/file_extension.dart';
+import 'package:rush/src/utils/file_extension.dart';
 
 part 'artifact.g.dart';
 

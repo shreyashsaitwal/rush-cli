@@ -4,12 +4,12 @@ import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:get_it/get_it.dart';
 
-import 'package:rush_cli/src/services/logger.dart';
-import 'package:rush_cli/src/utils/file_extension.dart';
-import 'package:rush_cli/src/utils/process_runner.dart';
-import 'package:rush_cli/src/services/file_service.dart';
-import 'package:rush_cli/src/services/lib_service.dart';
-import 'package:rush_cli/src/commands/build/utils.dart';
+import 'package:rush/src/services/logger.dart';
+import 'package:rush/src/utils/file_extension.dart';
+import 'package:rush/src/utils/process_runner.dart';
+import 'package:rush/src/services/file_service.dart';
+import 'package:rush/src/services/lib_service.dart';
+import 'package:rush/src/commands/build/utils.dart';
 
 const helpersTimestampKey = 'helper-enums';
 

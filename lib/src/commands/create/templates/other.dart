@@ -1,5 +1,5 @@
-import 'package:rush_cli/src/services/lib_service.dart';
-import 'package:rush_cli/src/utils/constants.dart';
+import 'package:rush/src/services/lib_service.dart';
+import 'package:rush/src/utils/constants.dart';
 
 String config(bool enableKt) {
   return '''

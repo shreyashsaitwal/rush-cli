@@ -5,14 +5,14 @@ import 'package:dart_console/dart_console.dart';
 import 'package:get_it/get_it.dart';
 import 'package:tint/tint.dart';
 
-import 'package:rush_cli/src/commands/build/build.dart';
-import 'package:rush_cli/src/commands/clean.dart';
-import 'package:rush_cli/src/commands/create/create.dart';
-import 'package:rush_cli/src/commands/deps/deps.dart';
-import 'package:rush_cli/src/commands/migrate/migrate.dart';
-import 'package:rush_cli/src/commands/upgrade/upgrade.dart';
-import 'package:rush_cli/src/services/logger.dart';
-import 'package:rush_cli/src/version.dart';
+import 'package:rush/src/commands/build/build.dart';
+import 'package:rush/src/commands/clean.dart';
+import 'package:rush/src/commands/create/create.dart';
+import 'package:rush/src/commands/deps/deps.dart';
+import 'package:rush/src/commands/migrate/migrate.dart';
+import 'package:rush/src/commands/upgrade/upgrade.dart';
+import 'package:rush/src/services/logger.dart';
+import 'package:rush/src/version.dart';
 
 class RushCommandRunner extends CommandRunner<int> {
   RushCommandRunner()

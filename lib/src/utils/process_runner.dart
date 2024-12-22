@@ -1,11 +1,11 @@
 import 'dart:io' show Process, ProcessException, systemEncoding;
 
 import 'package:get_it/get_it.dart';
-import 'package:rush_cli/src/services/file_service.dart';
-import 'package:rush_cli/src/services/logger.dart';
-import 'package:rush_cli/src/services/lib_service.dart';
-import 'package:rush_cli/src/utils/constants.dart';
-import 'package:rush_cli/src/version.dart';
+import 'package:rush/src/services/file_service.dart';
+import 'package:rush/src/services/logger.dart';
+import 'package:rush/src/services/lib_service.dart';
+import 'package:rush/src/utils/constants.dart';
+import 'package:rush/src/version.dart';
 
 class ProcessRunner {
   final _fs = GetIt.I<FileService>();

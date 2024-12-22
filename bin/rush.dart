@@ -1,8 +1,8 @@
 import 'package:args/command_runner.dart';
 import 'package:get_it/get_it.dart';
-import 'package:rush_cli/src/command_runner.dart';
-import 'package:rush_cli/src/services/logger.dart';
-import 'package:rush_cli/src/services/service_locator.dart';
+import 'package:rush/src/command_runner.dart';
+import 'package:rush/src/services/logger.dart';
+import 'package:rush/src/services/service_locator.dart';
 
 Future<void> main(List<String> args) async {
   ServiceLocator.setupServiceLocator();

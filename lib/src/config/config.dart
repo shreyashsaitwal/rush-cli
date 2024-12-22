@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:checked_yaml/checked_yaml.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:rush_cli/src/services/logger.dart';
-import 'package:rush_cli/src/utils/constants.dart';
+import 'package:rush/src/services/logger.dart';
+import 'package:rush/src/utils/constants.dart';
 
 part 'android.dart';
 

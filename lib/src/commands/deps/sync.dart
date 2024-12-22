@@ -7,17 +7,17 @@ import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:xrange/xrange.dart';
 
-import 'package:rush_cli/src/commands/build/utils.dart';
-import 'package:rush_cli/src/commands/create/templates/eclipse_files.dart';
-import 'package:rush_cli/src/commands/create/templates/intellij_files.dart';
-import 'package:rush_cli/src/config/config.dart';
-import 'package:rush_cli/src/resolver/artifact.dart';
-import 'package:rush_cli/src/resolver/resolver.dart';
-import 'package:rush_cli/src/services/file_service.dart';
-import 'package:rush_cli/src/services/lib_service.dart';
-import 'package:rush_cli/src/services/logger.dart';
-import 'package:rush_cli/src/utils/constants.dart';
-import 'package:rush_cli/src/utils/file_extension.dart';
+import 'package:rush/src/commands/build/utils.dart';
+import 'package:rush/src/commands/create/templates/eclipse_files.dart';
+import 'package:rush/src/commands/create/templates/intellij_files.dart';
+import 'package:rush/src/config/config.dart';
+import 'package:rush/src/resolver/artifact.dart';
+import 'package:rush/src/resolver/resolver.dart';
+import 'package:rush/src/services/file_service.dart';
+import 'package:rush/src/services/lib_service.dart';
+import 'package:rush/src/services/logger.dart';
+import 'package:rush/src/utils/constants.dart';
+import 'package:rush/src/utils/file_extension.dart';
 
 const ai2RuntimeCoord =
     'io.github.shreyashsaitwal.rush:runtime:$ai2RuntimeVersion';

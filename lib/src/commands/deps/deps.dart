@@ -1,7 +1,7 @@
 import 'package:args/command_runner.dart';
 
-import 'package:rush_cli/src/commands/deps/tree.dart';
-import 'package:rush_cli/src/commands/deps/sync.dart';
+import 'package:rush/src/commands/deps/tree.dart';
+import 'package:rush/src/commands/deps/sync.dart';
 
 class DepsCommand extends Command<int> {
   DepsCommand() {

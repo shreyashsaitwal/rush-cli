@@ -6,13 +6,13 @@ import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 import 'package:tint/tint.dart';
 
-import 'package:rush_cli/src/commands/deps/sync.dart';
-import 'package:rush_cli/src/commands/migrate/old_config/old_config.dart'
+import 'package:rush/src/commands/deps/sync.dart';
+import 'package:rush/src/commands/migrate/old_config/old_config.dart'
     as old;
-import 'package:rush_cli/src/config/config.dart';
-import 'package:rush_cli/src/services/file_service.dart';
-import 'package:rush_cli/src/services/logger.dart';
-import 'package:rush_cli/src/utils/constants.dart';
+import 'package:rush/src/config/config.dart';
+import 'package:rush/src/services/file_service.dart';
+import 'package:rush/src/services/logger.dart';
+import 'package:rush/src/utils/constants.dart';
 
 class MigrateCommand extends Command<int> {
   final _fs = GetIt.I<FileService>();

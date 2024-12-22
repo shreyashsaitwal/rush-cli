@@ -1,13 +1,13 @@
 import 'package:args/command_runner.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
-import 'package:rush_cli/src/services/lib_service.dart';
+import 'package:rush/src/services/lib_service.dart';
 import 'package:tint/tint.dart';
 
-import 'package:rush_cli/src/config/config.dart';
-import 'package:rush_cli/src/resolver/artifact.dart';
-import 'package:rush_cli/src/services/file_service.dart';
-import 'package:rush_cli/src/services/logger.dart';
+import 'package:rush/src/config/config.dart';
+import 'package:rush/src/resolver/artifact.dart';
+import 'package:rush/src/services/file_service.dart';
+import 'package:rush/src/services/logger.dart';
 
 class TreeSubCommand extends Command<int> {
   final _fs = GetIt.I<FileService>();
