@@ -19,3 +19,5 @@ pubspec.lock
 
 *.g.dart
 /scratch.dart
+
+.DS_Store

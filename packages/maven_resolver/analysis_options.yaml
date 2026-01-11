@@ -1,0 +1,10 @@
+include: package:lints/recommended.yaml
+
+linter:
+  rules:
+    - prefer_final_locals
+    - prefer_single_quotes
+    - require_trailing_commas
+    - avoid_dynamic_calls
+    - prefer_const_constructors
+    - prefer_const_declarations

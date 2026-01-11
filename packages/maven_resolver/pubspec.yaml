@@ -1,0 +1,16 @@
+name: maven_resolver
+description: A Maven-compliant dependency resolver for Dart.
+version: 0.1.0
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  collection: ^1.18.0
+  http: ^1.1.0
+  crypto: ^3.0.3
+  path: ^1.8.3
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.0
