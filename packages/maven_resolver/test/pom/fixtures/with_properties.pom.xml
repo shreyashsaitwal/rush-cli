@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>org.example</groupId>
+    <artifactId>with-properties</artifactId>
+    <version>${project.parent.version}</version>
+
+    <parent>
+        <groupId>org.example</groupId>
+        <artifactId>parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <name>${project.artifactId}</name>
+    <description>Project version is ${project.version}</description>
+
+    <properties>
+        <lib.groupId>com.example</lib.groupId>
+        <lib.artifactId>my-lib</lib.artifactId>
+        <lib.version>2.0.0</lib.version>
+        <!-- Nested property reference -->
+        <full.lib.coord>${lib.groupId}:${lib.artifactId}:${lib.version}</full.lib.coord>
+        <!-- Self-referencing (should not infinite loop) -->
+        <recursive.prop>${recursive.prop}</recursive.prop>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>${lib.groupId}</groupId>
+            <artifactId>${lib.artifactId}</artifactId>
+            <version>${lib.version}</version>
+        </dependency>
+    </dependencies>
+</project>

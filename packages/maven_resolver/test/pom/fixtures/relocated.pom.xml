@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>old.group</groupId>
+    <artifactId>old-artifact</artifactId>
+    <version>1.0.0</version>
+
+    <distributionManagement>
+        <relocation>
+            <groupId>new.group</groupId>
+            <artifactId>new-artifact</artifactId>
+            <version>2.0.0</version>
+            <message>This artifact has moved to new.group:new-artifact</message>
+        </relocation>
+    </distributionManagement>
+</project>
