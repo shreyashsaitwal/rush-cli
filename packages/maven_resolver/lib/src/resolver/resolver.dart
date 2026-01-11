@@ -162,17 +162,19 @@ final class DependencyResolver {
       // Record declaration order
       context.recordDeclaration(dep.conflictKey);
 
-      queue.add(_PendingDependency(
-        dependency: dep,
-        depth: 1,
-        path: [],
-        parentScope: dep.scope,
-        // For direct deps, the exclusions they declare apply to their children only
-        // (merged with global exclusions)
-        childExclusions: globalExclusions.merge(dep.exclusions),
-        // Parent exclusions that apply to THIS dep are just global exclusions
-        parentExclusions: globalExclusions,
-      ));
+      queue.add(
+        _PendingDependency(
+          dependency: dep,
+          depth: 1,
+          path: [],
+          parentScope: dep.scope,
+          // For direct deps, the exclusions they declare apply to their children only
+          // (merged with global exclusions)
+          childExclusions: globalExclusions.merge(dep.exclusions),
+          // Parent exclusions that apply to THIS dep are just global exclusions
+          parentExclusions: globalExclusions,
+        ),
+      );
     }
 
     // Track pending versions for conflict detection
@@ -197,9 +199,11 @@ final class DependencyResolver {
       final version = await _resolveVersion(pending.dependency, context);
       if (version == null) {
         if (config.failOnMissing) {
-          context.addError(ResolutionError(
-            message: 'Cannot resolve version for ${pending.dependency}',
-          ));
+          context.addError(
+            ResolutionError(
+              message: 'Cannot resolve version for ${pending.dependency}',
+            ),
+          );
         }
         continue;
       }
@@ -216,11 +220,13 @@ final class DependencyResolver {
       final path = [...pending.path, coord.toString()];
 
       // Track this version as a candidate
-      pendingVersions.putIfAbsent(key, () => []).add(_VersionCandidate(
-            version: version,
-            depth: pending.depth,
-            declarationOrder: context.declarationOrder[key] ?? 0,
-          ));
+      pendingVersions.putIfAbsent(key, () => []).add(
+            _VersionCandidate(
+              version: version,
+              depth: pending.depth,
+              declarationOrder: context.declarationOrder[key] ?? 0,
+            ),
+          );
 
       // Check if already resolved at a shallower depth
       if (!context.shouldResolve(key, pending.depth)) {
@@ -300,14 +306,16 @@ final class DependencyResolver {
           // Record declaration order
           context.recordDeclaration(managed.conflictKey);
 
-          queue.add(_PendingDependency(
-            dependency: managed.copyWith(scope: mediatedScope),
-            depth: pending.depth + 1,
-            path: path,
-            parentScope: mediatedScope,
-            parentExclusions: transitiveParentExclusions,
-            childExclusions: transitiveChildExclusions,
-          ));
+          queue.add(
+            _PendingDependency(
+              dependency: managed.copyWith(scope: mediatedScope),
+              depth: pending.depth + 1,
+              path: path,
+              parentScope: mediatedScope,
+              parentExclusions: transitiveParentExclusions,
+              childExclusions: transitiveChildExclusions,
+            ),
+          );
         }
       } finally {
         context.processing.remove(key);
@@ -371,28 +379,34 @@ final class DependencyResolver {
       );
 
       if (available.isEmpty) {
-        context.addError(ResolutionError(
-          message: 'No versions found for ${dep.groupId}:${dep.artifactId}',
-        ));
+        context.addError(
+          ResolutionError(
+            message: 'No versions found for ${dep.groupId}:${dep.artifactId}',
+          ),
+        );
         return null;
       }
 
       // Select best version from range
       final best = range.selectBest(available);
       if (best == null) {
-        context.addError(ResolutionError(
-          message: 'No version satisfies range $rangeSpec for '
-              '${dep.groupId}:${dep.artifactId}. '
-              'Available: ${available.join(", ")}',
-        ));
+        context.addError(
+          ResolutionError(
+            message: 'No version satisfies range $rangeSpec for '
+                '${dep.groupId}:${dep.artifactId}. '
+                'Available: ${available.join(", ")}',
+          ),
+        );
         return null;
       }
 
       return best.toString();
     } on FormatException catch (e) {
-      context.addError(ResolutionError(
-        message: 'Invalid version range "$rangeSpec": ${e.message}',
-      ));
+      context.addError(
+        ResolutionError(
+          message: 'Invalid version range "$rangeSpec": ${e.message}',
+        ),
+      );
       return null;
     }
   }
@@ -448,17 +462,19 @@ final class DependencyResolver {
       final losers = sorted.skip(1).map((c) => c.version).toList();
 
       // Record conflict
-      context.addConflict(ResolutionConflict(
-        artifactKey: key,
-        selectedVersion: winner.version,
-        conflictingVersions: losers,
-        depthByVersion: {
-          for (final c in byVersion.values) c.version: c.depth,
-        },
-        reason: winner.depth < sorted[1].depth
-            ? ConflictResolutionReason.nearestWins
-            : ConflictResolutionReason.firstDeclaration,
-      ));
+      context.addConflict(
+        ResolutionConflict(
+          artifactKey: key,
+          selectedVersion: winner.version,
+          conflictingVersions: losers,
+          depthByVersion: {
+            for (final c in byVersion.values) c.version: c.depth,
+          },
+          reason: winner.depth < sorted[1].depth
+              ? ConflictResolutionReason.nearestWins
+              : ConflictResolutionReason.firstDeclaration,
+        ),
+      );
     }
   }
 

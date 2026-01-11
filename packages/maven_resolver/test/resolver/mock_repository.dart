@@ -1,6 +1,8 @@
 /// Mock repository for testing.
 ///
 /// Allows defining POMs and artifacts in-memory for unit tests.
+library;
+
 import 'dart:typed_data';
 
 import 'package:maven_resolver/maven_resolver.dart';
@@ -23,7 +25,11 @@ class MockRepository implements Repository {
 
   /// Adds a POM to the repository.
   void addPom(
-      String groupId, String artifactId, String version, String pomXml) {
+    String groupId,
+    String artifactId,
+    String version,
+    String pomXml,
+  ) {
     final key = '$groupId:$artifactId:$version';
     poms[key] = pomXml;
 
@@ -86,6 +92,44 @@ class MockRepository implements Repository {
       buffer.writeln('  </dependencies>');
     }
 
+    buffer.writeln('</project>');
+
+    addPom(groupId, artifactId, version, buffer.toString());
+  }
+
+  /// Creates a POM that relocates to a new artifact.
+  void addRelocatedPom(
+    String groupId,
+    String artifactId,
+    String version, {
+    String? newGroupId,
+    String? newArtifactId,
+    String? newVersion,
+    String? message,
+  }) {
+    final buffer = StringBuffer();
+    buffer.writeln('<?xml version="1.0" encoding="UTF-8"?>');
+    buffer.writeln('<project>');
+    buffer.writeln('  <modelVersion>4.0.0</modelVersion>');
+    buffer.writeln('  <groupId>$groupId</groupId>');
+    buffer.writeln('  <artifactId>$artifactId</artifactId>');
+    buffer.writeln('  <version>$version</version>');
+    buffer.writeln('  <distributionManagement>');
+    buffer.writeln('    <relocation>');
+    if (newGroupId != null) {
+      buffer.writeln('      <groupId>$newGroupId</groupId>');
+    }
+    if (newArtifactId != null) {
+      buffer.writeln('      <artifactId>$newArtifactId</artifactId>');
+    }
+    if (newVersion != null) {
+      buffer.writeln('      <version>$newVersion</version>');
+    }
+    if (message != null) {
+      buffer.writeln('      <message>$message</message>');
+    }
+    buffer.writeln('    </relocation>');
+    buffer.writeln('  </distributionManagement>');
     buffer.writeln('</project>');
 
     addPom(groupId, artifactId, version, buffer.toString());

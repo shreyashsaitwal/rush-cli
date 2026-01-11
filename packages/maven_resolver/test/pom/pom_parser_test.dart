@@ -269,7 +269,7 @@ void main() {
 
     group('Dependency model', () {
       test('conflictKey without classifier', () {
-        final dep = Dependency(
+        const dep = Dependency(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -278,7 +278,7 @@ void main() {
       });
 
       test('conflictKey with classifier', () {
-        final dep = Dependency(
+        const dep = Dependency(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -288,7 +288,7 @@ void main() {
       });
 
       test('coordinate formatting', () {
-        final dep = Dependency(
+        const dep = Dependency(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -297,7 +297,7 @@ void main() {
       });
 
       test('isBomImport', () {
-        final bomImport = Dependency(
+        const bomImport = Dependency(
           groupId: 'org.example',
           artifactId: 'bom',
           version: '1.0.0',
@@ -306,12 +306,69 @@ void main() {
         );
         expect(bomImport.isBomImport, isTrue);
 
-        final normalDep = Dependency(
+        const normalDep = Dependency(
           groupId: 'org.example',
           artifactId: 'lib',
           version: '1.0.0',
         );
         expect(normalDep.isBomImport, isFalse);
+      });
+    });
+
+    group('scopeExplicit tracking', () {
+      test('scope is explicit when <scope> element is present', () {
+        final pom = parser.parseString('''
+<project>
+  <artifactId>test</artifactId>
+  <dependencies>
+    <dependency>
+      <groupId>org.example</groupId>
+      <artifactId>lib</artifactId>
+      <version>1.0.0</version>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+</project>
+''');
+        expect(pom.dependencies[0].scope, DependencyScope.runtime);
+        expect(pom.dependencies[0].scopeExplicit, isTrue);
+      });
+
+      test('scope is not explicit when <scope> element is absent', () {
+        final pom = parser.parseString('''
+<project>
+  <artifactId>test</artifactId>
+  <dependencies>
+    <dependency>
+      <groupId>org.example</groupId>
+      <artifactId>lib</artifactId>
+      <version>1.0.0</version>
+    </dependency>
+  </dependencies>
+</project>
+''');
+        expect(pom.dependencies[0].scope, DependencyScope.compile);
+        expect(pom.dependencies[0].scopeExplicit, isFalse);
+      });
+
+      test('scopeExplicit is tracked in dependencyManagement', () {
+        final pom = parser.parseString('''
+<project>
+  <artifactId>test</artifactId>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.example</groupId>
+        <artifactId>lib</artifactId>
+        <version>1.0.0</version>
+        <scope>provided</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>
+''');
+        expect(pom.dependencyManagement[0].scope, DependencyScope.provided);
+        expect(pom.dependencyManagement[0].scopeExplicit, isTrue);
       });
     });
 
@@ -342,18 +399,18 @@ void main() {
 
     group('Exclusion', () {
       test('matches exact', () {
-        final exclusion = Exclusion(groupId: 'org.example', artifactId: 'lib');
+        const exclusion = Exclusion(groupId: 'org.example', artifactId: 'lib');
         expect(exclusion.matches('org.example', 'lib'), isTrue);
         expect(exclusion.matches('org.example', 'other'), isFalse);
         expect(exclusion.matches('other.group', 'lib'), isFalse);
       });
 
       test('matches with wildcards', () {
-        final groupWildcard = Exclusion(groupId: '*', artifactId: 'lib');
+        const groupWildcard = Exclusion(groupId: '*', artifactId: 'lib');
         expect(groupWildcard.matches('any.group', 'lib'), isTrue);
         expect(groupWildcard.matches('any.group', 'other'), isFalse);
 
-        final artifactWildcard =
+        const artifactWildcard =
             Exclusion(groupId: 'org.example', artifactId: '*');
         expect(artifactWildcard.matches('org.example', 'any'), isTrue);
         expect(artifactWildcard.matches('other', 'any'), isFalse);
@@ -365,8 +422,8 @@ void main() {
     group('ExclusionSet', () {
       test('matches any exclusion', () {
         final set = ExclusionSet([
-          Exclusion(groupId: 'org.a', artifactId: 'a'),
-          Exclusion(groupId: 'org.b', artifactId: 'b'),
+          const Exclusion(groupId: 'org.a', artifactId: 'a'),
+          const Exclusion(groupId: 'org.b', artifactId: 'b'),
         ]);
         expect(set.matches('org.a', 'a'), isTrue);
         expect(set.matches('org.b', 'b'), isTrue);
@@ -379,8 +436,10 @@ void main() {
       });
 
       test('merge combines sets', () {
-        final set1 = ExclusionSet([Exclusion(groupId: 'a', artifactId: 'a')]);
-        final set2 = set1.merge([Exclusion(groupId: 'b', artifactId: 'b')]);
+        final set1 =
+            ExclusionSet([const Exclusion(groupId: 'a', artifactId: 'a')]);
+        final set2 =
+            set1.merge([const Exclusion(groupId: 'b', artifactId: 'b')]);
         expect(set2.matches('a', 'a'), isTrue);
         expect(set2.matches('b', 'b'), isTrue);
       });

@@ -51,9 +51,7 @@ void main() {
       });
 
       test('throws on network error after retries', () async {
-        var attempts = 0;
         mockClient = MockClient((request) async {
-          attempts++;
           throw const SocketException('Connection failed');
         });
 
@@ -91,7 +89,7 @@ void main() {
           ),
         );
 
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -120,7 +118,7 @@ void main() {
           ),
         );
 
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -232,7 +230,7 @@ void main() {
           ),
         );
 
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0-SNAPSHOT',
@@ -245,8 +243,8 @@ void main() {
 
     group('checksum verification', () {
       test('verifies SHA1 checksum', () async {
-        final content = 'hello world';
-        final sha1 = '2aae6c35c94fcfb415dbe95f408b9ce91ee846ed';
+        const content = 'hello world';
+        const sha1 = '2aae6c35c94fcfb415dbe95f408b9ce91ee846ed';
 
         mockClient = MockClient((request) async {
           final path = request.url.path;
@@ -267,7 +265,7 @@ void main() {
           ),
         );
 
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -298,7 +296,7 @@ void main() {
           ),
         );
 
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -337,7 +335,7 @@ void main() {
             ),
           );
 
-          final coord = ArtifactCoordinate(
+          const coord = ArtifactCoordinate(
             groupId: 'org.example',
             artifactId: 'my-lib',
             version: '1.0.0',

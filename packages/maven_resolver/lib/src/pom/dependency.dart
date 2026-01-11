@@ -60,7 +60,9 @@ enum DependencyScope {
 /// Given a direct scope and transitive scope, returns the effective scope
 /// or null if the dependency should be omitted.
 DependencyScope? mediateScope(
-    DependencyScope direct, DependencyScope transitive) {
+  DependencyScope direct,
+  DependencyScope transitive,
+) {
   // Non-transitive scopes are always omitted
   if (!transitive.isTransitive) return null;
 

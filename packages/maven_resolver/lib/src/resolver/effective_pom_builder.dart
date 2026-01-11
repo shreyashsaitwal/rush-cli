@@ -81,8 +81,14 @@ final class EffectivePomBuilder {
     // Check for relocation
     final relocation = pom.distributionManagement?.relocation;
     if (relocation != null && relocation.isEffective) {
-      return _handleRelocation(coord, pom, relocation, context,
-          bomDepth: bomDepth, relocationDepth: relocationDepth);
+      return _handleRelocation(
+        coord,
+        pom,
+        relocation,
+        context,
+        bomDepth: bomDepth,
+        relocationDepth: relocationDepth,
+      );
     }
 
     // Build parent chain
@@ -133,11 +139,13 @@ final class EffectivePomBuilder {
     required int relocationDepth,
   }) async {
     if (relocationDepth >= maxRelocationDepth) {
-      context.addError(ResolutionError(
-        coordinate: originalCoord,
-        message:
-            'Relocation chain exceeds maximum depth of $maxRelocationDepth',
-      ));
+      context.addError(
+        ResolutionError(
+          coordinate: originalCoord,
+          message:
+              'Relocation chain exceeds maximum depth of $maxRelocationDepth',
+        ),
+      );
       return null;
     }
 
@@ -152,15 +160,19 @@ final class EffectivePomBuilder {
 
     // Log the relocation if there's a message
     if (relocation.message != null) {
-      context.addWarning(ResolutionWarning(
-        coordinate: originalCoord,
-        message: 'Artifact relocated to $newCoord: ${relocation.message}',
-      ));
+      context.addWarning(
+        ResolutionWarning(
+          coordinate: originalCoord,
+          message: 'Artifact relocated to $newCoord: ${relocation.message}',
+        ),
+      );
     } else {
-      context.addWarning(ResolutionWarning(
-        coordinate: originalCoord,
-        message: 'Artifact relocated to $newCoord',
-      ));
+      context.addWarning(
+        ResolutionWarning(
+          coordinate: originalCoord,
+          message: 'Artifact relocated to $newCoord',
+        ),
+      );
     }
 
     // Cache the original coordinate as pointing to the new one
@@ -188,30 +200,36 @@ final class EffectivePomBuilder {
     try {
       final result = await repository.fetchPom(coord);
       if (result == null) {
-        context.addError(ResolutionError(
-          coordinate: coord,
-          message: 'POM not found in any repository',
-        ));
+        context.addError(
+          ResolutionError(
+            coordinate: coord,
+            message: 'POM not found in any repository',
+          ),
+        );
         return null;
       }
 
       final content = utf8.decode(result.content);
       return _parser.parseString(content);
     } on PomParseException catch (e, st) {
-      context.addError(ResolutionError(
-        coordinate: coord,
-        message: 'Failed to parse POM: ${e.message}',
-        cause: e,
-        stackTrace: st,
-      ));
+      context.addError(
+        ResolutionError(
+          coordinate: coord,
+          message: 'Failed to parse POM: ${e.message}',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
       return null;
     } on RepositoryException catch (e, st) {
-      context.addError(ResolutionError(
-        coordinate: coord,
-        message: 'Failed to fetch POM: ${e.message}',
-        cause: e,
-        stackTrace: st,
-      ));
+      context.addError(
+        ResolutionError(
+          coordinate: coord,
+          message: 'Failed to fetch POM: ${e.message}',
+          cause: e,
+          stackTrace: st,
+        ),
+      );
       return null;
     }
   }
@@ -224,9 +242,11 @@ final class EffectivePomBuilder {
   }) async {
     if (pom.parent == null) return [];
     if (depth >= maxParentDepth) {
-      context.addError(ResolutionError(
-        message: 'Parent chain exceeds maximum depth of $maxParentDepth',
-      ));
+      context.addError(
+        ResolutionError(
+          message: 'Parent chain exceeds maximum depth of $maxParentDepth',
+        ),
+      );
       return [];
     }
 
@@ -260,9 +280,11 @@ final class EffectivePomBuilder {
     int bomDepth,
   ) async {
     if (bomDepth >= maxBomDepth) {
-      context.addError(ResolutionError(
-        message: 'BOM import chain exceeds maximum depth of $maxBomDepth',
-      ));
+      context.addError(
+        ResolutionError(
+          message: 'BOM import chain exceeds maximum depth of $maxBomDepth',
+        ),
+      );
       return [];
     }
 
@@ -291,9 +313,11 @@ final class EffectivePomBuilder {
 
       for (final bomImport in levelBoms) {
         if (bomImport.version == null) {
-          context.addError(ResolutionError(
-            message: 'BOM import missing version: ${bomImport.coordinate}',
-          ));
+          context.addError(
+            ResolutionError(
+              message: 'BOM import missing version: ${bomImport.coordinate}',
+            ),
+          );
           continue;
         }
 

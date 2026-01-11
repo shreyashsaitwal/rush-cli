@@ -55,7 +55,7 @@ void main() {
 
     group('groupPath', () {
       test('converts dots to slashes', () {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.apache.maven',
           artifactId: 'maven-core',
           version: '3.6.0',
@@ -66,7 +66,7 @@ void main() {
 
     group('baseFilename', () {
       test('without classifier', () {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -75,7 +75,7 @@ void main() {
       });
 
       test('with classifier', () {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -87,7 +87,7 @@ void main() {
 
     group('pomFilename', () {
       test('returns correct POM filename', () {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -98,7 +98,7 @@ void main() {
 
     group('artifactFilename', () {
       test('uses packaging extension by default', () {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -107,7 +107,7 @@ void main() {
       });
 
       test('allows override extension', () {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -116,7 +116,7 @@ void main() {
       });
 
       test('includes classifier', () {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -128,7 +128,7 @@ void main() {
 
     group('paths', () {
       test('artifactPath', () {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -137,7 +137,7 @@ void main() {
       });
 
       test('pomPath', () {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -146,7 +146,7 @@ void main() {
       });
 
       test('artifactFilePath', () {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -160,7 +160,7 @@ void main() {
 
     group('isSnapshot', () {
       test('returns true for SNAPSHOT versions', () {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0-SNAPSHOT',
@@ -169,7 +169,7 @@ void main() {
       });
 
       test('returns false for release versions', () {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -180,7 +180,7 @@ void main() {
 
     group('toString', () {
       test('3-part for simple jar', () {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -189,7 +189,7 @@ void main() {
       });
 
       test('4-part for non-jar packaging', () {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -199,7 +199,7 @@ void main() {
       });
 
       test('5-part with classifier', () {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -211,7 +211,7 @@ void main() {
 
     group('conflictKey', () {
       test('without classifier', () {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -220,7 +220,7 @@ void main() {
       });
 
       test('with classifier', () {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -232,12 +232,12 @@ void main() {
 
     group('equality', () {
       test('equal coordinates', () {
-        final a = ArtifactCoordinate(
+        const a = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
         );
-        final b = ArtifactCoordinate(
+        const b = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -247,12 +247,12 @@ void main() {
       });
 
       test('different versions are not equal', () {
-        final a = ArtifactCoordinate(
+        const a = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
         );
-        final b = ArtifactCoordinate(
+        const b = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '2.0.0',
@@ -263,7 +263,7 @@ void main() {
 
     group('copyWith', () {
       test('copies with new version', () {
-        final original = ArtifactCoordinate(
+        const original = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',

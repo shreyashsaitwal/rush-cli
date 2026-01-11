@@ -36,7 +36,7 @@ void main() {
 
     test('verify returns ChecksumValid when hash matches', () async {
       final content = Uint8List.fromList('hello world'.codeUnits);
-      final sha1Hash = '2aae6c35c94fcfb415dbe95f408b9ce91ee846ed';
+      const sha1Hash = '2aae6c35c94fcfb415dbe95f408b9ce91ee846ed';
 
       final result = await verifier.verify(
         content: content,
@@ -59,7 +59,7 @@ void main() {
 
     test('verify returns ChecksumInvalid when hash mismatches', () async {
       final content = Uint8List.fromList('hello world'.codeUnits);
-      final wrongHash = 'wrong_hash_value';
+      const wrongHash = 'wrong_hash_value';
 
       final result = await verifier.verify(
         content: content,
@@ -96,8 +96,8 @@ void main() {
     test('verify handles checksum file with filename', () async {
       // Some checksum files contain "hash  filename"
       final content = Uint8List.fromList('hello world'.codeUnits);
-      final sha1Hash = '2aae6c35c94fcfb415dbe95f408b9ce91ee846ed';
-      final checksumWithFilename = '$sha1Hash  file.jar';
+      const sha1Hash = '2aae6c35c94fcfb415dbe95f408b9ce91ee846ed';
+      const checksumWithFilename = '$sha1Hash  file.jar';
 
       final result = await verifier.verify(
         content: content,
@@ -117,7 +117,7 @@ void main() {
 
     test('verify is case insensitive', () async {
       final content = Uint8List.fromList('hello world'.codeUnits);
-      final sha1Hash = '2AAE6C35C94FCFB415DBE95F408B9CE91EE846ED'; // uppercase
+      const sha1Hash = '2AAE6C35C94FCFB415DBE95F408B9CE91EE846ED'; // uppercase
 
       final result = await verifier.verify(
         content: content,
@@ -137,7 +137,7 @@ void main() {
 
     test('applyPolicy throws on ChecksumInvalid with fail policy', () {
       final content = Uint8List.fromList('test'.codeUnits);
-      final result =
+      const result =
           ChecksumInvalid(ChecksumAlgorithm.sha1, 'expected', 'actual');
 
       expect(
@@ -154,7 +154,7 @@ void main() {
 
     test('applyPolicy returns content on ChecksumInvalid with warn policy', () {
       final content = Uint8List.fromList('test'.codeUnits);
-      final result =
+      const result =
           ChecksumInvalid(ChecksumAlgorithm.sha1, 'expected', 'actual');
       var warned = false;
 
@@ -172,7 +172,7 @@ void main() {
 
     test('applyPolicy throws on ChecksumMissing with fail policy', () {
       final content = Uint8List.fromList('test'.codeUnits);
-      final result = ChecksumMissing(ChecksumAlgorithm.values);
+      const result = ChecksumMissing(ChecksumAlgorithm.values);
 
       expect(
         () => verifier.applyPolicy(

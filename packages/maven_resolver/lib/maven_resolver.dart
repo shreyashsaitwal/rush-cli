@@ -2,7 +2,7 @@
 ///
 /// This library provides a complete implementation of Maven's version
 /// comparison, dependency resolution, and POM parsing algorithms.
-library maven_resolver;
+library;
 
 // Version module
 export 'src/version/maven_version.dart';

@@ -15,7 +15,7 @@ void main() {
 
     group('interpolate - basic properties', () {
       test('resolves simple property reference', () {
-        final pom = Pom(
+        const pom = Pom(
           artifactId: 'test',
           properties: {'my.version': '1.0.0'},
           dependencies: [
@@ -33,7 +33,7 @@ void main() {
       });
 
       test('resolves nested property references', () {
-        final pom = Pom(
+        const pom = Pom(
           artifactId: 'test',
           properties: {
             'base.version': '1.0.0',
@@ -54,7 +54,7 @@ void main() {
       });
 
       test('resolves multiple properties in one value', () {
-        final pom = Pom(
+        const pom = Pom(
           artifactId: 'test',
           properties: {
             'group': 'org.example',
@@ -76,7 +76,7 @@ void main() {
       });
 
       test('leaves unresolved properties unchanged', () {
-        final pom = Pom(
+        const pom = Pom(
           artifactId: 'test',
           dependencies: [
             Dependency(
@@ -93,7 +93,7 @@ void main() {
       });
 
       test('handles circular references without infinite loop', () {
-        final pom = Pom(
+        const pom = Pom(
           artifactId: 'test',
           properties: {
             'a': r'${b}',
@@ -116,7 +116,7 @@ void main() {
 
     group('interpolate - project properties', () {
       test('resolves project.version', () {
-        final pom = Pom(
+        const pom = Pom(
           groupId: 'org.example',
           artifactId: 'parent',
           version: '2.0.0',
@@ -135,7 +135,7 @@ void main() {
       });
 
       test('resolves project.groupId', () {
-        final pom = Pom(
+        const pom = Pom(
           groupId: 'org.example',
           artifactId: 'test',
           version: '1.0.0',
@@ -154,7 +154,7 @@ void main() {
       });
 
       test('resolves project.artifactId', () {
-        final pom = Pom(
+        const pom = Pom(
           groupId: 'org.example',
           artifactId: 'my-project',
           version: '1.0.0',
@@ -167,7 +167,7 @@ void main() {
       });
 
       test('resolves project.parent.version', () {
-        final pom = Pom(
+        const pom = Pom(
           artifactId: 'child',
           parent: ParentRef(
             groupId: 'org.example',
@@ -191,7 +191,7 @@ void main() {
 
     group('interpolate - parent chain properties', () {
       test('child properties override parent properties', () {
-        final parentPom = Pom(
+        const parentPom = Pom(
           groupId: 'org.example',
           artifactId: 'parent',
           version: '1.0.0',
@@ -200,7 +200,7 @@ void main() {
           },
         );
 
-        final childPom = Pom(
+        const childPom = Pom(
           artifactId: 'child',
           parent: ParentRef(
             groupId: 'org.example',
@@ -228,7 +228,7 @@ void main() {
       });
 
       test('inherits properties from parent when not overridden', () {
-        final parentPom = Pom(
+        const parentPom = Pom(
           groupId: 'org.example',
           artifactId: 'parent',
           version: '1.0.0',
@@ -237,7 +237,7 @@ void main() {
           },
         );
 
-        final childPom = Pom(
+        const childPom = Pom(
           artifactId: 'child',
           parent: ParentRef(
             groupId: 'org.example',
@@ -262,7 +262,7 @@ void main() {
       });
 
       test('merges properties from entire parent chain', () {
-        final grandparent = Pom(
+        const grandparent = Pom(
           groupId: 'org.example',
           artifactId: 'grandparent',
           version: '1.0.0',
@@ -271,7 +271,7 @@ void main() {
           },
         );
 
-        final parent = Pom(
+        const parent = Pom(
           artifactId: 'parent',
           parent: ParentRef(
             groupId: 'org.example',
@@ -283,7 +283,7 @@ void main() {
           },
         );
 
-        final child = Pom(
+        const child = Pom(
           artifactId: 'child',
           parent: ParentRef(
             groupId: 'org.example',
@@ -308,7 +308,7 @@ void main() {
 
     group('interpolate - dependencyManagement', () {
       test('merges dependencyManagement from parent chain', () {
-        final parent = Pom(
+        const parent = Pom(
           groupId: 'org.example',
           artifactId: 'parent',
           version: '1.0.0',
@@ -321,7 +321,7 @@ void main() {
           ],
         );
 
-        final child = Pom(
+        const child = Pom(
           artifactId: 'child',
           parent: ParentRef(
             groupId: 'org.example',
@@ -346,7 +346,7 @@ void main() {
       });
 
       test('child dependencyManagement overrides parent', () {
-        final parent = Pom(
+        const parent = Pom(
           groupId: 'org.example',
           artifactId: 'parent',
           version: '1.0.0',
@@ -359,7 +359,7 @@ void main() {
           ],
         );
 
-        final child = Pom(
+        const child = Pom(
           artifactId: 'child',
           parent: ParentRef(
             groupId: 'org.example',
@@ -391,7 +391,7 @@ void main() {
         final pom = parser.parseString(file.readAsStringSync());
 
         // Create mock parent for project.parent.version
-        final parent = Pom(
+        const parent = Pom(
           groupId: 'org.example',
           artifactId: 'parent',
           version: '1.0.0',
@@ -409,7 +409,7 @@ void main() {
 
     group('interpolate - environment variables', () {
       test('resolves env.* properties', () {
-        final pom = Pom(
+        const pom = Pom(
           artifactId: 'test',
           description: r'Home: ${env.HOME}',
         );
@@ -418,6 +418,186 @@ void main() {
 
         // HOME should be set on all platforms
         expect(effective.pom.description, isNot(contains(r'${env.HOME}')));
+      });
+    });
+
+    group('interpolate - project.basedir', () {
+      test('resolves project.basedir', () {
+        const pom = Pom(
+          groupId: 'org.example',
+          artifactId: 'test',
+          version: '1.0.0',
+          dependencies: [
+            Dependency(
+              groupId: 'org.example',
+              artifactId: 'lib',
+              version: '1.0.0',
+              systemPath: r'${project.basedir}/lib/local.jar',
+            ),
+          ],
+        );
+
+        final effective = interpolator.interpolate(
+          pom,
+          basedir: '/home/user/project',
+        );
+
+        expect(
+          effective.dependencies[0].systemPath,
+          '/home/user/project/lib/local.jar',
+        );
+      });
+
+      test('resolves project.build.directory', () {
+        const pom = Pom(
+          artifactId: 'test',
+          description: r'Output: ${project.build.directory}',
+        );
+
+        final effective = interpolator.interpolate(
+          pom,
+          basedir: '/home/user/project',
+        );
+
+        expect(
+          effective.pom.description,
+          'Output: /home/user/project/target',
+        );
+      });
+
+      test('resolves project.build.outputDirectory', () {
+        const pom = Pom(
+          artifactId: 'test',
+          description: r'Classes: ${project.build.outputDirectory}',
+        );
+
+        final effective = interpolator.interpolate(
+          pom,
+          basedir: '/home/user/project',
+        );
+
+        expect(
+          effective.pom.description,
+          'Classes: /home/user/project/target/classes',
+        );
+      });
+
+      test('resolves project.build.sourceDirectory', () {
+        const pom = Pom(
+          artifactId: 'test',
+          description: r'Source: ${project.build.sourceDirectory}',
+        );
+
+        final effective = interpolator.interpolate(
+          pom,
+          basedir: '/home/user/project',
+        );
+
+        expect(
+          effective.pom.description,
+          'Source: /home/user/project/src/main/java',
+        );
+      });
+
+      test('leaves project.basedir unresolved when basedir not provided', () {
+        const pom = Pom(
+          artifactId: 'test',
+          description: r'${project.basedir}/lib',
+        );
+
+        final effective = interpolator.interpolate(pom);
+
+        expect(
+          effective.pom.description,
+          r'${project.basedir}/lib',
+        );
+      });
+    });
+
+    group('interpolate - Java system properties', () {
+      test('resolves os.name', () {
+        const pom = Pom(
+          artifactId: 'test',
+          description: r'OS: ${os.name}',
+        );
+
+        final effective = interpolator.interpolate(pom);
+
+        // Should be resolved to something (not the placeholder)
+        expect(effective.pom.description, isNot(contains(r'${os.name}')));
+        expect(
+          effective.pom.description,
+          anyOf(
+            contains('Linux'),
+            contains('Mac OS X'),
+            contains('Windows'),
+          ),
+        );
+      });
+
+      test('resolves user.home', () {
+        const pom = Pom(
+          artifactId: 'test',
+          description: r'Home: ${user.home}',
+        );
+
+        final effective = interpolator.interpolate(pom);
+
+        expect(effective.pom.description, isNot(contains(r'${user.home}')));
+      });
+
+      test('resolves file.separator', () {
+        const pom = Pom(
+          artifactId: 'test',
+          description: r'Sep: ${file.separator}',
+        );
+
+        final effective = interpolator.interpolate(pom);
+
+        expect(
+          effective.pom.description,
+          anyOf(equals('Sep: /'), equals(r'Sep: \')),
+        );
+      });
+
+      test('JavaSystemProperties.fromPlatform creates valid properties', () {
+        final sysProps = JavaSystemProperties.fromPlatform();
+
+        expect(sysProps.osName, isNotEmpty);
+        expect(sysProps.osArch, isNotEmpty);
+        expect(sysProps.fileSeparator, isNotEmpty);
+        expect(sysProps.pathSeparator, isNotEmpty);
+        expect(sysProps.lineSeparator, isNotEmpty);
+        expect(sysProps.userDir, isNotEmpty);
+      });
+
+      test('JavaSystemProperties.getProperty returns correct values', () {
+        const sysProps = JavaSystemProperties(
+          javaVersion: '17',
+          javaHome: '/usr/lib/jvm/java-17',
+          osName: 'Linux',
+          osArch: 'amd64',
+          osVersion: '5.15.0',
+          fileSeparator: '/',
+          pathSeparator: ':',
+          lineSeparator: '\n',
+          userHome: '/home/testuser',
+          userName: 'testuser',
+          userDir: '/home/testuser/project',
+        );
+
+        expect(sysProps.getProperty('java.version'), '17');
+        expect(sysProps.getProperty('java.home'), '/usr/lib/jvm/java-17');
+        expect(sysProps.getProperty('os.name'), 'Linux');
+        expect(sysProps.getProperty('os.arch'), 'amd64');
+        expect(sysProps.getProperty('os.version'), '5.15.0');
+        expect(sysProps.getProperty('file.separator'), '/');
+        expect(sysProps.getProperty('path.separator'), ':');
+        expect(sysProps.getProperty('line.separator'), '\n');
+        expect(sysProps.getProperty('user.home'), '/home/testuser');
+        expect(sysProps.getProperty('user.name'), 'testuser');
+        expect(sysProps.getProperty('user.dir'), '/home/testuser/project');
+        expect(sysProps.getProperty('unknown.prop'), isNull);
       });
     });
 
@@ -430,14 +610,14 @@ void main() {
 
       test('fills in missing version from management', () {
         final dependencies = [
-          Dependency(
+          const Dependency(
             groupId: 'org.example',
             artifactId: 'lib',
           ),
         ];
 
         final management = [
-          Dependency(
+          const Dependency(
             groupId: 'org.example',
             artifactId: 'lib',
             version: '1.0.0',
@@ -451,7 +631,7 @@ void main() {
 
       test('does not override explicit version', () {
         final dependencies = [
-          Dependency(
+          const Dependency(
             groupId: 'org.example',
             artifactId: 'lib',
             version: '2.0.0',
@@ -459,7 +639,7 @@ void main() {
         ];
 
         final management = [
-          Dependency(
+          const Dependency(
             groupId: 'org.example',
             artifactId: 'lib',
             version: '1.0.0',
@@ -473,7 +653,7 @@ void main() {
 
       test('merges exclusions', () {
         final dependencies = [
-          Dependency(
+          const Dependency(
             groupId: 'org.example',
             artifactId: 'lib',
             exclusions: [
@@ -483,7 +663,7 @@ void main() {
         ];
 
         final management = [
-          Dependency(
+          const Dependency(
             groupId: 'org.example',
             artifactId: 'lib',
             version: '1.0.0',
@@ -500,7 +680,7 @@ void main() {
 
       test('leaves unmanaged dependencies unchanged', () {
         final dependencies = [
-          Dependency(
+          const Dependency(
             groupId: 'org.example',
             artifactId: 'unmanaged',
             version: '1.0.0',
@@ -508,7 +688,7 @@ void main() {
         ];
 
         final management = [
-          Dependency(
+          const Dependency(
             groupId: 'org.example',
             artifactId: 'other',
             version: '2.0.0',
@@ -517,6 +697,88 @@ void main() {
 
         final result = applier.apply(dependencies, management);
 
+        expect(result[0].version, '1.0.0');
+      });
+
+      test(
+          'applies scope from management when dependency scope is not explicit',
+          () {
+        final dependencies = [
+          const Dependency(
+            groupId: 'org.example',
+            artifactId: 'lib',
+            version: '1.0.0',
+            scope: DependencyScope.compile,
+            scopeExplicit: false, // Not explicitly set in XML
+          ),
+        ];
+
+        final management = [
+          const Dependency(
+            groupId: 'org.example',
+            artifactId: 'lib',
+            version: '1.0.0',
+            scope: DependencyScope.provided,
+            scopeExplicit: true,
+          ),
+        ];
+
+        final result = applier.apply(dependencies, management);
+
+        expect(result[0].scope, DependencyScope.provided);
+      });
+
+      test('preserves explicit scope even when management has different scope',
+          () {
+        final dependencies = [
+          const Dependency(
+            groupId: 'org.example',
+            artifactId: 'lib',
+            version: '1.0.0',
+            scope: DependencyScope.runtime,
+            scopeExplicit: true, // Explicitly set in XML
+          ),
+        ];
+
+        final management = [
+          const Dependency(
+            groupId: 'org.example',
+            artifactId: 'lib',
+            version: '1.0.0',
+            scope: DependencyScope.provided,
+            scopeExplicit: true,
+          ),
+        ];
+
+        final result = applier.apply(dependencies, management);
+
+        expect(result[0].scope, DependencyScope.runtime);
+      });
+
+      test('uses compile scope when neither dep nor management specify scope',
+          () {
+        final dependencies = [
+          const Dependency(
+            groupId: 'org.example',
+            artifactId: 'lib',
+            scope: DependencyScope.compile,
+            scopeExplicit: false,
+          ),
+        ];
+
+        final management = [
+          const Dependency(
+            groupId: 'org.example',
+            artifactId: 'lib',
+            version: '1.0.0',
+            scope: DependencyScope.compile,
+            scopeExplicit: false,
+          ),
+        ];
+
+        final result = applier.apply(dependencies, management);
+
+        expect(result[0].scope, DependencyScope.compile);
         expect(result[0].version, '1.0.0');
       });
     });

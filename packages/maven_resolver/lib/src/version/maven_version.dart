@@ -10,7 +10,6 @@
 /// - Case-insensitive comparison
 library;
 
-import 'qualifier.dart';
 import 'version_item.dart';
 
 /// A Maven version that can be compared according to Maven's ordering rules.
@@ -112,9 +111,11 @@ final class MavenVersion implements Comparable<MavenVersion> {
             stack.add(list);
           }
 
-          list.add(StringItem.withFollowedByDigit(
-            versionLower.substring(startIndex, i),
-          ));
+          list.add(
+            StringItem.withFollowedByDigit(
+              versionLower.substring(startIndex, i),
+            ),
+          );
           startIndex = i;
 
           // Create another nested list for the digit

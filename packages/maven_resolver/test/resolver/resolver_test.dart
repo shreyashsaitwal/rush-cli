@@ -57,12 +57,22 @@ void main() {
       });
 
       test('resolves transitive dependencies', () async {
-        repo.addSimplePom('com.example', 'lib-a', '1.0.0', dependencies: [
-          'com.example:lib-b:1.0.0',
-        ]);
-        repo.addSimplePom('com.example', 'lib-b', '1.0.0', dependencies: [
-          'com.example:lib-c:1.0.0',
-        ]);
+        repo.addSimplePom(
+          'com.example',
+          'lib-a',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-b:1.0.0',
+          ],
+        );
+        repo.addSimplePom(
+          'com.example',
+          'lib-b',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-c:1.0.0',
+          ],
+        );
         repo.addSimplePom('com.example', 'lib-c', '1.0.0');
 
         final result = await resolver.resolve(
@@ -91,16 +101,31 @@ void main() {
         // D:1.0.0 is at depth 3, D:2.0.0 is also at depth 3
         // First declaration (from B) should win
 
-        repo.addSimplePom('com.example', 'lib-a', '1.0.0', dependencies: [
-          'com.example:lib-b:1.0.0',
-          'com.example:lib-c:1.0.0',
-        ]);
-        repo.addSimplePom('com.example', 'lib-b', '1.0.0', dependencies: [
-          'com.example:lib-d:1.0.0',
-        ]);
-        repo.addSimplePom('com.example', 'lib-c', '1.0.0', dependencies: [
-          'com.example:lib-d:2.0.0',
-        ]);
+        repo.addSimplePom(
+          'com.example',
+          'lib-a',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-b:1.0.0',
+            'com.example:lib-c:1.0.0',
+          ],
+        );
+        repo.addSimplePom(
+          'com.example',
+          'lib-b',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-d:1.0.0',
+          ],
+        );
+        repo.addSimplePom(
+          'com.example',
+          'lib-c',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-d:2.0.0',
+          ],
+        );
         repo.addSimplePom('com.example', 'lib-d', '1.0.0');
         repo.addSimplePom('com.example', 'lib-d', '2.0.0');
 
@@ -125,9 +150,14 @@ void main() {
         // Direct: D:2.0.0 at depth 1
         // Transitive: A -> D:1.0.0 at depth 2
 
-        repo.addSimplePom('com.example', 'lib-a', '1.0.0', dependencies: [
-          'com.example:lib-d:1.0.0',
-        ]);
+        repo.addSimplePom(
+          'com.example',
+          'lib-a',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-d:1.0.0',
+          ],
+        );
         repo.addSimplePom('com.example', 'lib-d', '1.0.0');
         repo.addSimplePom('com.example', 'lib-d', '2.0.0');
 
@@ -154,16 +184,31 @@ void main() {
       });
 
       test('reports conflicts', () async {
-        repo.addSimplePom('com.example', 'lib-a', '1.0.0', dependencies: [
-          'com.example:lib-b:1.0.0',
-          'com.example:lib-c:1.0.0',
-        ]);
-        repo.addSimplePom('com.example', 'lib-b', '1.0.0', dependencies: [
-          'com.example:lib-d:1.0.0',
-        ]);
-        repo.addSimplePom('com.example', 'lib-c', '1.0.0', dependencies: [
-          'com.example:lib-d:2.0.0',
-        ]);
+        repo.addSimplePom(
+          'com.example',
+          'lib-a',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-b:1.0.0',
+            'com.example:lib-c:1.0.0',
+          ],
+        );
+        repo.addSimplePom(
+          'com.example',
+          'lib-b',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-d:1.0.0',
+          ],
+        );
+        repo.addSimplePom(
+          'com.example',
+          'lib-c',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-d:2.0.0',
+          ],
+        );
         repo.addSimplePom('com.example', 'lib-d', '1.0.0');
         repo.addSimplePom('com.example', 'lib-d', '2.0.0');
 
@@ -189,9 +234,14 @@ void main() {
     group('scope mediation', () {
       test('runtime scope remains runtime transitively under compile',
           () async {
-        repo.addSimplePom('com.example', 'lib-a', '1.0.0', dependencies: [
-          'com.example:lib-b:1.0.0:runtime',
-        ]);
+        repo.addSimplePom(
+          'com.example',
+          'lib-a',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-b:1.0.0:runtime',
+          ],
+        );
         repo.addSimplePom('com.example', 'lib-b', '1.0.0');
 
         final result = await resolver.resolve(
@@ -211,9 +261,14 @@ void main() {
       });
 
       test('test scope transitives are omitted', () async {
-        repo.addSimplePom('com.example', 'lib-a', '1.0.0', dependencies: [
-          'com.example:lib-b:1.0.0:test',
-        ]);
+        repo.addSimplePom(
+          'com.example',
+          'lib-a',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-b:1.0.0:test',
+          ],
+        );
         repo.addSimplePom('com.example', 'lib-b', '1.0.0');
 
         final result = await resolver.resolve(
@@ -234,9 +289,14 @@ void main() {
       });
 
       test('provided scope transitives are omitted', () async {
-        repo.addSimplePom('com.example', 'lib-a', '1.0.0', dependencies: [
-          'com.example:lib-b:1.0.0:provided',
-        ]);
+        repo.addSimplePom(
+          'com.example',
+          'lib-a',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-b:1.0.0:provided',
+          ],
+        );
         repo.addSimplePom('com.example', 'lib-b', '1.0.0');
 
         final result = await resolver.resolve(
@@ -259,12 +319,22 @@ void main() {
 
     group('exclusions', () {
       test('excludes matching transitive dependency', () async {
-        repo.addSimplePom('com.example', 'lib-a', '1.0.0', dependencies: [
-          'com.example:lib-b:1.0.0',
-        ]);
-        repo.addSimplePom('com.example', 'lib-b', '1.0.0', dependencies: [
-          'com.example:lib-c:1.0.0',
-        ]);
+        repo.addSimplePom(
+          'com.example',
+          'lib-a',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-b:1.0.0',
+          ],
+        );
+        repo.addSimplePom(
+          'com.example',
+          'lib-b',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-c:1.0.0',
+          ],
+        );
         repo.addSimplePom('com.example', 'lib-c', '1.0.0');
 
         final result = await resolver.resolve(
@@ -289,13 +359,23 @@ void main() {
       });
 
       test('exclusion applies to entire subtree', () async {
-        repo.addSimplePom('com.example', 'lib-a', '1.0.0', dependencies: [
-          'com.example:lib-b:1.0.0',
-        ]);
-        repo.addSimplePom('com.example', 'lib-b', '1.0.0', dependencies: [
-          'com.example:lib-c:1.0.0',
-          'com.example:lib-d:1.0.0',
-        ]);
+        repo.addSimplePom(
+          'com.example',
+          'lib-a',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-b:1.0.0',
+          ],
+        );
+        repo.addSimplePom(
+          'com.example',
+          'lib-b',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-c:1.0.0',
+            'com.example:lib-d:1.0.0',
+          ],
+        );
         repo.addSimplePom('com.example', 'lib-c', '1.0.0');
         repo.addSimplePom('com.example', 'lib-d', '1.0.0');
 
@@ -318,10 +398,15 @@ void main() {
       });
 
       test('wildcard exclusion excludes all transitives', () async {
-        repo.addSimplePom('com.example', 'lib-a', '1.0.0', dependencies: [
-          'com.example:lib-b:1.0.0',
-          'com.example:lib-c:1.0.0',
-        ]);
+        repo.addSimplePom(
+          'com.example',
+          'lib-a',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-b:1.0.0',
+            'com.example:lib-c:1.0.0',
+          ],
+        );
         repo.addSimplePom('com.example', 'lib-b', '1.0.0');
         repo.addSimplePom('com.example', 'lib-c', '1.0.0');
 
@@ -342,9 +427,14 @@ void main() {
       });
 
       test('global exclusions work', () async {
-        repo.addSimplePom('com.example', 'lib-a', '1.0.0', dependencies: [
-          'com.example:lib-b:1.0.0',
-        ]);
+        repo.addSimplePom(
+          'com.example',
+          'lib-a',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-b:1.0.0',
+          ],
+        );
         repo.addSimplePom('com.example', 'lib-b', '1.0.0');
 
         final result = await resolver.resolve(
@@ -448,9 +538,14 @@ void main() {
 
     group('dependencyManagement', () {
       test('applies version from dependencyManagement', () async {
-        repo.addSimplePom('com.example', 'lib-a', '1.0.0', dependencies: [
-          'com.example:lib-b', // No version specified
-        ]);
+        repo.addSimplePom(
+          'com.example',
+          'lib-a',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-b', // No version specified
+          ],
+        );
         repo.addSimplePom('com.example', 'lib-b', '2.0.0');
 
         final result = await resolver.resolve(
@@ -478,9 +573,14 @@ void main() {
 
       test('dependencyManagement overrides transitive version', () async {
         // A -> B:1.0.0, but dependencyManagement says B:2.0.0
-        repo.addSimplePom('com.example', 'lib-a', '1.0.0', dependencies: [
-          'com.example:lib-b:1.0.0',
-        ]);
+        repo.addSimplePom(
+          'com.example',
+          'lib-a',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-b:1.0.0',
+          ],
+        );
         repo.addSimplePom('com.example', 'lib-b', '1.0.0');
         repo.addSimplePom('com.example', 'lib-b', '2.0.0');
 
@@ -554,12 +654,22 @@ void main() {
 
     group('cycle detection', () {
       test('handles circular dependencies', () async {
-        repo.addSimplePom('com.example', 'lib-a', '1.0.0', dependencies: [
-          'com.example:lib-b:1.0.0',
-        ]);
-        repo.addSimplePom('com.example', 'lib-b', '1.0.0', dependencies: [
-          'com.example:lib-a:1.0.0',
-        ]);
+        repo.addSimplePom(
+          'com.example',
+          'lib-a',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-b:1.0.0',
+          ],
+        );
+        repo.addSimplePom(
+          'com.example',
+          'lib-b',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-a:1.0.0',
+          ],
+        );
 
         final result = await resolver.resolve(
           directDependencies: [
@@ -579,9 +689,14 @@ void main() {
 
     group('missing dependencies', () {
       test('handles missing dependencies gracefully', () async {
-        repo.addSimplePom('com.example', 'lib-a', '1.0.0', dependencies: [
-          'com.example:missing:1.0.0',
-        ]);
+        repo.addSimplePom(
+          'com.example',
+          'lib-a',
+          '1.0.0',
+          dependencies: [
+            'com.example:missing:1.0.0',
+          ],
+        );
 
         final result = await resolver.resolve(
           directDependencies: [
@@ -637,10 +752,10 @@ void main() {
 
   group('ResolutionResult', () {
     test('compileArtifacts filters correctly', () {
-      final result = ResolutionResult(
+      const result = ResolutionResult(
         artifacts: [
           ResolvedArtifact(
-            coordinate: const ArtifactCoordinate(
+            coordinate: ArtifactCoordinate(
               groupId: 'com.example',
               artifactId: 'lib-a',
               version: '1.0.0',
@@ -650,7 +765,7 @@ void main() {
             path: [],
           ),
           ResolvedArtifact(
-            coordinate: const ArtifactCoordinate(
+            coordinate: ArtifactCoordinate(
               groupId: 'com.example',
               artifactId: 'lib-b',
               version: '1.0.0',
@@ -981,6 +1096,199 @@ void main() {
           (a) => a.coordinate.artifactId == 'lib-c',
         );
         expect(libC.coordinate.version, '2.0.0'); // Child BOM version wins
+      });
+    });
+
+    group('relocation handling', () {
+      test('follows relocation to new groupId', () async {
+        // Old artifact relocates to new groupId
+        repo.addRelocatedPom(
+          'old.group',
+          'lib-a',
+          '1.0.0',
+          newGroupId: 'new.group',
+          message: 'Moved to new.group',
+        );
+
+        // New location has the actual artifact
+        repo.addSimplePom(
+          'new.group',
+          'lib-a',
+          '1.0.0',
+          dependencies: [
+            'com.example:lib-b:1.0.0',
+          ],
+        );
+        repo.addSimplePom('com.example', 'lib-b', '1.0.0');
+
+        final result = await resolver.resolve(
+          directDependencies: [
+            const Dependency(
+              groupId: 'old.group',
+              artifactId: 'lib-a',
+              version: '1.0.0',
+            ),
+          ],
+        );
+
+        expect(result.isSuccess, isTrue);
+        // Should have warnings about relocation
+        expect(result.warnings, hasLength(1));
+        expect(result.warnings[0].message, contains('relocated'));
+        expect(result.warnings[0].message, contains('new.group'));
+
+        // Should resolve to the new artifact and its dependencies
+        expect(result.artifacts, hasLength(2));
+        expect(
+          result.artifacts.any(
+            (a) =>
+                a.coordinate.groupId == 'new.group' &&
+                a.coordinate.artifactId == 'lib-a',
+          ),
+          isTrue,
+        );
+        expect(
+          result.artifacts.any((a) => a.coordinate.artifactId == 'lib-b'),
+          isTrue,
+        );
+      });
+
+      test('follows relocation to new artifactId', () async {
+        repo.addRelocatedPom(
+          'com.example',
+          'old-name',
+          '1.0.0',
+          newArtifactId: 'new-name',
+        );
+        repo.addSimplePom('com.example', 'new-name', '1.0.0');
+
+        final result = await resolver.resolve(
+          directDependencies: [
+            const Dependency(
+              groupId: 'com.example',
+              artifactId: 'old-name',
+              version: '1.0.0',
+            ),
+          ],
+        );
+
+        expect(result.isSuccess, isTrue);
+        expect(result.warnings, hasLength(1));
+        expect(
+          result.artifacts.any((a) => a.coordinate.artifactId == 'new-name'),
+          isTrue,
+        );
+      });
+
+      test('follows relocation to new version', () async {
+        repo.addRelocatedPom(
+          'com.example',
+          'lib-a',
+          '1.0.0',
+          newVersion: '2.0.0',
+        );
+        repo.addSimplePom('com.example', 'lib-a', '2.0.0');
+
+        final result = await resolver.resolve(
+          directDependencies: [
+            const Dependency(
+              groupId: 'com.example',
+              artifactId: 'lib-a',
+              version: '1.0.0',
+            ),
+          ],
+        );
+
+        expect(result.isSuccess, isTrue);
+        expect(result.warnings, hasLength(1));
+        expect(
+          result.artifacts.any((a) => a.coordinate.version == '2.0.0'),
+          isTrue,
+        );
+      });
+
+      test('follows chained relocations', () async {
+        // First relocation: old-group -> mid-group
+        repo.addRelocatedPom(
+          'old.group',
+          'lib-a',
+          '1.0.0',
+          newGroupId: 'mid.group',
+        );
+
+        // Second relocation: mid-group -> new-group
+        repo.addRelocatedPom(
+          'mid.group',
+          'lib-a',
+          '1.0.0',
+          newGroupId: 'new.group',
+        );
+
+        // Final location
+        repo.addSimplePom('new.group', 'lib-a', '1.0.0');
+
+        final result = await resolver.resolve(
+          directDependencies: [
+            const Dependency(
+              groupId: 'old.group',
+              artifactId: 'lib-a',
+              version: '1.0.0',
+            ),
+          ],
+        );
+
+        expect(result.isSuccess, isTrue);
+        // Should have 2 warnings (one for each relocation)
+        expect(result.warnings, hasLength(2));
+        expect(
+          result.artifacts.any((a) => a.coordinate.groupId == 'new.group'),
+          isTrue,
+        );
+      });
+
+      test('handles transitive dependency relocation', () async {
+        // lib-a depends on old-lib
+        repo.addSimplePom(
+          'com.example',
+          'lib-a',
+          '1.0.0',
+          dependencies: [
+            'old.group:old-lib:1.0.0',
+          ],
+        );
+
+        // old-lib is relocated to new-lib
+        repo.addRelocatedPom(
+          'old.group',
+          'old-lib',
+          '1.0.0',
+          newGroupId: 'new.group',
+          newArtifactId: 'new-lib',
+        );
+
+        // new-lib is the actual artifact
+        repo.addSimplePom('new.group', 'new-lib', '1.0.0');
+
+        final result = await resolver.resolve(
+          directDependencies: [
+            const Dependency(
+              groupId: 'com.example',
+              artifactId: 'lib-a',
+              version: '1.0.0',
+            ),
+          ],
+        );
+
+        expect(result.isSuccess, isTrue);
+        expect(result.warnings, hasLength(1));
+        expect(
+          result.artifacts.any(
+            (a) =>
+                a.coordinate.groupId == 'new.group' &&
+                a.coordinate.artifactId == 'new-lib',
+          ),
+          isTrue,
+        );
       });
     });
   });

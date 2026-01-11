@@ -8,7 +8,7 @@ void main() {
   group('MavenMetadata', () {
     group('parse - version listing metadata', () {
       test('parses basic metadata', () {
-        final xml = '''
+        const xml = '''
 <?xml version="1.0" encoding="UTF-8"?>
 <metadata>
   <groupId>org.example</groupId>
@@ -40,7 +40,7 @@ void main() {
       });
 
       test('returns sorted versions via versions getter', () {
-        final xml = '''
+        const xml = '''
 <metadata>
   <groupId>org.example</groupId>
   <artifactId>my-lib</artifactId>
@@ -66,7 +66,7 @@ void main() {
       });
 
       test('parses latest and release as MavenVersion', () {
-        final xml = '''
+        const xml = '''
 <metadata>
   <groupId>org.example</groupId>
   <artifactId>my-lib</artifactId>
@@ -93,7 +93,7 @@ void main() {
 
     group('parse - SNAPSHOT metadata', () {
       test('parses SNAPSHOT versioning', () {
-        final xml = '''
+        const xml = '''
 <?xml version="1.0" encoding="UTF-8"?>
 <metadata>
   <groupId>org.example</groupId>
@@ -157,7 +157,7 @@ void main() {
       });
 
       test('parses local snapshot', () {
-        final xml = '''
+        const xml = '''
 <metadata>
   <groupId>org.example</groupId>
   <artifactId>my-lib</artifactId>
@@ -181,7 +181,7 @@ void main() {
     });
 
     test('throws MetadataParseException on invalid XML', () {
-      final invalidXml = 'not xml at all';
+      const invalidXml = 'not xml at all';
 
       expect(
         () => MavenMetadata.parse(Uint8List.fromList(utf8.encode(invalidXml))),
@@ -190,7 +190,7 @@ void main() {
     });
 
     test('throws MetadataParseException on wrong root element', () {
-      final wrongRoot = '<project></project>';
+      const wrongRoot = '<project></project>';
 
       expect(
         () => MavenMetadata.parse(Uint8List.fromList(utf8.encode(wrongRoot))),
@@ -207,7 +207,7 @@ void main() {
     });
 
     test('resolves filename from snapshotVersions', () {
-      final xml = '''
+      const xml = '''
 <metadata>
   <groupId>org.example</groupId>
   <artifactId>my-lib</artifactId>
@@ -230,7 +230,7 @@ void main() {
       final metadata = MavenMetadata.parse(
         Uint8List.fromList(utf8.encode(xml)),
       );
-      final coord = ArtifactCoordinate(
+      const coord = ArtifactCoordinate(
         groupId: 'org.example',
         artifactId: 'my-lib',
         version: '1.0-SNAPSHOT',
@@ -245,7 +245,7 @@ void main() {
     });
 
     test('resolves filename with classifier', () {
-      final xml = '''
+      const xml = '''
 <metadata>
   <groupId>org.example</groupId>
   <artifactId>my-lib</artifactId>
@@ -265,7 +265,7 @@ void main() {
       final metadata = MavenMetadata.parse(
         Uint8List.fromList(utf8.encode(xml)),
       );
-      final coord = ArtifactCoordinate(
+      const coord = ArtifactCoordinate(
         groupId: 'org.example',
         artifactId: 'my-lib',
         version: '1.0-SNAPSHOT',
@@ -281,7 +281,7 @@ void main() {
     });
 
     test('falls back to timestamp/buildNumber when no matching entry', () {
-      final xml = '''
+      const xml = '''
 <metadata>
   <groupId>org.example</groupId>
   <artifactId>my-lib</artifactId>
@@ -304,7 +304,7 @@ void main() {
       final metadata = MavenMetadata.parse(
         Uint8List.fromList(utf8.encode(xml)),
       );
-      final coord = ArtifactCoordinate(
+      const coord = ArtifactCoordinate(
         groupId: 'org.example',
         artifactId: 'my-lib',
         version: '1.0-SNAPSHOT',
@@ -320,7 +320,7 @@ void main() {
     });
 
     test('returns null for non-SNAPSHOT version', () {
-      final xml = '''
+      const xml = '''
 <metadata>
   <groupId>org.example</groupId>
   <artifactId>my-lib</artifactId>
@@ -330,7 +330,7 @@ void main() {
       final metadata = MavenMetadata.parse(
         Uint8List.fromList(utf8.encode(xml)),
       );
-      final coord = ArtifactCoordinate(
+      const coord = ArtifactCoordinate(
         groupId: 'org.example',
         artifactId: 'my-lib',
         version: '1.0.0', // Not a SNAPSHOT

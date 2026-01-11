@@ -21,7 +21,7 @@ void main() {
 
     group('fetchPom', () {
       test('returns null for non-existent POM', () async {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -32,20 +32,22 @@ void main() {
       });
 
       test('fetches existing POM', () async {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
         );
 
         // Create the POM file
-        final pomDir = Directory(p.join(
-          tempDir.path,
-          'org',
-          'example',
-          'my-lib',
-          '1.0.0',
-        ));
+        final pomDir = Directory(
+          p.join(
+            tempDir.path,
+            'org',
+            'example',
+            'my-lib',
+            '1.0.0',
+          ),
+        );
         await pomDir.create(recursive: true);
         final pomFile = File(p.join(pomDir.path, 'my-lib-1.0.0.pom'));
         await pomFile.writeAsString('<project></project>');
@@ -57,20 +59,22 @@ void main() {
       });
 
       test('returns null for empty POM file', () async {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
         );
 
         // Create an empty POM file
-        final pomDir = Directory(p.join(
-          tempDir.path,
-          'org',
-          'example',
-          'my-lib',
-          '1.0.0',
-        ));
+        final pomDir = Directory(
+          p.join(
+            tempDir.path,
+            'org',
+            'example',
+            'my-lib',
+            '1.0.0',
+          ),
+        );
         await pomDir.create(recursive: true);
         final pomFile = File(p.join(pomDir.path, 'my-lib-1.0.0.pom'));
         await pomFile.writeAsString('');
@@ -82,7 +86,7 @@ void main() {
 
     group('fetchArtifact', () {
       test('returns null for non-existent artifact', () async {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
@@ -93,20 +97,22 @@ void main() {
       });
 
       test('fetches existing jar artifact', () async {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
         );
 
         // Create the jar file
-        final artifactDir = Directory(p.join(
-          tempDir.path,
-          'org',
-          'example',
-          'my-lib',
-          '1.0.0',
-        ));
+        final artifactDir = Directory(
+          p.join(
+            tempDir.path,
+            'org',
+            'example',
+            'my-lib',
+            '1.0.0',
+          ),
+        );
         await artifactDir.create(recursive: true);
         final jarFile = File(p.join(artifactDir.path, 'my-lib-1.0.0.jar'));
         await jarFile.writeAsBytes([0x50, 0x4B, 0x03, 0x04]); // ZIP header
@@ -117,19 +123,21 @@ void main() {
       });
 
       test('fetches artifact with custom extension', () async {
-        final coord = ArtifactCoordinate(
+        const coord = ArtifactCoordinate(
           groupId: 'org.example',
           artifactId: 'my-lib',
           version: '1.0.0',
         );
 
-        final artifactDir = Directory(p.join(
-          tempDir.path,
-          'org',
-          'example',
-          'my-lib',
-          '1.0.0',
-        ));
+        final artifactDir = Directory(
+          p.join(
+            tempDir.path,
+            'org',
+            'example',
+            'my-lib',
+            '1.0.0',
+          ),
+        );
         await artifactDir.create(recursive: true);
         final aarFile = File(p.join(artifactDir.path, 'my-lib-1.0.0.aar'));
         await aarFile.writeAsString('aar content');
@@ -147,12 +155,14 @@ void main() {
       });
 
       test('lists versions from metadata file', () async {
-        final artifactDir = Directory(p.join(
-          tempDir.path,
-          'org',
-          'example',
-          'my-lib',
-        ));
+        final artifactDir = Directory(
+          p.join(
+            tempDir.path,
+            'org',
+            'example',
+            'my-lib',
+          ),
+        );
         await artifactDir.create(recursive: true);
 
         // Create maven-metadata.xml
@@ -180,12 +190,14 @@ void main() {
       });
 
       test('lists versions from directory scan fallback', () async {
-        final artifactDir = Directory(p.join(
-          tempDir.path,
-          'org',
-          'example',
-          'my-lib',
-        ));
+        final artifactDir = Directory(
+          p.join(
+            tempDir.path,
+            'org',
+            'example',
+            'my-lib',
+          ),
+        );
         await artifactDir.create(recursive: true);
 
         // Create version directories with POM files
@@ -208,7 +220,7 @@ void main() {
     group('save', () {
       test('saves content to correct path', () async {
         final content = Uint8List.fromList('test content'.codeUnits);
-        final path = 'org/example/my-lib/1.0.0/my-lib-1.0.0.jar';
+        const path = 'org/example/my-lib/1.0.0/my-lib-1.0.0.jar';
 
         final file = await repo.save(path, content);
 
@@ -219,7 +231,7 @@ void main() {
 
       test('creates parent directories', () async {
         final content = Uint8List.fromList('test'.codeUnits);
-        final path = 'deep/nested/path/file.txt';
+        const path = 'deep/nested/path/file.txt';
 
         await repo.save(path, content);
 

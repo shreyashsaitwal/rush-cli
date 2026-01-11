@@ -267,14 +267,16 @@ final class RemoteRepository implements Repository {
     final url = baseUrl.resolve(path);
 
     try {
-      final response =
-          await _client.get(url).timeout(config.timeout, onTimeout: () {
-        throw RepositoryTimeoutException(
-          'Request timed out after ${config.timeout}',
-          timeout: config.timeout,
-          coordinate: coordinate,
-        );
-      });
+      final response = await _client.get(url).timeout(
+        config.timeout,
+        onTimeout: () {
+          throw RepositoryTimeoutException(
+            'Request timed out after ${config.timeout}',
+            timeout: config.timeout,
+            coordinate: coordinate,
+          );
+        },
+      );
 
       if (response.statusCode == 404) {
         return null;

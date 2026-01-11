@@ -237,7 +237,7 @@ final class Pom {
   }
 
   @override
-  String toString() => '${effectiveGroupId}:$artifactId:${effectiveVersion}';
+  String toString() => '$effectiveGroupId:$artifactId:$effectiveVersion';
 }
 
 /// The result of merging a POM with its parent chain.

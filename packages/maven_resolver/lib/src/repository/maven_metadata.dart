@@ -259,7 +259,11 @@ final class SnapshotResolver {
           // Found matching entry
           final resolvedVersion = sv.value;
           return _buildFilename(
-              coord.artifactId, resolvedVersion, classifier, ext);
+            coord.artifactId,
+            resolvedVersion,
+            classifier,
+            ext,
+          );
         }
       }
 
@@ -272,7 +276,11 @@ final class SnapshotResolver {
         final resolvedVersion =
             '$baseVersion-${snapshot.timestamp}-${snapshot.buildNumber}';
         return _buildFilename(
-            coord.artifactId, resolvedVersion, classifier, ext);
+          coord.artifactId,
+          resolvedVersion,
+          classifier,
+          ext,
+        );
       }
     }
 

@@ -422,7 +422,11 @@ final class _Restriction {
     }
 
     return _Restriction(
-        newLower, newLowerInclusive, newUpper, newUpperInclusive);
+      newLower,
+      newLowerInclusive,
+      newUpper,
+      newUpperInclusive,
+    );
   }
 
   @override

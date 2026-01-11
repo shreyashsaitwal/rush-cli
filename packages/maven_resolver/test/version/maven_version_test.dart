@@ -376,7 +376,7 @@ void main() {
           'def',
           'milestone',
           'm',
-          'RC'
+          'RC',
         ]) {
           // 1.0.0.X1 < 1.0.0-X2 for any string x
           checkVersionsOrder('1.0.0.${x}1', '1.0.0-${x}2');

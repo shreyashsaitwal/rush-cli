@@ -68,19 +68,23 @@ final class ResolutionResult {
   /// Returns artifacts for compile classpath.
   List<ResolvedArtifact> get compileArtifacts {
     return artifacts
-        .where((a) =>
-            a.scope == DependencyScope.compile ||
-            a.scope == DependencyScope.provided ||
-            a.scope == DependencyScope.system)
+        .where(
+          (a) =>
+              a.scope == DependencyScope.compile ||
+              a.scope == DependencyScope.provided ||
+              a.scope == DependencyScope.system,
+        )
         .toList();
   }
 
   /// Returns artifacts for runtime classpath.
   List<ResolvedArtifact> get runtimeArtifacts {
     return artifacts
-        .where((a) =>
-            a.scope == DependencyScope.compile ||
-            a.scope == DependencyScope.runtime)
+        .where(
+          (a) =>
+              a.scope == DependencyScope.compile ||
+              a.scope == DependencyScope.runtime,
+        )
         .toList();
   }
 

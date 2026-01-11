@@ -367,7 +367,12 @@ final class PomInterpolator {
       // Recursively resolve if the value contains properties
       if (value.contains('\$')) {
         return _resolveProperties(
-            value, properties, projectContext, resolving, depth);
+          value,
+          properties,
+          projectContext,
+          resolving,
+          depth,
+        );
       }
       return value;
     }
@@ -378,7 +383,12 @@ final class PomInterpolator {
       if (projectProp != null) {
         if (projectProp.contains('\$')) {
           return _resolveProperties(
-              projectProp, properties, projectContext, resolving, depth);
+            projectProp,
+            properties,
+            projectContext,
+            resolving,
+            depth,
+          );
         }
         return projectProp;
       }
