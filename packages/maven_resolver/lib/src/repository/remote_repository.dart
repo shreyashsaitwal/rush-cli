@@ -114,7 +114,7 @@ final class RemoteRepository implements Repository {
     ArtifactCoordinate coord, {
     String? extension,
   }) async {
-    final ext = extension ?? 'jar';
+    final ext = extension ?? coord.packaging;
     final path = await _resolveSnapshotPath(coord, ext);
     return _fetchWithRetry(
       path,

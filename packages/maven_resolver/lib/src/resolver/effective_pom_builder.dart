@@ -21,6 +21,7 @@ import 'resolution_context.dart';
 /// - Fetching parent POMs recursively
 /// - Processing BOM imports in dependencyManagement
 /// - Interpolating all properties
+/// - Following relocations
 /// - Caching results to avoid redundant fetches
 final class EffectivePomBuilder {
   /// The repository to fetch POMs from.
@@ -38,6 +39,9 @@ final class EffectivePomBuilder {
   /// Maximum BOM import depth (to prevent infinite loops).
   final int maxBomDepth;
 
+  /// Maximum relocation chain depth (to prevent infinite loops).
+  final int maxRelocationDepth;
+
   /// Creates an effective POM builder.
   EffectivePomBuilder({
     required this.repository,
@@ -45,20 +49,24 @@ final class EffectivePomBuilder {
     PomInterpolator? interpolator,
     this.maxParentDepth = 20,
     this.maxBomDepth = 10,
+    this.maxRelocationDepth = 5,
   })  : _parser = parser ?? const PomParser(),
         _interpolator = interpolator ?? PomInterpolator();
 
   /// Builds an effective POM for the given coordinate.
   ///
   /// This fetches the POM, resolves its parent chain, processes BOM imports,
-  /// and interpolates all properties.
+  /// and interpolates all properties. If the POM contains a relocation,
+  /// it follows the relocation to the new coordinates.
   ///
   /// The [context] is used for caching and error collection.
   /// The [bomDepth] tracks BOM import recursion depth.
+  /// The [relocationDepth] tracks relocation chain depth.
   Future<EffectivePom?> build(
     ArtifactCoordinate coord,
     ResolutionContext context, {
     int bomDepth = 0,
+    int relocationDepth = 0,
   }) async {
     final cacheKey = coord.toString();
 
@@ -69,6 +77,13 @@ final class EffectivePomBuilder {
     // Fetch the POM
     final pom = await _fetchPom(coord, context);
     if (pom == null) return null;
+
+    // Check for relocation
+    final relocation = pom.distributionManagement?.relocation;
+    if (relocation != null && relocation.isEffective) {
+      return _handleRelocation(coord, pom, relocation, context,
+          bomDepth: bomDepth, relocationDepth: relocationDepth);
+    }
 
     // Build parent chain
     final parentChain = await _buildParentChain(pom, context);
@@ -99,6 +114,68 @@ final class EffectivePomBuilder {
 
     // Cache it
     context.cachePom(cacheKey, result);
+
+    return result;
+  }
+
+  /// Handles a relocated artifact by following to the new coordinates.
+  ///
+  /// Maven relocation works as follows:
+  /// - groupId: If specified, use the new groupId; otherwise keep original
+  /// - artifactId: If specified, use the new artifactId; otherwise keep original
+  /// - version: If specified, use the new version; otherwise keep original
+  Future<EffectivePom?> _handleRelocation(
+    ArtifactCoordinate originalCoord,
+    Pom originalPom,
+    Relocation relocation,
+    ResolutionContext context, {
+    required int bomDepth,
+    required int relocationDepth,
+  }) async {
+    if (relocationDepth >= maxRelocationDepth) {
+      context.addError(ResolutionError(
+        coordinate: originalCoord,
+        message:
+            'Relocation chain exceeds maximum depth of $maxRelocationDepth',
+      ));
+      return null;
+    }
+
+    // Build the new coordinate from relocation
+    final newCoord = ArtifactCoordinate(
+      groupId: relocation.groupId ?? originalCoord.groupId,
+      artifactId: relocation.artifactId ?? originalCoord.artifactId,
+      version: relocation.version ?? originalCoord.version,
+      packaging: originalCoord.packaging,
+      classifier: originalCoord.classifier,
+    );
+
+    // Log the relocation if there's a message
+    if (relocation.message != null) {
+      context.addWarning(ResolutionWarning(
+        coordinate: originalCoord,
+        message: 'Artifact relocated to $newCoord: ${relocation.message}',
+      ));
+    } else {
+      context.addWarning(ResolutionWarning(
+        coordinate: originalCoord,
+        message: 'Artifact relocated to $newCoord',
+      ));
+    }
+
+    // Cache the original coordinate as pointing to the new one
+    // This ensures subsequent requests for the old coordinate also get the new POM
+    final result = await build(
+      newCoord,
+      context,
+      bomDepth: bomDepth,
+      relocationDepth: relocationDepth + 1,
+    );
+
+    if (result != null) {
+      // Also cache under the original key so future lookups find it
+      context.cachePom(originalCoord.toString(), result);
+    }
 
     return result;
   }

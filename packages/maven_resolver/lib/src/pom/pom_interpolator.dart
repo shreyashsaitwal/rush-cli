@@ -15,8 +15,8 @@ import 'pom.dart';
 /// derive values from the environment.
 final class JavaSystemProperties {
   /// The Java version (e.g., "17", "21").
-  /// Defaults to "17" if not determinable.
-  final String javaVersion;
+  /// Null if not determinable from environment.
+  final String? javaVersion;
 
   /// The Java home directory.
   final String? javaHome;
@@ -49,7 +49,7 @@ final class JavaSystemProperties {
   final String userDir;
 
   const JavaSystemProperties({
-    this.javaVersion = '17',
+    this.javaVersion,
     this.javaHome,
     required this.osName,
     required this.osArch,
@@ -67,7 +67,7 @@ final class JavaSystemProperties {
     final isWindows = Platform.isWindows;
 
     return JavaSystemProperties(
-      javaVersion: Platform.environment['JAVA_VERSION'] ?? '17',
+      javaVersion: Platform.environment['JAVA_VERSION'],
       javaHome: Platform.environment['JAVA_HOME'],
       osName: _getOsName(),
       osArch: _getOsArch(),
@@ -144,7 +144,6 @@ final class PomInterpolator {
   /// Backward-compatible const constructor (uses default system properties).
   const PomInterpolator.withDefaults({this.maxDepth = 10})
       : systemProperties = const JavaSystemProperties(
-          javaVersion: '17',
           osName: 'Unknown',
           osArch: 'amd64',
           osVersion: '',

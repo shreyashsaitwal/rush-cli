@@ -242,9 +242,19 @@ final class DependencyResolver {
         // Add this POM's dependencyManagement to the context
         context.addManagedDependencies(effectivePom.dependencyManagement);
 
-        // Create the node
+        // Use the effective POM's coordinate (may differ due to relocation)
+        // but preserve the original classifier if any
+        final effectiveCoord = ArtifactCoordinate(
+          groupId: effectivePom.groupId,
+          artifactId: effectivePom.artifactId,
+          version: effectivePom.version,
+          packaging: effectivePom.packaging,
+          classifier: coord.classifier,
+        );
+
+        // Create the node with the effective (possibly relocated) coordinate
         final node = DependencyNode(
-          coordinate: coord,
+          coordinate: effectiveCoord,
           scope: pending.parentScope,
           optional: pending.dependency.optional,
           depth: pending.depth,
@@ -312,6 +322,7 @@ final class DependencyResolver {
       artifacts: context.resolved.values.toList(),
       roots: roots,
       conflicts: context.conflicts,
+      warnings: context.warnings,
       errors: context.errors,
     );
   }

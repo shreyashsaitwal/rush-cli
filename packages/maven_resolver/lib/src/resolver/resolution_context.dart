@@ -15,6 +15,7 @@ import 'dependency_node.dart';
 /// - The flat list of resolved artifacts
 /// - The dependency tree for visualization
 /// - Any conflicts that were resolved
+/// - Any warnings (non-fatal issues like relocations)
 /// - Any errors that occurred
 final class ResolutionResult {
   /// The resolved artifacts (flat list, de-duplicated).
@@ -26,6 +27,9 @@ final class ResolutionResult {
   /// Conflicts that were resolved during resolution.
   final List<ResolutionConflict> conflicts;
 
+  /// Warnings encountered during resolution (non-fatal issues).
+  final List<ResolutionWarning> warnings;
+
   /// Errors encountered during resolution.
   final List<ResolutionError> errors;
 
@@ -34,6 +38,7 @@ final class ResolutionResult {
     required this.artifacts,
     required this.roots,
     this.conflicts = const [],
+    this.warnings = const [],
     this.errors = const [],
   });
 
@@ -90,6 +95,7 @@ final class ResolutionResult {
     final buffer = StringBuffer('ResolutionResult(\n');
     buffer.writeln('  ${artifacts.length} artifacts,');
     buffer.writeln('  ${conflicts.length} conflicts,');
+    buffer.writeln('  ${warnings.length} warnings,');
     buffer.writeln('  ${errors.length} errors');
     buffer.writeln(')');
     return buffer.toString();
@@ -126,6 +132,31 @@ final class ResolutionError {
   }
 }
 
+/// A warning that occurred during resolution.
+///
+/// Warnings are non-fatal issues that don't prevent resolution but
+/// should be reported to the user, such as relocations.
+final class ResolutionWarning {
+  /// The artifact that caused the warning.
+  final ArtifactCoordinate? coordinate;
+
+  /// The warning message.
+  final String message;
+
+  const ResolutionWarning({
+    this.coordinate,
+    required this.message,
+  });
+
+  @override
+  String toString() {
+    if (coordinate != null) {
+      return 'ResolutionWarning($coordinate): $message';
+    }
+    return 'ResolutionWarning: $message';
+  }
+}
+
 /// Per-resolution state.
 ///
 /// This is created fresh for each resolution call and holds all
@@ -158,6 +189,9 @@ final class ResolutionContext {
 
   /// Collected errors.
   final List<ResolutionError> errors = [];
+
+  /// Collected warnings (non-fatal issues like relocations).
+  final List<ResolutionWarning> warnings = [];
 
   /// The effective dependencyManagement entries.
   ///
@@ -206,6 +240,11 @@ final class ResolutionContext {
   /// Adds an error to the context.
   void addError(ResolutionError error) {
     errors.add(error);
+  }
+
+  /// Adds a warning to the context.
+  void addWarning(ResolutionWarning warning) {
+    warnings.add(warning);
   }
 
   /// Adds a conflict to the context.
