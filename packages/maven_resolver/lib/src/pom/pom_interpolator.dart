@@ -8,12 +8,123 @@ import 'dart:io';
 import 'dependency.dart';
 import 'pom.dart';
 
+/// Common Java system properties that are frequently used in POMs.
+///
+/// These mirror the properties available via `java.lang.System.getProperties()`.
+/// Since we're running in Dart, we provide reasonable defaults or
+/// derive values from the environment.
+final class JavaSystemProperties {
+  /// The Java version (e.g., "17", "21").
+  /// Defaults to "17" if not determinable.
+  final String javaVersion;
+
+  /// The Java home directory.
+  final String? javaHome;
+
+  /// The operating system name.
+  final String osName;
+
+  /// The operating system architecture.
+  final String osArch;
+
+  /// The operating system version.
+  final String osVersion;
+
+  /// The file separator ("/" on Unix, "\\" on Windows).
+  final String fileSeparator;
+
+  /// The path separator (":" on Unix, ";" on Windows).
+  final String pathSeparator;
+
+  /// The line separator.
+  final String lineSeparator;
+
+  /// The user's home directory.
+  final String? userHome;
+
+  /// The user's name.
+  final String? userName;
+
+  /// The user's current working directory.
+  final String userDir;
+
+  const JavaSystemProperties({
+    this.javaVersion = '17',
+    this.javaHome,
+    required this.osName,
+    required this.osArch,
+    required this.osVersion,
+    required this.fileSeparator,
+    required this.pathSeparator,
+    required this.lineSeparator,
+    this.userHome,
+    this.userName,
+    required this.userDir,
+  });
+
+  /// Creates system properties from the current platform.
+  factory JavaSystemProperties.fromPlatform() {
+    final isWindows = Platform.isWindows;
+
+    return JavaSystemProperties(
+      javaVersion: Platform.environment['JAVA_VERSION'] ?? '17',
+      javaHome: Platform.environment['JAVA_HOME'],
+      osName: _getOsName(),
+      osArch: _getOsArch(),
+      osVersion: Platform.operatingSystemVersion,
+      fileSeparator: Platform.pathSeparator,
+      pathSeparator: isWindows ? ';' : ':',
+      lineSeparator: isWindows ? '\r\n' : '\n',
+      userHome:
+          Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'],
+      userName:
+          Platform.environment['USER'] ?? Platform.environment['USERNAME'],
+      userDir: Directory.current.path,
+    );
+  }
+
+  static String _getOsName() {
+    if (Platform.isWindows) return 'Windows';
+    if (Platform.isMacOS) return 'Mac OS X';
+    if (Platform.isLinux) return 'Linux';
+    return Platform.operatingSystem;
+  }
+
+  static String _getOsArch() {
+    // Dart doesn't expose architecture directly, so we use common values
+    // based on the Dart executable's properties
+    final arch = Platform.environment['PROCESSOR_ARCHITECTURE'] ??
+        Platform.environment['HOSTTYPE'] ??
+        'amd64';
+    return arch.toLowerCase().contains('arm') ? 'aarch64' : 'amd64';
+  }
+
+  /// Returns the value for a java.* or os.* system property.
+  String? getProperty(String name) {
+    return switch (name) {
+      'java.version' => javaVersion,
+      'java.home' => javaHome,
+      'os.name' => osName,
+      'os.arch' => osArch,
+      'os.version' => osVersion,
+      'file.separator' => fileSeparator,
+      'path.separator' => pathSeparator,
+      'line.separator' => lineSeparator,
+      'user.home' => userHome,
+      'user.name' => userName,
+      'user.dir' => userDir,
+      _ => null,
+    };
+  }
+}
+
 /// Interpolates property placeholders in POM values.
 ///
 /// Property resolution order:
 /// 1. Project-defined properties (child overrides parent)
 /// 2. Project fields (${project.version}, ${project.groupId}, etc.)
-/// 3. Environment variables (${env.HOME})
+/// 3. Java system properties (${java.version}, ${os.name}, etc.)
+/// 4. Environment variables (${env.HOME})
 ///
 /// Properties can reference other properties, which are resolved recursively.
 /// Circular references are detected and left unresolved.
@@ -21,17 +132,39 @@ final class PomInterpolator {
   /// Maximum depth for recursive property resolution.
   final int maxDepth;
 
-  const PomInterpolator({this.maxDepth = 10});
+  /// Java system properties for resolution.
+  final JavaSystemProperties systemProperties;
+
+  PomInterpolator({
+    this.maxDepth = 10,
+    JavaSystemProperties? systemProperties,
+  }) : systemProperties =
+            systemProperties ?? JavaSystemProperties.fromPlatform();
+
+  /// Backward-compatible const constructor (uses default system properties).
+  const PomInterpolator.withDefaults({this.maxDepth = 10})
+      : systemProperties = const JavaSystemProperties(
+          javaVersion: '17',
+          osName: 'Unknown',
+          osArch: 'amd64',
+          osVersion: '',
+          fileSeparator: '/',
+          pathSeparator: ':',
+          lineSeparator: '\n',
+          userDir: '.',
+        );
 
   /// Interpolates all property placeholders in a POM.
   ///
   /// [pom] is the POM to interpolate.
   /// [parentChain] is the list of parent POMs (nearest first).
   /// [additionalProperties] are extra properties to include.
+  /// [basedir] is the directory containing the POM file (for ${project.basedir}).
   EffectivePom interpolate(
     Pom pom, {
     List<Pom> parentChain = const [],
     Map<String, String> additionalProperties = const {},
+    String? basedir,
   }) {
     // Build the merged property map
     final properties =
@@ -41,7 +174,11 @@ final class PomInterpolator {
     final dependencyManagement = _buildDependencyManagement(pom, parentChain);
 
     // Create project context for ${project.*} properties
-    final projectContext = _ProjectContext(pom: pom, parentChain: parentChain);
+    final projectContext = _ProjectContext(
+      pom: pom,
+      parentChain: parentChain,
+      basedir: basedir,
+    );
 
     // Interpolate dependencies
     final interpolatedDeps = pom.dependencies
@@ -87,10 +224,11 @@ final class PomInterpolator {
     Map<String, String> properties, {
     Pom? pom,
     List<Pom> parentChain = const [],
+    String? basedir,
   }) {
     if (value == null) return null;
     final projectContext = pom != null
-        ? _ProjectContext(pom: pom, parentChain: parentChain)
+        ? _ProjectContext(pom: pom, parentChain: parentChain, basedir: basedir)
         : null;
     return _interpolateValue(value, properties, projectContext);
   }
@@ -254,14 +392,18 @@ final class PomInterpolator {
       if (projectProp != null) return projectProp;
     }
 
-    // 4. Check env.* properties
+    // 4. Check Java system properties (java.*, os.*, user.*, file.*, path.*, line.*)
+    final sysValue = systemProperties.getProperty(name);
+    if (sysValue != null) return sysValue;
+
+    // 5. Check env.* properties
     if (name.startsWith('env.')) {
       final envName = name.substring(4);
       final envValue = Platform.environment[envName];
       if (envValue != null) return envValue;
     }
 
-    // 5. Not found
+    // 6. Not found
     return null;
   }
 
@@ -278,6 +420,15 @@ final class PomInterpolator {
       'project.name' => pom.name,
       'project.description' => pom.description,
       'project.url' => pom.url,
+      'project.basedir' => context.basedir,
+      'project.build.directory' =>
+        context.basedir != null ? '${context.basedir}/target' : null,
+      'project.build.outputDirectory' =>
+        context.basedir != null ? '${context.basedir}/target/classes' : null,
+      'project.build.sourceDirectory' =>
+        context.basedir != null ? '${context.basedir}/src/main/java' : null,
+      'project.build.testSourceDirectory' =>
+        context.basedir != null ? '${context.basedir}/src/test/java' : null,
       'project.parent.groupId' => parent?.groupId,
       'project.parent.artifactId' => parent?.artifactId,
       'project.parent.version' => parent?.version,
@@ -291,9 +442,13 @@ class _ProjectContext {
   final Pom pom;
   final List<Pom> parentChain;
 
+  /// The directory containing the POM file (for ${project.basedir}).
+  final String? basedir;
+
   const _ProjectContext({
     required this.pom,
     this.parentChain = const [],
+    this.basedir,
   });
 }
 
@@ -330,8 +485,11 @@ final class DependencyManagementApplier {
       type: dep.type != 'jar' ? dep.type : managed.type,
       // Classifier from dep if specified, otherwise from managed
       classifier: dep.classifier ?? managed.classifier,
-      // Scope from dep if specified, otherwise from managed
-      scope: dep.scope,
+      // Scope from dep if explicitly set, otherwise from managed
+      // This is the correct Maven behavior: dependencyManagement provides
+      // default scope when the dependency doesn't explicitly specify one
+      scope: dep.scopeExplicit ? dep.scope : managed.scope,
+      scopeExplicit: dep.scopeExplicit || managed.scopeExplicit,
       systemPath: dep.systemPath ?? managed.systemPath,
       optional: dep.optional,
       // Merge exclusions

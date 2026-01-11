@@ -9,7 +9,7 @@ void main() {
     late PomParser parser;
 
     setUp(() {
-      interpolator = const PomInterpolator();
+      interpolator = PomInterpolator();
       parser = const PomParser();
     });
 

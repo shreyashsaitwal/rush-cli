@@ -119,6 +119,13 @@ final class Dependency {
   /// The dependency scope.
   final DependencyScope scope;
 
+  /// Whether the scope was explicitly set in the POM.
+  ///
+  /// When false, the scope should be inherited from dependencyManagement
+  /// if available. This is important for correct Maven behavior where
+  /// dependencyManagement can provide default scopes.
+  final bool scopeExplicit;
+
   /// Path for system-scoped dependencies.
   final String? systemPath;
 
@@ -136,6 +143,7 @@ final class Dependency {
     this.type = 'jar',
     this.classifier,
     this.scope = DependencyScope.compile,
+    this.scopeExplicit = true,
     this.systemPath,
     this.optional = false,
     this.exclusions = const [],
@@ -176,6 +184,7 @@ final class Dependency {
     String? type,
     String? classifier,
     DependencyScope? scope,
+    bool? scopeExplicit,
     String? systemPath,
     bool? optional,
     List<Exclusion>? exclusions,
@@ -187,6 +196,7 @@ final class Dependency {
       type: type ?? this.type,
       classifier: classifier ?? this.classifier,
       scope: scope ?? this.scope,
+      scopeExplicit: scopeExplicit ?? this.scopeExplicit,
       systemPath: systemPath ?? this.systemPath,
       optional: optional ?? this.optional,
       exclusions: exclusions ?? this.exclusions,

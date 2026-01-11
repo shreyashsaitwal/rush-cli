@@ -30,3 +30,9 @@ export 'src/pom/exclusion.dart';
 export 'src/pom/pom.dart';
 export 'src/pom/pom_interpolator.dart';
 export 'src/pom/pom_parser.dart';
+
+// Resolver module
+export 'src/resolver/dependency_node.dart';
+export 'src/resolver/effective_pom_builder.dart';
+export 'src/resolver/resolution_context.dart';
+export 'src/resolver/resolver.dart';

@@ -43,17 +43,17 @@ final class DependencyNode {
   final String? replacedBy;
 
   /// Creates a dependency node.
-  const DependencyNode({
+  DependencyNode({
     required this.coordinate,
     required this.scope,
     this.optional = false,
     required this.depth,
     required this.path,
-    this.exclusions = const ExclusionSet.empty(),
+    ExclusionSet? exclusions,
     this.children = const [],
     this.selected = true,
     this.replacedBy,
-  });
+  }) : exclusions = exclusions ?? ExclusionSet.empty;
 
   /// The unique key for conflict detection (groupId:artifactId).
   String get conflictKey => '${coordinate.groupId}:${coordinate.artifactId}';

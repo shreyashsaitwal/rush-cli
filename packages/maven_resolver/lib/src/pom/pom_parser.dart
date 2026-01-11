@@ -186,6 +186,7 @@ final class PomParser {
     final classifier = _text(element, 'classifier');
     final scopeStr = _text(element, 'scope');
     final scope = DependencyScope.parse(scopeStr);
+    final scopeExplicit = scopeStr != null; // Track if scope was explicitly set
     final systemPath = _text(element, 'systemPath');
     final optionalStr = _text(element, 'optional');
     final optional = optionalStr?.toLowerCase() == 'true';
@@ -198,6 +199,7 @@ final class PomParser {
       type: type,
       classifier: classifier,
       scope: scope,
+      scopeExplicit: scopeExplicit,
       systemPath: systemPath,
       optional: optional,
       exclusions: exclusions,
