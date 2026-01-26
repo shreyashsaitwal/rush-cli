@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:generator/generator.dart';
 import 'package:json_serializer/json_serializer.dart';
 import 'package:path/path.dart' as path;
 import 'package:yaml/yaml.dart';
@@ -31,6 +32,10 @@ class Workspace {
   }
 
   Workspace(this._workingDirectory, this._groupId, this._name, this._version);
+
+  FutureOr<void> generateExtensionTemplates() {
+    return ExtensionGenerator().generate(this);
+  }
 
   FutureOr<Configuration?> getConfiguration() async {
     final filePath = path.join(directory.path, 'rush.yaml');

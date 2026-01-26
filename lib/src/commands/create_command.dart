@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:generator/generator.dart';
 import 'package:path/path.dart' as path;
 import 'package:rush/src/exceptions/cli_usage_exception.dart';
 import 'package:rush/src/interfaces/i_command.dart';
@@ -49,16 +48,15 @@ class CreateCommand extends ICommand {
       throw CliUsageException("Not enough arguments provided.");
     }
 
-    final Workspace workspace = Workspace(
-      _workingDirectory,
-      'dev.hammerhai',
-      name,
-      '0.1.0',
-    );
-
-    ExtensionGenerator().generate(workspace);
-
-    print(rush.findConfigurationDirectory()?.path);
+    // TODO: This is how the extension template will be generated.
+    // final Workspace workspace = Workspace(
+    //   _workingDirectory,
+    //   'com.github',
+    //   name,
+    //   '0.1.0',
+    // );
+    //
+    // workspace.generateExtensionTemplates();
 
     return Future.value(0);
   }

@@ -38,7 +38,7 @@ build:
   ''';
 
   @override
-  String get filePath => path.join(workspace.directory.path, 'rush.yaml');
+  String get filePath => path.join(workspace.directory.path, 'rush.yml');
 
   ConfigurationTemplate(this.workspace);
 }

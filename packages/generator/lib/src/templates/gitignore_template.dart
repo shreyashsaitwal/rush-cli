@@ -10,6 +10,9 @@ class GitIgnoreTemplate implements Template {
   String get content => '''
 # Build directory
 build
+
+# Library directory
+libs
 ''';
 
   @override

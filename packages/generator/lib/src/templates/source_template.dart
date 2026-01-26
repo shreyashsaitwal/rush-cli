@@ -11,6 +11,12 @@ class SourceTemplate implements Template {
       '''
 package ${workspace.packageName}
 
+import com.google.appinventor.components.annotations.SimpleFunction
+import com.google.appinventor.components.runtime.AndroidNonvisibleComponent
+import com.google.appinventor.components.runtime.ComponentContainer
+import com.google.appinventor.components.runtime.errors.YailRuntimeError
+import com.google.appinventor.components.runtime.util.YailList
+
 class ${workspace.name.toLowerCase()}(container: ComponentContainer) : AndroidNonvisibleComponent(container.`\$form`()) {
 
 }
