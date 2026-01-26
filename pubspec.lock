@@ -18,7 +18,7 @@ packages:
     source: hosted
     version: "10.0.1"
   args:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: args
       sha256: d0481093c50b1da8910eb0bb301626d4d8eb7284aa739614d2b394ee09e3ea04
@@ -41,6 +41,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.2"
+  change_case:
+    dependency: transitive
+    description:
+      name: change_case
+      sha256: e41ef3df58521194ef8d7649928954805aeb08061917cf658322305e61568003
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.0"
   cli_config:
     dependency: transitive
     description:
@@ -97,6 +105,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.0.0"
+  generator:
+    dependency: "direct main"
+    description:
+      path: "packages/generator"
+      relative: true
+    source: path
+    version: "1.0.0"
   glob:
     dependency: transitive
     description:
@@ -129,6 +144,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.5"
+  json_serializer:
+    dependency: transitive
+    description:
+      name: json_serializer
+      sha256: "7b4eec4bb5c62b127261901b24a218ed0e2050737a15c57d1293bc36cdbb8d40"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.1"
   lints:
     dependency: "direct dev"
     description:
@@ -321,6 +344,15 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.6.15"
+  triangle:
+    dependency: "direct main"
+    description:
+      path: "."
+      ref: HEAD
+      resolved-ref: db75dffc8d584bbaf4d6aff394c9f7b79e57d9b8
+      url: "https://github.com/hammerhai/triangle.git"
+    source: git
+    version: "2.0.0"
   typed_data:
     dependency: transitive
     description:

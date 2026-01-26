@@ -7,7 +7,14 @@ environment:
     sdk: ^3.10.7
 
 dependencies:
+    args: ^2.7.0
+    generator:
+        path: ./packages/generator
+    triangle:
+        git: https://github.com/hammerhai/triangle.git
 
 dev_dependencies:
     lints: ^6.0.0
     test: ^1.25.6
+
+publish_to: none

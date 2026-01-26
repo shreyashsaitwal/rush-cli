@@ -1,5 +1,6 @@
-import 'package:rush/rush.dart' as rush;
+import 'package:rush/src/commander.dart';
 
-void main(List<String> arguments) {
-  print('Hello world: ${rush.calculate()}!');
+void main(List<String> arguments) async {
+  // TODO: handle thrown exceptions with a try-catch
+  await Commander().run(arguments);
 }
