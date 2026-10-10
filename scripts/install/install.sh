@@ -1,76 +1,61 @@
-#!/bin/sh
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Exit immediately if any command exits with non-zero exit status.
-set -e
+repo="zainulhassan815/rush-cli"
 
 if ! command -v unzip >/dev/null; then
-	echo 'err: `unzip` is required to install Rush. Please install it and try again.'
-	exit 1
+  echo 'err: `unzip` is required to install Rush. Please install it and try again.' >&2
+  exit 1
 fi
 
-if [[ -v RUSH_HOME]]; then
-  rushHome="$RUSH_HOME"
+if [ -n "${RUSH_HOME:-}" ]; then
+  rush_home="$RUSH_HOME"
+elif command -v rush >/dev/null; then
+  rush_home="$(dirname "$(dirname "$(command -v rush)")")"
 else
-  if ! -v rush >/dev/null; then
-    rushHome="$HOME/.rush"
-  else
-    rushHome="$(dirname $(dirname $(which rush)))"
-  fi
+  rush_home="$HOME/.rush"
 fi
 
-if [ "$OS" = "Windows_NT" ]; then
-  target="x86_64-windows"
-else
-  case $(uname -sm) in
+case "$(uname -sm)" in
   "Darwin x86_64") target="x86_64-apple-darwin" ;;
   "Darwin arm64") target="arm64-apple-darwin" ;;
-  *) target="x86_64-linux" ;;
-  esac
-fi
+  "Linux x86_64") target="x86_64-linux" ;;
+  *)
+    echo "err: Unsupported platform: $(uname -sm)" >&2
+    exit 1
+    ;;
+esac
 
-zipUrl="https://github.com/shreyashsaitwal/rush-cli/releases/latest/download/rush-$target.zip"
-curl --location --progress-bar -o "$rushHome/rush-$target.zip" "$zipUrl"
-
-unzip -oq "$rushHome/rush-$target.zip" -d "$rushHome"/
-rm "$rushHome/rush-$target.zip"
-
-# Make the Rush binary executable on Unix systems. 
-if [ ! "$OS" = "Windows_NT" ]; then
-  chmod +x "$rushHome/bin/rush"
-fi
-
-echo
-echo "Successfully downloaded the Rush CLI binary at $rushHome/bin/rush"
-
-# Prompt user of they want to download dev dependencies now.
-echo "Now, proceeding to download necessary Java libraries (approx size: 170 MB)."
-read -p "Do you want to continue? (Y/n) " -n 1 -r
-echo
-
-if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-  if [ "$OS" = "Windows_NT" ]; then
-    "./$rushHome/bin/rush.exe" deps sync --dev-deps --no-logo
-  else
-    "./$rushHome/bin/rush" deps sync --dev-deps --no-logo
-  fi
-fi
+mkdir -p "$rush_home"
+archive="$rush_home/rush-$target.zip"
+curl --fail --location --progress-bar -o "$archive" \
+  "https://github.com/$repo/releases/latest/download/rush-$target.zip"
+unzip -oq "$archive" -d "$rush_home"
+rm "$archive"
+chmod +x "$rush_home/bin/rush"
 
 echo
-if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-  echo "Success! Installed Rush at $rushHome/bin/rush"
+echo "Installed the Rush CLI at $rush_home/bin/rush"
+echo "Rush now needs the App Inventor runtime and build tools (about 140 MB)."
+read -r -p "Download them now? (Y/n) " reply </dev/tty || reply=y
+echo
+
+if [[ ! "$reply" =~ ^[Nn]$ ]]; then
+  "$rush_home/bin/rush" deps sync --dev-deps
+  echo
+  echo "Success! Installed Rush at $rush_home/bin/rush"
 else
-  echo "Rush has been partially installed at $rushHome/bin/rush"
-  echo 'Please run `rush deps sync --dev-deps` to download the necessary Java libraries.'
+  echo "Run \`rush deps sync --dev-deps\` before building your first extension."
 fi
 
-case $SHELL in
-  /bin/zsh) shell_profile=".zshrc" ;;
-  *) shell_profile=".bash_profile" ;;
+case "$SHELL" in
+  */zsh) shell_profile=".zshrc" ;;
+  */bash) shell_profile=".bashrc" ;;
+  *) shell_profile=".profile" ;;
 esac
 
 echo
-echo "Now, add the following to your \$HOME/$shell_profile (or similar):"
-echo "export PATH=\"\$PATH:$rushHome/bin\""
-
+echo "Add Rush to your PATH by adding this line to \$HOME/$shell_profile:"
+echo "export PATH=\"\$PATH:$rush_home/bin\""
 echo
-echo 'Run `rush --help` to get started.'
+echo 'Then run `rush --help` to get started.'

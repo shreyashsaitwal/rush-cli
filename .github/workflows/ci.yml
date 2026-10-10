@@ -2,98 +2,101 @@ name: Rush CI
 
 on:
   push:
+    branches: [main]
+    tags: ['v*']
   pull_request:
-  workflow_dispatch: # This let's us trigger the workflow manually from GitHub.
+  workflow_dispatch:
 
 jobs:
-  annotation-processor:
-    runs-on: ubuntu-22.04
+  processor:
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v3
+      - uses: actions/setup-java@v4
         with:
-          distribution: zulu
-          java-version: 8
-      - uses: gradle/gradle-build-action@v2
-        with:
-          gradle-version: 8.3
-          build-root-directory: processor
-      - name: Execute build
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build processor and annotations
         working-directory: processor
+        run: ./gradlew build :processor:shadowJar
+      - name: Collect JARs
         run: |
-          chmod +x ./gradlew
-          ./gradlew build
+          mkdir libs
+          cp processor/processor/build/libs/processor-*[0-9].jar libs/processor.jar
+          cp processor/annotations/build/libs/annotations-*[0-9].jar libs/annotations.jar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libs
+          path: libs/
+          if-no-files-found: error
+
+  maven-resolver:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: packages/maven_resolver
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.13.4
+      - run: dart pub get
+      - run: dart format -o none --set-exit-if-changed lib test
+      - run: dart analyze --fatal-warnings
+      - run: dart test
 
   cli:
     strategy:
       matrix:
         include:
-          - os: ubuntu-22.04
+          - os: ubuntu-24.04
             target: x86_64-linux
-          - os: macos-12
-            target: x86_64-apple-darwin
-          - os: windows-2022
+          - os: windows-2025
             target: x86_64-windows
+          - os: macos-15
+            target: arm64-apple-darwin
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1.5.1
-      - name: Install dependencies
-        run: dart pub get
-      - name: Verify formatting
-        if: ${{ github.event_name == 'pull_request' }}
-        run: dart format -o none --set-exit-if-changed .
-      - name: Run build_runner
-        run: dart run build_runner build --delete-conflicting-outputs
-      - name: Analyze source
-        if: ${{ github.event_name == 'pull_request' }}
-        run: dart analyze
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.13.4
+      - run: dart pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: dart format -o none --set-exit-if-changed bin lib
+      - run: dart analyze --fatal-warnings bin lib
       - name: Build executable
         shell: bash
         run: |
-          mkdir build
-          if [ "$OS" = "Windows_NT" ]; then
-            dart compile exe -o build/rush.exe bin/rush.dart
-          else
-            dart compile exe -o build/rush bin/rush.dart
-          fi
-      - name: Upload executable
-        uses: actions/upload-artifact@v3
+          mkdir -p dist/bin
+          if [ "$RUNNER_OS" = "Windows" ]; then exe=rush.exe; else exe=rush; fi
+          dart compile exe -o "dist/bin/$exe" bin/rush.dart
+      - uses: actions/upload-artifact@v4
         with:
-          if-no-files-found: error
           name: rush-${{ matrix.target }}
-          path: build/*
+          path: dist/
+          if-no-files-found: error
 
-  create-release:
-    if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
-    needs: [cli, annotation-processor]
-    runs-on: ubuntu-22.04
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [processor, maven-resolver, cli]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4.1.7
-      - name: Download JAR dependencies
-        run: |
-          mkdir libs && cd libs
-          wget https://github.com/mit-cml/appinventor-sources/raw/master/appinventor/lib/kawa/kawa-1.11-modified.jar
-          wget https://github.com/mit-cml/appinventor-sources/raw/master/appinventor/lib/physicaloid/physicaloid-library.jar
-          wget https://dl.google.com/android/repository/platform-33_r02.zip && unzip platform-33_r02.zip 
-          cp android-13/android.jar android-33.jar
-          rm -r android-13 platform-33_r02.zip
+      - uses: actions/download-artifact@v4
       - name: Create platform archives
         run: |
           mkdir archives
-          for VAR in x86_64-linux x86_64-windows x86_64-apple-darwin
-          do
-            # Move the executable to bin dir
-            mkdir rush-$VAR/bin && mv rush-$VAR/rush* rush-$VAR/bin
-            # Copy JARs downloaded in prev step
-            cp libs/ rush-$VAR -r
-            # Create ZIP
-            cd rush-$VAR && zip ../archives/rush-$VAR.zip . -r9
-            cd ..
+          for target in x86_64-linux x86_64-windows arm64-apple-darwin x86_64-apple-darwin; do
+            cp -r libs "rush-$target/libs"
+            chmod +x rush-$target/bin/* || true
+            (cd "rush-$target" && zip -r9 "../archives/rush-$target.zip" .)
           done
-      - name: Create a new draft release
-        uses: softprops/action-gh-release@v1
+      - uses: softprops/action-gh-release@v2
         with:
           draft: true
           fail_on_unmatched_files: true

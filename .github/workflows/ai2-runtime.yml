@@ -1,0 +1,33 @@
+name: App Inventor runtime
+
+on:
+  workflow_dispatch:
+    inputs:
+      ai2-tag:
+        description: App Inventor release tag, e.g. v206
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 11
+      - name: Install ant
+        run: sudo apt-get update && sudo apt-get install -y ant
+      - name: Build runtime bundle
+        run: ai2/build-runtime.sh "${{ inputs.ai2-tag }}" build
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ai2-runtime-${{ inputs.ai2-tag }}
+          name: App Inventor runtime ${{ inputs.ai2-tag }}
+          body: Runtime bundle Rush compiles extensions against, built from App Inventor ${{ inputs.ai2-tag }} by `ai2/build-runtime.sh`.
+          make_latest: false
+          draft: true
+          fail_on_unmatched_files: true
+          files: build/ai2-runtime-${{ inputs.ai2-tag }}.zip
