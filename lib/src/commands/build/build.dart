@@ -12,6 +12,7 @@ import 'package:tint/tint.dart';
 
 import 'package:rush/src/commands/build/build_dependencies.dart';
 import 'package:rush/src/commands/build/utils.dart';
+import 'package:rush/src/commands/deps/sync.dart';
 import 'package:rush/src/commands/build/tools/compiler.dart';
 import 'package:rush/src/commands/build/tools/executor.dart';
 import 'package:rush/src/config/config.dart';
@@ -60,6 +61,12 @@ class BuildCommand extends Command<int> {
       return 1;
     }
     _lgr.stopTask();
+
+    if (await SyncSubCommand.needsSync(config, _libService) &&
+        await SyncSubCommand().run(title: 'Syncing dependencies') != 0) {
+      _logFinalLine(false);
+      return 1;
+    }
 
     _lgr.startTask('Compiling sources');
     final BuildDependencies deps;

@@ -206,6 +206,16 @@ class SyncSubCommand extends Command<int> {
     return 0;
   }
 
+  static Future<bool> needsSync(Config config, LibService libService) async {
+    if (!Ai2Runtime.isInstalled) {
+      return true;
+    }
+    Hive.init(_fs.dotRushDir.path);
+    final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
+    return _doProjectDepsNeedSync(
+        timestampBox, await libService.extensionDependencies(config));
+  }
+
   static Future<bool> _doProjectDepsNeedSync(
       LazyBox<DateTime> timestampBox, List<Artifact> projectDeps) async {
     // Re-fetch deps if they are outdated, ie, if the config file is modified
