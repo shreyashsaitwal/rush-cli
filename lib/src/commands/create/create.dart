@@ -1,3 +1,4 @@
+import 'dart:convert' show base64Decode;
 import 'package:args/command_runner.dart';
 import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
@@ -12,6 +13,7 @@ import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/file_extension.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/commands/create/templates/extension_source.dart';
+import 'package:rush/src/commands/create/templates/icon.dart';
 import 'package:rush/src/commands/create/templates/intellij_files.dart';
 import 'package:rush/src/commands/create/templates/other.dart';
 
@@ -28,7 +30,10 @@ class CreateCommand extends Command<int> {
           abbr: 'l',
           help:
               'The language in which the extension\'s starter template should be generated',
-          allowed: ['Java', 'Kotlin']);
+          allowed: ['java', 'kotlin', 'Java', 'Kotlin'])
+      ..addOption('ide',
+          help: 'The IDE to generate project files for.',
+          allowed: ['intellij', 'eclipse', 'both']);
   }
 
   @override
@@ -83,14 +88,18 @@ class CreateCommand extends Command<int> {
       orgName = '${orgName.toLowerCase()}.${camelCasedName.toLowerCase()}';
     }
 
-    final editor = Select(
-      prompt: 'IDE',
-      options: [
-        'IntelliJ ${'(also includes Android Studio and other JetBrains IDEs)'.grey()}',
-        'Eclipse  ${'(also includes Visual Studio Code)'.grey()}',
-        'Both     ${'(also includes every IDE mentioned above)'.grey()}',
-      ],
-    ).interact();
+    const ides = ['intellij', 'eclipse', 'both'];
+    final ideOpt = argResults!['ide'] as String?;
+    final editor = ideOpt != null
+        ? ides.indexOf(ideOpt)
+        : Select(
+            prompt: 'IDE',
+            options: [
+              'IntelliJ ${'(also includes Android Studio and other JetBrains IDEs)'.grey()}',
+              'Eclipse  ${'(also includes Visual Studio Code)'.grey()}',
+              'Both     ${'(also includes every IDE mentioned above)'.grey()}',
+            ],
+          ).interact();
 
     final processing = Spinner(
         icon: '\n✓ '.green(),
@@ -128,7 +137,7 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
       p.join(projectDir, 'src', 'AndroidManifest.xml'):
           androidManifestXml(orgName),
       p.join(projectDir, 'src', 'proguard-rules.pro'): pgRules(orgName),
-      p.join(projectDir, 'rush.yml'): config(lang == 'Kotlin'),
+      p.join(projectDir, 'rush.yml'): config(lang.toLowerCase() == 'kotlin'),
       p.join(projectDir, 'README.md'): readmeMd(pascalCasedName),
       p.join(projectDir, '.gitignore'): dotGitignore,
       p.join(projectDir, 'deps', '.placeholder'):
@@ -153,15 +162,14 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
 
     // Creates the required files for the extension.
     try {
-      filesToCreate.forEach((path, contents) async {
+      for (final MapEntry(key: path, value: contents)
+          in filesToCreate.entries) {
         await path.asFile(true).writeAsString(contents);
-      });
-      p.join(projectDir, 'assets').asDir(true);
-      // Copy icon
+      }
       await p
-          .join(_fs.rushHomeDir.path, 'icon.png')
-          .asFile()
-          .copy(p.join(projectDir, 'assets', 'icon.png'));
+          .join(projectDir, 'assets', 'icon.png')
+          .asFile(true)
+          .writeAsBytes(base64Decode(extensionIconBase64));
     } catch (e) {
       GetIt.I<Logger>().err(e.toString());
       rethrow;
