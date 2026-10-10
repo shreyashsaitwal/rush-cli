@@ -1,5 +1,5 @@
-import 'dart:convert' show jsonDecode;
-import 'dart:io' show File;
+import 'dart:convert' show jsonDecode, jsonEncode;
+import 'dart:io' show File, Platform, ProcessException;
 
 import 'package:archive/archive_io.dart';
 import 'package:args/command_runner.dart';
@@ -7,8 +7,10 @@ import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
+import 'package:pool/pool.dart';
 import 'package:tint/tint.dart';
 
+import 'package:rush/src/commands/build/build_dependencies.dart';
 import 'package:rush/src/commands/build/utils.dart';
 import 'package:rush/src/commands/build/tools/compiler.dart';
 import 'package:rush/src/commands/build/tools/executor.dart';
@@ -60,12 +62,11 @@ class BuildCommand extends Command<int> {
     _lgr.stopTask();
 
     _lgr.startTask('Compiling sources');
+    final BuildDependencies deps;
     try {
+      deps = await BuildDependencies.load(_libService, config);
       final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
-      await _mergeManifests(
-        config,
-        timestampBox,
-      );
+      await _mergeManifests(config, deps.shippedAars);
       await _compile(config, timestampBox);
     } catch (e, s) {
       _catchAndStop(e, s);
@@ -92,39 +93,30 @@ class BuildCommand extends Command<int> {
     try {
       await BuildUtils.copyAssets(config);
       await BuildUtils.copyLicense(config);
-      artJarPath = await _createArtJar(config);
+      await _packageAars(config, deps, buildInfosJson);
+      artJarPath = await _createArtJar(deps.shippedJars);
     } catch (e, s) {
       _catchAndStop(e, s);
       return 1;
     }
     _lgr.stopTask();
 
-    if (config.desugar) {
-      _lgr.startTask('Desugaring Java 8 langauge features');
-      try {
-        await Executor.execDesugarer(artJarPath, config);
-      } catch (e, s) {
-        _catchAndStop(e, s);
-        return 1;
-      }
-      _lgr.stopTask();
-    }
-
     if (argResults!['optimize'] as bool) {
       _lgr.startTask('Optimizing and obfuscating the bytecode');
 
-      final deps = await _libService.extensionDependencies(config,
+      final allDeps = await _libService.extensionDependencies(config,
           includeAi2ProvidedDeps: true, includeProjectProvidedDeps: true);
-      final aars = deps.where((el) => el.packaging == 'aar');
 
-      final proguardRules = aars
-          .map((el) => BuildUtils.resourceFromExtractedAar(
-              el.artifactFile, 'proguard.txt'))
+      final proguardRules = allDeps
+          .where((el) => el.packaging == 'aar')
+          .map((el) =>
+              _fs.resourceFromExtractedAar(el.artifactFile, 'proguard.txt'))
           .where((el) => el.existsSync())
           .map((el) => el.path);
 
       try {
-        await Executor.execProGuard(config, artJarPath, proguardRules.toSet());
+        await Executor.execProGuard(
+            config, artJarPath, deps.referencedJars, proguardRules.toSet());
       } catch (e, s) {
         _catchAndStop(e, s);
         return 1;
@@ -132,9 +124,18 @@ class BuildCommand extends Command<int> {
       _lgr.stopTask();
     }
 
+    _lgr.startTask('Desugaring Java 8+ language features');
+    try {
+      await _desugarArtJar(config, artJarPath, deps);
+    } catch (e, s) {
+      _catchAndStop(e, s);
+      return 1;
+    }
+    _lgr.stopTask();
+
     _lgr.startTask('Generating DEX bytecode');
     try {
-      await Executor.execD8(config, artJarPath);
+      await Executor.execD8(config, artJarPath, deps.referencedJars);
     } catch (e, s) {
       _catchAndStop(e, s);
       return 1;
@@ -155,8 +156,10 @@ class BuildCommand extends Command<int> {
   }
 
   void _catchAndStop(Object e, StackTrace s) {
-    if (e.toString().isNotEmpty) {
+    if (e is ProcessException) {
       _lgr.dbg(e.toString());
+    } else if (e.toString().isNotEmpty) {
+      _lgr.err(e.toString());
     }
     _lgr
       ..dbg(s.toString())
@@ -175,16 +178,9 @@ class BuildCommand extends Command<int> {
     _lgr.log(line);
   }
 
-  Future<void> _mergeManifests(
-      Config config, LazyBox<DateTime> timestampBox) async {
-    final deps = await _libService.extensionDependencies(config);
-    final requiredAars = deps.where((el) =>
-        el.scope == Scope.runtime &&
-        el.scope == Scope.compile &&
-        el.packaging == 'aar');
-
-    final manifests = requiredAars
-        .map((el) => BuildUtils.resourceFromExtractedAar(
+  Future<void> _mergeManifests(Config config, List<Artifact> aars) async {
+    final manifests = aars
+        .map((el) => _fs.resourceFromExtractedAar(
             el.artifactFile, 'AndroidManifest.xml'))
         .where((el) => el.existsSync())
         .map((el) => el.path);
@@ -200,21 +196,12 @@ class BuildCommand extends Command<int> {
       return;
     }
 
-    final lastMergeTime = await timestampBox.get(androidManifestTimestampKey);
-    final needMerge = !await outputManifest.exists() ||
-        (lastMergeTime?.isBefore(await mainManifest.lastModified()) ?? true);
-    if (!needMerge) {
-      return;
-    }
-
     _lgr.info('Merging Android manifests...');
     await Executor.execManifMerger(
       config.minSdk,
       mainManifest.path,
       manifests.toSet(),
     );
-
-    await timestampBox.put(androidManifestTimestampKey, DateTime.now());
   }
 
   /// Compiles extension's source files.
@@ -246,8 +233,7 @@ class BuildCommand extends Command<int> {
       }
 
       if (javaFiles.isNotEmpty) {
-        await Compiler.compileJavaFiles(
-            compileClasspathJars, config.desugar, timestampBox);
+        await Compiler.compileJavaFiles(compileClasspathJars, timestampBox);
       }
     } catch (e, s) {
       _lgr
@@ -257,16 +243,73 @@ class BuildCommand extends Command<int> {
     }
   }
 
-  Future<String> _createArtJar(Config config) async {
+  Future<void> _packageAars(
+      Config config, BuildDependencies deps, File buildInfosJson) async {
+    final aarsDir = p.join(_fs.buildRawDir.path, 'aars').asDir();
+    if (await aarsDir.exists()) {
+      await aarsDir.delete(recursive: true);
+    }
+    await aarsDir.create();
+
+    final pool = Pool(Platform.numberOfProcessors.clamp(1, 4));
+    final libraries = await Future.wait(deps.shippedAars.map((aar) =>
+        pool.withResource(() => _packageAar(config, aar, aarsDir.path, deps))));
+
+    final buildInfos = jsonDecode(await buildInfosJson.readAsString()) as List;
+    for (final info in buildInfos.cast<Map<String, dynamic>>()) {
+      info['libraries'] = libraries;
+    }
+    await buildInfosJson.writeAsString(jsonEncode(buildInfos));
+
+    if (libraries.isNotEmpty) {
+      _lgr.info('Packaged ${libraries.length} AAR(s): ${libraries.join(', ')}');
+    }
+  }
+
+  Future<String> _packageAar(Config config, Artifact aar, String aarsDir,
+      BuildDependencies deps) async {
+    final name = _aarFileName(aar);
+    final desugaredClasses =
+        p.join(_fs.buildFilesDir.path, 'desugared-aars', '$name.jar');
+    p.dirname(desugaredClasses).asDir(true);
+
+    await Executor.execDesugar(
+      config,
+      input: aar.classesJar,
+      output: desugaredClasses,
+      classpathJars: {...deps.referencedJars, ...deps.shippedJars}
+        ..remove(aar.classesJar),
+    );
+    await BuildUtils.copyZipReplacingEntry(
+      source: aar.artifactFile,
+      entry: 'classes.jar',
+      replacement: desugaredClasses,
+      destination: p.join(aarsDir, name),
+    );
+    return name;
+  }
+
+  Future<void> _desugarArtJar(
+      Config config, String artJarPath, BuildDependencies deps) async {
+    final desugared =
+        p.join(_fs.buildFilesDir.path, 'AndroidRuntime.desugared.jar');
+    await Executor.execDesugar(
+      config,
+      input: artJarPath,
+      output: desugared,
+      classpathJars: deps.referencedJars,
+    );
+    await desugared.asFile().rename(artJarPath);
+  }
+
+  static String _aarFileName(Artifact aar) => aar.isMavenArtifact
+      ? '${aar.coordinate.replaceAll(':', '-')}.aar'
+      : p.basename(aar.artifactFile);
+
+  Future<String> _createArtJar(Set<String> requiredJars) async {
     final artJarPath =
         p.join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.jar');
     final zipEncoder = ZipFileEncoder()..create(artJarPath);
-
-    final deps = await _libService.extensionDependencies(config);
-    final requiredDeps = deps
-        .where((el) => el.scope == Scope.compile || el.scope == Scope.runtime);
-    final requiredJars =
-        requiredDeps.map((el) => el.classesJar).whereNotNull().toSet();
 
     // Add class files from all required deps into the ART.jar
     if (requiredJars.isNotEmpty) {
@@ -276,7 +319,7 @@ class BuildCommand extends Command<int> {
       for (final jarPath in requiredJars) {
         final jar = jarPath.asFile();
         if (!await jar.exists()) {
-          _lgr.err('Unable to find required JAR: $jarPath');
+          throw Exception('Unable to find required JAR: $jarPath');
         }
 
         final decodedJar = ZipDecoder()
@@ -292,7 +335,7 @@ class BuildCommand extends Command<int> {
           return p.extension(el.name) == '.class';
         });
         for (final file in decodedJar) {
-          zipEncoder.addArchiveFile(file..compress = false);
+          zipEncoder.addArchiveFile(file..compression = CompressionType.none);
           addedPaths.add(file.name);
         }
       }
@@ -309,7 +352,7 @@ class BuildCommand extends Command<int> {
       }
     }
 
-    zipEncoder.close();
+    await zipEncoder.close();
     return artJarPath;
   }
 
@@ -340,7 +383,7 @@ class BuildCommand extends Command<int> {
     } catch (e) {
       rethrow;
     } finally {
-      zipEncoder.close();
+      await zipEncoder.close();
     }
   }
 }

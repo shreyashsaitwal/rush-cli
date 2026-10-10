@@ -7,8 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:tint/tint.dart';
 
 import 'package:rush/src/commands/deps/sync.dart';
-import 'package:rush/src/commands/migrate/old_config/old_config.dart'
-    as old;
+import 'package:rush/src/commands/migrate/old_config/old_config.dart' as old;
 import 'package:rush/src/config/config.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
@@ -167,14 +166,6 @@ assets:
 ${config.assets.map((el) => '- $el').join('\n')}
 
 ''';
-    }
-
-    if (config.desugar) {
-      contents += '''
-# Desuagring allows you to use Java 8 language features in your extension. You 
-# also need to enable desugaring if any of your dependencies use Java 8 language
-# features.
-desugar: true\n\n''';
     }
 
     if (enableKotlin) {

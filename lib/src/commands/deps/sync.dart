@@ -5,27 +5,23 @@ import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:xrange/xrange.dart';
 
 import 'package:rush/src/commands/build/utils.dart';
 import 'package:rush/src/commands/create/templates/eclipse_files.dart';
 import 'package:rush/src/commands/create/templates/intellij_files.dart';
 import 'package:rush/src/config/config.dart';
 import 'package:rush/src/resolver/artifact.dart';
-import 'package:rush/src/resolver/resolver.dart';
+import 'package:rush/src/resolver/maven.dart';
+import 'package:rush/src/services/ai2_runtime.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/lib_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/constants.dart';
 import 'package:rush/src/utils/file_extension.dart';
 
-const ai2RuntimeCoord =
-    'io.github.shreyashsaitwal.rush:runtime:$ai2RuntimeVersion';
 const _buildToolCoords = [
-  rushApCoord,
   r8Coord,
   pgCoord,
-  desugarCoord,
   ...manifMergerAndDeps,
 ];
 
@@ -69,7 +65,6 @@ class SyncSubCommand extends Command<int> {
     // Clear all the cache if force is used.
     if (useForce) {
       if (!onlyExtDeps) {
-        await libService.ai2ProvidedDepsBox.clear();
         await libService.buildLibsBox.clear();
       }
       if (!onlyDevDeps && config != null) {
@@ -84,32 +79,19 @@ class SyncSubCommand extends Command<int> {
           '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
         ];
 
-    // Dev deps to be resolved
-    final ai2ProvidedDepsToFetch = <String>{};
+    // Build tools to be resolved
     final toolsToFetch = <String>{};
-
-    var ai2ProvidedDepArtifacts = await libService.providedDependencies(null);
     var buildLibArtifacts = await libService.buildLibArtifacts();
 
-    // Add every un-cached dev dep to fetch list.
-    if (ai2ProvidedDepArtifacts
-        .none((el) => el.coordinate == ai2RuntimeCoord)) {
-      ai2ProvidedDepsToFetch.add(ai2RuntimeCoord);
-    }
+    // Add every un-cached tool to the fetch list.
     for (final coord in toolsCoord) {
       if (buildLibArtifacts.none((el) => el.coordinate == coord)) {
         toolsToFetch.add(coord);
       }
     }
 
-    // Add every non existent dev dep to the fetch list. This can happen when
-    // the said dep was deleted or the local Maven repo location was changed.
-    ai2ProvidedDepsToFetch.addAll(
-      ai2ProvidedDepArtifacts
-          .where((el) => !el.artifactFile.asFile().existsSync())
-          .map((el) => el.coordinate)
-          .where((el) => el.trim().isNotEmpty),
-    );
+    // Add every non existent tool to the fetch list. This can happen when the
+    // said tool was deleted or the local Maven repo location was changed.
     toolsToFetch.addAll(
       buildLibArtifacts
           .where((el) => !el.artifactFile.asFile().existsSync())
@@ -120,60 +102,38 @@ class SyncSubCommand extends Command<int> {
     // Stop the init task
     _lgr.stopTask();
 
-    if (!onlyExtDeps &&
-        (ai2ProvidedDepsToFetch.isNotEmpty || toolsToFetch.isNotEmpty)) {
+    final installRuntime = useForce || !Ai2Runtime.isInstalled;
+    if (!onlyExtDeps && (installRuntime || toolsToFetch.isNotEmpty)) {
       _lgr.startTask('Syncing dev-dependencies');
       try {
         await Future.wait([
-          sync(
-            cacheBox: libService.ai2ProvidedDepsBox,
-            coordinates: {Scope.compile: ai2ProvidedDepsToFetch},
-            downloadSources: true,
-            excludeCoordinates: ['com.google.android:android:2.1.2'],
-          ),
-          sync(
-            cacheBox: libService.buildLibsBox,
-            coordinates: {Scope.compile: toolsToFetch},
-          ),
+          if (installRuntime) Ai2Runtime.install(),
+          if (toolsToFetch.isNotEmpty)
+            sync(
+              cacheBox: libService.buildLibsBox,
+              coordinates: {Scope.compile: toolsToFetch},
+            ),
         ]);
-      } catch (_) {
-        _lgr.stopTask(false);
+      } catch (e, s) {
+        _lgr
+          ..err(e.toString())
+          ..dbg(s.toString())
+          ..stopTask(false);
         return 1;
       }
-
-      await Future.wait([
-        _removeRogueDeps([
-          ai2RuntimeCoord,
-          'android-$androidPlatformSdkVersion.jar',
-          'kawa-1.11-modified.jar',
-          'physicaloid-library.jar'
-        ], libService.ai2ProvidedDepsBox),
-      ]);
       _lgr.stopTask();
     } else if (!onlyExtDeps) {
       _lgr
         ..startTask('Syncing dev-dependencies')
         ..stopTask();
     }
-    await BuildUtils.extractAars(
-      ai2ProvidedDepArtifacts
-          .where((el) => el.artifactFile.endsWith('.aar'))
-          .where((el) =>
-              !el.classesJar.asFile().existsSync() ||
-              !BuildUtils.resourceFromExtractedAar(
-                      el.artifactFile, 'AndroidManifest.xml')
-                  .existsSync())
-          .map((el) => el.artifactFile),
-    );
 
     // Exit if this is not a Rush project.
     if (config == null) {
       return 0;
     }
 
-    // Update the vars after syncing dev deps.
-    ai2ProvidedDepArtifacts = await libService.providedDependencies(null);
-    buildLibArtifacts = await libService.buildLibArtifacts();
+    final ai2ProvidedDepArtifacts = await libService.providedDependencies(null);
 
     Hive.init(_fs.dotRushDir.path);
     final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
@@ -196,13 +156,12 @@ class SyncSubCommand extends Command<int> {
           downloadSources: true,
         );
 
-        final providedDepArtifacts =
-            await libService.providedDependencies(config);
+        final inEveryApp = await libService.dependenciesInEveryApp(config);
         await sync(
           cacheBox: libService.extensionDepsBox!,
           coordinates: {Scope.compile: extDepCoords},
           repositories: config.repositories,
-          providedArtifacts: providedDepArtifacts,
+          providedArtifacts: inEveryApp,
           downloadSources: true,
         );
         await timestampBox.put(configTimestampKey, DateTime.now());
@@ -229,7 +188,8 @@ class SyncSubCommand extends Command<int> {
             .where((el) => el.artifactFile.endsWith('.aar'))
             .where((el) =>
                 !el.classesJar.asFile().existsSync() ||
-                !BuildUtils.resourceFromExtractedAar(
+                !_fs
+                    .resourceFromExtractedAar(
                         el.artifactFile, 'AndroidManifest.xml')
                     .existsSync())
             .map((el) => el.artifactFile),
@@ -299,302 +259,61 @@ class SyncSubCommand extends Command<int> {
     Iterable<String> repositories = const [],
     Iterable<Artifact> providedArtifacts = const [],
     bool downloadSources = false,
-    List<String> excludeCoordinates = const [],
   }) async {
     _lgr.info('Resolving ${coordinates.values.flattened.length} artifacts...');
-    final resolver = ArtifactResolver(repos: repositories.toSet());
+    final resolver = MavenResolver(
+      repositories: repositories,
+      onWarning: (msg) => _lgr.dbg(msg),
+    );
 
-    List<Artifact> resolvedDeps = [];
     try {
-      resolvedDeps = (await Future.wait([
-        for (final entry in coordinates.entries)
-          for (final coord in entry.value)
-            resolver.resolveArtifact(coord, entry.key,
-                exclude: excludeCoordinates),
-      ]))
-          .flattened
-          .toList(growable: true);
+      final directCoords = coordinates.values.flattened.toSet();
+      final provided = {
+        for (final el in providedArtifacts)
+          if (el.isMavenArtifact && !directCoords.contains(el.coordinate))
+            el.groupAndArtifactId: el,
+      };
+
+      if (provided.isNotEmpty) {
+        _warnAboutOutdatedProvidedDeps(
+            await resolver.resolve(coordinates), provided);
+      }
+
+      _lgr.info('Downloading resolved artifacts...');
+      final resolvedDeps = await resolver.download(
+        await resolver.resolve(coordinates, exclude: provided.keys.toSet()),
+        withSources: downloadSources,
+      );
+      await cacheBox.putAll({
+        for (final dep in resolvedDeps) dep.coordinate: dep,
+      });
+      return resolvedDeps;
     } catch (e, s) {
-      resolver.closeHttpConn();
       _lgr
         ..err(e.toString())
         ..dbg(s.toString());
       rethrow;
+    } finally {
+      await resolver.close();
     }
-
-    final directDeps =
-        {for (final entry in coordinates.entries) entry.value}.flattened;
-
-    try {
-      // Resolve version conflicts
-      _lgr.info('Resolving version conflicts...');
-      resolvedDeps =
-          (await _resolveVersionConflicts(resolvedDeps, directDeps, resolver))
-              .toList(growable: true);
-    } catch (e) {
-      resolver.closeHttpConn();
-      rethrow;
-    }
-
-    // When resolving extension deps, remove AI2 provided deps from dependencies
-    // field and add them to the providedDependencies field of each artifact.
-    if (providedArtifacts.isNotEmpty) {
-      final providedDeps = <String>{};
-      resolvedDeps.removeWhere((el) {
-        final provided = _providedAlternative(
-          '${el.groupId}:${el.artifactId}',
-          providedArtifacts,
-          coordinates.values.flattened,
-        );
-        if (provided != null) {
-          providedDeps.add(el.coordinate);
-          _lgr.dbg(
-              'Provided alternative found for ${el.coordinate}: ${provided.coordinate}');
-          return true;
-        }
-        return false;
-      });
-      for (final el in resolvedDeps) {
-        el.dependencies.removeWhere((coord) => providedDeps.contains(coord));
-      }
-    }
-
-    // Update the versions of transitive dependencies once the version conflicts
-    // are resolved.
-    resolvedDeps = resolvedDeps.map((dep) {
-      dep.dependencies = List.of(dep.dependencies)
-          .map((el) {
-            final artifact = resolvedDeps.firstWhereOrNull((art) =>
-                '${art.groupId}:${art.artifactId}' ==
-                el.split(':').take(2).join(':'));
-            return artifact?.coordinate;
-          })
-          .whereNotNull()
-          .toList();
-      return dep;
-    }).toList();
-
-    // Download the artifacts and then add them to the cache
-    _lgr.info('Downloading resolved artifacts...');
-    try {
-      await Future.wait([
-        for (final dep in resolvedDeps) resolver.downloadArtifact(dep),
-        if (downloadSources)
-          for (final dep in resolvedDeps) resolver.downloadSourcesJar(dep),
-        cacheBox.putAll({
-          for (final dep in resolvedDeps) dep.coordinate: dep,
-        }),
-      ]);
-    } catch (e) {
-      resolver.closeHttpConn();
-      rethrow;
-    }
-
-    resolver.closeHttpConn();
-    return resolvedDeps;
   }
 
-  Future<Iterable<Artifact>> _resolveVersionConflicts(
-      Iterable<Artifact> resolvedArtifacts,
-      Iterable<String> directDeps,
-      ArtifactResolver resolver) async {
-    final sameArtifacts = resolvedArtifacts
-        .groupListsBy((el) => '${el.groupId}:${el.artifactId}')
-        .entries;
-
-    if (!sameArtifacts.any((el) => el.value.length > 1)) {
-      return resolvedArtifacts;
-    }
-
-    final result = <Artifact>[];
-    final newCoordsToReResolve = <String, Scope>{};
-
-    for (final entry in sameArtifacts) {
-      // Filter deps that have ranges defined
-      final rangedVersionDeps =
-          entry.value.where((el) => el.version.range != null).toSet();
-
-      final updatedScope = entry.value.any((el) => el.scope == Scope.compile)
-          ? Scope.compile
-          : Scope.runtime;
-
-      if (rangedVersionDeps.isNotEmpty) {
-        _lgr.dbg('Total ranged: ${rangedVersionDeps.length}');
-
-        // A singleton range is a range that allows only one exact value.
-        // Eg: [1.2.3]
-        final singletonVersionDeps = rangedVersionDeps
-            .where((el) => el.version.range!.isSingleton)
-            .toSet();
-
-        // In ranged version deps, select the singleton version if there exist
-        // "only one" and if it doesn't conflict with other ranges. Otherwise
-        // it's an error.
-        if (singletonVersionDeps.isNotEmpty) {
-          // The singleton must be a part of each range for it to not conflict.
-          final everyRangeContainsSingleton = rangedVersionDeps.every((el) => el
-              .version.range!
-              .encloses(singletonVersionDeps.first.version.range!));
-
-          if (singletonVersionDeps.length > 1 || !everyRangeContainsSingleton) {
-            throw Exception(
-                'Unable to resolve version conflict for ${entry.key}:\n'
-                'multiple versions found: ${singletonVersionDeps.map((e) => e.version.range).join(', ')}');
-          } else {
-            final pickedArtifact = singletonVersionDeps.first;
-            // Update coordinate with ranged version to the final picked version.
-            // For eg: com.example:[1.2.3] -> com.example:1.2.3
-            pickedArtifact.coordinate = [
-              ...pickedArtifact.coordinate.split(':').take(2),
-              pickedArtifact.version.range!.upper!
-            ].join(':');
-
-            _lgr.dbg(
-                '${entry.value.length} versions for ${entry.key} found; using ${pickedArtifact.version} because its a direct dep');
-            result.add(pickedArtifact..scope = updatedScope);
-            continue;
-          }
-        }
-
-        // If there's no singleton version, then we need to first find the
-        // intersection of all the ranges and then pick a version that falls
-        // in it.
-        final intersection =
-            _intersection(rangedVersionDeps.map((e) => e.version.range!));
-        if (intersection == null) {
-          throw Exception(
-              'Unable to resolve version conflict for ${entry.key}:\n'
-              'multiple versions found: ${rangedVersionDeps.map((e) => e.version.range).join(', ')}');
-        }
-
-        Version? pickedVersion;
-        if (intersection.upperBounded) {
-          pickedVersion = intersection.upper!;
-        } else if (intersection.lowerBounded) {
-          pickedVersion = intersection.lower!;
-        } else {
-          // If the intersection is all infinity, then iterate through all the
-          // ranges and pick any version - upper or lower - that we find first.
-          for (final dep in rangedVersionDeps) {
-            if (dep.version.range!.upperBounded) {
-              pickedVersion = dep.version.range!.upper!;
-              break;
-            } else if (dep.version.range!.lowerBounded) {
-              pickedVersion = dep.version.range!.lower!;
-              break;
-            }
-          }
-          if (pickedVersion == null) {
-            throw Exception(
-                'Unable to resolve version conflict for ${entry.key}:\n'
-                'multiple versions found: ${rangedVersionDeps.map((e) => e.version.range).join(', ')}');
-          }
-        }
-
-        final pickedCoordinate = '${entry.key}:$pickedVersion';
-        final pickedArtifacts = rangedVersionDeps
-            .where((el) => el.coordinate == pickedCoordinate)
-            .toList(growable: true);
-
-        // If `pickedArtifacts` is empty, then it means that this version of
-        // this artifact wasn't resolved. We store such artifacts and there deps
-        // in the `newArtifactsToReResolve` list and resolve them later.
-        if (pickedArtifacts.isEmpty) {
-          newCoordsToReResolve.putIfAbsent(
-              pickedCoordinate, () => updatedScope);
-          continue;
-        }
-
-        result.add(pickedArtifacts.first..scope = updatedScope);
-        continue;
-      }
-
-      if (entry.value.length == 1) {
-        result.add(entry.value.first..scope = updatedScope);
-        continue;
-      }
-
-      // If this artifact is defined as a direct dep, use that version.
-      // Note: when this method is called from the build command, the `coordinates`
-      // are the direct deps.
-      final directDep = {
-        for (final coord in directDeps)
-          if (coord.split(':').take(2).join(':') == '${entry.key}:') coord
-      };
-      if (directDep.isNotEmpty) {
-        _lgr.dbg(
-            '${entry.value.length} versions for ${entry.key} found; using ${directDep.first.split(':').last} because its a direct dep');
-        final artifact =
-            entry.value.firstWhere((el) => el.coordinate == directDep.first);
-        result.add(artifact..scope = updatedScope);
-        continue;
-      }
-
-      // If no version is ranged, select the highest version
-      final nonRangedVersionDeps =
-          entry.value.where((el) => el.version.range == null);
-      final highestVersionDep = nonRangedVersionDeps
-          .sorted((a, b) => a.version.compareTo(b.version))
-          .last;
-      _lgr.dbg(
-          '${entry.value.length} versions for ${entry.key} found; using ${highestVersionDep.version} because its the highest');
-      result.add(highestVersionDep..scope = updatedScope);
-    }
-
-    // Resolve any new coordinates that were added to the `newArtifactsToReResolve`
-    if (newCoordsToReResolve.isNotEmpty) {
-      _lgr.dbg(
-          'Fetching new resolved versions for ${newCoordsToReResolve.keys.length} coordinates');
-
-      List<List<Artifact>> resolvedArtifactsNew;
-      try {
-        resolvedArtifactsNew = await Future.wait([
-          for (final entry in newCoordsToReResolve.entries)
-            resolver.resolveArtifact(entry.key, entry.value),
-        ]);
-      } catch (e, s) {
-        _lgr
-          ..err(e.toString())
-          ..dbg(s.toString());
-        rethrow;
-      }
-
-      return await _resolveVersionConflicts(
-        [...resolvedArtifactsNew.flattened, ...result],
-        directDeps,
-        resolver,
-      );
-    }
-
-    return result;
-  }
-
-  static Artifact? _providedAlternative(
-    String artifactIdent,
-    Iterable<Artifact> providedDepArtifacts,
-    Iterable<String> primaryArtifactCoords,
+  void _warnAboutOutdatedProvidedDeps(
+    Iterable<Artifact> required,
+    Map<String, Artifact> providedByKey,
   ) {
-    for (final val in providedDepArtifacts) {
-      if (val.coordinate.startsWith(artifactIdent) &&
-          !primaryArtifactCoords.contains(val.coordinate)) {
-        return val;
-      }
-    }
-    return null;
-  }
-
-  Range<T>? _intersection<T extends Comparable<T>>(Iterable<Range<T>> ranges) {
-    var result = ranges.first;
-    var previous = ranges.first;
-    for (final range in ranges) {
-      if (!range.connectedTo(previous)) {
-        return null;
+    for (final dep in required) {
+      final provided = providedByKey[dep.groupAndArtifactId];
+      if (provided == null) continue;
+      if (dep.version.compareTo(provided.version) > 0) {
+        _lgr.warn('${dep.coordinate} is required, but App Inventor provides '
+            'an older version (${provided.coordinate}) which will be used '
+            'instead. This may cause errors at runtime.');
       } else {
-        result = Range<T>.encloseAll([previous, range]);
+        _lgr.dbg('Provided alternative found for ${dep.coordinate}: '
+            '${provided.coordinate}');
       }
-      previous = range;
     }
-    return result;
   }
 
   Future<void> _updateEclipseClasspath(

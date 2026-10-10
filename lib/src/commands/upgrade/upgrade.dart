@@ -9,6 +9,7 @@ import 'package:http/http.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:rush/src/services/logger.dart';
+import 'package:rush/src/utils/constants.dart';
 import 'package:rush/src/utils/file_extension.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/version.dart';
@@ -40,8 +41,8 @@ class UpgradeCommand extends Command<int> {
 
     final gh = GitHub(
         auth: Authentication.withToken(argResults!['access-token'] as String?));
-    final release = await gh.repositories
-        .getLatestRelease(RepositorySlug.full('shreyashsaitwal/rush-cli'));
+    final release =
+        await gh.repositories.getLatestRelease(RepositorySlug.full(rushRepo));
 
     final latestVersion = release.tagName;
     final force = (argResults!['force'] as bool);
@@ -93,7 +94,7 @@ class UpgradeCommand extends Command<int> {
     _lgr.info('Extracting ${p.basename(archiveDist.path)}...');
 
     final inputStream = InputFileStream(archiveDist.path);
-    final zipDecoder = ZipDecoder().decodeBuffer(inputStream);
+    final zipDecoder = ZipDecoder().decodeStream(inputStream);
     for (final file in zipDecoder.files) {
       if (file.isFile) {
         final String path;

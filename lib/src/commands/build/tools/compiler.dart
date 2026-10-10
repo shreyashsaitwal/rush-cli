@@ -24,7 +24,6 @@ class Compiler {
     Set<String> classpathJars,
     LazyBox<DateTime> timestampBox, {
     String? ktVersion,
-    bool java8 = false,
   }) async {
     // Only the files that reside directly under the "com.sth.helpers" package
     // are considered as helpers. We could probably lift this restriction in
@@ -46,29 +45,13 @@ class Compiler {
     _lgr.info('Pre-compiling helper enums...');
     final hasKtFiles = helperFiles.any((el) => p.extension(el.path) == '.kt');
 
-    final List<String> args;
-    if (hasKtFiles) {
-      args = await _kotlincArgs(
-        helperFiles.first.parent.path,
-        classpathJars,
-        ktVersion!,
-        files: helperFiles.map((e) => e.path).toSet(),
-        withProc: false,
-      );
-    } else {
-      args = await _javacArgs(
-        helperFiles.map((e) => e.path).toSet(),
-        classpathJars,
-        java8,
-        withProc: false,
-      );
-    }
-
+    final helperPaths = helperFiles.map((e) => e.path).toSet();
     final compilationStartedOn = DateTime.now();
-    try {
-      await _processRunner.runExecutable(BuildUtils.javaExe(!hasKtFiles), args);
-    } catch (e) {
-      rethrow;
+    if (hasKtFiles) {
+      await _kotlinc(classpathJars, ktVersion!, helperPaths);
+    } else {
+      await _processRunner.runExecutable(BuildUtils.javaExe(true),
+          await _javacArgs(helperPaths, classpathJars, withProc: false));
     }
 
     await _cleanUpOldClassFiles(compilationStartedOn, keepHelpers: true);
@@ -93,7 +76,6 @@ class Compiler {
 
   static Future<void> compileJavaFiles(
     Set<String> classpathJars,
-    bool supportJava8,
     LazyBox<DateTime> timestampBox,
   ) async {
     final javaFiles = _fs.srcDir
@@ -104,8 +86,8 @@ class Compiler {
 
     final DateTime compilationStartedOn;
     try {
-      await _compileHelpers(classpathJars, timestampBox, java8: supportJava8);
-      final args = _javacArgs(javaFiles, classpathJars, supportJava8);
+      await _compileHelpers(classpathJars, timestampBox);
+      final args = _javacArgs(javaFiles, classpathJars);
       compilationStartedOn = DateTime.now();
       await _processRunner.runExecutable(BuildUtils.javaExe(true), await args);
     } catch (e) {
@@ -116,15 +98,13 @@ class Compiler {
 
   static Future<List<String>> _javacArgs(
     Set<String> files,
-    Set<String> classpathJars,
-    bool supportJava8, {
+    Set<String> classpathJars, {
     bool withProc = true,
   }) async {
     final classpath = classpathJars.join(BuildUtils.cpSeparator);
-    final procClasspath = await _libService.processorJar();
+    final procClasspath = _libService.processorJar;
     final args = <String>[
-      ...['-source', supportJava8 ? '1.8' : '1.7'],
-      ...['-target', supportJava8 ? '1.8' : '1.7'],
+      ...['--release', '8'],
       ...['-encoding', 'UTF8'],
       ...['-d', '"${_fs.buildClassesDir.path}"'],
       ...['-cp', '"$classpath"'],
@@ -140,75 +120,78 @@ class Compiler {
     String kotlinVersion,
     LazyBox<DateTime> timestampBox,
   ) async {
-    final DateTime compilationStartedOn;
-    try {
-      await _compileHelpers(classpathJars, timestampBox,
-          ktVersion: kotlinVersion);
-      final kotlincArgs =
-          await _kotlincArgs(_fs.srcDir.path, classpathJars, kotlinVersion);
-      compilationStartedOn = DateTime.now();
-      await _processRunner.runExecutable(BuildUtils.javaExe(), kotlincArgs);
-    } catch (e) {
-      rethrow;
-    }
+    await _compileHelpers(classpathJars, timestampBox,
+        ktVersion: kotlinVersion);
+    final compilationStartedOn = DateTime.now();
+    await _kapt(classpathJars, kotlinVersion);
+    await _kotlinc(classpathJars, kotlinVersion, {_fs.srcDir.path});
     await _cleanUpOldClassFiles(compilationStartedOn);
   }
 
-  static Future<List<String>> _kotlincArgs(
-    String srcDir,
-    Set<String> classpathJars,
-    String kotlinVersion, {
-    bool withProc = true,
-    Set<String>? files,
-  }) async {
-    // Here, we are copying the kotlin-annotation-processing-embeddable jar
-    // in the it's own directory but with name: kotlin-annotation-processing.jar
-    // This is a bug in kapt, and for more details:
-    // https://youtrack.jetbrains.com/issue/KTIJ-22605/kotlin-annotation-processing-embeddable-isnt-actually-embeddable
-    final kaptJar = (await _libService.kaptJars(kotlinVersion)).first;
-    final duplicateKaptJar =
-        p.join(p.dirname(kaptJar), 'kotlin-annotation-processing.jar');
-    await kaptJar.asFile().copy(duplicateKaptJar);
+  static Future<void> _kapt(
+      Set<String> classpathJars, String kotlinVersion) async {
+    final kaptJars = await _libService.kaptJars(kotlinVersion);
+    await _makeKaptPluginDiscoverableByKotlinc(kaptJars.first);
 
-    final toolsJar =
-        p.join(await BuildUtils.javaHomeDir(), 'lib', 'tools.jar').asFile();
-
-    final classpath = [
-      ...(await _libService.kotlincJars(kotlinVersion)),
-      if (withProc) ...(await _libService.kaptJars(kotlinVersion)),
-      if (withProc && await toolsJar.exists()) toolsJar.path,
-    ].join(BuildUtils.cpSeparator);
-
-    final procClasspath = await _libService.processorJar();
-
-    final kotlincArgs = <String>[
-      ...['-cp', classpathJars.join(BuildUtils.cpSeparator)],
-      if (withProc) ...[
-        // KaptCli args
-        '-Kapt-classes=${_fs.buildKaptDir.path}',
-        '-Kapt-sources=${_fs.buildKaptDir.path}',
+    await _runKotlinTool(
+      mainClass: 'org.jetbrains.kotlin.kapt.cli.KaptCli',
+      toolClasspath: {
+        ...await _libService.kotlincJars(kotlinVersion),
+        ...kaptJars,
+      },
+      argsFile: _fs.kaptArgsFile,
+      args: [
+        ...['-cp', classpathJars.join(BuildUtils.cpSeparator)],
+        '-Kapt-mode=stubsAndApt',
         '-Kapt-stubs=${_fs.buildKaptDir.path}',
-        '-Kapt-classpath=$procClasspath',
-        '-Kapt-mode=compile',
+        '-Kapt-sources=${_fs.buildKaptDir.path}',
+        '-Kapt-classes=${_fs.buildKaptDir.path}',
+        '-Kapt-classpath=${_libService.processorJar}',
         '-Kapt-strip-metadata=true',
-        '-Kapt-use-light-analysis=true',
+        '-no-stdlib',
+        _fs.srcDir.path,
       ],
-      '-no-stdlib',
-      ...['-d', _fs.buildClassesDir.path],
-      if (files != null) ...files else srcDir,
-    ].map((el) => el.replaceAll('\\', '/')).join('\n');
+    );
+  }
 
-    final argsFile = _fs.kotlincArgsFile;
-    await argsFile.writeAsString(kotlincArgs);
-    return <String>[
-      // This -cp flag belongs to the java cmdline tool, required to run the
-      // below KaptCli class
-      ...['-cp', classpath],
-      if (withProc)
-        'org.jetbrains.kotlin.kapt.cli.KaptCli'
-      else
-        'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler',
-      '@${argsFile.path}',
-    ].map((el) => el.replaceAll('\\', '/')).toList();
+  static Future<void> _kotlinc(
+    Set<String> classpathJars,
+    String kotlinVersion,
+    Set<String> sources,
+  ) async =>
+      _runKotlinTool(
+        mainClass: 'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler',
+        toolClasspath: await _libService.kotlincJars(kotlinVersion),
+        argsFile: _fs.kotlincArgsFile,
+        args: [
+          ...['-cp', classpathJars.join(BuildUtils.cpSeparator)],
+          '-no-stdlib',
+          ...['-d', _fs.buildClassesDir.path],
+          ...sources,
+        ],
+      );
+
+  static Future<void> _makeKaptPluginDiscoverableByKotlinc(
+      String kaptEmbeddableJar) async {
+    final expected = p.join(
+        p.dirname(kaptEmbeddableJar), 'kotlin-annotation-processing.jar');
+    if (!await expected.asFile().exists()) {
+      await kaptEmbeddableJar.asFile().copy(expected);
+    }
+  }
+
+  static Future<void> _runKotlinTool({
+    required String mainClass,
+    required Set<String> toolClasspath,
+    required File argsFile,
+    required List<String> args,
+  }) async {
+    String normalize(String path) => path.replaceAll('\\', '/');
+    await argsFile.writeAsString(args.map(normalize).join('\n'));
+    await _processRunner.runExecutable(BuildUtils.javaExe(), [
+      ...['-cp', normalize(toolClasspath.join(BuildUtils.cpSeparator))],
+      mainClass,
+      '@${normalize(argsFile.path)}',
+    ]);
   }
 }

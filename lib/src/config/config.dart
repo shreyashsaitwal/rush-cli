@@ -5,8 +5,6 @@ import 'package:json_annotation/json_annotation.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/constants.dart';
 
-part 'android.dart';
-
 part 'kotlin.dart';
 
 part 'config.g.dart';
@@ -71,7 +69,7 @@ class Config {
   static Future<Config?> load(File configFile, Logger lgr) async {
     if (configFile.existsSync()) {
       try {
-        return checkedYamlDecode(
+        return checkedYamlDecode<Config>(
             await configFile.readAsString(), (json) => Config._fromJson(json!));
       } catch (e) {
         lgr.err(e.toString());

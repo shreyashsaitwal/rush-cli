@@ -31,18 +31,29 @@ class BuildUtils {
     }
   }
 
+  static Future<void> copyZipReplacingEntry({
+    required String source,
+    required String entry,
+    required String replacement,
+    required String destination,
+  }) async {
+    final original =
+        ZipDecoder().decodeBytes(await source.asFile().readAsBytes());
+    final replacementBytes = await replacement.asFile().readAsBytes();
+    final archive = Archive();
+    for (final file in original.files) {
+      archive.add(file.name == entry
+          ? ArchiveFile.bytes(entry, replacementBytes)
+          : file);
+    }
+    await destination
+        .asFile(true)
+        .writeAsBytes(ZipEncoder().encodeBytes(archive));
+  }
+
   static Future<void> extractAars(Iterable<String> aars) async {
     for (final aar in aars) {
-      final String dist;
-
-      // Extract local AARs in .rush/build/extracted-aars dir, whereas remote AARs
-      // in their original location under {aar_basename} dir.
-      if (p.isWithin(_fs.localDepsDir.path, aar)) {
-        dist = p.join(_fs.buildAarsDir.path, p.basenameWithoutExtension(aar));
-      } else {
-        dist = p.join(p.dirname(aar), p.basenameWithoutExtension(aar));
-      }
-      await unzip(aar, dist);
+      await unzip(aar, _fs.extractedAarDir(aar));
     }
   }
 
@@ -87,16 +98,6 @@ class BuildUtils {
     if (await license.exists()) {
       await license.copy(p.join(dest.path, 'LICENSE'));
     }
-  }
-
-  static File resourceFromExtractedAar(String aarPath, String resourceName) {
-    final String dist;
-    if (p.isWithin(_fs.localDepsDir.path, aarPath)) {
-      dist = p.join(_fs.buildAarsDir.path, p.basenameWithoutExtension(aarPath));
-    } else {
-      dist = p.join(p.dirname(aarPath), p.basenameWithoutExtension(aarPath));
-    }
-    return p.join(dist, resourceName).asFile();
   }
 
   static Future<String> javaHomeDir() async {

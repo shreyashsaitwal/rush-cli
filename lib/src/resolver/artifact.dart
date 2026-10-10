@@ -1,11 +1,11 @@
 import 'dart:math';
 
 import 'package:hive/hive.dart';
-import 'package:path/path.dart' as p;
 import 'package:collection/collection.dart';
 import 'package:xrange/xrange.dart';
 
-import 'package:rush/src/utils/file_extension.dart';
+import 'package:get_it/get_it.dart';
+import 'package:rush/src/services/file_service.dart';
 
 part 'artifact.g.dart';
 
@@ -78,12 +78,9 @@ class Artifact {
     }
 
     if (packaging == 'aar') {
-      final baseDir = p
-          .join(
-              p.dirname(artifactFile), p.basenameWithoutExtension(artifactFile))
-          .asDir(true);
-      final jar = p.join(baseDir.path, 'classes.jar').asFile();
-      return jar.path;
+      return GetIt.I<FileService>()
+          .resourceFromExtractedAar(artifactFile, 'classes.jar')
+          .path;
     }
 
     // TODO: Take a look here
@@ -95,6 +92,10 @@ class Artifact {
   String get groupId => coordinate.split(':')[0];
 
   String get artifactId => coordinate.split(':')[1];
+
+  bool get isMavenArtifact => coordinate.split(':').length >= 3;
+
+  String get groupAndArtifactId => '$groupId:$artifactId';
 
   Set<String> classpathJars(Iterable<Artifact> artifactIndex) {
     return {

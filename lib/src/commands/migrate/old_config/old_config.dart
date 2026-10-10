@@ -67,7 +67,7 @@ class OldConfig {
   static Future<OldConfig?> load(File configFile, Logger lgr) async {
     lgr.dbg('Loading config from ${configFile.path}');
     try {
-      return checkedYamlDecode(await configFile.readAsString(),
+      return checkedYamlDecode<OldConfig>(await configFile.readAsString(),
           (json) => OldConfig._fromJson(json!));
     } catch (e) {
       lgr.err(e.toString());

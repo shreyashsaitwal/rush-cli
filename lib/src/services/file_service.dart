@@ -48,6 +48,14 @@ class FileService {
   Directory get buildAarsDir =>
       p.join(buildDir.path, 'extracted-aars').asDir(true);
 
+  String extractedAarDir(String aarPath) =>
+      p.isWithin(localDepsDir.path, aarPath)
+          ? p.join(buildAarsDir.path, p.basenameWithoutExtension(aarPath))
+          : p.join(p.dirname(aarPath), p.basenameWithoutExtension(aarPath));
+
+  File resourceFromExtractedAar(String aarPath, String resourceName) =>
+      p.join(extractedAarDir(aarPath), resourceName).asFile();
+
   Directory get libsDir => p.join(rushHomeDir.path, 'libs').asDir();
 
   File get configFile {
@@ -62,4 +70,6 @@ class FileService {
       p.join(buildFilesDir.path, 'javac.args').asFile(true);
   File get kotlincArgsFile =>
       p.join(buildFilesDir.path, 'kotlinc.args').asFile(true);
+
+  File get kaptArgsFile => p.join(buildFilesDir.path, 'kapt.args').asFile(true);
 }

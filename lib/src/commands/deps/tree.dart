@@ -76,13 +76,18 @@ class TreeSubCommand extends Command<int> {
     return 0;
   }
 
-  String _localDepGraph(Iterable<String> deps, bool isProvided, bool noRemoteDeps,) {
+  String _localDepGraph(
+    Iterable<String> deps,
+    bool isProvided,
+    bool noRemoteDeps,
+  ) {
     final graph = <String>[];
     for (final dep in deps) {
       final isLast = dep == deps.last && noRemoteDeps;
       var branch = isLast ? Connector.lastSibling : Connector.sibling;
       branch += Connector.horizontal * (_branchGap + 1) + Connector.empty;
-      branch += dep.blue() + ' (${isProvided ? 'provided' : 'compile'}, local)'.grey();
+      branch += dep.blue() +
+          ' (${isProvided ? 'provided' : 'compile'}, local)'.grey();
       graph.add(branch);
     }
     return graph.join('\n');

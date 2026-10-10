@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 
 import 'package:rush/src/commands/build/utils.dart';
 import 'package:rush/src/config/config.dart';
+import 'package:rush/src/services/ai2_runtime.dart';
 import 'package:rush/src/resolver/artifact.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
@@ -12,16 +13,11 @@ import 'package:rush/src/utils/constants.dart';
 import 'package:rush/src/utils/file_extension.dart';
 import 'package:tint/tint.dart';
 
-const rushApCoord =
-    'io.github.shreyashsaitwal.rush:processor:$annotationProcVersion';
-const r8Coord = 'com.android.tools:r8:3.3.28';
-const pgCoord = 'com.guardsquare:proguard-base:7.2.2';
-const desugarCoord = 'io.github.shreyashsaitwal:desugar:1.0.0';
+const r8Coord = 'com.android.tools:r8:9.4.24';
+const pgCoord = 'com.guardsquare:proguard-base:7.10.0';
 
 const manifMergerAndDeps = <String>[
-  'com.android.tools.build:manifest-merger:30.0.0',
-  'org.w3c:dom:2.3.0-jaxb-1.0.6',
-  'xml-apis:xml-apis:1.4.01',
+  'com.android.tools.build:manifest-merger:32.4.0',
 ];
 
 const kotlinGroupId = 'org.jetbrains.kotlin';
@@ -41,16 +37,11 @@ class LibService {
     }
   }
 
-  late final LazyBox<Artifact> ai2ProvidedDepsBox;
   late final LazyBox<Artifact> buildLibsBox;
   late final LazyBox<Artifact>? extensionDepsBox;
 
   static Future<LibService> instantiate() async {
     final instance = LibService._();
-    instance.ai2ProvidedDepsBox = await Hive.openLazyBox<Artifact>(
-      providedDepsBoxName,
-      path: p.join(_fs.rushHomeDir.path, 'cache'),
-    );
     instance.buildLibsBox = await Hive.openLazyBox<Artifact>(
       buildLibsBoxName,
       path: p.join(_fs.rushHomeDir.path, 'cache'),
@@ -76,54 +67,43 @@ class LibService {
     return artifacts.whereNotNull().toList();
   }
 
-  Future<List<Artifact>> providedDependencies(Config? config) async {
-    final local = [
-      'android-$androidPlatformSdkVersion.jar',
-      'google-webrtc-1.0.19742.jar',
-      'kawa-1.11-modified.jar',
-      'mp-android-chart-3.1.0.jar',
-      'osmdroid-5.6.6.jar',
-      'physicaloid-library.jar',
-    ].map((el) => Artifact(
-          coordinate: el,
-          scope: Scope.provided,
-          artifactFile: p.join(_fs.libsDir.path, el),
-          packaging: 'jar',
-          dependencies: [],
-          sourcesJar: null,
-        ));
-
-    if (config == null) {
-      return [
-        ...await _retrieveArtifactsFromBox(ai2ProvidedDepsBox),
-        ...local,
+  Future<List<Artifact>> providedDependencies(Config? config) async => [
+        _rushAnnotations,
+        ...(await Ai2Runtime.load()).libs,
+        if (config != null) ...await _projectProvidedDependencies(config),
       ];
-    }
 
-    final allExtRemoteDeps = await _retrieveArtifactsFromBox(extensionDepsBox!);
-    final extProvidedDeps = config.providedDependencies
-        .map((el) =>
-            allExtRemoteDeps.firstWhereOrNull((dep) => dep.coordinate == el))
-        .whereNotNull();
-    final extLocalProvided = config.providedDependencies
-        .where((el) => el.endsWith('.jar') || el.endsWith('.aar'))
-        .map((el) {
-      return Artifact(
+  Future<List<Artifact>> dependenciesInEveryApp(Config config) async => [
+        ...(await Ai2Runtime.load()).alwaysIncludedLibs,
+        ...await _projectProvidedDependencies(config),
+      ];
+
+  Artifact get _rushAnnotations => Artifact(
+        coordinate: 'rush-annotations',
         scope: Scope.provided,
-        coordinate: el,
-        artifactFile: p.join(_fs.localDepsDir.path, el),
-        packaging: p.extension(el).substring(1),
+        artifactFile: annotationsJar,
+        packaging: 'jar',
         dependencies: [],
         sourcesJar: null,
       );
-    });
 
-    return [
-      ...await _retrieveArtifactsFromBox(ai2ProvidedDepsBox),
-      ...extProvidedDeps,
-      ...extLocalProvided,
-      ...local,
-    ];
+  Future<List<Artifact>> _projectProvidedDependencies(Config config) async {
+    final allExtRemoteDeps = await _retrieveArtifactsFromBox(extensionDepsBox!);
+    final remote = config.providedDependencies
+        .map((el) =>
+            allExtRemoteDeps.firstWhereOrNull((dep) => dep.coordinate == el))
+        .whereNotNull();
+    final local = config.providedDependencies
+        .where((el) => el.endsWith('.jar') || el.endsWith('.aar'))
+        .map((el) => Artifact(
+              scope: Scope.provided,
+              coordinate: el,
+              artifactFile: p.join(_fs.localDepsDir.path, el),
+              packaging: p.extension(el).substring(1),
+              dependencies: [],
+              sourcesJar: null,
+            ));
+    return [...remote, ...local];
   }
 
   List<Artifact> _requiredDeps(
@@ -199,8 +179,20 @@ class LibService {
     return artifact;
   }
 
-  Future<String> processorJar() async =>
-      (await _findArtifact(buildLibsBox, rushApCoord)).classesJar;
+  String get processorJar => _shippedJar('processor.jar');
+
+  String get annotationsJar => _shippedJar('annotations.jar');
+
+  String _shippedJar(String name) {
+    final jar = p.join(_fs.libsDir.path, name);
+    if (!jar.asFile().existsSync()) {
+      _lgr
+        ..err('Unable to find $name in ${_fs.libsDir.path}')
+        ..log('Try reinstalling Rush', 'help  '.green());
+      throw Exception('$name not found');
+    }
+    return jar;
+  }
 
   Future<String> r8Jar() async =>
       (await _findArtifact(buildLibsBox, r8Coord)).classesJar;
@@ -208,9 +200,6 @@ class LibService {
   Future<Set<String>> pgJars() async =>
       (await _findArtifact(buildLibsBox, pgCoord))
           .classpathJars(await buildLibArtifacts());
-
-  Future<String> desugarJar() async =>
-      (await _findArtifact(buildLibsBox, desugarCoord)).classesJar;
 
   Future<Set<String>> manifMergerJars() async => [
         for (final lib in manifMergerAndDeps)

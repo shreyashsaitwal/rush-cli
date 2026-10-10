@@ -4,7 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/services/lib_service.dart';
-import 'package:rush/src/utils/constants.dart';
+import 'package:rush/src/services/ai2_runtime.dart';
 import 'package:rush/src/version.dart';
 
 class ProcessRunner {
@@ -14,21 +14,13 @@ class ProcessRunner {
 
   Future<void> runExecutable(String exe, List<String> args) async {
     final Process process;
-    final ai2ProvidedDeps = await _libService.providedDependencies(null);
+    final runtime = await Ai2Runtime.load();
     try {
       process = await Process.start(exe, args, environment: {
         // These variables are used by the annotation processor
         'RUSH_PROJECT_ROOT': _fs.cwd,
-        'RUSH_ANNOTATIONS_JAR': ai2ProvidedDeps
-            .singleWhere((el) =>
-                el.coordinate ==
-                'io.github.shreyashsaitwal.rush:annotations:$ai2AnnotationVersion')
-            .classesJar,
-        'RUSH_RUNTIME_JAR': ai2ProvidedDeps
-            .singleWhere((el) =>
-                el.coordinate ==
-                'io.github.shreyashsaitwal.rush:runtime:$ai2RuntimeVersion')
-            .classesJar,
+        'RUSH_ANNOTATIONS_JAR': _libService.annotationsJar,
+        'RUSH_RUNTIME_JAR': runtime.runtimeJar,
         'RUSH_VERSION': packageVersion,
       });
     } catch (e) {

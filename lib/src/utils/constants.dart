@@ -1,15 +1,15 @@
-const providedDepsBoxName = 'ai2-provided-deps';
 const buildLibsBoxName = 'build-libs';
 const extensionDepsBoxName = 'deps';
 
 const timestampBoxName = 'timestamps';
 const configTimestampKey = 'rush-yaml';
-const androidManifestTimestampKey = 'android-manifest-xml';
 
-const defaultKtVersion = '1.8.0';
+const defaultKtVersion = '2.4.20';
 
-const annotationProcVersion = '2.0.4';
-const ai2RuntimeVersion = 'nb190b.1';
-const ai2AnnotationVersion = '2.0.1';
+const rushRepo = 'zainulhassan815/rush-cli';
 
-const androidPlatformSdkVersion = '33';
+const ai2Version = 'v206';
+const ai2RuntimeUrl = 'https://github.com/$rushRepo/releases/download/'
+    'ai2-runtime-$ai2Version/ai2-runtime-$ai2Version.zip';
+const ai2RuntimeSha256 =
+    '4bf232cd5c1284248556573943f56c3e36f566f4e56b4b210389d63e9aa915ef';
