@@ -11,6 +11,7 @@ import 'package:tint/tint.dart';
 import 'package:rush/src/services/lib_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/file_extension.dart';
+import 'package:rush/src/services/ai2_runtime.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/commands/create/templates/extension_source.dart';
 import 'package:rush/src/commands/create/templates/icon.dart';
@@ -117,6 +118,9 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
 
     await GetIt.I.isReady<LibService>();
     final libService = GetIt.I<LibService>();
+    if (!Ai2Runtime.isInstalled) {
+      await Ai2Runtime.install();
+    }
 
     final artifacts = await libService.providedDependencies(null);
     final providedDepJars = artifacts.map((el) => el.classesJar).whereNotNull();
