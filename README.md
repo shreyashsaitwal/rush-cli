@@ -1,53 +1,83 @@
 # ⚡ Rush
+
 **Rush** is a modern extension builder for MIT App Inventor 2.
 
-> **Note**: This readme is for an unreleased version of Rush. Head over to [main](https://github.com/shreyashsaitwal/rush-cli/tree/main) for current stable version.
+This is a maintained fork of [shreyashsaitwal/rush-cli](https://github.com/shreyashsaitwal/rush-cli),
+created by Shreyash Saitwal, which brings Rush 2.0 to a stable release.
 
 ## Features
-* Faster builds
-* Maven like dependency management
-* Kotlin language support
-* Support for AndroidManifest.xml
+
+* Kotlin and Java support, with Java 8+ language features desugared automatically
+* Maven dependency management, resolved from Maven Central and Google's Maven repository
+* **AARs with resources:** AAR dependencies are shipped as-is, so App Inventor compiles
+  their layouts, drawables and styles and generates their `R` classes
+* `AndroidManifest.xml` support, merged with the manifests of AAR dependencies
+* Builds against the latest App Inventor release (currently **v206**)
+* Optional shrinking and obfuscation with ProGuard
 
 ## Installation
-> **Note**: Before installing Rush, make sure that you have JDK 8 or above installed.
 
-### Windows
-In PowerShell, run:
-```ps1
-iwr https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.ps1 -useb | iex
-```
+Rush requires JDK 17 or newer.
 
 ### Linux and macOS
-1. In the terminal, run:
 
-    ```sh
-    curl https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.sh -fsSL | sh
-    ```
+```sh
+curl -fsSL https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/scripts/install/install.sh | bash
+```
 
-2. Add `$HOME/.rush/bin` to the `PATH` environment variable.
+Then add `$HOME/.rush/bin` to your `PATH`.
+
+### Windows
+
+In PowerShell, run:
+
+```ps1
+iwr https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/scripts/install/install.ps1 -useb | iex
+```
 
 ## Quick start
-Now, that you've installed Rush, let's create a simple extension.
 
-1. Open the terminal in the directory where you want to create your extension project.
+```sh
+rush create my_extension --package com.example --language kotlin --ide intellij
+cd my_extension
+rush build
+```
 
-2. Run `rush create <NAME_OF_THE_EXTENSION>`.
-This will show you some prompts.
-    - `Package name`: This is the package name in which your extension class will be placed.
-    - `Language`: The language in which you wish to write your extension. 
-    This is just for the sake of sample code generation, you can later manually change the language as per your desire or even use both languages together.
-    - `IDE`: Your favorite IDE or text editor.
-    This is required to generate the file required by these IDEs to support features like code completion and syntax highlighting.
-    You can of course use any other text editor as well, but it's very unlikely that it would work well with Rush projects even if it supports Java.
+The extension (AIX) is generated in the `out` directory. Run `rush build --optimize` to
+shrink and obfuscate it with ProGuard.
 
-3. `cd` into the generated project directory and run `rush build`.
+## Dependencies
 
-4. That's it, the generated extension file (AIX) can be found in the `out` directory.
+Declare dependencies in `rush.yml` as Maven coordinates or as JAR/AAR files stored in
+the `deps` directory:
 
-## Todo
-- [ ] Core concepts of extension dev
-- [ ] Faq
-- [ ] Contributing
-- [ ] Limitations
-- [ ] List more features
+```yaml
+dependencies:
+- org.jetbrains.kotlin:kotlin-stdlib:2.4.20
+- androidx.media3:media3-ui:1.11.1
+- my-library.aar
+```
+
+Run `rush deps sync` after changing them, and `rush deps tree` to inspect the resolved
+dependency tree.
+
+Libraries App Inventor already provides, such as AndroidX `appcompat` or Guava, are never
+bundled. Rush warns when a dependency needs a newer version of such a library than App
+Inventor provides, as App Inventor's version is used at runtime.
+
+## Configuration
+
+`rush.yml` is described by the [JSON schema](schema/rush.yml) in this repository.
+
+## Building Rush
+
+```sh
+dart pub get
+dart run build_runner build
+dart compile exe bin/rush.dart -o build/rush
+
+cd processor && ./gradlew build :processor:shadowJar
+```
+
+The App Inventor runtime bundle is built with `ai2/build-runtime.sh <ai2-tag>`, or by the
+*App Inventor runtime* workflow, which publishes it as a release asset.
