@@ -232,6 +232,10 @@ final class PomInterpolator {
     return _interpolateValue(value, properties, projectContext);
   }
 
+  Map<String, String> propertyMap(Pom pom,
+          {List<Pom> parentChain = const []}) =>
+      _buildPropertyMap(pom, parentChain, const {});
+
   /// Builds the merged property map from POM and parent chain.
   ///
   /// Properties are merged with child values overriding parent values.

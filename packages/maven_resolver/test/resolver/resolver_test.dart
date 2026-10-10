@@ -862,7 +862,176 @@ void main() {
       });
     });
 
+    test('dependencyGraph lists shared dependencies under every dependent',
+        () async {
+      repo.addSimplePom('com.example', 'a', '1.0.0',
+          dependencies: ['com.example:shared:1.0.0']);
+      repo.addSimplePom('com.example', 'b', '1.0.0',
+          dependencies: ['com.example:shared:1.0.0']);
+      repo.addSimplePom('com.example', 'shared', '1.0.0');
+
+      final result = await resolver.resolve(
+        directDependencies: [
+          const Dependency(
+              groupId: 'com.example', artifactId: 'a', version: '1.0.0'),
+          const Dependency(
+              groupId: 'com.example', artifactId: 'b', version: '1.0.0'),
+        ],
+      );
+
+      expect(result.errors, isEmpty);
+      expect(result.dependencyGraph['com.example:a'], {'com.example:shared'});
+      expect(result.dependencyGraph['com.example:b'], {'com.example:shared'});
+    });
+
     group('BOM processing order', () {
+      test('interpolates BOM import coordinates declared in a parent',
+          () async {
+        repo.addPom('com.example', 'bom', '3.1.0', '''
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>bom</artifactId>
+  <version>3.1.0</version>
+  <packaging>pom</packaging>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.example</groupId>
+        <artifactId>lib-x</artifactId>
+        <version>1.5.0</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>
+''');
+        repo.addPom('com.example', 'parent', '1.0.0', '''
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>parent</artifactId>
+  <version>1.0.0</version>
+  <packaging>pom</packaging>
+  <properties>
+    <bom.version>3.1.0</bom.version>
+  </properties>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.example</groupId>
+        <artifactId>bom</artifactId>
+        <version>\${bom.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>
+''');
+        repo.addPom('com.example', 'project', '1.0.0', '''
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.example</groupId>
+    <artifactId>parent</artifactId>
+    <version>1.0.0</version>
+  </parent>
+  <artifactId>project</artifactId>
+  <dependencies>
+    <dependency>
+      <groupId>com.example</groupId>
+      <artifactId>lib-x</artifactId>
+    </dependency>
+  </dependencies>
+</project>
+''');
+        repo.addSimplePom('com.example', 'lib-x', '1.5.0');
+
+        final result = await resolver.resolve(
+          directDependencies: [
+            const Dependency(
+              groupId: 'com.example',
+              artifactId: 'project',
+              version: '1.0.0',
+            ),
+          ],
+        );
+
+        expect(result.errors, isEmpty);
+        expect(
+          result.artifacts.map((a) => a.coordinate.toString()),
+          contains('com.example:lib-x:1.5.0'),
+        );
+      });
+
+      test('interpolates \${project.version} in BOM imports', () async {
+        repo.addPom('com.example', 'bom', '2.0.0', '''
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>bom</artifactId>
+  <version>2.0.0</version>
+  <packaging>pom</packaging>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.example</groupId>
+        <artifactId>lib-x</artifactId>
+        <version>2.0.0</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>
+''');
+        repo.addPom('com.example', 'project', '2.0.0', '''
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>project</artifactId>
+  <version>2.0.0</version>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.example</groupId>
+        <artifactId>bom</artifactId>
+        <version>\${project.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>com.example</groupId>
+      <artifactId>lib-x</artifactId>
+    </dependency>
+  </dependencies>
+</project>
+''');
+        repo.addSimplePom('com.example', 'lib-x', '2.0.0');
+
+        final result = await resolver.resolve(
+          directDependencies: [
+            const Dependency(
+              groupId: 'com.example',
+              artifactId: 'project',
+              version: '2.0.0',
+            ),
+          ],
+        );
+
+        expect(result.errors, isEmpty);
+        expect(
+          result.artifacts.map((a) => a.coordinate.toString()),
+          contains('com.example:lib-x:2.0.0'),
+        );
+      });
+
       test('first BOM wins at the same level', () async {
         // When two BOMs are imported at the same level (same POM),
         // the first declared BOM should win for conflicting artifacts.

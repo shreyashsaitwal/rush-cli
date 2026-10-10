@@ -33,6 +33,8 @@ final class ResolutionResult {
   /// Errors encountered during resolution.
   final List<ResolutionError> errors;
 
+  final Map<String, Set<String>> dependencyGraph;
+
   /// Creates a resolution result.
   const ResolutionResult({
     required this.artifacts,
@@ -40,6 +42,7 @@ final class ResolutionResult {
     this.conflicts = const [],
     this.warnings = const [],
     this.errors = const [],
+    this.dependencyGraph = const {},
   });
 
   /// Creates an empty result.
@@ -184,6 +187,8 @@ final class ResolutionContext {
 
   /// Artifacts currently being processed (for cycle detection).
   final Set<String> processing = {};
+
+  final Map<String, Set<String>> dependencyGraph = {};
 
   /// Cached effective POMs.
   final Map<String, EffectivePom> pomCache = {};

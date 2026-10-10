@@ -306,6 +306,18 @@ final class DependencyResolver {
           // Record declaration order
           context.recordDeclaration(managed.conflictKey);
 
+          if (!transitiveParentExclusions.matches(
+            managed.groupId,
+            managed.artifactId,
+          )) {
+            context.dependencyGraph
+                .putIfAbsent(
+                  '${effectiveCoord.groupId}:${effectiveCoord.artifactId}',
+                  () => {},
+                )
+                .add(managed.conflictKey);
+          }
+
           queue.add(
             _PendingDependency(
               dependency: managed.copyWith(scope: mediatedScope),
@@ -332,6 +344,7 @@ final class DependencyResolver {
       conflicts: context.conflicts,
       warnings: context.warnings,
       errors: context.errors,
+      dependencyGraph: context.dependencyGraph,
     );
   }
 

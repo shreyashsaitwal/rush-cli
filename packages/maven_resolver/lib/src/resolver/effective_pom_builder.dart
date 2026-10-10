@@ -297,6 +297,14 @@ final class EffectivePomBuilder {
 
     final resultMap = <String, Dependency>{};
 
+    final properties = _interpolator.propertyMap(pom, parentChain: parentChain);
+    String? interpolate(String? value) => _interpolator.interpolateValue(
+          value,
+          properties,
+          pom: pom,
+          parentChain: parentChain,
+        );
+
     // Build list of levels: most distant ancestor first, child POM last
     // Each level is a list of BOM imports from that POM
     final levels = <List<Dependency>>[];
@@ -312,7 +320,8 @@ final class EffectivePomBuilder {
       final levelEntries = <String, Dependency>{};
 
       for (final bomImport in levelBoms) {
-        if (bomImport.version == null) {
+        final version = interpolate(bomImport.version);
+        if (version == null) {
           context.addError(
             ResolutionError(
               message: 'BOM import missing version: ${bomImport.coordinate}',
@@ -322,9 +331,9 @@ final class EffectivePomBuilder {
         }
 
         final bomCoord = ArtifactCoordinate(
-          groupId: bomImport.groupId,
-          artifactId: bomImport.artifactId,
-          version: bomImport.version!,
+          groupId: interpolate(bomImport.groupId) ?? bomImport.groupId,
+          artifactId: interpolate(bomImport.artifactId) ?? bomImport.artifactId,
+          version: version,
           packaging: 'pom',
         );
 
