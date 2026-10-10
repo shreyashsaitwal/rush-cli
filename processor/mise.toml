@@ -1,2 +1,2 @@
 [tools]
-java = "zulu-8"
+java = "temurin-17"

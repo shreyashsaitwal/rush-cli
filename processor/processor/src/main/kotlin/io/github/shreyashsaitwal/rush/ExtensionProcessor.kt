@@ -19,7 +19,6 @@ import javax.tools.Diagnostic.Kind
 import com.google.appinventor.components.annotations.DesignerProperty as DesignerPropertyAnnotation
 
 @AutoService(Processor::class)
-@SupportedSourceVersion(SourceVersion.RELEASE_8)
 @SupportedAnnotationTypes(
     "com.google.appinventor.components.annotations.Extension",
     "com.google.appinventor.components.annotations.SimpleEvent",
@@ -35,6 +34,8 @@ class ExtensionProcessor : AbstractProcessor() {
 
     private lateinit var messager: Messager
     private lateinit var elementUtils: Elements
+
+    override fun getSupportedSourceVersion(): SourceVersion = SourceVersion.latestSupported()
 
     @Synchronized
     override fun init(processingEnv: ProcessingEnvironment) {

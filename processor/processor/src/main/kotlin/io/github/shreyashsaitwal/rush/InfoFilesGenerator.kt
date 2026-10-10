@@ -77,9 +77,8 @@ class InfoFilesGenerator(private val extensions: List<ExtensionModel>, private v
                 .put("helpUrl", yaml.homepage)
                 .put("licenseName", yaml.license)
                 .put("versionName", yaml.version)
-                // Choosing version at random because it has no effect whatsoever.
-                .put("version", (0..999).random().toString())
-                .put("androidMinSdk", yaml.minSdk.coerceAtLeast(7))
+                .put("version", versionCode(yaml.version).toString())
+                .put("androidMinSdk", minSdk(yaml))
 
             val urlPattern = Pattern.compile(
                 """https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_+.~#?&//=]*)"""
@@ -129,7 +128,7 @@ class InfoFilesGenerator(private val extensions: List<ExtensionModel>, private v
             val extJsonObj = JSONObject()
                 .put("rushVersion", rushVersion)
                 .put("type", ext.fqcn)
-                .put("androidMinSdk", listOf(yaml.minSdk.coerceAtLeast(7)))
+                .put("androidMinSdk", listOf(minSdk(yaml)))
 
             // Put assets
             val assets = yaml.assets.map { it.trim() }
@@ -222,6 +221,14 @@ class InfoFilesGenerator(private val extensions: List<ExtensionModel>, private v
         }
 
         return Yaml.default.decodeFromStream(RushYaml.serializer(), FileInputStream(rushYml))
+    }
+
+    private fun minSdk(yaml: RushYaml) = yaml.minSdk.coerceAtLeast(7).toString()
+
+    private fun versionCode(versionName: String): Int {
+        val parts = versionName.trim().removePrefix("v").split('.', '-', '+')
+        val (major, minor, patch) = (0..2).map { parts.getOrNull(it)?.toIntOrNull()?.coerceIn(0, 999) ?: 0 }
+        return major * 1_000_000 + minor * 1_000 + patch
     }
 
     /** Parses [markdown] and returns it. */
