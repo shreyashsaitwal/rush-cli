@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -48,6 +49,53 @@ void main() {
 
         final result = await repo.fetchRaw('nonexistent');
         expect(result, isNull);
+      });
+
+      test('keeps downloading while data arrives', () async {
+        mockClient = MockClient.streaming(
+          (request, body) async => http.StreamedResponse(
+            Stream.periodic(const Duration(milliseconds: 40), (i) => [i])
+                .take(5),
+            200,
+          ),
+        );
+
+        repo = RemoteRepository(
+          url: 'https://repo1.maven.org/maven2/',
+          client: mockClient,
+          config: const RemoteRepositoryConfig(
+            timeout: Duration(milliseconds: 100),
+            maxRetries: 1,
+            checksumPolicy: ChecksumPolicy.ignore,
+          ),
+        );
+
+        final result = await repo.fetchRaw('org/example/file.jar');
+        expect(result!.content, [0, 1, 2, 3, 4]);
+      });
+
+      test('times out when the download stalls', () async {
+        mockClient = MockClient.streaming(
+          (request, body) async => http.StreamedResponse(
+            (StreamController<List<int>>()..add([0])).stream,
+            200,
+          ),
+        );
+
+        repo = RemoteRepository(
+          url: 'https://repo1.maven.org/maven2/',
+          client: mockClient,
+          config: const RemoteRepositoryConfig(
+            timeout: Duration(milliseconds: 100),
+            maxRetries: 1,
+            checksumPolicy: ChecksumPolicy.ignore,
+          ),
+        );
+
+        expect(
+          () => repo.fetchRaw('org/example/file.jar'),
+          throwsA(isA<RepositoryRetryExhaustedException>()),
+        );
       });
 
       test('throws on network error after retries', () async {

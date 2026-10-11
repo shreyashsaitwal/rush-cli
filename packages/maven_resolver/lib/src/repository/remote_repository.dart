@@ -25,7 +25,7 @@ import '../version/maven_version.dart';
 
 /// Configuration for remote repository operations.
 final class RemoteRepositoryConfig {
-  /// Timeout for individual HTTP requests.
+  /// Time an HTTP request may go without receiving data.
   final Duration timeout;
 
   /// Maximum number of retry attempts.
@@ -267,16 +267,7 @@ final class RemoteRepository implements Repository {
     final url = baseUrl.resolve(path);
 
     try {
-      final response = await _client.get(url).timeout(
-        config.timeout,
-        onTimeout: () {
-          throw RepositoryTimeoutException(
-            'Request timed out after ${config.timeout}',
-            timeout: config.timeout,
-            coordinate: coordinate,
-          );
-        },
-      );
+      final response = await _get(url);
 
       if (response.statusCode == 404) {
         return null;
@@ -343,7 +334,7 @@ final class RemoteRepository implements Repository {
     final url = baseUrl.resolve(path);
 
     try {
-      final response = await _client.get(url).timeout(config.timeout);
+      final response = await _get(url);
 
       if (response.statusCode == 404) {
         return null;
@@ -360,6 +351,18 @@ final class RemoteRepository implements Repository {
     } catch (_) {
       return null; // Treat any error as missing checksum
     }
+  }
+
+  Future<http.Response> _get(Uri url) async {
+    final response =
+        await _client.send(http.Request('GET', url)).timeout(config.timeout);
+    final body = await http.ByteStream(response.stream.timeout(config.timeout))
+        .toBytes();
+    return http.Response.bytes(
+      body,
+      response.statusCode,
+      reasonPhrase: response.reasonPhrase,
+    );
   }
 
   void _warn(String message) {
