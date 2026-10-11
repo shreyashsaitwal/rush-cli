@@ -4,6 +4,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:test/test.dart';
 
 import 'support/project.dart';
@@ -582,6 +583,24 @@ assets:
           project.runtimeClasses.where((c) => c.contains('com/google/common/')),
           isEmpty);
     });
+  });
+
+  test('warns when the same AAR is both local and remote', () async {
+    final project = await createProject('duplicate_aar_ext');
+    project.addDependencies(['androidx.core:core-ktx:1.5.0']);
+    final remote = await project.build();
+    expect(remote.exitCode, 0, reason: remote.output);
+    final localAar = project.file('deps/core-ktx-local.aar');
+    localAar.writeAsBytesSync(ZipEncoder()
+        .encode(project.bundledAar('androidx.core-core-ktx-1.5.0.aar')));
+    project.addDependencies(['core-ktx-local.aar']);
+
+    final result = await project.build();
+    expect(result.exitCode, 0, reason: result.output);
+    expect(
+        result.output,
+        contains(
+            'androidx.core:core-ktx:1.5.0 and core-ktx-local.aar are the same library'));
   });
 
   group('optimize', () {

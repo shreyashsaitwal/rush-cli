@@ -75,6 +75,7 @@ class BuildCommand extends Command<int> {
       deps = await BuildDependencies.load(_libService, config);
       final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
       await _mergeManifests(config, deps.shippedAars);
+      await _warnAboutDuplicateAars(deps.shippedAars);
       await _compile(config, timestampBox);
     } catch (e, s) {
       _catchAndStop(e, s);
@@ -186,6 +187,36 @@ class BuildCommand extends Command<int> {
     final time = (_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(2);
     line += '(took ${time}s)'.grey();
     _lgr.log(line);
+  }
+
+  Future<void> _warnAboutDuplicateAars(List<Artifact> aars) async {
+    final packages = <Artifact, String>{};
+    for (final aar in aars) {
+      final package = await _aarPackage(aar);
+      if (package != null) {
+        packages[aar] = package;
+      }
+    }
+    final copiesByPackage = groupBy(packages.keys, (aar) => packages[aar]!);
+    for (final MapEntry(key: package, value: copies)
+        in copiesByPackage.entries) {
+      if (copies.length > 1) {
+        _lgr.warn('${copies.join(' and ')} are the same library ($package). '
+            'App Inventor includes only one of them in the app, so remove '
+            'the others from rush.yml.');
+      }
+    }
+  }
+
+  Future<String?> _aarPackage(Artifact aar) async {
+    final manifest =
+        _fs.resourceFromExtractedAar(aar.artifactFile, 'AndroidManifest.xml');
+    if (!await manifest.exists()) {
+      return null;
+    }
+    final package = RegExp(r'<manifest[^>]*\spackage\s*=\s*"([^"]+)"')
+        .firstMatch(await manifest.readAsString());
+    return package?.group(1);
   }
 
   Future<void> _mergeManifests(Config config, List<Artifact> aars) async {
