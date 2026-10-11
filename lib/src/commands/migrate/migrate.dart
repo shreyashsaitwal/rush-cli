@@ -51,6 +51,7 @@ class MigrateCommand extends Command<int> {
       // comptimeDeps: comptimeDeps.toList(),
       license: oldConfig.license ?? '',
       homepage: oldConfig.homepage ?? '',
+      authors: oldConfig.authors ?? [],
       kotlin: Kotlin(
         compilerVersion: defaultKtVersion,
       ),
@@ -148,14 +149,31 @@ min_sdk: ${config.minSdk}
       contents += '''
 # Homepage of your extension. This may be the announcement thread on community 
 # forums or a link to your GitHub repository.
-${config.homepage}\n\n''';
+homepage: ${config.homepage}\n\n''';
     }
 
     if (config.license.isNotEmpty) {
       contents += '''
 # Path to the license file of your extension. This should be a path to a local file
 # or link to something hosted online.
-${config.license}\n\n''';
+license: ${config.license}\n\n''';
+    }
+
+    if (config.authors.isNotEmpty) {
+      contents += '''
+# Authors of your extension.
+authors:
+${config.authors.map((el) => '- $el').join('\n')}
+
+''';
+    }
+
+    if (config.desugar) {
+      contents += '''
+# Desugars Java 8+ language features so that they work on older Android versions.
+desugar: true
+
+''';
     }
 
     if (config.assets.isNotEmpty) {
@@ -177,15 +195,18 @@ kotlin:
 ''';
     }
 
-    if (config.dependencies.isNotEmpty || enableKotlin) {
+    final dependencies = [
+      if (enableKotlin)
+        'org.jetbrains.kotlin:kotlin-stdlib:${config.kotlin.compilerVersion}',
+      ...config.dependencies.whereNot((el) => el == '.placeholder'),
+    ];
+    if (dependencies.isNotEmpty) {
       contents += '''
 # External libraries your extension depends on. These can be local JARs / AARs
 # stored in the "deps" directory or coordinates of remote Maven artifacts in
 # <groupId>:<artifactId>:<version> format. 
 dependencies:
-${enableKotlin ? 'org.jetbrains.kotlin:kotlin-stdlib:${config.kotlin.compilerVersion}\n' : ''}${config.dependencies.map((el) {
-        if (el != '.placeholder') return '- $el';
-      }).join('\n')}
+${dependencies.map((el) => '- $el').join('\n')}
 
 ''';
     }

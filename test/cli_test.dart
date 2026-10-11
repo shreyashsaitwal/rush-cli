@@ -553,6 +553,80 @@ assets:
     });
   });
 
+  group('migrate', () {
+    late Directory project;
+
+    setUp(() async {
+      project = await Directory.systemTemp.createTemp('rush-legacy-');
+      final files = {
+        'rush.yml': '''
+name: Legacy
+description: Says hi.
+homepage: https://example.com/legacy
+license: https://example.com/legacy/LICENSE
+min_sdk: 21
+version:
+  number: auto
+  name: '1.2.0'
+authors:
+  - Jane Doe
+build:
+  desugar:
+    enable: true
+  kotlin:
+    enable: true
+assets:
+  icon: icon.png
+''',
+        'src/AndroidManifest.xml': '''
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.legacy">
+    <application></application>
+</manifest>
+''',
+        'src/com/example/legacy/Legacy.kt': r'''
+package com.example.legacy
+
+import com.google.appinventor.components.annotations.SimpleFunction
+import com.google.appinventor.components.runtime.AndroidNonvisibleComponent
+import com.google.appinventor.components.runtime.ComponentContainer
+
+class Legacy(container: ComponentContainer) : AndroidNonvisibleComponent(container.`$form`()) {
+    @SimpleFunction(description = "Greets")
+    fun Greet(): String = "hi"
+}
+''',
+        'assets/icon.png': 'icon',
+      };
+      for (final entry in files.entries) {
+        File('${project.path}/${entry.key}')
+          ..createSync(recursive: true)
+          ..writeAsStringSync(entry.value.trimLeft());
+      }
+      Directory('${project.path}/.rush').createSync();
+    });
+
+    tearDown(() => project.delete(recursive: true));
+
+    test('writes a config the new version builds with', () async {
+      final migrated = await rush(['migrate'], workingDirectory: project.path);
+      expect(migrated.exitCode, 0, reason: migrated.output);
+
+      final config = File('${project.path}/rush.yml').readAsStringSync();
+      expect(
+          config,
+          allOf(
+            contains('homepage: https://example.com/legacy'),
+            contains('license: https://example.com/legacy/LICENSE'),
+            contains('desugar: true'),
+            contains('- Jane Doe'),
+          ));
+
+      final built = await rush(['build'], workingDirectory: project.path);
+      expect(built.exitCode, 0, reason: built.output);
+    });
+  });
+
   test('new projects target Android 5.0 (API 21)', () async {
     final project = await createProject('template_ext', language: 'java');
     expect(
