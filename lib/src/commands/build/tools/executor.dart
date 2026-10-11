@@ -107,7 +107,8 @@ class Executor {
 
     try {
       await _processRunner.runExecutable(BuildUtils.javaExe(),
-          args.map((el) => el.replaceAll('\\', '/')).toList());
+          args.map((el) => el.replaceAll('\\', '/')).toList(),
+          debugLines: RegExp('^ProGuard, version '));
     } catch (e) {
       rethrow;
     }
@@ -147,7 +148,8 @@ class Executor {
 
     try {
       await _processRunner.runExecutable(BuildUtils.javaExe(),
-          args.map((el) => el.replaceAll('\\', '/')).toList());
+          args.map((el) => el.replaceAll('\\', '/')).toList(),
+          debugLines: RegExp('^ProGuard, version '));
     } catch (e) {
       rethrow;
     }

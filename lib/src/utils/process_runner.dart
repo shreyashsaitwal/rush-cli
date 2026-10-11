@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' show Process, ProcessException, systemEncoding;
 
 import 'package:get_it/get_it.dart';
@@ -12,7 +13,8 @@ class ProcessRunner {
   final _lgr = GetIt.I<Logger>();
   final _libService = GetIt.I<LibService>();
 
-  Future<void> runExecutable(String exe, List<String> args) async {
+  Future<void> runExecutable(String exe, List<String> args,
+      {RegExp? debugLines}) async {
     final Process process;
     final runtime = await Ai2Runtime.load();
     try {
@@ -31,13 +33,12 @@ class ProcessRunner {
       rethrow;
     }
 
-    process
-      ..stdout.transform(systemEncoding.decoder).listen((chunk) {
-        _lgr.parseAndLog(chunk);
-      })
-      ..stderr.transform(systemEncoding.decoder).listen((chunk) {
-        _lgr.parseAndLog(chunk);
-      });
+    for (final output in [process.stdout, process.stderr]) {
+      output
+          .transform(systemEncoding.decoder)
+          .transform(const LineSplitter())
+          .listen((line) => _lgr.parseAndLog(line, debugLines: debugLines));
+    }
 
     if (await process.exitCode != 0) {
       throw ProcessException(exe, args);

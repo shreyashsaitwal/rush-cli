@@ -38,12 +38,18 @@ class Logger {
   final _dbgRegex = RegExp('((note:? )|(debug:? )){1,2}', caseSensitive: false);
   final _infoRegex = RegExp('(info:? ){1,2}', caseSensitive: false);
 
-  void parseAndLog(String chunk) {
+  bool _isHidingDebugDetails = false;
+
+  void parseAndLog(String chunk, {RegExp? debugLines}) {
     final lines = LineSplitter.split(chunk);
     for (final el in lines.toList()) {
       if (el.trim().isEmpty) {
         continue;
       }
+      if (_isHidingDebugDetails && el.startsWith(RegExp(r'\s'))) {
+        continue;
+      }
+      _isHidingDebugDetails = false;
 
       final String prefix;
       final String msg;
@@ -59,8 +65,10 @@ class Logger {
       } else if (_infoRegex.hasMatch(el)) {
         prefix = 'info  '.cyan();
         msg = el.replaceFirst(_infoRegex, '');
-      } else if (_dbgRegex.hasMatch(el)) {
+      } else if (_dbgRegex.hasMatch(el) ||
+          (debugLines?.hasMatch(el) ?? false)) {
         if (!debug) {
+          _isHidingDebugDetails = true;
           continue;
         }
         prefix = 'debug '.blue();

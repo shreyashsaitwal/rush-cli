@@ -572,6 +572,14 @@ assets:
       expect(project.libraries,
           anyElement(startsWith('org.jetbrains.kotlin-kotlin-stdlib-')));
     });
+
+    test('keeps ProGuard notes out of the output', () async {
+      final project = await createProject('quiet_ext');
+      final result = await project.build(['--optimize']);
+      expect(result.exitCode, 0, reason: result.output);
+      expect(result.output, isNot(contains('ProGuard, version')));
+      expect(result.output, isNot(contains('proguard/manual')));
+    });
   });
 
   group('migrate', () {
