@@ -579,6 +579,27 @@ assets:
           project.runtimeClasses, contains(project.classFile('helpers/Mode')));
     });
 
+    test('keep what their ProGuard rules keep', () async {
+      final project = await createProject('rules_ext', language: 'java');
+      project.addDependencies(['com.google.code.gson:gson:2.8.9']);
+      final parser =
+          '${project.packagePath}/repacked/com/google/gson/JsonParser.class';
+      final unruled = await project.build();
+      expect(unruled.exitCode, 0, reason: unruled.output);
+      expect(project.runtimeClasses, isNot(contains(parser)));
+
+      final rules = Archive()
+        ..addFile(ArchiveFile.string('META-INF/proguard/keep.pro',
+            '-keep class com.google.gson.JsonParser'));
+      project
+          .file('deps/keep-rules.jar')
+          .writeAsBytesSync(ZipEncoder().encode(rules));
+      project.addDependencies(['keep-rules.jar']);
+      final ruled = await project.build();
+      expect(ruled.exitCode, 0, reason: ruled.output);
+      expect(project.runtimeClasses, contains(parser));
+    });
+
     test('ship as AARs when a bundled AAR depends on them', () async {
       final project = await createProject('media_ext', language: 'java');
       project.addDependencies(['androidx.media3:media3-common:1.11.1']);
