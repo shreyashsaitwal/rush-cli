@@ -73,7 +73,10 @@ class MigrateCommand extends Command<int> {
     }
 
     _lgr.info('Main extension source file found: ${srcFile.path}');
-    _editSourceFile(srcFile, oldConfig);
+    if (!_editSourceFile(srcFile, oldConfig)) {
+      _lgr.stopTask(false);
+      return 1;
+    }
     _lgr.stopTask();
 
     _lgr.startTask('Updating config file (rush.yml)');
@@ -82,13 +85,13 @@ class MigrateCommand extends Command<int> {
     _lgr.stopTask();
 
     // No need to start a task here since the sync command does that on its own.
-    await SyncSubCommand().run(title: 'Syncing dependencies');
-    return 0;
+    return SyncSubCommand().run(title: 'Syncing dependencies');
   }
 
-  void _editSourceFile(File srcFile, old.OldConfig oldConfig) {
+  bool _editSourceFile(File srcFile, old.OldConfig oldConfig) {
+    final isJava = p.extension(srcFile.path) == '.java';
     final RegExp regex;
-    if (p.extension(srcFile.path) == '.java') {
+    if (isJava) {
       regex = RegExp(r'.*class.+\s+extends\s+AndroidNonvisibleComponent.*');
     } else {
       regex = RegExp(
@@ -104,12 +107,14 @@ class MigrateCommand extends Command<int> {
         ..err('Unable to process src file: ${srcFile.path}')
         ..log('Are you sure that it is a valid extension source file?',
             'help  '.green());
-      throw Exception();
+      return false;
     }
 
-    final description = oldConfig.description.isNotEmpty
-        ? oldConfig.description
-        : 'Extension component for ${oldConfig.name}. Built with <3 and Rush.';
+    final description = _stringLiteral(
+        oldConfig.description.isNotEmpty
+            ? oldConfig.description
+            : 'Extension component for ${oldConfig.name}. Built with <3 and Rush.',
+        escapeDollar: !isJava);
     final annotation = '''
 // FIXME: You might want to shorten this by importing `@Extension` annotation.
 @com.google.appinventor.components.annotations.Extension(
@@ -121,6 +126,12 @@ class MigrateCommand extends Command<int> {
     final newContent =
         fileContent.replaceFirst(matchedStr, annotation + matchedStr);
     srcFile.writeAsStringSync(newContent);
+    return true;
+  }
+
+  String _stringLiteral(String text, {required bool escapeDollar}) {
+    final escaped = text.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
+    return escapeDollar ? escaped.replaceAll(r'$', r'\$') : escaped;
   }
 
   void _deleteOldHiveBoxes() {

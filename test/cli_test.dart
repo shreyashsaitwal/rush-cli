@@ -561,7 +561,7 @@ assets:
       final files = {
         'rush.yml': '''
 name: Legacy
-description: Says hi.
+description: Says "hi" for \$5.
 homepage: https://example.com/legacy
 license: https://example.com/legacy/LICENSE
 min_sdk: 21
