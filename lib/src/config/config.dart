@@ -66,6 +66,15 @@ class Config {
   // ignore: strict_raw_type
   factory Config._fromJson(Map json) => _$ConfigFromJson(json);
 
+  static Future<Config?> require(File configFile, Logger lgr) {
+    if (!configFile.existsSync()) {
+      lgr.err(
+          'No rush.yml found in ${configFile.parent.path}. Run this command inside a Rush project, '
+          'or create one with `rush create`.');
+    }
+    return load(configFile, lgr);
+  }
+
   static Future<Config?> load(File configFile, Logger lgr) async {
     if (configFile.existsSync()) {
       try {

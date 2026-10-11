@@ -55,9 +55,10 @@ class BuildCommand extends Command<int> {
     await GetIt.I.isReady<LibService>();
     _libService = GetIt.I<LibService>();
 
-    final config = await Config.load(_fs.configFile, _lgr);
+    final config = await Config.require(_fs.configFile, _lgr);
     if (config == null) {
       _lgr.stopTask(false);
+      _logFinalLine(false);
       return 1;
     }
     _lgr.stopTask();

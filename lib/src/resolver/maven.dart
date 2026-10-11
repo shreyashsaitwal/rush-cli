@@ -60,7 +60,7 @@ class MavenResolver {
     }
     if (result.errors.isNotEmpty) {
       throw Exception('Unable to resolve dependencies:\n'
-          '${result.errors.map((el) => '  - ${el.message}').join('\n')}');
+          '${result.errors.map((el) => '  - ${el.coordinate ?? 'dependency'}: ${el.message}').join('\n')}');
     }
 
     final resolved = {for (final el in result.artifacts) el.conflictKey: el};

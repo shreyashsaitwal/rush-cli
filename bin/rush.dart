@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:args/command_runner.dart';
 import 'package:get_it/get_it.dart';
 import 'package:rush/src/command_runner.dart';
@@ -8,8 +10,9 @@ Future<void> main(List<String> args) async {
   ServiceLocator.setupServiceLocator();
   await GetIt.I.allReady();
   try {
-    await RushCommandRunner().run(args);
+    exitCode = await RushCommandRunner().run(args) ?? 0;
   } on UsageException catch (e) {
     GetIt.I<Logger>().err(e.message);
+    exitCode = 64;
   }
 }

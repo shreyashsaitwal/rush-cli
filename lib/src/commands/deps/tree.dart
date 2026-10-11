@@ -22,11 +22,8 @@ class TreeSubCommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    final config = await Config.load(_fs.configFile, _lgr);
-    if (config == null) {
-      _lgr.err('Failed to load the config file rush.yaml');
-      return 1;
-    }
+    final config = await Config.require(_fs.configFile, _lgr);
+    if (config == null) return 1;
 
     await GetIt.I.isReady<LibService>();
     final libService = GetIt.I<LibService>();
