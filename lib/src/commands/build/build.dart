@@ -132,6 +132,17 @@ class BuildCommand extends Command<int> {
       _lgr.stopTask();
     }
 
+    if (deps.privateJars.isNotEmpty) {
+      _lgr.startTask('Relocating bundled libraries');
+      try {
+        await _relocatePrivateClasses(artJarPath, deps.privateJars);
+      } catch (e, s) {
+        _catchAndStop(e, s);
+        return 1;
+      }
+      _lgr.stopTask();
+    }
+
     _lgr.startTask('Desugaring Java 8+ language features');
     try {
       await _desugarArtJar(config, artJarPath, deps);
@@ -359,6 +370,36 @@ class BuildCommand extends Command<int> {
 ''';
   }
 
+  Future<void> _relocatePrivateClasses(
+      String artJarPath, Set<String> privateJars) async {
+    final classes = {
+      for (final jar in privateJars)
+        ...ZipDecoder()
+            .decodeBytes(await jar.asFile().readAsBytes())
+            .files
+            .where((el) =>
+                el.isFile &&
+                !el.name.startsWith('META-INF') &&
+                p.extension(el.name) == '.class')
+            .map((el) => p.withoutExtension(el.name)),
+    };
+    final classList =
+        p.join(_fs.buildFilesDir.path, 'relocated-classes.txt').asFile();
+    await classList.writeAsString(classes.join('\n'));
+
+    final package = '${await _extensionPackage()}.repacked';
+    final relocated =
+        p.join(_fs.buildFilesDir.path, 'AndroidRuntime.relocated.jar');
+    await Executor.execRelocator(
+      input: artJarPath,
+      output: relocated,
+      prefix: '${package.replaceAll('.', '/')}/',
+      classList: classList.path,
+    );
+    await relocated.asFile().rename(artJarPath);
+    _lgr.info('Moved ${privateJars.length} bundled libraries to $package');
+  }
+
   Future<void> _desugarArtJar(
       Config config, String artJarPath, BuildDependencies deps) async {
     final desugared =
@@ -426,27 +467,29 @@ class BuildCommand extends Command<int> {
     return artJarPath;
   }
 
+  Future<String> _extensionPackage() async {
+    final componentsJsonFile =
+        p.join(_fs.buildDir.path, 'raw', 'components.json').asFile();
+
+    final json = jsonDecode(await componentsJsonFile.readAsString());
+    final type = json[0]['type'] as String;
+
+    final split = type.split('.')..removeLast();
+    return split.join('.');
+  }
+
   Future<void> _assemble() async {
-    final org = () async {
-      final componentsJsonFile =
-          p.join(_fs.buildDir.path, 'raw', 'components.json').asFile();
-
-      final json = jsonDecode(await componentsJsonFile.readAsString());
-      final type = json[0]['type'] as String;
-
-      final split = type.split('.')..removeLast();
-      return split.join('.');
-    }();
+    final org = await _extensionPackage();
 
     final outputDir = p.join(_fs.cwd, 'out').asDir(true);
-    final aix = p.join(outputDir.path, '${await org}.aix');
+    final aix = p.join(outputDir.path, '$org.aix');
     final zipEncoder = ZipFileEncoder()..create(aix);
 
     try {
       for (final file in _fs.buildRawDir.listSync(recursive: true)) {
         if (file is File) {
           final name = p.relative(file.path, from: _fs.buildRawDir.path);
-          await zipEncoder.addFile(file, p.join(await org, name));
+          await zipEncoder.addFile(file, p.join(org, name));
         }
       }
       _lgr.info('Generated AIX file at ${aix.blue()}');

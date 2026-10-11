@@ -62,6 +62,18 @@ class Executor {
         args.map((el) => el.replaceAll('\\', '/')).toList());
   }
 
+  static Future<void> execRelocator({
+    required String input,
+    required String output,
+    required String prefix,
+    required String classList,
+  }) =>
+      _processRunner.runExecutable(
+          BuildUtils.javaExe(),
+          ['-jar', _libService.relocatorJar, input, output, prefix, classList]
+              .map((el) => el.replaceAll('\\', '/'))
+              .toList());
+
   static Future<void> execProGuard(
     Config config,
     String artJarPath,

@@ -216,6 +216,8 @@ class LibService {
 
   String get annotationsJar => _shippedJar('annotations.jar');
 
+  String get relocatorJar => _shippedJar('relocator.jar');
+
   String _shippedJar(String name) {
     final jar = p.join(_fs.libsDir.path, name);
     if (!jar.asFile().existsSync()) {

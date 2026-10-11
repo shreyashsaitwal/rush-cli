@@ -186,6 +186,16 @@ void main() {
   });
 
   group('bundled libraries', () {
+    test('move under the extension package when only it uses them', () async {
+      final project = await createProject('kotlin_ext');
+      final result = await project.build();
+      expect(result.exitCode, 0, reason: result.output);
+      expect(project.runtimeClasses,
+          contains(project.classFile('repacked/kotlin/Unit')));
+      expect(project.runtimeClasses.where((c) => c.startsWith('kotlin/')),
+          isEmpty);
+    });
+
     test('ship as AARs when a bundled AAR depends on them', () async {
       final project = await createProject('media_ext', language: 'java');
       project.addDependencies(['androidx.media3:media3-common:1.11.1']);
