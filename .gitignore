@@ -21,3 +21,5 @@ pubspec.lock
 /scratch.dart
 
 .DS_Store
+
+__pycache__/
