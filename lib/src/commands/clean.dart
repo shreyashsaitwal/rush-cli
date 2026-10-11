@@ -1,12 +1,12 @@
 import 'package:args/command_runner.dart';
 import 'package:get_it/get_it.dart';
-import 'package:interact/interact.dart';
 import 'package:path/path.dart' as p;
 import 'package:tint/tint.dart';
 
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/file_extension.dart';
+import 'package:rush/src/utils/progress.dart';
 
 class CleanCommand extends Command<int> {
   final _fs = GetIt.I<FileService>();
@@ -25,18 +25,16 @@ class CleanCommand extends Command<int> {
       return 1;
     }
 
-    final spinner = Spinner(
-        icon: '\n✓ '.green(),
-        rightPrompt: (done) => done
-            ? '${'Success!'.green()} Deleted build files and caches'
-            : 'Cleaning...').interact();
+    final progress = Progress(
+        running: 'Cleaning...',
+        done: '${'Success!'.green()} Deleted build files and caches');
     if (await _fs.dotRushDir.exists()) {
       for (final file in _fs.dotRushDir.listSync()) {
         await file.delete(recursive: true);
       }
     }
 
-    spinner.done();
+    progress.finish();
     return 0;
   }
 

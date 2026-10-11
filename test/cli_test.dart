@@ -144,12 +144,31 @@ void main() {
           workingDirectory: Directory.systemTemp.path);
       expect(result.output, contains(escape));
     });
+
+    test('of clean is plain text when not written to a terminal', () async {
+      final project = await createProject('clean_ext');
+      final result = await Process.run(rushBin, ['clean'],
+          workingDirectory: project.dir.path);
+      expect(result.exitCode, 0, reason: result.output);
+      expect(result.output, isNot(contains(escape)));
+      expect(result.output, contains('Deleted build files and caches'));
+    });
   });
 
   test('clean works on a project that was never built', () async {
     final project = await createProject('unbuilt_ext');
     final result = await rush(['clean'], workingDirectory: project.dir.path);
     expect(result.exitCode, 0, reason: result.output);
+  });
+
+  test('create asks for missing options only in a terminal', () async {
+    final parent = await Directory.systemTemp.createTemp('rush-test-');
+    addTearDown(() => parent.delete(recursive: true));
+    final result = await rush(['create', 'prompt_ext', '-p', 'com.example'],
+            workingDirectory: parent.path)
+        .timeout(const Duration(seconds: 20));
+    expect(result.exitCode, 64, reason: result.output);
+    expect(result.output, contains('--language'));
   });
 
   group('build', () {

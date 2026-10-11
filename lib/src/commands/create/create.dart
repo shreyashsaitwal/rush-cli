@@ -1,8 +1,9 @@
 import 'dart:convert' show base64Decode;
+import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
-import 'package:interact/interact.dart';
+import 'package:interact/interact.dart' hide Progress;
 import 'package:path/path.dart' as p;
 import 'package:recase/recase.dart';
 import 'package:rush/src/commands/create/templates/eclipse_files.dart';
@@ -11,6 +12,7 @@ import 'package:tint/tint.dart';
 import 'package:rush/src/services/lib_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/file_extension.dart';
+import 'package:rush/src/utils/progress.dart';
 import 'package:rush/src/services/ai2_runtime.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/commands/create/templates/extension_source.dart';
@@ -44,6 +46,14 @@ class CreateCommand extends Command<int> {
   @override
   String get name => 'create';
 
+  T _ask<T>(String option, T Function() prompt) {
+    if (!stdin.hasTerminal) {
+      usageException(
+          'Missing --$option. Pass it when not running in a terminal.');
+    }
+    return prompt();
+  }
+
   /// Creates a new extension project in the current directory.
   @override
   Future<int> run() async {
@@ -63,20 +73,14 @@ class CreateCommand extends Command<int> {
           'Cannot create "$projectDir" because it already exists and is not empty.');
     }
 
-    var orgName = (argResults!['package'] ??
-        Input(
-          prompt: 'Package name',
-        ).interact()) as String;
+    String orgName = argResults!['package'] as String? ??
+        _ask('package', () => Input(prompt: 'Package name').interact());
 
-    var lang = argResults!['language'] as String?;
-    if (lang == null) {
-      final opts = ['Java', 'Kotlin'];
-      final index = Select(
-        prompt: 'Language',
-        options: opts,
-      ).interact();
-      lang = opts[index];
-    }
+    final String lang = argResults!['language'] as String? ??
+        _ask('language', () {
+          final opts = ['Java', 'Kotlin'];
+          return opts[Select(prompt: 'Language', options: opts).interact()];
+        });
 
     final camelCasedName = name.camelCase;
     final pascalCasedName = name.pascalCase;
@@ -93,25 +97,23 @@ class CreateCommand extends Command<int> {
     final ideOpt = argResults!['ide'] as String?;
     final editor = ideOpt != null
         ? ides.indexOf(ideOpt)
-        : Select(
-            prompt: 'IDE',
-            options: [
-              'IntelliJ ${'(also includes Android Studio and other JetBrains IDEs)'.grey()}',
-              'Eclipse  ${'(also includes Visual Studio Code)'.grey()}',
-              'Both     ${'(also includes every IDE mentioned above)'.grey()}',
-            ],
-          ).interact();
+        : _ask(
+            'ide',
+            () => Select(
+                  prompt: 'IDE',
+                  options: [
+                    'IntelliJ ${'(also includes Android Studio and other JetBrains IDEs)'.grey()}',
+                    'Eclipse  ${'(also includes Visual Studio Code)'.grey()}',
+                    'Both     ${'(also includes every IDE mentioned above)'.grey()}',
+                  ],
+                ).interact());
 
-    final processing = Spinner(
-        icon: '\n✓ '.green(),
-        rightPrompt: (done) => !done
-            ? 'Getting things ready...'
-            : '''
+    final processing = Progress(running: 'Getting things ready...', done: '''
 ${'Success!'.green()} Generated a new extension project in ${p.relative(projectDir).blue()}.
   Next up,
   - ${'cd'.yellow()} into ${p.relative(projectDir).blue()}, and
   - run ${'rush build'.yellow()} to build your extension.
-''').interact();
+''');
 
     final extPath = p.joinAll([projectDir, 'src', ...orgName.split('.')]);
     final ideaDir = p.join(projectDir, '.idea');
@@ -179,7 +181,7 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
       rethrow;
     }
 
-    processing.done();
+    processing.finish();
     return 0;
   }
 }
