@@ -9,7 +9,7 @@ version: '1.0.0'
 
 # The minimum Android SDK level your extension supports. Minimum SDK defined in
 # AndroidManifest.xml is ignored, you should always define it here.
-min_sdk: 7
+min_sdk: 21
 
 ${!enableKt ? '' : '''
 
