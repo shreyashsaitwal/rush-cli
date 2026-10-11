@@ -136,6 +136,7 @@ void main() {
       expect(result.output, isNot(contains(escape)));
       expect(result.output, isNot(contains('/_/')));
       expect(result.output, contains('Compiling sources'));
+      expect(result.output, isNot(contains(RegExp(r' $', multiLine: true))));
     });
 
     test('is colored when color is requested', () async {

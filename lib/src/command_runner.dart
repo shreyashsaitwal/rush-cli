@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
-import 'package:dart_console/dart_console.dart';
 import 'package:get_it/get_it.dart';
 import 'package:tint/tint.dart';
 
@@ -43,7 +42,7 @@ class RushCommandRunner extends CommandRunner<int> {
         help: 'Prints the current version name.',
         callback: (ok) {
           if (ok) {
-            Console().writeLine('Running on version ${packageVersion.cyan()}');
+            stdout.writeln('Running on version ${packageVersion.cyan()}');
             exit(0);
           }
         },
@@ -90,6 +89,6 @@ class RushCommandRunner extends CommandRunner<int> {
  / /  / /_/ (__  / / / /
 /_/   \__,_/____/_/ /_/
 ''';
-    Console().writeLine(logo.blue());
+    stdout.writeln(logo.blue());
   }
 }
