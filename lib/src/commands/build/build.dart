@@ -234,21 +234,13 @@ class BuildCommand extends Command<int> {
         .flattened
         .toSet();
 
-    try {
-      if (ktFiles.isNotEmpty) {
-        await Compiler.compileKtFiles(
-            compileClasspathJars, config.kotlin.compilerVersion, timestampBox);
-      }
-
-      if (javaFiles.isNotEmpty) {
-        await Compiler.compileJavaFiles(compileClasspathJars, timestampBox);
-      }
-    } catch (e, s) {
-      _lgr
-        ..dbg(e.toString())
-        ..dbg(s.toString());
-      rethrow;
-    }
+    await Compiler.compile(
+      compileClasspathJars,
+      javaFiles: javaFiles.map((file) => file.path).toSet(),
+      kotlinFiles: ktFiles.map((file) => file.path).toSet(),
+      kotlinVersion: config.kotlin.compilerVersion,
+      timestampBox: timestampBox,
+    );
   }
 
   Future<void> _packageAars(

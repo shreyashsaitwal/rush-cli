@@ -20,11 +20,40 @@ class Compiler {
 
   static final _processRunner = ProcessRunner();
 
+  static Future<void> compile(
+    Set<String> classpathJars, {
+    required Set<String> javaFiles,
+    required Set<String> kotlinFiles,
+    required String kotlinVersion,
+    required LazyBox<DateTime> timestampBox,
+  }) async {
+    await _compileHelpers(classpathJars, timestampBox, kotlinVersion);
+    final startedOn = await _markCompilationStart();
+    if (kotlinFiles.isNotEmpty) {
+      await _kapt(classpathJars, kotlinVersion);
+      await _kotlinc(classpathJars, kotlinVersion, {_fs.srcDir.path});
+    }
+    if (javaFiles.isNotEmpty) {
+      await _javac(
+        javaFiles,
+        {...classpathJars, _fs.buildClassesDir.path},
+        withProcessor: kotlinFiles.isEmpty,
+      );
+    }
+    await _removeClassesOlderThan(startedOn);
+  }
+
+  static Future<DateTime> _markCompilationStart() async {
+    final marker = p.join(_fs.buildDir.path, 'compilation-start').asFile(true);
+    await marker.writeAsString('');
+    return marker.lastModified();
+  }
+
   static Future<void> _compileHelpers(
     Set<String> classpathJars,
-    LazyBox<DateTime> timestampBox, {
-    String? ktVersion,
-  }) async {
+    LazyBox<DateTime> timestampBox,
+    String kotlinVersion,
+  ) async {
     // Only the files that reside directly under the "com.sth.helpers" package
     // are considered as helpers. We could probably lift this restriction in
     // future, but because this how AI2 does it, we'll stick to it for now.
@@ -46,87 +75,43 @@ class Compiler {
     final hasKtFiles = helperFiles.any((el) => p.extension(el.path) == '.kt');
 
     final helperPaths = helperFiles.map((e) => e.path).toSet();
-    final compilationStartedOn = DateTime.now();
     if (hasKtFiles) {
-      await _kotlinc(classpathJars, ktVersion!, helperPaths);
+      await _kotlinc(classpathJars, kotlinVersion, helperPaths);
     } else {
-      await _processRunner.runExecutable(BuildUtils.javaExe(true),
-          await _javacArgs(helperPaths, classpathJars, withProc: false));
+      await _javac(helperPaths, classpathJars, withProcessor: false);
     }
-
-    await _cleanUpOldClassFiles(compilationStartedOn, keepHelpers: true);
     await timestampBox.put(helpersTimestampKey, DateTime.now());
   }
 
-  static Future<void> _cleanUpOldClassFiles(DateTime compilationStartedOn,
-      {bool keepHelpers = false}) async {
-    final files = _fs.buildClassesDir
+  static Future<void> _removeClassesOlderThan(DateTime startedOn) async {
+    final stale = _fs.buildClassesDir
         .listSync(recursive: true)
-        .where((el) => p.extension(el.path) == '.class' && !keepHelpers
-            ? !el.path.split(p.separator).contains('helpers')
-            : true)
-        .whereType<File>();
-
-    for (final file in files) {
-      if ((await file.lastModified()).isBefore(compilationStartedOn)) {
-        await file.delete();
-      }
+        .whereType<File>()
+        .where((file) =>
+            p.extension(file.path) == '.class' &&
+            file.lastModifiedSync().isBefore(startedOn));
+    for (final file in stale) {
+      await file.delete();
     }
   }
 
-  static Future<void> compileJavaFiles(
-    Set<String> classpathJars,
-    LazyBox<DateTime> timestampBox,
-  ) async {
-    final javaFiles = _fs.srcDir
-        .listSync(recursive: true)
-        .where((el) => el is File && p.extension(el.path) == '.java')
-        .map((el) => el.path)
-        .toSet();
-
-    final DateTime compilationStartedOn;
-    try {
-      await _compileHelpers(classpathJars, timestampBox);
-      final args = _javacArgs(javaFiles, classpathJars);
-      compilationStartedOn = DateTime.now();
-      await _processRunner.runExecutable(BuildUtils.javaExe(true), await args);
-    } catch (e) {
-      rethrow;
-    }
-    await _cleanUpOldClassFiles(compilationStartedOn);
-  }
-
-  static Future<List<String>> _javacArgs(
+  static Future<void> _javac(
     Set<String> files,
-    Set<String> classpathJars, {
-    bool withProc = true,
-  }) async {
-    final classpath = classpathJars.join(BuildUtils.cpSeparator);
-    final procClasspath = _libService.processorJar;
-    final args = <String>[
-      ...['--release', '8'],
-      ...['-encoding', 'UTF8'],
-      ...['-d', '"${_fs.buildClassesDir.path}"'],
-      ...['-cp', '"$classpath"'],
-      if (withProc) ...['-processorpath', '"$procClasspath"'],
-      ...files.map((el) => '"$el"'),
-    ].map((el) => el.replaceAll('\\', '/')).join('\n');
-    await _fs.javacArgsFile.writeAsString(args);
-    return ['@${_fs.javacArgsFile.path}'];
-  }
-
-  static Future<void> compileKtFiles(
-    Set<String> classpathJars,
-    String kotlinVersion,
-    LazyBox<DateTime> timestampBox,
-  ) async {
-    await _compileHelpers(classpathJars, timestampBox,
-        ktVersion: kotlinVersion);
-    final compilationStartedOn = DateTime.now();
-    await _kapt(classpathJars, kotlinVersion);
-    await _kotlinc(classpathJars, kotlinVersion, {_fs.srcDir.path});
-    await _cleanUpOldClassFiles(compilationStartedOn);
-  }
+    Set<String> classpath, {
+    required bool withProcessor,
+  }) =>
+      _runWithArgsFile(
+        executable: BuildUtils.javaExe(true),
+        argsFile: _fs.javacArgsFile,
+        args: [
+          ...['--release', '8'],
+          ...['-encoding', 'UTF8'],
+          ...['-d', _fs.buildClassesDir.path],
+          ...['-cp', classpath.join(BuildUtils.cpSeparator)],
+          if (withProcessor) ...['-processorpath', _libService.processorJar],
+          ...files,
+        ],
+      );
 
   static Future<void> _kapt(
       Set<String> classpathJars, String kotlinVersion) async {
@@ -185,13 +170,29 @@ class Compiler {
     required Set<String> toolClasspath,
     required File argsFile,
     required List<String> args,
+  }) =>
+      _runWithArgsFile(
+        executable: BuildUtils.javaExe(),
+        leadingArgs: [
+          '-cp',
+          _normalize(toolClasspath.join(BuildUtils.cpSeparator)),
+          mainClass
+        ],
+        argsFile: argsFile,
+        args: args,
+      );
+
+  static Future<void> _runWithArgsFile({
+    required String executable,
+    List<String> leadingArgs = const [],
+    required File argsFile,
+    required List<String> args,
   }) async {
-    String normalize(String path) => path.replaceAll('\\', '/');
-    await argsFile.writeAsString(args.map(normalize).join('\n'));
-    await _processRunner.runExecutable(BuildUtils.javaExe(), [
-      ...['-cp', normalize(toolClasspath.join(BuildUtils.cpSeparator))],
-      mainClass,
-      '@${normalize(argsFile.path)}',
-    ]);
+    await argsFile
+        .writeAsString(args.map((arg) => '"${_normalize(arg)}"').join('\n'));
+    await _processRunner.runExecutable(
+        executable, [...leadingArgs, '@${_normalize(argsFile.path)}']);
   }
+
+  static String _normalize(String path) => path.replaceAll('\\', '/');
 }
