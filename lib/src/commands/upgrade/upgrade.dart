@@ -15,6 +15,43 @@ import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/version.dart';
 import 'package:tint/tint.dart';
 
+Future<void> installArchive(String archive, Directory rushHome) async {
+  final input = InputFileStream(archive);
+  try {
+    for (final file in ZipDecoder().decodeStream(input).files) {
+      if (!file.isFile) {
+        continue;
+      }
+      final destination = p.join(rushHome.path, file.name);
+      final isExecutable = p.split(file.name).first == 'bin';
+      final target = isExecutable ? '$destination.new' : destination;
+      await Directory(p.dirname(target)).create(recursive: true);
+      final output = OutputFileStream(target);
+      file.writeContent(output);
+      await output.close();
+      if (isExecutable) {
+        await _replaceExecutable(target, destination);
+      }
+    }
+  } finally {
+    await input.close();
+  }
+}
+
+Future<void> _replaceExecutable(String newExe, String exe) async {
+  if (Platform.isWindows && await File(exe).exists()) {
+    final old = File('$exe.old');
+    if (await old.exists()) {
+      await old.delete();
+    }
+    await File(exe).rename(old.path);
+  }
+  await File(newExe).rename(exe);
+  if (!Platform.isWindows) {
+    await Process.run('chmod', ['+x', exe]);
+  }
+}
+
 class UpgradeCommand extends Command<int> {
   final _fs = GetIt.I<FileService>();
   final _lgr = GetIt.I<Logger>();
@@ -89,47 +126,9 @@ class UpgradeCommand extends Command<int> {
       return 1;
     }
 
-    // TODO: We should delete the old files.
-
     _lgr.info('Extracting ${p.basename(archiveDist.path)}...');
-
-    final inputStream = InputFileStream(archiveDist.path);
-    final zipDecoder = ZipDecoder().decodeStream(inputStream);
-    for (final file in zipDecoder.files) {
-      if (file.isFile) {
-        final String path;
-        if (file.name.endsWith('rush.exe')) {
-          path = p.join(_fs.rushHomeDir.path, '$name.new');
-        } else {
-          path = p.join(_fs.rushHomeDir.path, name);
-        }
-
-        final outputStream = OutputFileStream(path);
-        file.writeContent(outputStream);
-        await outputStream.close();
-      }
-    }
-    await inputStream.close();
-    await archiveDist.delete(recursive: true);
-
-    final exePath = Platform.resolvedExecutable;
-
-    // On Windows, we can't replace the executable while it's running. So, we
-    // move it to `$RUSH_HOME/temp/rush.{version}.exe` and then rename the new
-    // exe, would have been downloaded in the bin directory with name `rush.new.exe`,
-    // to the old name.
-    if (Platform.isWindows) {
-      final newExe = p.join(p.dirname(exePath), 'rush.exe.new').asFile();
-      if (await newExe.exists()) {
-        final tempDir = p.join(_fs.rushHomeDir.path, 'temp').asDir(true);
-        await exePath
-            .asFile()
-            .rename(p.join(tempDir.path, 'rush.$packageVersion.exe'));
-        await newExe.rename(exePath);
-      }
-    } else {
-      await Process.run('chmod', ['+x', Platform.resolvedExecutable]);
-    }
+    await installArchive(archiveDist.path, _fs.rushHomeDir);
+    await archiveDist.parent.delete(recursive: true);
 
     // ignore: avoid_print
     print('''
