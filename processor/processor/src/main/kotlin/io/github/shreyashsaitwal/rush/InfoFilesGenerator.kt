@@ -51,6 +51,9 @@ class InfoFilesGenerator(
     private val rawBuildDir = Paths.get(projectRoot, ".rush", "build", "raw").apply {
         if (!this.exists()) this.createDirectory()
     }
+    private val urlPattern = Pattern.compile(
+        """https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_+.~#?&//=]*)"""
+    )
 
     /**
      * Generates the components.json file.
@@ -83,14 +86,11 @@ class InfoFilesGenerator(
                 .put("helpString", parseMdString(description))
                 .put("type", ext.fqcn)
                 .put("helpUrl", yaml.homepage)
-                .put("licenseName", yaml.license)
+                .put("licenseName", licenseName(yaml.license))
                 .put("versionName", yaml.version)
                 .put("version", versionCode(yaml.version).toString())
                 .put("androidMinSdk", minSdk(yaml))
 
-            val urlPattern = Pattern.compile(
-                """https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_+.~#?&//=]*)"""
-            )
             val icon = extAnnotation.icon
             if (urlPattern.matcher(icon).find()) {
                 extJsonObj.put("iconName", icon)
@@ -342,6 +342,17 @@ class InfoFilesGenerator(
         }
 
         return sb.toString().replace("\${applicationId}", "%packageName%")
+    }
+
+    private fun licenseName(license: String): String {
+        if (license.isBlank() || urlPattern.matcher(license).find()) {
+            return license
+        }
+        if (!Paths.get(projectRoot, license).toFile().isFile) {
+            messager.printMessage(Diagnostic.Kind.WARNING, "License file $license not found.")
+            return ""
+        }
+        return "aiwebres/LICENSE"
     }
 
     private fun escapeXml(value: String) = value

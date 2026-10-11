@@ -253,6 +253,22 @@ void main() {
     });
   });
 
+  group('extension descriptor', () {
+    test('links the license file', () async {
+      final project = await createProject('license_ext', language: 'java');
+      project.file('LICENSE.txt').writeAsStringSync('MIT');
+      final config = project.file('rush.yml');
+      config.writeAsStringSync(config
+          .readAsStringSync()
+          .replaceFirst('#license: LICENSE.txt', 'license: LICENSE.txt'));
+      final result = await project.build();
+      expect(result.exitCode, 0, reason: result.output);
+      expect(project.components.single['licenseName'], 'aiwebres/LICENSE');
+      expect(project.aix.files.map((f) => f.name),
+          contains('${project.package}/aiwebres/LICENSE'));
+    });
+  });
+
   group('manifest', () {
     late TestProject project;
     late ProcessResult build;
