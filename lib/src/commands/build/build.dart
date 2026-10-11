@@ -481,6 +481,25 @@ class BuildCommand extends Command<int> {
                 p.extension(el.name) == '.class')
             .map((el) => p.withoutExtension(el.name)),
     };
+    final package = await _relocate(artJarPath, classes);
+    _lgr.info('Moved ${privateJars.length} bundled libraries to $package');
+  }
+
+  Future<void> _relocateDesugarHelpers(String artJarPath) async {
+    final helpers = ZipDecoder()
+        .decodeBytes(await artJarPath.asFile().readAsBytes())
+        .files
+        .where((el) =>
+            el.isFile &&
+            el.name.startsWith('com/android/tools/r8/') &&
+            p.extension(el.name) == '.class')
+        .map((el) => p.withoutExtension(el.name));
+    if (helpers.isNotEmpty) {
+      await _relocate(artJarPath, helpers);
+    }
+  }
+
+  Future<String> _relocate(String artJarPath, Iterable<String> classes) async {
     final classList =
         p.join(_fs.buildFilesDir.path, 'relocated-classes.txt').asFile();
     await classList.writeAsString(classes.join('\n'));
@@ -495,7 +514,7 @@ class BuildCommand extends Command<int> {
       classList: classList.path,
     );
     await relocated.asFile().rename(artJarPath);
-    _lgr.info('Moved ${privateJars.length} bundled libraries to $package');
+    return package;
   }
 
   Future<void> _desugarArtJar(
@@ -509,6 +528,7 @@ class BuildCommand extends Command<int> {
       classpathJars: deps.referencedJars,
     );
     await desugared.asFile().rename(artJarPath);
+    await _relocateDesugarHelpers(artJarPath);
   }
 
   static String _aarFileName(Artifact aar) => aar.isMavenArtifact

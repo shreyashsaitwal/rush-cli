@@ -240,6 +240,33 @@ void main() {
           ]));
     });
 
+    test('compiles Java 17 language features', () async {
+      final project = await createProject('records_ext', language: 'java');
+      final result = await _buildWithFunctions(project, '''
+  record Point(int x, int y) {}
+
+  @SimpleFunction
+  public String Describe(int x) {
+    Object point = new Point(x, x);
+    var size = switch (x) {
+      case 0 -> "none";
+      default -> "some";
+    };
+    if (point instanceof Point p) {
+      return p + " " + size;
+    }
+    return size;
+  }
+''');
+      expect(result.exitCode, 0, reason: result.output);
+      expect(
+          project.runtimeClasses,
+          contains(
+              '${project.packagePath}/repacked/com/android/tools/r8/RecordTag.class'));
+      expect(project.runtimeClasses.where((c) => c.startsWith('com/android/')),
+          isEmpty);
+    });
+
     test('removes classes of deleted helpers', () async {
       final project = await createProject('helper_ext', language: 'java');
       final helper = project.source('helpers/Mode.java')

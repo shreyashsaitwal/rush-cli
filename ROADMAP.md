@@ -9,6 +9,7 @@ what is supported, what is planned and what is deliberately out of scope.
 |---|---|
 | Kotlin (1.8–2.4) and Java sources, mixed in one project | 2.0.0 |
 | Java 8 language features desugared automatically | 2.0.0 |
+| Java 17 language features (records, sealed classes, switch expressions, text blocks) | Unreleased |
 | Maven dependencies from Maven Central and Google's Maven repository | 2.0.0 |
 | Local JAR and AAR dependencies in `deps/` | 2.0.0 |
 | AARs shipped with their resources, compiled by App Inventor | 2.0.0 |
@@ -30,7 +31,7 @@ what is supported, what is planned and what is deliberately out of scope.
 | Feature | Status |
 |---|---|
 | Extension-owned resources and custom XML layouts, shipped in an AAR Rush builds | Design |
-| Java 9+ language features and core library desugaring (`java.time` and others) | Not started |
+| Core library desugaring (`java.time`, streams and other Java APIs on older Android versions) | Not started |
 | Several packages in one project, built as separate extensions in one AIX | Not started |
 
 ## Not planned

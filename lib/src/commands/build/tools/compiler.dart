@@ -111,7 +111,7 @@ class Compiler {
         executable: BuildUtils.javaExe(true),
         argsFile: _fs.javacArgsFile,
         args: [
-          ...['--release', '8'],
+          ...['--release', '17'],
           ...['-encoding', 'UTF8'],
           ...['-d', _fs.buildClassesDir.path],
           ...['-cp', classpath.join(BuildUtils.cpSeparator)],

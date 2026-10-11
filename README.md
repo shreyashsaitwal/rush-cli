@@ -7,7 +7,8 @@ created by Shreyash Saitwal, which brings Rush 2.0 to a stable release.
 
 ## Features
 
-* Kotlin and Java support, with Java 8+ language features desugared automatically
+* Kotlin and Java support, with Java 17 language features (records, switch expressions,
+  text blocks…) desugared automatically
 * Maven dependency management, resolved from Maven Central and Google's Maven repository
 * **AARs with resources:** AAR dependencies are shipped as-is, so App Inventor compiles
   their layouts, drawables and styles and generates their `R` classes
