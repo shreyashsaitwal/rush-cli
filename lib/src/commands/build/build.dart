@@ -15,6 +15,7 @@ import 'package:rush/src/commands/build/utils.dart';
 import 'package:rush/src/commands/deps/sync.dart';
 import 'package:rush/src/commands/build/tools/compiler.dart';
 import 'package:rush/src/commands/build/tools/executor.dart';
+import 'package:rush/src/commands/build/tools/library_desugarer.dart';
 import 'package:rush/src/config/config.dart';
 import 'package:rush/src/resolver/artifact.dart';
 import 'package:rush/src/services/lib_service.dart';
@@ -290,11 +291,13 @@ class BuildCommand extends Command<int> {
 
     final pool = Pool(Platform.numberOfProcessors.clamp(1, 4));
     final sharedClasses = await _sharedJarClasses(deps.sharedJars);
+    final desugarer = LibraryDesugarer(config);
     final libraries = await Future.wait([
       ...deps.shippedAars.map((aar) => pool
-          .withResource(() => _packageAar(config, aar, aarsDir.path, deps))),
+          .withResource(() => _packageAar(desugarer, aar, aarsDir.path, deps))),
       ...sharedClasses.entries.map((el) => pool.withResource(() =>
-          _packageSharedJar(config, el.key, el.value, aarsDir.path, deps))),
+          _packageSharedJar(
+              config, desugarer, el.key, el.value, aarsDir.path, deps))),
     ]);
 
     final buildInfos = jsonDecode(await buildInfosJson.readAsString()) as List;
@@ -308,15 +311,14 @@ class BuildCommand extends Command<int> {
     }
   }
 
-  Future<String> _packageAar(Config config, Artifact aar, String aarsDir,
-      BuildDependencies deps) async {
+  Future<String> _packageAar(LibraryDesugarer desugarer, Artifact aar,
+      String aarsDir, BuildDependencies deps) async {
     final name = _aarFileName(aar);
     final desugaredClasses =
         p.join(_fs.buildFilesDir.path, 'desugared-aars', '$name.jar');
     p.dirname(desugaredClasses).asDir(true);
 
-    await Executor.execDesugar(
-      config,
+    await desugarer.desugar(
       input: aar.classesJar,
       output: desugaredClasses,
       classpathJars: {...deps.referencedJars, ...deps.privateJars}
@@ -355,8 +357,13 @@ class BuildCommand extends Command<int> {
     return result;
   }
 
-  Future<String> _packageSharedJar(Config config, Artifact jar, Archive classes,
-      String aarsDir, BuildDependencies deps) async {
+  Future<String> _packageSharedJar(
+      Config config,
+      LibraryDesugarer desugarer,
+      Artifact jar,
+      Archive classes,
+      String aarsDir,
+      BuildDependencies deps) async {
     final name = _aarFileName(jar);
     final sharedJarsDir = p.join(_fs.buildFilesDir.path, 'shared-jars');
     final classesJar = p.join(sharedJarsDir, '$name.jar');
@@ -365,8 +372,7 @@ class BuildCommand extends Command<int> {
         .asFile(true)
         .writeAsBytes(ZipEncoder().encodeBytes(classes));
 
-    await Executor.execDesugar(
-      config,
+    await desugarer.desugar(
       input: classesJar,
       output: desugaredJar,
       classpathJars: {...deps.referencedJars, ...deps.privateJars}

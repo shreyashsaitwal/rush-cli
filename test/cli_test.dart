@@ -536,6 +536,23 @@ assets:
     });
   });
 
+  test('desugars AARs again only when the dependencies change', () async {
+    final project = await createProject('cached_aar_ext');
+    project.addDependencies(['androidx.core:core-ktx:1.5.0']);
+    final desugared = project.file(
+        '.rush/build/files/desugared-aars/androidx.core-core-ktx-1.5.0.aar.jar');
+
+    expect((await project.build()).exitCode, 0);
+    final firstBuild = desugared.lastModifiedSync();
+    expect((await project.build()).exitCode, 0);
+    expect(desugared.lastModifiedSync(), firstBuild);
+
+    project.addDependencies(['com.google.code.gson:gson:2.8.9']);
+    final result = await project.build();
+    expect(result.exitCode, 0, reason: result.output);
+    expect(desugared.lastModifiedSync(), isNot(firstBuild));
+  });
+
   group('bundled libraries', () {
     test('move under the extension package when only it uses them', () async {
       final project = await createProject('kotlin_ext');
