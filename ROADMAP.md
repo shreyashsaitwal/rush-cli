@@ -31,7 +31,6 @@ what is supported, what is planned and what is deliberately out of scope.
 |---|---|
 | Extension-owned resources and custom XML layouts, shipped in an AAR Rush builds | Design |
 | Java 9+ language features and core library desugaring (`java.time` and others) | Not started |
-| Project-specific JDK and default build arguments in `rush.yml` | Not started |
 | Several packages in one project, built as separate extensions in one AIX | Not started |
 
 ## Not planned
@@ -39,6 +38,8 @@ what is supported, what is planned and what is deliberately out of scope.
 | Feature | Reason |
 |---|---|
 | R8 as an alternative to ProGuard | ProGuard covers shrinking and obfuscation |
+| Project-specific JDK in `rush.yml` | `JAVA_HOME` selects the JDK without committing a machine-specific path |
+| Default build arguments | `rush build` has a single flag |
 | Block images | Needs a Blockly renderer for little benefit |
 | Shorter annotation names | App Inventor's own annotations keep sources portable |
 | Stripping annotations from the AIX | App Inventor's components ship them too; the savings are negligible |
