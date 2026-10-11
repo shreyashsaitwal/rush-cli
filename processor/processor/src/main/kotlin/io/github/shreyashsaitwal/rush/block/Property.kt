@@ -1,5 +1,6 @@
 package io.github.shreyashsaitwal.rush.block
 
+import com.google.appinventor.components.annotations.PropertyCategory
 import com.google.appinventor.components.annotations.SimpleProperty
 import io.github.shreyashsaitwal.rush.Utils
 import org.json.JSONObject
@@ -68,6 +69,12 @@ class Property(
         get() = element.getAnnotation(SimpleProperty::class.java).description.ifBlank {
             elementUtils.getDocComment(element).orEmpty()
         }
+
+    private val category: PropertyCategory
+        get() = ownCategory.takeUnless { it == PropertyCategory.UNSET } ?: partner?.ownCategory ?: PropertyCategory.UNSET
+
+    private val ownCategory: PropertyCategory
+        get() = element.getAnnotation(SimpleProperty::class.java).category
 
     override val helper = when (element.returnType.kind) {
         // Setters
@@ -147,5 +154,6 @@ class Property(
         .put("description", description)
         .put("type", returnType)
         .put("rw", accessType.value)
+        .put("category", category.takeUnless { it == PropertyCategory.UNSET }?.getName())
         .put("helper", helper?.asJsonObject())
 }

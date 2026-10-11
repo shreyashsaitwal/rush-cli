@@ -26,6 +26,12 @@ public @interface SimpleProperty {
     String description() default "";
 
     /**
+     * Category of property for user-level documentation.  This only needs
+     * to be specified in the setter or the getter, not both.
+     */
+    PropertyCategory category() default PropertyCategory.UNSET;
+
+    /**
      * If false, this property should not be accessible through Codeblocks. This was added to support the Row and Column
      * properties, so they could be indirectly set in the Designer but not accessed in Codeblocks.
      *

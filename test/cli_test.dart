@@ -34,6 +34,7 @@ package {package}
 
 import com.google.appinventor.components.annotations.DesignerProperty
 import com.google.appinventor.components.annotations.Extension
+import com.google.appinventor.components.annotations.PropertyCategory
 import com.google.appinventor.components.annotations.SimpleProperty
 import com.google.appinventor.components.common.PropertyTypeConstants
 import com.google.appinventor.components.runtime.AndroidNonvisibleComponent
@@ -43,7 +44,7 @@ import com.google.appinventor.components.runtime.ComponentContainer
 class {className}(container: ComponentContainer) : AndroidNonvisibleComponent(container.`\$form`()) {
     private var speed = 1
 
-    @SimpleProperty(description = "Speed")
+    @SimpleProperty(description = "Speed", category = PropertyCategory.APPEARANCE)
     fun Speed(): Int = speed
 
     @DesignerProperty(editorType = PropertyTypeConstants.PROPERTY_TYPE_NON_NEGATIVE_INTEGER, defaultValue = "1")
@@ -191,6 +192,13 @@ void main() {
           .cast<Map<String, dynamic>>()
           .single;
       expect(property['alwaysSend'], anyOf(isNull, isFalse));
+    });
+
+    test('puts properties in their category', () {
+      final property = (project.components.single['blockProperties'] as List)
+          .cast<Map<String, dynamic>>()
+          .single;
+      expect(property['category'], 'Appearance');
     });
 
     test('lists a property with a getter and setter once', () {
