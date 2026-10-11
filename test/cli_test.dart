@@ -710,6 +710,33 @@ class Legacy(container: ComponentContainer) : AndroidNonvisibleComponent(contain
       final built = await rush(['build'], workingDirectory: project.path);
       expect(built.exitCode, 0, reason: built.output);
     });
+
+    test('keeps unlisted local libraries for compilation only', () async {
+      final classes = Directory('${project.path}/lib-classes');
+      File('${project.path}/Greeting.java').writeAsStringSync(
+          'package com.example.lib; public class Greeting { public static String text() { return "hi"; } }');
+      final javac = await Process.run(
+          'javac', ['-d', classes.path, '${project.path}/Greeting.java']);
+      expect(javac.exitCode, 0, reason: '${javac.stderr}');
+      final greeting = File('${classes.path}/com/example/lib/Greeting.class');
+      File('${project.path}/deps/greeting.jar')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(ZipEncoder().encode(Archive()
+          ..addFile(ArchiveFile('com/example/lib/Greeting.class',
+              greeting.lengthSync(), greeting.readAsBytesSync()))));
+      final source = File('${project.path}/src/com/example/legacy/Legacy.kt');
+      source.writeAsStringSync(source
+          .readAsStringSync()
+          .replaceFirst('= "hi"', '= com.example.lib.Greeting.text()'));
+
+      final migrated = await rush(['migrate'], workingDirectory: project.path);
+      expect(migrated.exitCode, 0, reason: migrated.output);
+      expect(File('${project.path}/rush.yml').readAsStringSync(),
+          contains('provided_dependencies:\n- greeting.jar'));
+
+      final built = await rush(['build'], workingDirectory: project.path);
+      expect(built.exitCode, 0, reason: built.output);
+    });
   });
 
   test('new projects target Android 5.0 (API 21)', () async {

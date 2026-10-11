@@ -35,20 +35,23 @@ class MigrateCommand extends Command<int> {
       return 1;
     }
 
-    // TODO
-    // final comptimeDeps = _fs.localDepsDir
-    //     .listSync()
-    //     .map((el) => p.basename(el.path))
-    //     .where((el) => !(oldConfig.deps?.contains(el) ?? true));
+    final dependencies = oldConfig.deps ?? [];
+    final compileOnlyDependencies = await _fs.localDepsDir.exists()
+        ? _fs.localDepsDir
+            .listSync()
+            .map((el) => p.basename(el.path))
+            .where((el) => el.endsWith('.jar') || el.endsWith('.aar'))
+            .whereNot(dependencies.contains)
+            .sorted()
+        : <String>[];
 
     final newConfig = Config(
       version: oldConfig.version.name.toString(),
       minSdk: oldConfig.minSdk ?? 7,
       assets: oldConfig.assets.other ?? [],
       desugar: oldConfig.build?.desugar?.enable ?? false,
-      dependencies: oldConfig.deps ?? [],
-      // TODO
-      // comptimeDeps: comptimeDeps.toList(),
+      dependencies: dependencies,
+      providedDependencies: compileOnlyDependencies,
       license: oldConfig.license ?? '',
       homepage: oldConfig.homepage ?? '',
       authors: oldConfig.authors ?? [],
@@ -222,17 +225,15 @@ ${dependencies.map((el) => '- $el').join('\n')}
 ''';
     }
 
-    // TODO
-//     if (config.comptimeDeps.isNotEmpty) {
-//       contents += '''
-// # Similar to dependencies, except libraries defined as comptime (compile-time)
-// # are only available during compilation and not included in the resulting AIX.
-// comptime_dependencies:
-// ${config.comptimeDeps.map((el) {
-//   if (el != '.placeholder') return '- $el';
-// }).join('\n')}
-// ''';
-//     }
+    if (config.providedDependencies.isNotEmpty) {
+      contents += '''
+# Similar to dependencies, except libraries defined as provided are not included
+# in the final AIX.
+provided_dependencies:
+${config.providedDependencies.map((el) => '- $el').join('\n')}
+
+''';
+    }
 
     _fs.configFile.writeAsStringSync(contents);
   }
