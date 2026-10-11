@@ -1,0 +1,30 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+version = '2.0.1'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.ow2.asm:asm-commons:9.7.1'
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'io.github.shreyashsaitwal.rush.relocator.Relocator'
+    }
+}
+
+shadowJar {
+    archiveClassifier.set('')
+}

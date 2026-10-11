@@ -1,3 +1,4 @@
 rootProject.name = 'rush-processor'
 include ':annotations'
 include ':processor'
+include ':relocator'
