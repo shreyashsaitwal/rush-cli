@@ -3,6 +3,8 @@ set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 home="$root/build/test-home"
+rush="$root/build/rush"
+[ "${OS:-}" = Windows_NT ] && rush="$rush.exe"
 
 (cd "$root/processor" && ./gradlew -q build :processor:shadowJar :relocator:shadowJar)
 mkdir -p "$home/libs" "$root/build"
@@ -11,9 +13,9 @@ cp "$root"/processor/annotations/build/libs/annotations-*[0-9].jar "$home/libs/a
 cp "$root"/processor/relocator/build/libs/relocator-*[0-9].jar "$home/libs/relocator.jar"
 
 (cd "$root" && dart run build_runner build --delete-conflicting-outputs >/dev/null)
-dart compile exe "$root/bin/rush.dart" -o "$root/build/rush" >/dev/null
+dart compile exe "$root/bin/rush.dart" -o "$rush" >/dev/null
 
-RUSH_HOME=$home "$root/build/rush" deps sync --dev-deps >/dev/null
+RUSH_HOME=$home "$rush" deps sync --dev-deps >/dev/null
 
 cd "$root"
-RUSH_TEST_BIN="$root/build/rush" RUSH_HOME="$home" dart test --concurrency=1 "$@"
+RUSH_TEST_BIN="$rush" RUSH_HOME="$home" dart test --concurrency=1 "$@"
