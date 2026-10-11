@@ -660,6 +660,66 @@ assets:
     expect(desugared.lastModifiedSync(), isNot(firstBuild));
   });
 
+  group('core library', () {
+    const usesJavaTime = '''
+  @SimpleFunction
+  public String Tomorrow() {
+    return java.time.LocalDate.of(2026, 10, 12).plusDays(1).toString();
+  }
+''';
+
+    test('is backported from API 24 and only when used', () async {
+      final project = await createProject('time_ext', language: 'java');
+      project.setMinSdk(24);
+      final unused = await _buildWithFunctions(project, '');
+      expect(unused.exitCode, 0, reason: unused.output);
+      expect(project.runtimeClasses.where((c) => c.contains(r'j$/')), isEmpty);
+
+      final used = await _buildWithFunctions(project, usesJavaTime);
+      expect(used.exitCode, 0, reason: used.output);
+      final backport = project.runtimeClasses
+          .where((c) => c.startsWith('${project.packagePath}/repacked/j\$/'));
+      expect(backport,
+          contains('${project.packagePath}/repacked/j\$/time/LocalDate.class'));
+      expect(backport.length, lessThan(200));
+      expect(
+          project.runtimeClasses
+              .where((c) => c.startsWith(r'j$/') || c.startsWith('java/')),
+          isEmpty);
+    });
+
+    test('is backported in optimized Kotlin builds', () async {
+      final project = await createProject('kotlin_time_ext');
+      project.setMinSdk(24);
+      project.source('${project.className}.kt').writeAsStringSync(_fill('''
+package {package}
+
+import com.google.appinventor.components.annotations.Extension
+import com.google.appinventor.components.annotations.SimpleFunction
+import com.google.appinventor.components.runtime.AndroidNonvisibleComponent
+import com.google.appinventor.components.runtime.ComponentContainer
+import java.time.LocalDate
+
+@Extension(description = "Test extension", icon = "icon.png")
+class {className}(container: ComponentContainer) : AndroidNonvisibleComponent(container.`\$form`()) {
+    @SimpleFunction
+    fun Tomorrow(): String = "\${LocalDate.of(2026, 10, 12).plusDays(1)} \${listOf(3, 1, 2).sorted()}"
+}
+''', project));
+      final result = await project.build(['--optimize']);
+      expect(result.exitCode, 0, reason: result.output);
+      expect(project.runtimeClasses,
+          contains('${project.packagePath}/repacked/j\$/time/LocalDate.class'));
+    });
+
+    test('is not backported below API 24', () async {
+      final project = await createProject('old_time_ext', language: 'java');
+      final result = await _buildWithFunctions(project, usesJavaTime);
+      expect(result.exitCode, 0, reason: result.output);
+      expect(project.runtimeClasses.where((c) => c.contains(r'j$/')), isEmpty);
+    });
+  });
+
   group('bundled libraries', () {
     test('move under the extension package when only it uses them', () async {
       final project = await createProject('kotlin_ext');
@@ -710,9 +770,7 @@ assets:
     test('ship as AARs when a bundled AAR depends on them', () async {
       final project = await createProject('media_ext', language: 'java');
       project.addDependencies(['androidx.media3:media3-common:1.11.1']);
-      final config = project.file('rush.yml');
-      config.writeAsStringSync(
-          config.readAsStringSync().replaceFirst('min_sdk: 21', 'min_sdk: 23'));
+      project.setMinSdk(23);
       final result = await project.build();
       expect(result.exitCode, 0, reason: result.output);
 

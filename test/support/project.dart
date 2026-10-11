@@ -67,6 +67,12 @@ class TestProject {
         ['dependencies:', for (final c in coordinates) '- $c'].join('\n')));
   }
 
+  void setMinSdk(int minSdk) {
+    final config = file('rush.yml');
+    config.writeAsStringSync(config.readAsStringSync().replaceFirst(
+        RegExp(r'^min_sdk: \d+$', multiLine: true), 'min_sdk: $minSdk'));
+  }
+
   Future<ProcessResult> build([List<String> args = const []]) =>
       rush(['build', ...args], workingDirectory: dir.path);
 

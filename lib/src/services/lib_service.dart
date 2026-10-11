@@ -17,6 +17,9 @@ import 'package:tint/tint.dart';
 
 const r8Coord = 'com.android.tools:r8:9.4.24';
 const pgCoord = 'com.guardsquare:proguard-base:7.10.0';
+const coreLibraryCoord = 'com.android.tools:desugar_jdk_libs:2.1.5';
+const coreLibraryConfigCoord =
+    'com.android.tools:desugar_jdk_libs_configuration:2.1.5';
 
 const manifMergerAndDeps = <String>[
   'com.android.tools.build:manifest-merger:32.4.0',
@@ -230,6 +233,12 @@ class LibService {
   }
 
   Future<String> r8Jar() async => (await _findArtifact(r8Coord)).classesJar;
+
+  Future<String> coreLibraryJar() async =>
+      (await _findArtifact(coreLibraryCoord)).classesJar;
+
+  Future<String> coreLibraryConfigJar() async =>
+      (await _findArtifact(coreLibraryConfigCoord)).classesJar;
 
   Future<Set<String>> pgJars() async =>
       (await _findArtifact(pgCoord)).classpathJars(buildLibArtifacts());

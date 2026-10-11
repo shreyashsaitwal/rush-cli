@@ -10,6 +10,7 @@ what is supported, what is planned and what is deliberately out of scope.
 | Kotlin (1.8–2.4) and Java sources, mixed in one project | 2.0.0 |
 | Java 8 language features desugared automatically | 2.0.0 |
 | Java 17 language features (records, sealed classes, switch expressions, text blocks) | Unreleased |
+| Core library desugaring (`java.time` and other Java APIs) for `min_sdk` 24 and higher | Unreleased |
 | Maven dependencies from Maven Central and Google's Maven repository | 2.0.0 |
 | Local JAR and AAR dependencies in `deps/` | 2.0.0 |
 | AARs shipped with their resources, compiled by App Inventor | 2.0.0 |
@@ -31,7 +32,6 @@ what is supported, what is planned and what is deliberately out of scope.
 | Feature | Status |
 |---|---|
 | Extension-owned resources and custom XML layouts, shipped in an AAR Rush builds | Design |
-| Core library desugaring (`java.time`, streams and other Java APIs on older Android versions) | Not started |
 | Several packages in one project, built as separate extensions in one AIX | Not started |
 
 ## Not planned
@@ -45,4 +45,5 @@ what is supported, what is planned and what is deliberately out of scope.
 | Shorter annotation names | App Inventor's own annotations keep sources portable |
 | Stripping annotations from the AIX | App Inventor's components ship them too; the savings are negligible |
 | Other JVM languages, Jetifier, AIDL, string obfuscation | Rarely needed |
+| Core library desugaring below `min_sdk` 24 | The backport adds `java.util.function` classes that can't be relocated, so two extensions would clash |
 | AI Companion support for AAR extensions | The Companion can't load AAR classes or resources |

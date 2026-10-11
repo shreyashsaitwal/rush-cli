@@ -22,6 +22,8 @@ import 'package:rush/src/utils/file_extension.dart';
 const _buildToolCoords = [
   r8Coord,
   pgCoord,
+  coreLibraryCoord,
+  coreLibraryConfigCoord,
   ...manifMergerAndDeps,
 ];
 

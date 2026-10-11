@@ -31,6 +31,7 @@ class Executor {
     required String input,
     required String output,
     required Set<String> classpathJars,
+    String? coreLibraryConfig,
   }) =>
       _runD8(
         minSdk: config.minSdk,
@@ -38,6 +39,7 @@ class Executor {
         output: output,
         classpathJars: classpathJars,
         classfileOutput: true,
+        coreLibraryConfig: coreLibraryConfig,
       );
 
   static Future<void> _runD8({
@@ -46,21 +48,71 @@ class Executor {
     required String output,
     required Set<String> classpathJars,
     bool classfileOutput = false,
-  }) async {
-    final args = <String>[
-      ...['-cp', await _libService.r8Jar()],
-      'com.android.tools.r8.D8',
-      if (classfileOutput) '--classfile',
-      ...['--min-api', '$minSdk'],
-      ...['--lib', (await Ai2Runtime.load()).androidJar],
-      for (final jar in classpathJars) ...['--classpath', jar],
-      '--release',
-      ...['--output', output],
-      input,
-    ];
-    await _processRunner.runExecutable(BuildUtils.javaExe(),
-        args.map((el) => el.replaceAll('\\', '/')).toList());
-  }
+    String? coreLibraryConfig,
+  }) async =>
+      _runR8Tool('com.android.tools.r8.D8', [
+        if (classfileOutput) '--classfile',
+        ...['--min-api', '$minSdk'],
+        ...['--lib', (await Ai2Runtime.load()).androidJar],
+        for (final jar in classpathJars) ...['--classpath', jar],
+        if (coreLibraryConfig != null) ...[
+          '--desugared-lib',
+          coreLibraryConfig
+        ],
+        '--release',
+        ...['--output', output],
+        input,
+      ]);
+
+  static Future<void> execL8({
+    required int minSdk,
+    required String coreLibraryConfig,
+    required String output,
+  }) async =>
+      _runR8Tool('com.android.tools.r8.L8', [
+        '--classfile',
+        ...['--min-api', '$minSdk'],
+        ...['--lib', (await Ai2Runtime.load()).androidJar],
+        ...['--desugared-lib', coreLibraryConfig],
+        ...['--output', output],
+        await _libService.coreLibraryJar(),
+      ]);
+
+  static Future<void> execTraceReferences({
+    required String source,
+    required String target,
+    required String output,
+  }) async =>
+      _runR8Tool('com.android.tools.r8.tracereferences.TraceReferences', [
+        '--keep-rules',
+        ...['--map-diagnostics:MissingDefinitionsDiagnostic', 'error', 'none'],
+        ...['--lib', (await Ai2Runtime.load()).androidJar],
+        ...['--source', source],
+        ...['--target', target],
+        ...['--output', output],
+      ]);
+
+  static Future<void> execR8Shrink({
+    required String input,
+    required Set<String> rules,
+    required String output,
+  }) async =>
+      _runR8Tool('com.android.tools.r8.R8', [
+        '--classfile',
+        ...['--lib', (await Ai2Runtime.load()).androidJar],
+        for (final el in rules) ...['--pg-conf', el],
+        ...['--output', output],
+        input,
+      ]);
+
+  static Future<void> _runR8Tool(String mainClass, List<String> args) async =>
+      _processRunner.runExecutable(
+          BuildUtils.javaExe(),
+          [
+            ...['-cp', await _libService.r8Jar()],
+            mainClass,
+            ...args,
+          ].map((el) => el.replaceAll('\\', '/')).toList());
 
   static Future<void> execRelocator({
     required String input,

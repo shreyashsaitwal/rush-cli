@@ -25,6 +25,8 @@ import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/constants.dart';
 import 'package:rush/src/utils/file_extension.dart';
 
+const _coreLibraryMinSdk = 24;
+
 class BuildCommand extends Command<int> {
   final Logger _lgr = GetIt.I<Logger>();
   final FileService _fs = GetIt.I<FileService>();
@@ -491,7 +493,8 @@ class BuildCommand extends Command<int> {
         .files
         .where((el) =>
             el.isFile &&
-            el.name.startsWith('com/android/tools/r8/') &&
+            (el.name.startsWith('com/android/tools/r8/') ||
+                el.name.startsWith(r'j$/')) &&
             p.extension(el.name) == '.class')
         .map((el) => p.withoutExtension(el.name));
     if (helpers.isNotEmpty) {
@@ -519,6 +522,9 @@ class BuildCommand extends Command<int> {
 
   Future<void> _desugarArtJar(
       Config config, String artJarPath, BuildDependencies deps) async {
+    final coreLibraryConfig = config.minSdk >= _coreLibraryMinSdk
+        ? await _extractCoreLibraryConfig()
+        : null;
     final desugared =
         p.join(_fs.buildFilesDir.path, 'AndroidRuntime.desugared.jar');
     await Executor.execDesugar(
@@ -526,9 +532,71 @@ class BuildCommand extends Command<int> {
       input: artJarPath,
       output: desugared,
       classpathJars: deps.referencedJars,
+      coreLibraryConfig: coreLibraryConfig,
     );
     await desugared.asFile().rename(artJarPath);
+    if (coreLibraryConfig != null) {
+      await _addCoreLibrary(config.minSdk, coreLibraryConfig, artJarPath);
+    }
     await _relocateDesugarHelpers(artJarPath);
+  }
+
+  Future<String> _extractCoreLibraryConfig() async {
+    final configJar = ZipDecoder().decodeBytes(
+        await (await _libService.coreLibraryConfigJar())
+            .asFile()
+            .readAsBytes());
+    final config = p.join(_fs.buildFilesDir.path, 'core-library.json').asFile();
+    await config.writeAsBytes(
+        configJar.findFile('META-INF/desugar/d8/desugar.json')!.content);
+    return config.path;
+  }
+
+  Future<void> _addCoreLibrary(
+      int minSdk, String coreLibraryConfig, String artJarPath) async {
+    final version = coreLibraryCoord.split(':').last;
+    final library =
+        p.join(_fs.buildFilesDir.path, 'core-library-$version-api$minSdk.jar');
+    if (!await library.asFile().exists()) {
+      await Executor.execL8(
+          minSdk: minSdk,
+          coreLibraryConfig: coreLibraryConfig,
+          output: library);
+    }
+
+    final keepRules =
+        p.join(_fs.buildFilesDir.path, 'core-library-keep.pro').asFile();
+    await Executor.execTraceReferences(
+      source: artJarPath,
+      target: library,
+      output: keepRules.path,
+    );
+    if ((await keepRules.readAsString()).trim().isEmpty) {
+      return;
+    }
+
+    final shrinkOnlyRules =
+        p.join(_fs.buildFilesDir.path, 'shrink-only.pro').asFile();
+    await shrinkOnlyRules
+        .writeAsString('-dontobfuscate\n-dontoptimize\n-keepattributes *\n');
+    final shrunk = p.join(_fs.buildFilesDir.path, 'core-library.jar');
+    await Executor.execR8Shrink(
+      input: library,
+      rules: {keepRules.path, shrinkOnlyRules.path},
+      output: shrunk,
+    );
+    await _appendClasses(artJarPath, shrunk);
+  }
+
+  Future<void> _appendClasses(String jarPath, String classesJarPath) async {
+    final jar = ZipDecoder().decodeBytes(await jarPath.asFile().readAsBytes());
+    final classes =
+        ZipDecoder().decodeBytes(await classesJarPath.asFile().readAsBytes());
+    for (final file in classes.files
+        .where((el) => el.isFile && !el.name.startsWith('META-INF/'))) {
+      jar.addFile(file);
+    }
+    await jarPath.asFile().writeAsBytes(ZipEncoder().encode(jar));
   }
 
   static String _aarFileName(Artifact aar) => aar.isMavenArtifact

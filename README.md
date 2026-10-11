@@ -9,6 +9,8 @@ created by Shreyash Saitwal, which brings Rush 2.0 to a stable release.
 
 * Kotlin and Java support, with Java 17 language features (records, switch expressions,
   text blocks…) desugared automatically
+* Newer Java APIs such as `java.time` work on older Android versions when `min_sdk` is 24
+  or higher, using Google's backport library, trimmed to what the extension uses
 * Maven dependency management, resolved from Maven Central and Google's Maven repository
 * **AARs with resources:** AAR dependencies are shipped as-is, so App Inventor compiles
   their layouts, drawables and styles and generates their `R` classes
