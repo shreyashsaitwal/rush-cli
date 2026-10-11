@@ -26,6 +26,7 @@ class Property(
 ) : Block(element, messager, elementUtils) {
 
     private val accessType: PropertyAccessType
+    private var partner: Property? = null
 
     init {
         accessType = propertyAccessType()
@@ -61,13 +62,11 @@ class Property(
     }
 
     override val description: String
-        get() {
-            val desc = element.getAnnotation(SimpleProperty::class.java).description.let {
-                it.ifBlank {
-                    elementUtils.getDocComment(element) ?: ""
-                }
-            }
-            return desc
+        get() = ownDescription.ifBlank { partner?.ownDescription.orEmpty() }
+
+    private val ownDescription: String
+        get() = element.getAnnotation(SimpleProperty::class.java).description.ifBlank {
+            elementUtils.getDocComment(element).orEmpty()
         }
 
     override val helper = when (element.returnType.kind) {
@@ -127,6 +126,7 @@ class Property(
         // whether to generate getter (read-only), setter (write-only), both (read-write) or none
         // (invisible).
         processedProperties.remove(partnerProp)
+        partner = partnerProp
         return accessType
     }
 

@@ -43,7 +43,7 @@ class DesignerProperty(
      *     "defaultValue": "Bar",
      *     "editorType": "text"
      *     "editorArgs": ["Bar", "Baz"],
-     *     "alwaysSend": "false",
+     *     "alwaysSend": true,
      * }
      */
     override fun asJsonObject(): JSONObject {
@@ -53,6 +53,6 @@ class DesignerProperty(
             .put("defaultValue", annotation.defaultValue)
             .put("editorType", annotation.editorType)
             .put("editorArgs", annotation.editorArgs)
-            .put("alwaysSend", annotation.alwaysSend.toString())
+            .apply { if (annotation.alwaysSend) put("alwaysSend", true) }
     }
 }
