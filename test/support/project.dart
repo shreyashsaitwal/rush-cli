@@ -63,7 +63,7 @@ class TestProject {
   void addDependencies(List<String> coordinates) {
     final config = file('rush.yml');
     config.writeAsStringSync(config.readAsStringSync().replaceFirst(
-        '#dependencies:',
+        RegExp(r'^#?dependencies:$', multiLine: true),
         ['dependencies:', for (final c in coordinates) '- $c'].join('\n')));
   }
 
@@ -87,6 +87,17 @@ class TestProject {
         .files
         .map((f) => f.name)
         .toSet();
+  }
+
+  Archive bundledAar(String fileName) => ZipDecoder().decodeBytes(
+      aix.files.singleWhere((f) => f.name.endsWith('/aars/$fileName')).content);
+
+  List<String> get libraries {
+    final json = aix.files.singleWhere(
+        (f) => f.name.endsWith('files/component_build_infos.json'));
+    return ((jsonDecode(utf8.decode(json.content)) as List).single
+            as Map<String, dynamic>)['libraries']
+        .cast<String>();
   }
 
   List<Map<String, dynamic>> get components {

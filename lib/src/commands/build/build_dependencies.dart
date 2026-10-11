@@ -6,12 +6,15 @@ import 'package:rush/src/services/lib_service.dart';
 
 class BuildDependencies {
   BuildDependencies._({
-    required this.shippedJars,
+    required this.privateJars,
+    required this.sharedJars,
     required this.shippedAars,
     required this.referencedJars,
   });
 
-  final Set<String> shippedJars;
+  final Set<String> privateJars;
+
+  final List<Artifact> sharedJars;
 
   final List<Artifact> shippedAars;
 
@@ -32,16 +35,24 @@ class BuildDependencies {
             !shippedLibraries.contains(el.groupAndArtifactId))
         .toList();
     final shippedAars = shipped.where((el) => el.packaging == 'aar').toList();
+    final aarClasspath =
+        shippedAars.map((el) => el.classpathJars(shipped)).flattened.toSet();
+    final shippedJars = shipped.where((el) => el.packaging == 'jar');
+    final sharedJars = shippedJars
+        .where((el) => aarClasspath.contains(el.classesJar))
+        .toList();
 
     return BuildDependencies._(
-      shippedJars: shipped
-          .where((el) => el.packaging == 'jar')
+      privateJars: shippedJars
+          .whereNot(sharedJars.contains)
           .map((el) => el.classesJar)
           .toSet(),
+      sharedJars: sharedJars,
       shippedAars: shippedAars,
       referencedJars: {
         ...provided.map((el) => el.classpathJars(provided)).flattened,
         ...shippedAars.map((el) => el.classesJar),
+        ...sharedJars.map((el) => el.classesJar),
       },
     );
   }

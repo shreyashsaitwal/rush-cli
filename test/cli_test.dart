@@ -1,6 +1,7 @@
 @Timeout(Duration(minutes: 3))
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:test/test.dart';
@@ -184,6 +185,30 @@ void main() {
     });
   });
 
+  group('bundled libraries', () {
+    test('ship as AARs when a bundled AAR depends on them', () async {
+      final project = await createProject('media_ext', language: 'java');
+      project.addDependencies(['androidx.media3:media3-common:1.11.1']);
+      final config = project.file('rush.yml');
+      config.writeAsStringSync(
+          config.readAsStringSync().replaceFirst('min_sdk: 21', 'min_sdk: 23'));
+      final result = await project.build();
+      expect(result.exitCode, 0, reason: result.output);
+
+      const guava = 'com.google.guava-guava-33.3.1-android.aar';
+      expect(project.libraries, contains(guava));
+      expect(
+          utf8.decode(project
+              .bundledAar(guava)
+              .findFile('AndroidManifest.xml')!
+              .content),
+          contains('package="com.google.guava.guava"'));
+      expect(
+          project.runtimeClasses.where((c) => c.contains('com/google/common/')),
+          isEmpty);
+    });
+  });
+
   group('optimize', () {
     test('works with a library App Inventor also ships', () async {
       final project = await createProject('gson_ext', language: 'java');
@@ -199,6 +224,15 @@ void main() {
           ['com.google.errorprone:error_prone_annotations:2.27.0']);
       final result = await project.build(['--optimize']);
       expect(result.exitCode, 0, reason: result.output);
+    });
+
+    test('works with AARs that depend on bundled libraries', () async {
+      final project = await createProject('ktx_ext');
+      project.addDependencies(['androidx.core:core-ktx:1.5.0']);
+      final result = await project.build(['--optimize']);
+      expect(result.exitCode, 0, reason: result.output);
+      expect(project.libraries,
+          anyElement(startsWith('org.jetbrains.kotlin-kotlin-stdlib-')));
     });
   });
 

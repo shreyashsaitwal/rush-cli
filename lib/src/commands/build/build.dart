@@ -102,7 +102,7 @@ class BuildCommand extends Command<int> {
       await BuildUtils.copyAssets(config);
       await BuildUtils.copyLicense(config);
       await _packageAars(config, deps, buildInfosJson);
-      artJarPath = await _createArtJar(deps.shippedJars);
+      artJarPath = await _createArtJar(deps.privateJars);
     } catch (e, s) {
       _catchAndStop(e, s);
       return 1;
@@ -252,8 +252,13 @@ class BuildCommand extends Command<int> {
     await aarsDir.create();
 
     final pool = Pool(Platform.numberOfProcessors.clamp(1, 4));
-    final libraries = await Future.wait(deps.shippedAars.map((aar) =>
-        pool.withResource(() => _packageAar(config, aar, aarsDir.path, deps))));
+    final sharedClasses = await _sharedJarClasses(deps.sharedJars);
+    final libraries = await Future.wait([
+      ...deps.shippedAars.map((aar) => pool
+          .withResource(() => _packageAar(config, aar, aarsDir.path, deps))),
+      ...sharedClasses.entries.map((el) => pool.withResource(() =>
+          _packageSharedJar(config, el.key, el.value, aarsDir.path, deps))),
+    ]);
 
     final buildInfos = jsonDecode(await buildInfosJson.readAsString()) as List;
     for (final info in buildInfos.cast<Map<String, dynamic>>()) {
@@ -277,7 +282,7 @@ class BuildCommand extends Command<int> {
       config,
       input: aar.classesJar,
       output: desugaredClasses,
-      classpathJars: {...deps.referencedJars, ...deps.shippedJars}
+      classpathJars: {...deps.referencedJars, ...deps.privateJars}
         ..remove(aar.classesJar),
     );
     await BuildUtils.copyZipReplacingEntry(
@@ -287,6 +292,71 @@ class BuildCommand extends Command<int> {
       destination: p.join(aarsDir, name),
     );
     return name;
+  }
+
+  static Future<Map<Artifact, Archive>> _sharedJarClasses(
+      List<Artifact> jars) async {
+    final classesByJar = {
+      for (final jar in jars)
+        jar: ZipDecoder()
+            .decodeBytes(await jar.classesJar.asFile().readAsBytes())
+            .files
+            .where((el) => el.isFile && p.extension(el.name) == '.class')
+            .toList(),
+    };
+    final packagedClasses = <String>{};
+    final result = <Artifact, Archive>{};
+    for (final jar in jars.sortedBy<num>((el) => -classesByJar[el]!.length)) {
+      final classes = classesByJar[jar]!
+          .where((el) => packagedClasses.add(el.name))
+          .toList();
+      if (classes.isNotEmpty) {
+        result[jar] = Archive();
+        classes.forEach(result[jar]!.add);
+      }
+    }
+    return result;
+  }
+
+  Future<String> _packageSharedJar(Config config, Artifact jar, Archive classes,
+      String aarsDir, BuildDependencies deps) async {
+    final name = _aarFileName(jar);
+    final sharedJarsDir = p.join(_fs.buildFilesDir.path, 'shared-jars');
+    final classesJar = p.join(sharedJarsDir, '$name.jar');
+    final desugaredJar = p.join(sharedJarsDir, '$name.desugared.jar');
+    await classesJar
+        .asFile(true)
+        .writeAsBytes(ZipEncoder().encodeBytes(classes));
+
+    await Executor.execDesugar(
+      config,
+      input: classesJar,
+      output: desugaredJar,
+      classpathJars: {...deps.referencedJars, ...deps.privateJars}
+        ..remove(jar.classesJar),
+    );
+    final aar = Archive()
+      ..add(ArchiveFile.string(
+          'AndroidManifest.xml', _sharedJarManifest(jar, config.minSdk)))
+      ..add(ArchiveFile.bytes(
+          'classes.jar', await desugaredJar.asFile().readAsBytes()));
+    await p
+        .join(aarsDir, name)
+        .asFile(true)
+        .writeAsBytes(ZipEncoder().encodeBytes(aar));
+    return name;
+  }
+
+  static String _sharedJarManifest(Artifact jar, int minSdk) {
+    final package = [...jar.groupId.split('.'), jar.artifactId]
+        .map((el) => el.replaceAll(RegExp('[^A-Za-z0-9_.]'), '_'))
+        .join('.');
+    return '''
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="$package">
+  <uses-sdk android:minSdkVersion="$minSdk"/>
+</manifest>
+''';
   }
 
   Future<void> _desugarArtJar(
