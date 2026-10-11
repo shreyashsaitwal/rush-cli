@@ -191,6 +191,15 @@ void main() {
       final result = await project.build(['--optimize']);
       expect(result.exitCode, 0, reason: result.output);
     });
+
+    test('works with annotations that reference the Java compiler API',
+        () async {
+      final project = await createProject('annotations_ext', language: 'java');
+      project.addDependencies(
+          ['com.google.errorprone:error_prone_annotations:2.27.0']);
+      final result = await project.build(['--optimize']);
+      expect(result.exitCode, 0, reason: result.output);
+    });
   });
 
   test('new projects target Android 5.0 (API 21)', () async {

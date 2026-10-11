@@ -80,7 +80,7 @@ class Executor {
       ...['-injars', artJarPath],
       ...['-outjars', optimizedJar.path],
       ...['-libraryjars', libraryJars.join(BuildUtils.cpSeparator)],
-      ...['-libraryjars', await _javaBaseModule()],
+      for (final module in await _javaModules()) ...['-libraryjars', module],
       ...[for (final el in aarProguardRules) '-include $el'],
       '@${rulesFile.path}',
     ];
@@ -96,10 +96,12 @@ class Executor {
     await optimizedJar.delete();
   }
 
-  static Future<String> _javaBaseModule() async {
-    final jmod =
-        p.join(await BuildUtils.javaHomeDir(), 'jmods', 'java.base.jmod');
-    return '$jmod(!**.jar;!module-info.class)';
+  static Future<List<String>> _javaModules() async {
+    final jmods = p.join(await BuildUtils.javaHomeDir(), 'jmods');
+    return [
+      for (final module in ['java.base', 'java.compiler'])
+        '${p.join(jmods, '$module.jmod')}(!**.jar;!module-info.class)',
+    ];
   }
 
   static Future<void> execManifMerger(
