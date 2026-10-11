@@ -72,32 +72,7 @@ class SyncSubCommand extends Command<int> {
       }
     }
 
-    final ktVersion = config?.kotlin.compilerVersion ?? defaultKtVersion;
-    final toolsCoord = _buildToolCoords +
-        [
-          '$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
-          '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
-        ];
-
-    // Build tools to be resolved
-    final toolsToFetch = <String>{};
-    final buildLibArtifacts = libService.buildLibArtifacts();
-
-    // Add every un-cached tool to the fetch list.
-    for (final coord in toolsCoord) {
-      if (buildLibArtifacts.none((el) => el.coordinate == coord)) {
-        toolsToFetch.add(coord);
-      }
-    }
-
-    // Add every non existent tool to the fetch list. This can happen when the
-    // said tool was deleted or the local Maven repo location was changed.
-    toolsToFetch.addAll(
-      buildLibArtifacts
-          .where((el) => !el.artifactFile.asFile().existsSync())
-          .map((el) => el.coordinate)
-          .where((el) => el.trim().isNotEmpty),
-    );
+    final toolsToFetch = _missingBuildTools(config, libService);
 
     // Stop the init task
     _lgr.stopTask();
@@ -206,8 +181,39 @@ class SyncSubCommand extends Command<int> {
     return 0;
   }
 
+  static Set<String> _missingBuildTools(Config? config, LibService libService) {
+    final ktVersion = config?.kotlin.compilerVersion ?? defaultKtVersion;
+    final toolsCoord = _buildToolCoords +
+        [
+          '$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
+          '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
+        ];
+
+    // Build tools to be resolved
+    final toolsToFetch = <String>{};
+    final buildLibArtifacts = libService.buildLibArtifacts();
+
+    // Add every un-cached tool to the fetch list.
+    for (final coord in toolsCoord) {
+      if (buildLibArtifacts.none((el) => el.coordinate == coord)) {
+        toolsToFetch.add(coord);
+      }
+    }
+
+    // Add every non existent tool to the fetch list. This can happen when the
+    // said tool was deleted or the local Maven repo location was changed.
+    toolsToFetch.addAll(
+      buildLibArtifacts
+          .where((el) => !el.artifactFile.asFile().existsSync())
+          .map((el) => el.coordinate)
+          .where((el) => el.trim().isNotEmpty),
+    );
+    return toolsToFetch;
+  }
+
   static Future<bool> needsSync(Config config, LibService libService) async {
-    if (!Ai2Runtime.isInstalled) {
+    if (!Ai2Runtime.isInstalled ||
+        _missingBuildTools(config, libService).isNotEmpty) {
       return true;
     }
     Hive.init(_fs.dotRushDir.path);
