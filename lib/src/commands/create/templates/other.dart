@@ -100,11 +100,17 @@ String androidManifestXml(String org) {
 ''';
 }
 
-// TODO: Add build instructions and other basic info
 String readmeMd(String name) {
   return '''
 # $name
 
-An App Inventor 2 extension created using Rush.
+An App Inventor 2 extension created using [Rush](https://github.com/zainulhassan815/rush-cli).
+
+## Building
+
+Run `rush build` in this directory. The extension is written to the `out`
+directory as an `.aix` file, ready to import into App Inventor.
+
+Run `rush build --optimize` to also optimize and obfuscate the extension's code.
 ''';
 }
