@@ -348,6 +348,21 @@ class ${project.className}(container: ComponentContainer) : AndroidNonvisibleCom
       expect(project.components.single['iconName'], 'images/extension.png');
     });
 
+    test('requires all extensions to share a package', () async {
+      final project = await createProject('split_ext', language: 'java');
+      project.source('other/Other.java').createSync(recursive: true);
+      project.source('other/Other.java').writeAsStringSync(
+          _fill(_javaExtension, project)
+              .replaceFirst('package ${project.package};',
+                  'package ${project.package}.other;')
+              .replaceAll(project.className, 'Other')
+              .replaceFirst('{functions}', ''));
+      final result = await project.build();
+      expect(result.exitCode, isNot(0));
+      expect(result.output, contains('${project.package}.other'));
+      expect(result.output, isNot(contains('Exception')));
+    });
+
     test('names a missing icon file', () async {
       final project = await createProject('missing_icon_ext', language: 'java');
       final source = project.source('${project.className}.java');

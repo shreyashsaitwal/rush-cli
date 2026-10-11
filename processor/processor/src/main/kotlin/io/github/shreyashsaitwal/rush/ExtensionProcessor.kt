@@ -52,6 +52,14 @@ class ExtensionProcessor : AbstractProcessor() {
 
         val elements = roundEnv.getElementsAnnotatedWith(Extension::class.java)
         val extensions = elements.map { processExtensionElement(it) }
+        val packages = extensions.map { it.fqcn.substringBeforeLast('.') }.distinct()
+        if (packages.size > 1) {
+            messager.printMessage(
+                Kind.ERROR,
+                "All extensions in a project must be in the same package, found: ${packages.joinToString()}"
+            )
+            return false
+        }
 
         val generator = InfoFilesGenerator(extensions, elementUtils, messager)
         try {
