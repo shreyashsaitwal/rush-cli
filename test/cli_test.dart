@@ -361,6 +361,18 @@ class ${project.className}(container: ComponentContainer) : AndroidNonvisibleCom
       expect(result.output, contains('use the primitive type int'));
       expect(result.output, isNot(contains('Exception')));
     });
+
+    test('report Kotlin errors at the Kotlin source', () async {
+      final project = await createProject('kotlin_types_ext');
+      final source = project.source('${project.className}.kt');
+      source.writeAsStringSync(source.readAsStringSync().replaceFirst(
+          'fun SumAll(listOfInts: YailList)',
+          'fun SumAll(listOfInts: YailList, times: Int?)'));
+      final result = await project.build();
+      expect(result.exitCode, isNot(0));
+      expect(result.output, contains('${project.className}.kt:'));
+      expect(result.output, isNot(contains('kapt')));
+    });
   });
 
   group('extension descriptor', () {

@@ -140,6 +140,7 @@ class Compiler {
         '-Kapt-classes=${_fs.buildKaptDir.path}',
         '-Kapt-classpath=${_libService.processorJar}',
         '-Kapt-strip-metadata=true',
+        '-Kapt-map-diagnostic-locations=true',
         '-no-stdlib',
         _fs.srcDir.path,
       ],
