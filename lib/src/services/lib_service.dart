@@ -1,3 +1,5 @@
+import 'dart:io' show FileLock, FileMode, FileSystemException, RandomAccessFile;
+
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
@@ -37,15 +39,12 @@ class LibService {
     }
   }
 
-  late final LazyBox<Artifact> buildLibsBox;
   late final LazyBox<Artifact>? extensionDepsBox;
+  late Map<String, Artifact> _buildLibs;
 
   static Future<LibService> instantiate() async {
     final instance = LibService._();
-    instance.buildLibsBox = await Hive.openLazyBox<Artifact>(
-      buildLibsBoxName,
-      path: p.join(_fs.rushHomeDir.path, 'cache'),
-    );
+    await instance.updateBuildLibs((_) async {});
 
     if (await _fs.configFile.exists()) {
       instance.extensionDepsBox = await Hive.openLazyBox<Artifact>(
@@ -56,6 +55,41 @@ class LibService {
       instance.extensionDepsBox = null;
     }
     return instance;
+  }
+
+  Future<void> updateBuildLibs(
+      Future<void> Function(LazyBox<Artifact> box) update) async {
+    final cacheDir = p.join(_fs.rushHomeDir.path, 'cache').asDir(true);
+    final lock = await p
+        .join(cacheDir.path, '$buildLibsBoxName.access')
+        .asFile(true)
+        .open(mode: FileMode.write);
+    try {
+      await _acquire(lock);
+      final box = await Hive.openLazyBox<Artifact>(buildLibsBoxName,
+          path: cacheDir.path);
+      try {
+        await update(box);
+        _buildLibs = {
+          for (final artifact in await _retrieveArtifactsFromBox(box))
+            artifact.coordinate: artifact
+        };
+      } finally {
+        await box.close();
+      }
+    } finally {
+      await lock.close();
+    }
+  }
+
+  static Future<void> _acquire(RandomAccessFile lock) async {
+    try {
+      await lock.lock(FileLock.exclusive);
+    } on FileSystemException {
+      _lgr.info(
+          'Waiting for another Rush process to finish using the build tools cache...');
+      await lock.lock(FileLock.blockingExclusive);
+    }
   }
 
   /// Returns a list of all the artifacts and their dependencies in a box.
@@ -165,11 +199,10 @@ class LibService {
     ];
   }
 
-  Future<List<Artifact>> buildLibArtifacts() async =>
-      (await _retrieveArtifactsFromBox(buildLibsBox)).toList();
+  List<Artifact> buildLibArtifacts() => _buildLibs.values.toList();
 
-  Future<Artifact> _findArtifact(LazyBox<Artifact> box, String coord) async {
-    final artifact = await box.get(coord);
+  Future<Artifact> _findArtifact(String coord) async {
+    final artifact = _buildLibs[coord];
     if (artifact == null || !await artifact.artifactFile.asFile().exists()) {
       _lgr
         ..err('Unable to find a required library in cache: $coord')
@@ -194,29 +227,22 @@ class LibService {
     return jar;
   }
 
-  Future<String> r8Jar() async =>
-      (await _findArtifact(buildLibsBox, r8Coord)).classesJar;
+  Future<String> r8Jar() async => (await _findArtifact(r8Coord)).classesJar;
 
   Future<Set<String>> pgJars() async =>
-      (await _findArtifact(buildLibsBox, pgCoord))
-          .classpathJars(await buildLibArtifacts());
+      (await _findArtifact(pgCoord)).classpathJars(buildLibArtifacts());
 
   Future<Set<String>> manifMergerJars() async => [
         for (final lib in manifMergerAndDeps)
-          (await _findArtifact(buildLibsBox, lib))
-              .classpathJars(await buildLibArtifacts())
+          (await _findArtifact(lib)).classpathJars(buildLibArtifacts())
       ].flattened.toSet();
 
   Future<Set<String>> kotlincJars(String ktVersion) async =>
       (await _findArtifact(
-        buildLibsBox,
-        '$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
-      ))
-          .classpathJars(await buildLibArtifacts());
+              '$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion'))
+          .classpathJars(buildLibArtifacts());
 
   Future<Set<String>> kaptJars(String ktVersion) async => (await _findArtifact(
-        buildLibsBox,
-        '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
-      ))
-          .classpathJars(await buildLibArtifacts());
+          '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion'))
+      .classpathJars(buildLibArtifacts());
 }

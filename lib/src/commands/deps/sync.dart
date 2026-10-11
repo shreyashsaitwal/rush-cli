@@ -65,7 +65,7 @@ class SyncSubCommand extends Command<int> {
     // Clear all the cache if force is used.
     if (useForce) {
       if (!onlyExtDeps) {
-        await libService.buildLibsBox.clear();
+        await libService.updateBuildLibs((box) => box.clear());
       }
       if (!onlyDevDeps && config != null) {
         await libService.extensionDepsBox!.clear();
@@ -81,7 +81,7 @@ class SyncSubCommand extends Command<int> {
 
     // Build tools to be resolved
     final toolsToFetch = <String>{};
-    var buildLibArtifacts = await libService.buildLibArtifacts();
+    final buildLibArtifacts = libService.buildLibArtifacts();
 
     // Add every un-cached tool to the fetch list.
     for (final coord in toolsCoord) {
@@ -109,10 +109,10 @@ class SyncSubCommand extends Command<int> {
         await Future.wait([
           if (installRuntime) Ai2Runtime.install(),
           if (toolsToFetch.isNotEmpty)
-            sync(
-              cacheBox: libService.buildLibsBox,
-              coordinates: {Scope.compile: toolsToFetch},
-            ),
+            libService.updateBuildLibs((box) => sync(
+                  cacheBox: box,
+                  coordinates: {Scope.compile: toolsToFetch},
+                )),
         ]);
       } catch (e, s) {
         _lgr
