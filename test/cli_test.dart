@@ -146,6 +146,12 @@ void main() {
     });
   });
 
+  test('clean works on a project that was never built', () async {
+    final project = await createProject('unbuilt_ext');
+    final result = await rush(['clean'], workingDirectory: project.dir.path);
+    expect(result.exitCode, 0, reason: result.output);
+  });
+
   group('build', () {
     test('keeps Kotlin classes when the project also has Java sources',
         () async {

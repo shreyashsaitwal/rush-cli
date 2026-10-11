@@ -30,8 +30,10 @@ class CleanCommand extends Command<int> {
         rightPrompt: (done) => done
             ? '${'Success!'.green()} Deleted build files and caches'
             : 'Cleaning...').interact();
-    for (final file in _fs.dotRushDir.listSync()) {
-      await file.delete(recursive: true);
+    if (await _fs.dotRushDir.exists()) {
+      for (final file in _fs.dotRushDir.listSync()) {
+        await file.delete(recursive: true);
+      }
     }
 
     spinner.done();
@@ -44,7 +46,6 @@ class CleanCommand extends Command<int> {
         p.join(_fs.srcDir.path, 'AndroidManifest.xml').asFile();
     return await config.exists() &&
         await _fs.srcDir.exists() &&
-        await androidManifest.exists() &&
-        await _fs.dotRushDir.exists();
+        await androidManifest.exists();
   }
 }
