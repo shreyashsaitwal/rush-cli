@@ -182,6 +182,7 @@ class Compiler {
       _runWithArgsFile(
         executable: BuildUtils.javaExe(),
         leadingArgs: [
+          '-XX:TieredStopAtLevel=1',
           '-cp',
           _normalize(toolClasspath.join(BuildUtils.cpSeparator)),
           mainClass
