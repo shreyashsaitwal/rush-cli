@@ -22,12 +22,16 @@ import java.nio.file.Paths
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
+import javax.annotation.processing.Messager
 import javax.lang.model.util.Elements
 import javax.lang.model.element.Element as JavaElement
+import javax.tools.Diagnostic
 import javax.xml.parsers.DocumentBuilderFactory
 import javax.xml.parsers.ParserConfigurationException
 import kotlin.io.path.createDirectory
 import kotlin.io.path.exists
+
+private const val WRITE_EXTERNAL_STORAGE = "android.permission.WRITE_EXTERNAL_STORAGE"
 
 data class ExtensionModel(
     val element: JavaElement,
@@ -38,7 +42,11 @@ data class ExtensionModel(
     val designerProperties: List<DesignerProperty>,
 )
 
-class InfoFilesGenerator(private val extensions: List<ExtensionModel>, private val elementUtils: Elements) {
+class InfoFilesGenerator(
+    private val extensions: List<ExtensionModel>,
+    private val elementUtils: Elements,
+    private val messager: Messager,
+) {
     private val projectRoot = System.getenv("RUSH_PROJECT_ROOT")
     private val rawBuildDir = Paths.get(projectRoot, ".rush", "build", "raw").apply {
         if (!this.exists()) this.createDirectory()
@@ -165,6 +173,29 @@ class InfoFilesGenerator(private val extensions: List<ExtensionModel>, private v
             }
         }
 
+        val permissionConstraints = JSONObject()
+        for (i in 0 until permissionNodes.length) {
+            val permission = permissionNodes.item(i) as Element
+            val name = generateXmlString(permission, "manifest")
+            val constraint = JSONObject()
+            permission.getAttribute("android:maxSdkVersion").takeIf { it.isNotEmpty() }?.let {
+                if (name == WRITE_EXTERNAL_STORAGE) {
+                    messager.printMessage(
+                        Diagnostic.Kind.WARNING,
+                        "App Inventor limits $WRITE_EXTERNAL_STORAGE to API 29 itself, ignoring android:maxSdkVersion."
+                    )
+                } else {
+                    constraint.put("maxSdkVersion", it.toInt())
+                }
+            }
+            permission.getAttribute("android:usesPermissionFlags").takeIf { it.isNotEmpty() }?.let {
+                constraint.put("usesPermissionFlags", it)
+            }
+            if (!constraint.isEmpty) {
+                permissionConstraints.put(name, constraint)
+            }
+        }
+
         val featureNodes = doc.getElementsByTagName("uses-feature")
         val features = JSONArray()
         for (i in 0 until featureNodes.length) {
@@ -204,6 +235,7 @@ class InfoFilesGenerator(private val extensions: List<ExtensionModel>, private v
                     .put("permissions", permissions)
                     .put("queries", queries)
                     .put("features", if (features.isEmpty) null else features)
+                    .put("permissionConstraints", if (permissionConstraints.isEmpty) null else permissionConstraints)
             }
         }
 

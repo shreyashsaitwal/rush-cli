@@ -275,6 +275,19 @@ void main() {
       if (build.exitCode != 0) fail(build.output);
     });
 
+    test('keeps permission constraints', () {
+      expect(project.buildInfo['permissionConstraints'], {
+        'android.permission.READ_EXTERNAL_STORAGE': {'maxSdkVersion': 32},
+        'android.permission.BLUETOOTH_SCAN': {
+          'usesPermissionFlags': 'neverForLocation'
+        },
+      });
+    });
+
+    test('leaves the storage write limit to App Inventor', () {
+      expect(build.output, contains('WRITE_EXTERNAL_STORAGE'));
+    });
+
     test('keeps features', () {
       expect(project.buildInfo['features'], [
         allOf(contains('android:name="android.hardware.camera"'),

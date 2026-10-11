@@ -53,7 +53,7 @@ class ExtensionProcessor : AbstractProcessor() {
         val elements = roundEnv.getElementsAnnotatedWith(Extension::class.java)
         val extensions = elements.map { processExtensionElement(it) }
 
-        val generator = InfoFilesGenerator(extensions, elementUtils)
+        val generator = InfoFilesGenerator(extensions, elementUtils, messager)
         try {
             generator.generateComponentsJson()
             generator.generateBuildInfoJson()
