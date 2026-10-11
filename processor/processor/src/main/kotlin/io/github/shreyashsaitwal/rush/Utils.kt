@@ -58,10 +58,6 @@ class Utils {
                 return "boolean"
             }
 
-            if (kind == TypeKind.CHAR) {
-                return "char"
-            }
-
             if (kind == TypeKind.DECLARED) {
                 val typeElement = (type as DeclaredType).asElement() as TypeElement
                 val typeFqcn = typeElement.qualifiedName.toString()
@@ -76,8 +72,16 @@ class Utils {
                     "java.lang.Float" to "float",
                     "java.lang.Double" to "double",
                 )
-                if (allowBoxedTypes && boxedTypes.containsKey(type.toString())) {
-                    return boxedTypes[type.toString()]!!
+                boxedTypes[typeFqcn]?.let { primitive ->
+                    if (allowBoxedTypes) {
+                        return primitive
+                    }
+                    messager.printMessage(
+                        Diagnostic.Kind.ERROR,
+                        "Found use of boxed type $typeFqcn. Please use the primitive type $primitive instead.",
+                        element
+                    )
+                    return null
                 }
 
                 val runtimeFqcn = "com.google.appinventor.components.runtime"
@@ -109,7 +113,7 @@ class Utils {
                 }
             }
 
-            messager.printMessage(Diagnostic.Kind.ERROR, "Cannot convert Java type to YAIL type", element)
+            messager.printMessage(Diagnostic.Kind.ERROR, "Cannot convert Java type '$type' to YAIL type.", element)
             return null
         }
     }

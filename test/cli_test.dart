@@ -54,9 +54,35 @@ class {className}(container: ComponentContainer) : AndroidNonvisibleComponent(co
 }
 ''';
 
+const _javaExtension = '''
+package {package};
+
+import com.google.appinventor.components.annotations.Extension;
+import com.google.appinventor.components.annotations.SimpleFunction;
+import com.google.appinventor.components.runtime.AndroidNonvisibleComponent;
+import com.google.appinventor.components.runtime.ComponentContainer;
+import com.google.appinventor.components.runtime.util.Continuation;
+
+@Extension(description = "Test extension", icon = "icon.png")
+public class {className} extends AndroidNonvisibleComponent {
+  public {className}(ComponentContainer container) {
+    super(container.\$form());
+  }
+
+{functions}
+}
+''';
+
 String _fill(String template, TestProject project) => template
     .replaceAll('{package}', project.package)
     .replaceAll('{className}', project.className);
+
+Future<ProcessResult> _buildWithFunctions(
+    TestProject project, String functions) {
+  project.source('${project.className}.java').writeAsStringSync(
+      _fill(_javaExtension, project).replaceFirst('{functions}', functions));
+  return project.build();
+}
 
 void main() {
   final projects = <TestProject>[];
@@ -172,6 +198,30 @@ void main() {
           .map((p) => p['name'])
           .toList();
       expect(names, ['Speed']);
+    });
+  });
+
+  group('block types', () {
+    test('reject types App Inventor has no block for', () async {
+      final project = await createProject('types_ext', language: 'java');
+      final result = await _buildWithFunctions(project, '''
+  @SimpleFunction(description = "Schedules")
+  public void Schedule(java.util.Date when) {
+  }
+
+  @SimpleFunction(description = "Types")
+  public void Type(char key) {
+  }
+
+  @SimpleFunction(description = "Counts")
+  public void Count(Integer times) {
+  }
+''');
+      expect(result.exitCode, isNot(0));
+      expect(result.output, contains("'java.util.Date'"));
+      expect(result.output, contains("'char'"));
+      expect(result.output, contains('use the primitive type int'));
+      expect(result.output, isNot(contains('Exception')));
     });
   });
 

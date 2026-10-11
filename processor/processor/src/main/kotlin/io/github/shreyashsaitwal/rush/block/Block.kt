@@ -79,7 +79,7 @@ abstract class ParameterizedBlock(element: ExecutableElement, messager: Messager
     data class Parameter(
         val element: VariableElement,
         val name: String,
-        val type: String,
+        val type: String?,
         val helper: Helper?,
     ) {
         fun asJsonObject(): JSONObject = JSONObject()
@@ -111,7 +111,7 @@ abstract class ParameterizedBlock(element: ExecutableElement, messager: Messager
         Parameter(
             it,
             it.simpleName.toString(),
-            Utils.yailTypeOf(it, it.asType(), helper != null, messager)!!,
+            Utils.yailTypeOf(it, it.asType(), helper != null, messager),
             helper
         )
     }
