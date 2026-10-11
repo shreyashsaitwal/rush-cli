@@ -275,6 +275,13 @@ void main() {
       if (build.exitCode != 0) fail(build.output);
     });
 
+    test('keeps features', () {
+      expect(project.buildInfo['features'], [
+        allOf(contains('android:name="android.hardware.camera"'),
+            contains('android:required="false"'))
+      ]);
+    });
+
     test('escapes attribute values', () {
       expect(project.buildInfo['activities'],
           [contains('"Tom &amp; &quot;Jerry&quot; &lt;3"')]);

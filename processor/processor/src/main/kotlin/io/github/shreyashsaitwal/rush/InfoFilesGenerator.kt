@@ -165,6 +165,12 @@ class InfoFilesGenerator(private val extensions: List<ExtensionModel>, private v
             }
         }
 
+        val featureNodes = doc.getElementsByTagName("uses-feature")
+        val features = JSONArray()
+        for (i in 0 until featureNodes.length) {
+            features.put(generateXmlString(featureNodes.item(i), "manifest"))
+        }
+
         // <queries> elements
         val queriesNodes = doc.getElementsByTagName("queries")
         val queries = JSONArray()
@@ -197,6 +203,7 @@ class InfoFilesGenerator(private val extensions: List<ExtensionModel>, private v
                     .put("activities", appElements)
                     .put("permissions", permissions)
                     .put("queries", queries)
+                    .put("features", if (features.isEmpty) null else features)
             }
         }
 
