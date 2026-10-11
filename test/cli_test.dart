@@ -37,6 +37,7 @@ package {package}
 import com.google.appinventor.components.annotations.DesignerProperty
 import com.google.appinventor.components.annotations.Extension
 import com.google.appinventor.components.annotations.PropertyCategory
+import com.google.appinventor.components.annotations.SimpleFunction
 import com.google.appinventor.components.annotations.SimpleProperty
 import com.google.appinventor.components.common.PropertyTypeConstants
 import com.google.appinventor.components.runtime.AndroidNonvisibleComponent
@@ -156,6 +157,25 @@ void main() {
       expect(result.exitCode, 0, reason: result.output);
       expect(project.runtimeClasses,
           isNot(contains(project.classFile('helpers/Mode'))));
+    });
+
+    test('recompiles helpers after the build directory is deleted', () async {
+      final project = await createProject('rebuilt_ext');
+      project.source('helpers/Mode.java').createSync(recursive: true);
+      project
+          .source('helpers/Mode.java')
+          .writeAsStringSync(_fill(_helperEnum, project));
+      project.source('${project.className}.kt').writeAsStringSync(
+          _fill(_extensionWithProperty, project).replaceFirst(
+              '    private var speed = 1',
+              '    @SimpleFunction(description = "Moves")\n'
+                  '    fun Move(mode: ${project.package}.helpers.Mode) {}\n\n'
+                  '    private var speed = 1'));
+      expect((await project.build()).exitCode, 0);
+
+      Directory('${project.dir.path}/.rush/build').deleteSync(recursive: true);
+      final result = await project.build();
+      expect(result.exitCode, 0, reason: result.output);
     });
 
     test('works for Kotlin projects in a path with spaces', () async {

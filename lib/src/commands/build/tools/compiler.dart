@@ -43,6 +43,14 @@ class Compiler {
     await _removeClassesOlderThan(startedOn);
   }
 
+  static bool _isCompiled(File source) => p
+      .join(
+          _fs.buildClassesDir.path,
+          p.setExtension(
+              p.relative(source.path, from: _fs.srcDir.path), '.class'))
+      .asFile()
+      .existsSync();
+
   static Future<DateTime> _markCompilationStart() async {
     final marker = p.join(_fs.buildDir.path, 'compilation-start').asFile(true);
     await marker.writeAsString('');
@@ -63,10 +71,9 @@ class Compiler {
         .where((el) => el.path.split(p.separator).contains('helpers'));
 
     final helpersModTime = await timestampBox.get(helpersTimestampKey);
-    final helpersModified = helpersModTime == null
-        ? true
-        : helperFiles
-            .any((el) => el.lastModifiedSync().isAfter(helpersModTime));
+    final helpersModified = helpersModTime == null ||
+        helperFiles.any((el) =>
+            el.lastModifiedSync().isAfter(helpersModTime) || !_isCompiled(el));
     if (helperFiles.isEmpty || !helpersModified) {
       return;
     }
