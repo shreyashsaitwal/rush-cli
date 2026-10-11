@@ -23,6 +23,7 @@ what is supported, what is planned and what is deliberately out of scope.
 | Manifest permission constraints, features and escaped attributes | 2.1.0 |
 | `rush upgrade` installs new releases | 2.1.0 |
 | `rush migrate` for Rush 1 projects | 2.1.0 |
+| Markdown documentation of the extension's blocks, written next to the AIX | Unreleased |
 
 ## Planned
 
@@ -30,7 +31,6 @@ what is supported, what is planned and what is deliberately out of scope.
 |---|---|
 | Extension-owned resources and custom XML layouts, shipped in an AAR Rush builds | Design |
 | Java 9+ language features and core library desugaring (`java.time` and others) | Not started |
-| Markdown documentation generated from the extension's blocks | Not started |
 | Project-specific JDK and default build arguments in `rush.yml` | Not started |
 | Several packages in one project, built as separate extensions in one AIX | Not started |
 

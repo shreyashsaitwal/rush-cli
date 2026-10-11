@@ -78,6 +78,56 @@ public class {className} extends AndroidNonvisibleComponent {
 }
 ''';
 
+const _documentedExtension = '''
+package {package};
+
+import com.google.appinventor.components.annotations.DesignerProperty;
+import com.google.appinventor.components.annotations.Extension;
+import com.google.appinventor.components.annotations.Options;
+import com.google.appinventor.components.annotations.SimpleEvent;
+import com.google.appinventor.components.annotations.SimpleFunction;
+import com.google.appinventor.components.annotations.SimpleProperty;
+import com.google.appinventor.components.common.PropertyTypeConstants;
+import com.google.appinventor.components.runtime.AndroidNonvisibleComponent;
+import com.google.appinventor.components.runtime.ComponentContainer;
+import com.google.appinventor.components.runtime.EventDispatcher;
+import {package}.helpers.Mode;
+
+@Extension(description = "Counts things.", icon = "icon.png")
+public class {className} extends AndroidNonvisibleComponent {
+  private int step = 1;
+
+  public {className}(ComponentContainer container) {
+    super(container.\$form());
+  }
+
+  @SimpleFunction(description = "Adds the step to a number.")
+  public int Add(int number) {
+    return number + step;
+  }
+
+  @SimpleFunction(description = "Changes how counting moves.")
+  public void SetMode(@Options(Mode.class) String mode) {
+  }
+
+  @SimpleEvent(description = "The count reached a limit.")
+  public void LimitReached(int limit, String reason) {
+    EventDispatcher.dispatchEvent(this, "LimitReached", limit, reason);
+  }
+
+  @SimpleProperty(description = "Amount added each time.")
+  public int Step() {
+    return step;
+  }
+
+  @DesignerProperty(editorType = PropertyTypeConstants.PROPERTY_TYPE_NON_NEGATIVE_INTEGER, defaultValue = "1")
+  @SimpleProperty
+  public void Step(int value) {
+    step = value;
+  }
+}
+''';
+
 String _fill(String template, TestProject project) => template
     .replaceAll('{package}', project.package)
     .replaceAll('{className}', project.className);
@@ -402,6 +452,36 @@ class ${project.className}(container: ComponentContainer) : AndroidNonvisibleCom
   });
 
   group('extension descriptor', () {
+    test('is documented in Markdown next to the AIX', () async {
+      final project = await createProject('docs_ext', language: 'java');
+      project
+          .source('${project.className}.java')
+          .writeAsStringSync(_fill(_documentedExtension, project));
+      project.source('helpers/Mode.java')
+        ..createSync(recursive: true)
+        ..writeAsStringSync(_fill(_helperEnum, project));
+      final result = await project.build();
+      expect(result.exitCode, 0, reason: result.output);
+      expect(
+          project.file('out/${project.package}.md').readAsStringSync(),
+          allOf([
+            contains('# DocsExt\n\n<p>Counts things.</p>'),
+            contains('### Add(number)\n\nAdds the step to a number.'),
+            contains('| number | number |'),
+            contains('Returns `number`.'),
+            contains('### LimitReached(limit, reason)'),
+            contains('| reason | text |'),
+            contains('### Step\n\nAmount added each time.'),
+            contains('`number`, read-write, designer default `1`.'),
+            contains('| mode | Mode |'),
+            contains('## Dropdowns\n\n### Mode\n\n'
+                '| Option | Value | Description |\n'
+                '|---|---|---|\n'
+                '| FAST | `fast` | Moves quickly. |\n'
+                '| SLOW | `slow` | Moves carefully. |'),
+          ]));
+    });
+
     test('takes metadata from rush.yml', () async {
       final project = await createProject('metadata_ext', language: 'java');
       project.file('assets/data.txt').writeAsStringSync('data');

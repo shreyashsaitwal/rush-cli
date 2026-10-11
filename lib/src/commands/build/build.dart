@@ -11,6 +11,7 @@ import 'package:pool/pool.dart';
 import 'package:tint/tint.dart';
 
 import 'package:rush/src/commands/build/build_dependencies.dart';
+import 'package:rush/src/commands/build/docs.dart';
 import 'package:rush/src/commands/build/utils.dart';
 import 'package:rush/src/commands/deps/sync.dart';
 import 'package:rush/src/commands/build/tools/compiler.dart';
@@ -595,5 +596,13 @@ class BuildCommand extends Command<int> {
     } finally {
       await zipEncoder.close();
     }
+
+    final docs = p.join(outputDir.path, '$org.md');
+    final components = jsonDecode(await p
+        .join(_fs.buildRawDir.path, 'components.json')
+        .asFile()
+        .readAsString()) as List;
+    await docs.asFile().writeAsString(markdownDocs(components));
+    _lgr.info('Generated docs at ${docs.blue()}');
   }
 }

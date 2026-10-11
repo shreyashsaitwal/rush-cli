@@ -14,6 +14,7 @@ created by Shreyash Saitwal, which brings Rush 2.0 to a stable release.
 * `AndroidManifest.xml` support, merged with the manifests of AAR dependencies
 * Builds against the latest App Inventor release (currently **v206**)
 * Optional shrinking and obfuscation with ProGuard
+* Markdown documentation of every block and dropdown, generated with each build
 
 See the [roadmap](ROADMAP.md) for everything that's supported and planned.
 
