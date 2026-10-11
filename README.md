@@ -15,6 +15,8 @@ created by Shreyash Saitwal, which brings Rush 2.0 to a stable release.
 * Builds against the latest App Inventor release (currently **v206**)
 * Optional shrinking and obfuscation with ProGuard
 
+See the [roadmap](ROADMAP.md) for everything that's supported and planned.
+
 ## Installation
 
 Rush requires JDK 17 or newer.
