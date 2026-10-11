@@ -91,17 +91,7 @@ class InfoFilesGenerator(
                 .put("version", versionCode(yaml.version).toString())
                 .put("androidMinSdk", minSdk(yaml))
 
-            val icon = extAnnotation.icon
-            if (urlPattern.matcher(icon).find()) {
-                extJsonObj.put("iconName", icon)
-            } else {
-                val origIcon = Paths.get(projectRoot, "assets", icon).toFile()
-                Paths.get(rawBuildDir.toString(), "aiwebres", icon).toFile().apply {
-                    if (this.exists()) this.delete()
-                    origIcon.copyTo(this)
-                }
-                extJsonObj.put("iconName", "aiwebres/$icon")
-            }
+            extJsonObj.put("iconName", iconName(ext.element, extAnnotation.icon))
 
             val time = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
             extJsonObj.put("dateBuilt", time)
@@ -342,6 +332,22 @@ class InfoFilesGenerator(
         }
 
         return sb.toString().replace("\${applicationId}", "%packageName%")
+    }
+
+    private fun iconName(element: JavaElement, icon: String): String {
+        if (icon.isBlank()) {
+            return "images/extension.png"
+        }
+        if (urlPattern.matcher(icon).find()) {
+            return icon
+        }
+        val source = Paths.get(projectRoot, "assets", icon).toFile()
+        if (!source.isFile) {
+            messager.printMessage(Diagnostic.Kind.ERROR, "Icon file assets/$icon not found.", element)
+            return icon
+        }
+        source.copyTo(Paths.get(rawBuildDir.toString(), "aiwebres", icon).toFile(), overwrite = true)
+        return "aiwebres/$icon"
     }
 
     private fun licenseName(license: String): String {

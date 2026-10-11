@@ -267,6 +267,29 @@ void main() {
       expect(project.aix.files.map((f) => f.name),
           contains('${project.package}/aiwebres/LICENSE'));
     });
+
+    test('uses the default icon when none is set', () async {
+      final project = await createProject('iconless_ext', language: 'java');
+      final source = project.source('${project.className}.java');
+      source.writeAsStringSync(source
+          .readAsStringSync()
+          .replaceFirst(RegExp(r',\s*icon = "icon.png"'), ''));
+      final result = await project.build();
+      expect(result.exitCode, 0, reason: result.output);
+      expect(project.components.single['iconName'], 'images/extension.png');
+    });
+
+    test('names a missing icon file', () async {
+      final project = await createProject('missing_icon_ext', language: 'java');
+      final source = project.source('${project.className}.java');
+      source.writeAsStringSync(source
+          .readAsStringSync()
+          .replaceFirst('icon = "icon.png"', 'icon = "missing.png"'));
+      final result = await project.build();
+      expect(result.exitCode, isNot(0));
+      expect(result.output, contains('missing.png'));
+      expect(result.output, isNot(contains('Exception')));
+    });
   });
 
   group('manifest', () {
