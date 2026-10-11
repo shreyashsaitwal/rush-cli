@@ -2,7 +2,6 @@ import 'dart:math';
 
 import 'package:hive/hive.dart';
 import 'package:collection/collection.dart';
-import 'package:xrange/xrange.dart';
 
 import 'package:get_it/get_it.dart';
 import 'package:rush/src/services/file_service.dart';
@@ -137,9 +136,6 @@ class Version implements Comparable<Version> {
   @HiveField(2)
   String? _originalVersionStr;
 
-  /// Original version string as defined in the pom.xml of the artifact.
-  String get originalVersionSpec => _originalVersionStr!;
-
   Version(this._versionStr, this._originalVersionStr)
       : _elements = _versionStr.trim().split('.') {
     _versionStr = _versionStr.trim();
@@ -156,79 +152,6 @@ class Version implements Comparable<Version> {
       return aNum.compareTo(bNum);
     } else {
       return a.compareTo(b);
-    }
-  }
-
-  static RegExp rangeRegex =
-      RegExp(r'([\[\(])(-?∞?[^,]*)(\,?|\.\.)?(-?∞?[^,]*)?([\]\)])');
-
-  // FIXME: Currently, we are not handling ranges like this: [1,2),(4,6]. Although,
-  // they are not very common (I have never seen them in the wild), we should
-  // still handle them.
-  // Below copy-pasta sauce: https://stackoverflow.com/a/45627598/12401482 :)
-  Range<Version>? get range {
-    _originalVersionStr ??= _versionStr;
-
-    if (!rangeRegex.hasMatch(_originalVersionStr!)) {
-      return null;
-    }
-
-    final matches = rangeRegex.allMatches(_originalVersionStr!).first;
-    if (rangeRegex.hasMatch(_originalVersionStr!)) {
-      final lowerBoundEndpoint = matches.group(2);
-      final separator = matches.group(3);
-      final upperBoundEndpoint = matches.group(4);
-
-      // Singleton case (e.g. [1.0.0])
-      if (separator == null) {
-        return Range.singleton(Version.from(lowerBoundEndpoint!));
-      }
-
-      if (lowerBoundEndpoint == null && upperBoundEndpoint == null) {
-        return Range.all();
-      }
-
-      final lowerBoundInclusive = matches.group(1)! == '[';
-      final upperBoundInclusive = matches.group(5)! == ']';
-
-      // Lower infinity case (e.g. [, 1.0.0])
-      if (lowerBoundEndpoint == null || lowerBoundEndpoint == '') {
-        if (upperBoundInclusive) {
-          return Range.atMost(Version.from(upperBoundEndpoint!));
-        } else {
-          return Range.lessThan(Version.from(upperBoundEndpoint!));
-        }
-      }
-
-      // Upper infinity case (e.g. [1.0.0, ])
-      else if (upperBoundEndpoint == null || upperBoundEndpoint == '') {
-        if (lowerBoundInclusive) {
-          return Range.atLeast(Version.from(lowerBoundEndpoint));
-        } else {
-          return Range.greaterThan(Version.from(lowerBoundEndpoint));
-        }
-      }
-
-      // Non infinity case (e.g. [1.0.0, 2.0.0])
-      if (lowerBoundInclusive) {
-        if (upperBoundInclusive) {
-          return Range.closed(Version.from(lowerBoundEndpoint),
-              Version.from(upperBoundEndpoint));
-        } else {
-          return Range.closedOpen(Version.from(lowerBoundEndpoint),
-              Version.from(upperBoundEndpoint));
-        }
-      } else {
-        if (upperBoundInclusive) {
-          return Range.openClosed(Version.from(lowerBoundEndpoint),
-              Version.from(upperBoundEndpoint));
-        } else {
-          return Range.open(Version.from(lowerBoundEndpoint),
-              Version.from(upperBoundEndpoint));
-        }
-      }
-    } else {
-      throw Exception('${_originalVersionStr!} is not a valid range notation');
     }
   }
 

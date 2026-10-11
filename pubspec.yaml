@@ -36,7 +36,6 @@ dependencies:
   pool: ^1.5.0
   recase: ^4.1.0
   tint: ^2.1.0
-  xrange: ^2.0.0
 
 dependency_overrides:
   tint:
