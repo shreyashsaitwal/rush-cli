@@ -22,7 +22,15 @@ class BuildDependencies {
     final shipped = (await libService.extensionDependencies(config))
         .where((el) => el.scope == Scope.compile || el.scope == Scope.runtime)
         .toSet();
-    final provided = await libService.providedDependencies(config);
+    final shippedLibraries = shipped
+        .where((el) => el.isMavenArtifact)
+        .map((el) => el.groupAndArtifactId)
+        .toSet();
+    final provided = (await libService.providedDependencies(config))
+        .where((el) =>
+            !el.isMavenArtifact ||
+            !shippedLibraries.contains(el.groupAndArtifactId))
+        .toList();
     final shippedAars = shipped.where((el) => el.packaging == 'aar').toList();
 
     return BuildDependencies._(

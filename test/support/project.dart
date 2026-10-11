@@ -60,6 +60,13 @@ class TestProject {
   File source(String relativePath) =>
       file(p.join('src', p.joinAll(package.split('.')), relativePath));
 
+  void addDependencies(List<String> coordinates) {
+    final config = file('rush.yml');
+    config.writeAsStringSync(config.readAsStringSync().replaceFirst(
+        '#dependencies:',
+        ['dependencies:', for (final c in coordinates) '- $c'].join('\n')));
+  }
+
   Future<ProcessResult> build([List<String> args = const []]) =>
       rush(['build', ...args], workingDirectory: dir.path);
 

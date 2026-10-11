@@ -177,14 +177,19 @@ void main() {
   group('dependencies', () {
     test('name the coordinate that could not be resolved', () async {
       final project = await createProject('missing_dep_ext', language: 'java');
-      final config = project.file('rush.yml');
-      config.writeAsStringSync(config.readAsStringSync().replaceFirst(
-            '#dependencies:',
-            'dependencies:\n- com.example.missing:nothing:1.0.0',
-          ));
+      project.addDependencies(['com.example.missing:nothing:1.0.0']);
       final result = await project.build();
       expect(result.exitCode, isNot(0));
       expect(result.output, contains('com.example.missing:nothing:1.0.0'));
+    });
+  });
+
+  group('optimize', () {
+    test('works with a library App Inventor also ships', () async {
+      final project = await createProject('gson_ext', language: 'java');
+      project.addDependencies(['com.google.code.gson:gson:2.8.9']);
+      final result = await project.build(['--optimize']);
+      expect(result.exitCode, 0, reason: result.output);
     });
   });
 
