@@ -41,4 +41,4 @@ dependency_overrides:
   tint:
     git:
       url: https://github.com/shreyashsaitwal/tint
-      ref: main
+      ref: 69fa953fbf28632ab4dce4a51f8be591743fdbde
