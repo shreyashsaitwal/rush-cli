@@ -6,8 +6,6 @@ import io.github.shreyashsaitwal.rush.Utils
 import org.json.JSONObject
 import javax.annotation.processing.Messager
 import javax.lang.model.element.ExecutableElement
-import javax.lang.model.element.TypeElement
-import javax.lang.model.type.DeclaredType
 import javax.lang.model.type.TypeKind
 import javax.lang.model.util.Elements
 import javax.tools.Diagnostic.Kind
@@ -79,9 +77,6 @@ class Property(
     override val helper = when (element.returnType.kind) {
         // Setters
         TypeKind.VOID -> Helper.tryFrom(element.parameters[0], elementUtils)
-        // Getters with [DeclaredType] return type
-        TypeKind.DECLARED -> Helper.tryFrom((element.returnType as DeclaredType).asElement() as TypeElement, elementUtils)
-        // Getters with primitive return type
         else -> Helper.tryFrom(element, elementUtils)
     }
 

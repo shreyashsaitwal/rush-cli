@@ -22,7 +22,7 @@ import java.lang.annotation.Target;
  * </code>
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.PARAMETER, ElementType.TYPE_USE})
+@Target({ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE_USE})
 public @interface Options {
     /**
      * The type of the OptionList used to represent values of the annotated property.

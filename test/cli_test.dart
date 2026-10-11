@@ -240,7 +240,7 @@ void main() {
       expect(methods['Fetch'], containsPair('returnType', 'text'));
     });
 
-    test('describe dropdown options', () async {
+    test('describe dropdown options and honor @Options on getters', () async {
       final project = await createProject('options_ext', language: 'java');
       project.source('helpers/Mode.java').createSync(recursive: true);
       project
@@ -250,12 +250,53 @@ void main() {
   @SimpleFunction(description = "Moves")
   public void Move(${project.package}.helpers.Mode mode) {
   }
+
+  @com.google.appinventor.components.annotations.SimpleProperty(description = "Mode")
+  @com.google.appinventor.components.annotations.Options(${project.package}.helpers.Mode.class)
+  public String CurrentMode() {
+    return "fast";
+  }
 ''');
       expect(result.exitCode, 0, reason: result.output);
-      final options = (project.components.single['methods'] as List)
-          .single['params'][0]['helper']['data']['options'] as List;
+      final component = project.components.single;
+      final options = (component['methods'] as List).single['params'][0]
+          ['helper']['data']['options'] as List;
       expect(options.map((o) => o['description']),
           ['Moves quickly.', 'Moves carefully.']);
+      final property = (component['blockProperties'] as List).single;
+      expect(property['helper']?['data']?['className'],
+          '${project.package}.helpers.Mode');
+    });
+
+    test('honor @Options on Kotlin getters', () async {
+      final project = await createProject('kotlin_options_ext');
+      project.source('helpers/Mode.java').createSync(recursive: true);
+      project
+          .source('helpers/Mode.java')
+          .writeAsStringSync(_fill(_helperEnum, project));
+      project.source('${project.className}.kt').writeAsStringSync('''
+package ${project.package}
+
+import ${project.package}.helpers.Mode
+import com.google.appinventor.components.annotations.Extension
+import com.google.appinventor.components.annotations.Options
+import com.google.appinventor.components.annotations.SimpleProperty
+import com.google.appinventor.components.runtime.AndroidNonvisibleComponent
+import com.google.appinventor.components.runtime.ComponentContainer
+
+@Extension(description = "Test extension", icon = "icon.png")
+class ${project.className}(container: ComponentContainer) : AndroidNonvisibleComponent(container.`\$form`()) {
+    @SimpleProperty(description = "Mode")
+    @Options(Mode::class)
+    fun CurrentMode(): String = "fast"
+}
+''');
+      final result = await project.build();
+      expect(result.exitCode, 0, reason: result.output);
+      final property =
+          (project.components.single['blockProperties'] as List).single;
+      expect(property['helper']?['data']?['className'],
+          '${project.package}.helpers.Mode');
     });
 
     test('reject types App Inventor has no block for', () async {

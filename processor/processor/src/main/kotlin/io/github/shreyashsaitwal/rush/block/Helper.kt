@@ -12,12 +12,18 @@ import javax.lang.model.element.Element
 import javax.lang.model.element.ExecutableElement
 import javax.lang.model.element.TypeElement
 import javax.lang.model.type.DeclaredType
-import javax.lang.model.type.MirroredTypeException
 import javax.lang.model.util.Elements
 
 /**
  * Possible types of helper blocks.
  */
+private fun Element.optionListType(): DeclaredType? {
+    val returnTypeMirrors = (this as? ExecutableElement)?.returnType?.annotationMirrors.orEmpty()
+    val options = (annotationMirrors + returnTypeMirrors)
+        .firstOrNull { it.annotationType.toString() == Options::class.java.name }
+    return options?.elementValues?.values?.single()?.value as DeclaredType?
+}
+
 enum class HelperType {
     OPTION_LIST, ASSET;
 
@@ -36,7 +42,7 @@ enum class HelperType {
 
             if (element.getAnnotation(Asset::class.java) != null) {
                 return ASSET
-            } else if (element.getAnnotation(Options::class.java) != null) {
+            } else if (element.optionListType() != null) {
                 return OPTION_LIST
             }
 
@@ -87,26 +93,13 @@ data class Helper(
                 }
 
                 HelperType.OPTION_LIST -> {
-                    val optionsAnnotation = element.getAnnotation(Options::class.java)
-                    var helperElement = element
-
-                    val optionListEnumName = if (optionsAnnotation != null) {
-                        try {
-                            // This will always throw. For more info: https://stackoverflow.com/a/10167558/12401482
-                            optionsAnnotation.value
-                        } catch (e: MirroredTypeException) {
-                            helperElement = (e.typeMirror as DeclaredType).asElement()
-                        }
-
-                        helperElement.asType().toString()
+                    val optionList = element.optionListType()
+                    val helperElement = optionList?.asElement() ?: element
+                    val optionListEnumName = (optionList ?: if (element is ExecutableElement) {
+                        element.returnType
                     } else {
-                        val type = if (element is ExecutableElement) {
-                            element.returnType
-                        } else {
-                            element.asType()
-                        }
-                        type.toString()
-                    }
+                        element.asType()
+                    }).toString()
 
                     val isCached = HelperSingleton.optionListCache.containsKey(optionListEnumName)
                     val data = if (isCached) {
