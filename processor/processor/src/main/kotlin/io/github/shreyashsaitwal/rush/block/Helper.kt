@@ -175,13 +175,14 @@ private class OptionListData(element: Element, private val elementUtils: Element
         val deprecated: Boolean,
         val name: String,
         val value: String,
+        val description: String,
     ) {
         fun asJsonObject(): JSONObject {
             return JSONObject()
                 .put("name", name)
                 .put("deprecated", deprecated.toString())
                 .put("value", value)
-                .put("description", "Option for $name") // Getting enum consts' description doesn't work (also not in AI2)
+                .put("description", description)
         }
     }
 
@@ -227,12 +228,12 @@ private class OptionListData(element: Element, private val elementUtils: Element
         underlyingType = optionListEnum.genericInterfaces.first().typeName.split("[<>]".toPattern())[1]
 
         return enumConsts.map {
+            val enumElement = enumElements.singleOrNull { el -> el.simpleName.toString() == it.key }
             Option(
-                deprecated = elementUtils.isDeprecated(enumElements.singleOrNull { el ->
-                    el.simpleName.toString() == it.key
-                }),
+                deprecated = elementUtils.isDeprecated(enumElement),
                 name = it.key,
                 value = it.value,
+                description = elementUtils.getDocComment(enumElement).orEmpty().split("[^\\\\][@{]".toRegex())[0].trim(),
             ).asJsonObject()
         }
     }

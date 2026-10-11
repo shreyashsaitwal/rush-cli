@@ -14,7 +14,9 @@ package {package}.helpers;
 import com.google.appinventor.components.common.OptionList;
 
 public enum Mode implements OptionList<String> {
+  /** Moves quickly. */
   FAST("fast"),
+  /** Moves carefully. */
   SLOW("slow");
 
   private final String value;
@@ -236,6 +238,24 @@ void main() {
       ]);
       expect(methods['Fetch'], containsPair('continuation', true));
       expect(methods['Fetch'], containsPair('returnType', 'text'));
+    });
+
+    test('describe dropdown options', () async {
+      final project = await createProject('options_ext', language: 'java');
+      project.source('helpers/Mode.java').createSync(recursive: true);
+      project
+          .source('helpers/Mode.java')
+          .writeAsStringSync(_fill(_helperEnum, project));
+      final result = await _buildWithFunctions(project, '''
+  @SimpleFunction(description = "Moves")
+  public void Move(${project.package}.helpers.Mode mode) {
+  }
+''');
+      expect(result.exitCode, 0, reason: result.output);
+      final options = (project.components.single['methods'] as List)
+          .single['params'][0]['helper']['data']['options'] as List;
+      expect(options.map((o) => o['description']),
+          ['Moves quickly.', 'Moves carefully.']);
     });
 
     test('reject types App Inventor has no block for', () async {
