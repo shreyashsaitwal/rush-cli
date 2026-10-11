@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:get_it/get_it.dart';
@@ -34,15 +35,6 @@ class RushCommandRunner extends CommandRunner<int> {
         defaultsTo: true,
         help:
             'Whether output should be colorized or not. Defaults to true in terminals that support ANSI colors.',
-        callback: (ok) {
-          final noColorEnv =
-              int.tryParse(Platform.environment['NO_COLOR'] ?? '0');
-          if (noColorEnv != null && noColorEnv == 1) {
-            supportsAnsiColor = false;
-          } else {
-            supportsAnsiColor = ok;
-          }
-        },
       )
       ..addFlag(
         'version',
@@ -61,9 +53,6 @@ class RushCommandRunner extends CommandRunner<int> {
         abbr: 'l',
         defaultsTo: true,
         hide: true,
-        callback: (ok) {
-          if (ok) _printLogo();
-        },
       );
 
     addCommand(BuildCommand());
@@ -72,6 +61,25 @@ class RushCommandRunner extends CommandRunner<int> {
     addCommand(DepsCommand());
     addCommand(MigrateCommand());
     addCommand(UpgradeCommand());
+  }
+
+  @override
+  Future<int?> runCommand(ArgResults topLevelResults) {
+    supportsAnsiColor = _useColor(topLevelResults);
+    if (topLevelResults.command != null &&
+        topLevelResults['logo'] as bool &&
+        stdout.hasTerminal) {
+      _printLogo();
+    }
+    return super.runCommand(topLevelResults);
+  }
+
+  bool _useColor(ArgResults results) {
+    if (results.wasParsed('color')) {
+      return results['color'] as bool;
+    }
+    final noColor = Platform.environment['NO_COLOR'] ?? '';
+    return noColor.isEmpty && stdout.supportsAnsiEscapes;
   }
 
   void _printLogo() {

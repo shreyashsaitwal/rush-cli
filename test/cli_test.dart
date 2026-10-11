@@ -125,6 +125,26 @@ void main() {
     });
   });
 
+  group('output', () {
+    final escape = RegExp('\x1b');
+
+    test('is plain text when not written to a terminal', () async {
+      final project = await createProject('piped_ext');
+      final result = await Process.run(rushBin, ['build'],
+          workingDirectory: project.dir.path);
+      expect(result.exitCode, 0, reason: result.output);
+      expect(result.output, isNot(contains(escape)));
+      expect(result.output, isNot(contains('/_/')));
+      expect(result.output, contains('Compiling sources'));
+    });
+
+    test('is colored when color is requested', () async {
+      final result = await Process.run(rushBin, ['--color', 'clean'],
+          workingDirectory: Directory.systemTemp.path);
+      expect(result.output, contains(escape));
+    });
+  });
+
   group('build', () {
     test('keeps Kotlin classes when the project also has Java sources',
         () async {

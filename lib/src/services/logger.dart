@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dart_console/dart_console.dart';
 import 'package:tint/tint.dart';
 
 final _console = Console();
+final _rewritesLines = stdout.hasTerminal;
 
 class Logger {
   bool debug = false;
@@ -75,9 +77,8 @@ class Logger {
 
   void log(String message, [String prefix = '']) {
     if (!_hasTaskLogged && _isTaskRunning) {
+      _eraseLastLine();
       _console
-        ..cursorUp()
-        ..eraseLine()
         ..write('┌ '.brightBlack() + _taskTitle)
         ..writeLine();
       _hasTaskLogged = true;
@@ -95,10 +96,20 @@ class Logger {
     _taskStopwatch.start();
     _isTaskRunning = true;
     _taskTitle = title;
-    _console
-      ..write('- '.brightBlack())
-      ..write(title)
-      ..writeLine();
+    if (_rewritesLines) {
+      _console
+        ..write('- '.brightBlack())
+        ..write(title)
+        ..writeLine();
+    }
+  }
+
+  void _eraseLastLine() {
+    if (_rewritesLines) {
+      _console
+        ..cursorUp()
+        ..eraseLine();
+    }
   }
 
   void stopTask([bool success = true]) {
@@ -114,9 +125,7 @@ class Logger {
       line = '└ '.brightBlack() + line;
     } else {
       line = '${'- '.brightBlack()}$_taskTitle $line';
-      _console
-        ..cursorUp()
-        ..eraseLine();
+      _eraseLastLine();
     }
     _console
       ..write(line)
