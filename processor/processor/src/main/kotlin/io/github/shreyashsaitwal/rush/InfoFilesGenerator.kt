@@ -1,12 +1,10 @@
 package io.github.shreyashsaitwal.rush
 
-import com.charleskorn.kaml.Yaml
 import com.google.appinventor.components.annotations.Extension
 import io.github.shreyashsaitwal.rush.block.DesignerProperty
 import io.github.shreyashsaitwal.rush.block.Event
 import io.github.shreyashsaitwal.rush.block.Function
 import io.github.shreyashsaitwal.rush.block.Property
-import io.github.shreyashsaitwal.rush.model.RushYaml
 import org.commonmark.ext.autolink.AutolinkExtension
 import org.commonmark.ext.task.list.items.TaskListItemsExtension
 import org.commonmark.parser.Parser
@@ -16,7 +14,6 @@ import org.xml.sax.SAXException
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
-import java.io.FileInputStream
 import java.io.IOException
 import java.nio.file.Paths
 import java.time.LocalDate
@@ -51,6 +48,8 @@ class InfoFilesGenerator(
     private val rawBuildDir = Paths.get(projectRoot, ".rush", "build", "raw").apply {
         if (!this.exists()) this.createDirectory()
     }
+    private val config = JSONObject(Paths.get(projectRoot, ".rush", "build", "config.json").toFile().readText())
+    private val minSdk = config.optInt("min_sdk", 7).coerceAtLeast(7).toString()
     private val urlPattern = Pattern.compile(
         """https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_+.~#?&//=]*)"""
     )
@@ -62,7 +61,7 @@ class InfoFilesGenerator(
      * @throws JSONException
      */
     fun generateComponentsJson() {
-        val yaml = metadataFile()
+        val version = config.getString("version")
         val componentsJsonArray = JSONArray()
 
         for (ext in extensions) {
@@ -85,11 +84,11 @@ class InfoFilesGenerator(
                 .put("name", ext.element.simpleName.toString())
                 .put("helpString", parseMdString(description))
                 .put("type", ext.fqcn)
-                .put("helpUrl", yaml.homepage)
-                .put("licenseName", licenseName(yaml.license))
-                .put("versionName", yaml.version)
-                .put("version", versionCode(yaml.version).toString())
-                .put("androidMinSdk", minSdk(yaml))
+                .put("helpUrl", config.optString("homepage"))
+                .put("licenseName", licenseName(config.optString("license")))
+                .put("versionName", version)
+                .put("version", versionCode(version).toString())
+                .put("androidMinSdk", minSdk)
 
             extJsonObj.put("iconName", iconName(ext.element, extAnnotation.icon))
 
@@ -118,7 +117,6 @@ class InfoFilesGenerator(
      * @throws SAXException
      */
     fun generateBuildInfoJson() {
-        val yaml = metadataFile()
         val buildInfoJsonArray = JSONArray()
         val rushVersion = System.getenv("RUSH_VERSION")
 
@@ -126,11 +124,8 @@ class InfoFilesGenerator(
             val extJsonObj = JSONObject()
                 .put("rushVersion", rushVersion)
                 .put("type", ext.fqcn)
-                .put("androidMinSdk", listOf(minSdk(yaml)))
-
-            // Put assets
-            val assets = yaml.assets.map { it.trim() }
-            extJsonObj.put("assets", assets)
+                .put("androidMinSdk", listOf(minSdk))
+                .put("assets", config.optJSONArray("assets")?.map { it.toString().trim() }.orEmpty())
 
             buildInfoJsonArray.put(extJsonObj)
         }
@@ -242,17 +237,6 @@ class InfoFilesGenerator(
      * @return The rush.yml file's data
      * @throws IOException If the input can't be read for some reason.
      */
-    private fun metadataFile(): RushYaml {
-        val rushYml = if (Paths.get(projectRoot, "rush.yml").exists()) {
-            Paths.get(projectRoot, "rush.yml").toFile()
-        } else {
-            Paths.get(projectRoot, "rush.yaml").toFile()
-        }
-
-        return Yaml.default.decodeFromStream(RushYaml.serializer(), FileInputStream(rushYml))
-    }
-
-    private fun minSdk(yaml: RushYaml) = yaml.minSdk.coerceAtLeast(7).toString()
 
     private fun versionCode(versionName: String): Int {
         val parts = versionName.trim().removePrefix("v").split('.', '-', '+')

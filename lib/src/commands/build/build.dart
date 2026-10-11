@@ -236,6 +236,10 @@ class BuildCommand extends Command<int> {
         .flattened
         .toSet();
 
+    await p
+        .join(_fs.buildDir.path, 'config.json')
+        .asFile(true)
+        .writeAsString(jsonEncode(config.toJson()));
     await Compiler.compile(
       compileClasspathJars,
       javaFiles: javaFiles.map((file) => file.path).toSet(),

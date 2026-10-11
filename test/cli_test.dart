@@ -343,6 +343,29 @@ class ${project.className}(container: ComponentContainer) : AndroidNonvisibleCom
   });
 
   group('extension descriptor', () {
+    test('takes metadata from rush.yml', () async {
+      final project = await createProject('metadata_ext', language: 'java');
+      project.file('assets/data.txt').writeAsStringSync('data');
+      project.file('rush.yml').writeAsStringSync('''
+version: '2.3.0'
+min_sdk: 24
+homepage: https://example.com/ext
+assets:
+- data.txt
+''');
+      final result = await project.build();
+      expect(result.exitCode, 0, reason: result.output);
+      expect(
+          project.components.single,
+          allOf(
+            containsPair('versionName', '2.3.0'),
+            containsPair('helpUrl', 'https://example.com/ext'),
+            containsPair('androidMinSdk', '24'),
+          ));
+      expect(project.buildInfo['assets'], ['data.txt']);
+      expect(project.buildInfo['androidMinSdk'], ['24']);
+    });
+
     test('links the license file', () async {
       final project = await createProject('license_ext', language: 'java');
       project.file('LICENSE.txt').writeAsStringSync('MIT');

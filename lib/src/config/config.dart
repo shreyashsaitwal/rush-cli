@@ -66,6 +66,8 @@ class Config {
   // ignore: strict_raw_type
   factory Config._fromJson(Map json) => _$ConfigFromJson(json);
 
+  Map<String, dynamic> toJson() => _$ConfigToJson(this);
+
   static Future<Config?> require(File configFile, Logger lgr) {
     if (!configFile.existsSync()) {
       lgr.err(

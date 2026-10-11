@@ -1,6 +1,5 @@
 plugins {
     id 'org.jetbrains.kotlin.jvm' version '1.9.20'
-    id 'org.jetbrains.kotlin.plugin.serialization' version '1.9.20'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
@@ -28,8 +27,6 @@ dependencies {
     implementation 'org.commonmark:commonmark-ext-autolink:0.21.0'
     implementation 'org.commonmark:commonmark-ext-task-list-items:0.21.0'
 
-    implementation 'com.charleskorn.kaml:kaml-jvm:0.56.0'
-    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.6.2'
     implementation('org.json:json:20231013')
 
     implementation project(':annotations')
