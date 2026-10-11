@@ -191,9 +191,24 @@ void main() {
       final result = await project.build();
       expect(result.exitCode, 0, reason: result.output);
       expect(project.runtimeClasses,
-          contains(project.classFile('repacked/kotlin/Unit')));
+          anyElement(startsWith('${project.packagePath}/repacked/kotlin/')));
       expect(project.runtimeClasses.where((c) => c.startsWith('kotlin/')),
           isEmpty);
+    });
+
+    test('shrink to what the extension uses', () async {
+      final project = await createProject('shrunk_ext');
+      project.source('helpers/Mode.java').createSync(recursive: true);
+      project
+          .source('helpers/Mode.java')
+          .writeAsStringSync(_fill(_helperEnum, project));
+      final result = await project.build();
+      expect(result.exitCode, 0, reason: result.output);
+      final stdlib = project.runtimeClasses.where(
+          (c) => c.startsWith('${project.packagePath}/repacked/kotlin/'));
+      expect(stdlib.length, lessThan(100));
+      expect(
+          project.runtimeClasses, contains(project.classFile('helpers/Mode')));
     });
 
     test('ship as AARs when a bundled AAR depends on them', () async {

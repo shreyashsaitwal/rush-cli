@@ -107,8 +107,9 @@ class TestProject {
         .cast<Map<String, dynamic>>();
   }
 
-  String classFile(String name) =>
-      '${package.replaceAll('.', '/')}/$name.class';
+  String get packagePath => package.replaceAll('.', '/');
+
+  String classFile(String name) => '$packagePath/$name.class';
 
   Future<void> delete() => dir.parent.delete(recursive: true);
 }

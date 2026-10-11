@@ -78,8 +78,9 @@ class Executor {
     Config config,
     String artJarPath,
     Set<String> libraryJars,
-    Set<String> aarProguardRules,
-  ) async {
+    Set<String> rules, {
+    required bool shrinkOnly,
+  }) async {
     final rulesFile = p.join(_fs.srcDir.path, 'proguard-rules.pro').asFile();
     final optimizedJar =
         p.join(p.dirname(artJarPath), 'AndroidRuntime.optimized.jar').asFile();
@@ -93,8 +94,15 @@ class Executor {
       ...['-outjars', optimizedJar.path],
       ...['-libraryjars', libraryJars.join(BuildUtils.cpSeparator)],
       for (final module in await _javaModules()) ...['-libraryjars', module],
-      ...[for (final el in aarProguardRules) '-include $el'],
-      '@${rulesFile.path}',
+      for (final el in rules) '-include $el',
+      if (rulesFile.existsSync()) '@${rulesFile.path}',
+      if (shrinkOnly) ...[
+        '-dontobfuscate',
+        '-dontoptimize',
+        '-keepattributes *',
+        '-dontwarn',
+        '-dontnote',
+      ],
     ];
 
     try {

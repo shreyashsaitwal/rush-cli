@@ -109,22 +109,13 @@ class BuildCommand extends Command<int> {
     }
     _lgr.stopTask();
 
-    if (argResults!['optimize'] as bool) {
-      _lgr.startTask('Optimizing and obfuscating the bytecode');
-
-      final allDeps = await _libService.extensionDependencies(config,
-          includeAi2ProvidedDeps: true, includeProjectProvidedDeps: true);
-
-      final proguardRules = allDeps
-          .where((el) => el.packaging == 'aar')
-          .map((el) =>
-              _fs.resourceFromExtractedAar(el.artifactFile, 'proguard.txt'))
-          .where((el) => el.existsSync())
-          .map((el) => el.path);
-
+    final optimize = argResults!['optimize'] as bool;
+    if (optimize || deps.privateJars.isNotEmpty) {
+      _lgr.startTask(optimize
+          ? 'Optimizing and obfuscating the bytecode'
+          : 'Shrinking bundled libraries');
       try {
-        await Executor.execProGuard(
-            config, artJarPath, deps.referencedJars, proguardRules.toSet());
+        await _runProGuard(config, artJarPath, deps, optimize: optimize);
       } catch (e, s) {
         _catchAndStop(e, s);
         return 1;
@@ -368,6 +359,71 @@ class BuildCommand extends Command<int> {
   <uses-sdk android:minSdkVersion="$minSdk"/>
 </manifest>
 ''';
+  }
+
+  Future<void> _runProGuard(
+      Config config, String artJarPath, BuildDependencies deps,
+      {required bool optimize}) async {
+    final allDeps = await _libService.extensionDependencies(config,
+        includeAi2ProvidedDeps: true, includeProjectProvidedDeps: true);
+    final aarRules = allDeps
+        .where((el) => el.packaging == 'aar')
+        .map((el) =>
+            _fs.resourceFromExtractedAar(el.artifactFile, 'proguard.txt'))
+        .where((el) => el.existsSync())
+        .map((el) => el.path);
+
+    await Executor.execProGuard(
+      config,
+      artJarPath,
+      deps.referencedJars,
+      {
+        ...aarRules,
+        ...await _bundledProguardRules(deps.privateJars),
+        if (!optimize) await _keepExtensionClassesRules(),
+      },
+      shrinkOnly: !optimize,
+    );
+  }
+
+  Future<List<String>> _bundledProguardRules(Set<String> jars) async {
+    final rulesDir = p.join(_fs.buildFilesDir.path, 'bundled-proguard-rules');
+    final rules = <String>[];
+    for (final jar in jars) {
+      final entries = ZipDecoder()
+          .decodeBytes(await jar.asFile().readAsBytes())
+          .files
+          .where((el) =>
+              el.isFile &&
+              el.name.startsWith('META-INF/proguard/') &&
+              p.extension(el.name) == '.pro');
+      for (final entry in entries) {
+        final file = p
+            .join(rulesDir, p.basenameWithoutExtension(jar),
+                p.basename(entry.name))
+            .asFile(true);
+        await file.writeAsBytes(entry.content);
+        rules.add(file.path);
+      }
+    }
+    return rules;
+  }
+
+  Future<String> _keepExtensionClassesRules() async {
+    final classesDir = _fs.buildClassesDir.path;
+    final classNames = _fs.buildClassesDir
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((el) => p.extension(el.path) == '.class')
+        .map((el) =>
+            p.split(p.withoutExtension(p.relative(el.path, from: classesDir))))
+        .where((el) => el.first != 'META-INF')
+        .map((el) => el.join('.'));
+    final rules =
+        p.join(_fs.buildFilesDir.path, 'keep-extension-classes.pro').asFile();
+    await rules.writeAsString(
+        classNames.map((el) => '-keep class $el { *; }').join('\n'));
+    return rules.path;
   }
 
   Future<void> _relocatePrivateClasses(
