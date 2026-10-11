@@ -33,14 +33,15 @@ class Function(
 
     override val returnType: String?
         get() {
-            val continuationType = continuationUnderlyingType()
             val helper = Helper.tryFrom(element, elementUtils)
 
-            return if (continuationType != null) {
+            return if (continuation != null) {
                 if (element.returnType.kind != TypeKind.VOID) {
                     messager.printMessage(Kind.ERROR, "Functions with continuation must be void.", element)
                 }
-                Utils.yailTypeOf(element, continuationType, helper != null, messager, true)
+                continuationResultType()?.let {
+                    Utils.yailTypeOf(element, it, helper != null, messager, true)
+                }
             } else if (element.returnType.kind != TypeKind.VOID) {
                 Utils.yailTypeOf(element, element.returnType, helper != null, messager)
             } else {
@@ -73,16 +74,12 @@ class Function(
         }
     }
 
-    private fun continuationUnderlyingType(): TypeMirror? {
-        return params.firstOrNull { it.type == "continuation" }?.let {
-            val typeArgs = (it.element.asType() as DeclaredType).typeArguments
-            if (typeArgs.first().kind != TypeKind.VOID) {
-                typeArgs.first()
-            } else {
-                null
-            }
-        }
-    }
+    private val continuation
+        get() = params.firstOrNull { it.type == "continuation" }
+
+    private fun continuationResultType(): TypeMirror? =
+        (continuation?.element?.asType() as DeclaredType?)?.typeArguments?.firstOrNull()
+            ?.takeUnless { it.toString() == "java.lang.Void" }
 
     /**
      * @return JSON representation of this method.
@@ -103,6 +100,6 @@ class Function(
         .put("description", description)
         .put("returnType", returnType)
         .put("params", params.filter { it.type != "continuation" }.map { it.asJsonObject() })
-        .put("continuation", if (continuationUnderlyingType() != null) true else null)
+        .put("continuation", if (continuation != null) true else null)
         .put("helper", helper?.asJsonObject())
 }

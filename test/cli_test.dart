@@ -202,6 +202,34 @@ void main() {
   });
 
   group('block types', () {
+    test('make functions with a continuation asynchronous', () async {
+      final project = await createProject('async_ext', language: 'java');
+      final result = await _buildWithFunctions(project, '''
+  @SimpleFunction(description = "Waits")
+  public void Wait(int millis, Continuation<Void> done) {
+    done.call(null);
+  }
+
+  @SimpleFunction(description = "Fetches")
+  public void Fetch(String url, Continuation<String> result) {
+    result.call(url);
+  }
+''');
+      expect(result.exitCode, 0, reason: result.output);
+      final methods = {
+        for (final m in (project.components.single['methods'] as List)
+            .cast<Map<String, dynamic>>())
+          m['name']: m
+      };
+      expect(methods['Wait'], containsPair('continuation', true));
+      expect(methods['Wait'], isNot(contains('returnType')));
+      expect(methods['Wait']!['params'], [
+        {'name': 'millis', 'type': 'number'}
+      ]);
+      expect(methods['Fetch'], containsPair('continuation', true));
+      expect(methods['Fetch'], containsPair('returnType', 'text'));
+    });
+
     test('reject types App Inventor has no block for', () async {
       final project = await createProject('types_ext', language: 'java');
       final result = await _buildWithFunctions(project, '''
