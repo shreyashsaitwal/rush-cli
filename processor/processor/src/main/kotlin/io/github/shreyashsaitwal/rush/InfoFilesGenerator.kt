@@ -284,7 +284,7 @@ class InfoFilesGenerator(private val extensions: List<ExtensionModel>, private v
                         val attribute = attributes.item(i) as Attr
                         // Drop the "tools:sth" attributes.
                         if (!attribute.nodeName.contains("tools:")) {
-                            sb.append("${attribute.nodeName} = \"${attribute.nodeValue}\" ")
+                            sb.append("${attribute.nodeName}=\"${escapeXml(attribute.nodeValue)}\" ")
                         }
                     }
                 }
@@ -304,6 +304,12 @@ class InfoFilesGenerator(private val extensions: List<ExtensionModel>, private v
 
         return sb.toString().replace("\${applicationId}", "%packageName%")
     }
+
+    private fun escapeXml(value: String) = value
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
 
     /**
      * Stringifies all the XML elements under <application> and returns them as a list.

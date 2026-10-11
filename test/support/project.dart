@@ -92,13 +92,14 @@ class TestProject {
   Archive bundledAar(String fileName) => ZipDecoder().decodeBytes(
       aix.files.singleWhere((f) => f.name.endsWith('/aars/$fileName')).content);
 
-  List<String> get libraries {
+  Map<String, dynamic> get buildInfo {
     final json = aix.files.singleWhere(
         (f) => f.name.endsWith('files/component_build_infos.json'));
-    return ((jsonDecode(utf8.decode(json.content)) as List).single
-            as Map<String, dynamic>)['libraries']
-        .cast<String>();
+    return (jsonDecode(utf8.decode(json.content)) as List).single
+        as Map<String, dynamic>;
   }
+
+  List<String> get libraries => buildInfo['libraries'].cast<String>();
 
   List<Map<String, dynamic>> get components {
     final json =

@@ -253,6 +253,34 @@ void main() {
     });
   });
 
+  group('manifest', () {
+    late TestProject project;
+    late ProcessResult build;
+
+    setUpAll(() async {
+      project = await createProject('manifest_ext', language: 'java');
+      project.file('src/AndroidManifest.xml').writeAsStringSync('''
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="${project.package}">
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <application>
+        <meta-data android:name="greeting" android:value="Tom &amp; &quot;Jerry&quot; &lt;3"/>
+    </application>
+</manifest>
+''');
+      build = await project.build();
+      if (build.exitCode != 0) fail(build.output);
+    });
+
+    test('escapes attribute values', () {
+      expect(project.buildInfo['activities'],
+          [contains('"Tom &amp; &quot;Jerry&quot; &lt;3"')]);
+    });
+  });
+
   group('dependencies', () {
     test('name the coordinate that could not be resolved', () async {
       final project = await createProject('missing_dep_ext', language: 'java');
