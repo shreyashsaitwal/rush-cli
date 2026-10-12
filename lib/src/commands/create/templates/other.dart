@@ -114,6 +114,7 @@ jobs:
 const String dotGitignore = '''
 /out
 /.rush
+/.classpath
 ''';
 
 String androidManifestXml(String org) {

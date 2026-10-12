@@ -37,7 +37,8 @@ class CreateCommand extends Command<int> {
               'The language in which the extension\'s starter template should be generated',
           allowed: ['java', 'kotlin', 'Java', 'Kotlin'])
       ..addOption('ide',
-          help: 'The IDE to generate project files for.',
+          help: 'The IDE to generate project files for. VS Code and Eclipse '
+              'files are always generated.',
           allowed: ['intellij', 'eclipse', 'both']);
   }
 
@@ -105,7 +106,7 @@ class CreateCommand extends Command<int> {
                   prompt: 'IDE',
                   options: [
                     'IntelliJ ${'(also includes Android Studio and other JetBrains IDEs)'.grey()}',
-                    'Eclipse  ${'(also includes Visual Studio Code)'.grey()}',
+                    'VS Code  ${'(also includes Eclipse)'.grey()}',
                     'Both     ${'(also includes every IDE mentioned above)'.grey()}',
                   ],
                 ).interact());
@@ -152,6 +153,9 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
       p.join(projectDir, 'deps', '.placeholder'):
           'This directory stores your extension\'s local dependencies.',
 
+      p.join(projectDir, '.project'): dotProject(name.paramCase),
+      p.join(projectDir, '.classpath'): dotClasspath(providedDepJars, []),
+
       // IntelliJ IDEA files
       if (editor == 0 || editor == 2) ...{
         p.join(ideaDir, 'misc.xml'): ijMiscXml,
@@ -161,11 +165,6 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
         p.join(ideaDir, '${name.paramCase}.iml'):
             ijImlXml(['provided-deps', 'local-deps']),
         p.join(ideaDir, 'modules.xml'): ijModulesXml(name.paramCase),
-      },
-      // Eclipse files
-      if (editor == 1 || editor == 2) ...{
-        p.join(projectDir, '.project'): dotProject(name.paramCase),
-        p.join(projectDir, '.classpath'): dotClasspath(providedDepJars, []),
       },
     };
 

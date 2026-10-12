@@ -283,6 +283,27 @@ void main() {
     expect(workflow, contains('run: rush build'));
   });
 
+  group('VS Code project files', () {
+    test('are part of every new project', () async {
+      final project = await createProject('vscode_ext', language: 'java');
+      expect(project.file('.project').existsSync(), true);
+      expect(project.file('.classpath').readAsStringSync(),
+          contains('annotations.jar'));
+      expect(project.file('.gitignore').readAsStringSync(),
+          contains('/.classpath'));
+    });
+
+    test('get their classpath from rush deps sync', () async {
+      final project = await createProject('vscode_sync_ext', language: 'java');
+      project.file('.classpath').deleteSync();
+      final result =
+          await rush(['deps', 'sync'], workingDirectory: project.dir.path);
+      expect(result.exitCode, 0, reason: result.output);
+      expect(project.file('.classpath').readAsStringSync(),
+          contains('annotations.jar'));
+    });
+  });
+
   group('agent instructions', () {
     test('are part of new projects', () async {
       final project = await createProject('agent_ext', language: 'java');

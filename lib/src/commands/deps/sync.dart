@@ -338,8 +338,7 @@ class SyncSubCommand extends Command<int> {
 
   Future<void> _updateEclipseClasspath(
       Iterable<Artifact> providedDeps, Iterable<Artifact> extensionDeps) async {
-    final dotClasspathFile = p.join(_fs.cwd, '.classpath').asFile();
-    if (!await dotClasspathFile.exists()) {
+    if (!await p.join(_fs.cwd, '.project').asFile().exists()) {
       return;
     }
 
@@ -351,7 +350,9 @@ class SyncSubCommand extends Command<int> {
       ...providedDeps.map((el) => el.sourcesJar).whereNotNull(),
       ...extensionDeps.map((el) => el.sourcesJar).whereNotNull(),
     ];
-    await dotClasspathFile
+    await p
+        .join(_fs.cwd, '.classpath')
+        .asFile()
         .writeAsString(dotClasspath(classesJars, sourcesJars));
   }
 

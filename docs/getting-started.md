@@ -52,15 +52,18 @@ counter/
 ├── deps/                     local JAR and AAR libraries
 ├── .github/workflows/
 │   └── build.yml             builds and releases the extension on GitHub
+├── .project, .classpath      project files for VS Code and Eclipse
 ├── AGENTS.md                 instructions for AI coding agents
 ├── CLAUDE.md
 └── .claude/skills/rush/
     └── SKILL.md              how to write extensions, for AI agents
 ```
 
-`--ide` generates project files for IntelliJ IDEA and Android Studio (`intellij`), for
-Eclipse and VS Code (`eclipse`), or for both. They put App Inventor's runtime and the
-project's dependencies on the editor's classpath, so code completion works.
+Project files put App Inventor's runtime and the project's dependencies on the editor's
+classpath, so code completion works. Every project gets them for VS Code and Eclipse
+(`.project` and `.classpath`). `--ide intellij` or `--ide both` adds them for IntelliJ IDEA
+and Android Studio. `.classpath` holds paths on your computer, so it isn't committed:
+`rush deps sync` and `rush build` write it.
 
 ## Building
 
