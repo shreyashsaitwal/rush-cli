@@ -392,6 +392,28 @@ void main() {
       expect(methods['Fetch'], containsPair('returnType', 'text'));
     });
 
+    test('give continuations of boxed types block result types', () async {
+      final project = await createProject('boxed_async_ext', language: 'java');
+      final result = await _buildWithFunctions(project, '''
+  @SimpleFunction(description = "Counts")
+  public void Count(Continuation<Integer> result) {
+    result.call(1);
+  }
+
+  @SimpleFunction(description = "Checks")
+  public void Check(Continuation<Boolean> result) {
+    result.call(true);
+  }
+''');
+      expect(result.exitCode, 0, reason: result.output);
+      final returnTypes = {
+        for (final m in (project.components.single['methods'] as List)
+            .cast<Map<String, dynamic>>())
+          m['name']: m['returnType']
+      };
+      expect(returnTypes, {'Count': 'number', 'Check': 'boolean'});
+    });
+
     test('describe dropdown options and honor @Options on getters', () async {
       final project = await createProject('options_ext', language: 'java');
       project.source('helpers/Mode.java').createSync(recursive: true);

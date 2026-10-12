@@ -65,7 +65,6 @@ class Utils {
                 val boxedTypes = mapOf(
                     "java.lang.Boolean" to "boolean",
                     "java.lang.Byte" to "byte",
-                    "java.lang.Char" to "char",
                     "java.lang.Short" to "short",
                     "java.lang.Integer" to "int",
                     "java.lang.Long" to "long",
@@ -74,7 +73,7 @@ class Utils {
                 )
                 boxedTypes[typeFqcn]?.let { primitive ->
                     if (allowBoxedTypes) {
-                        return primitive
+                        return if (primitive == "boolean") "boolean" else "number"
                     }
                     messager.printMessage(
                         Diagnostic.Kind.ERROR,
