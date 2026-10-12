@@ -29,7 +29,7 @@ what is supported, what is planned and what is deliberately out of scope.
 | Markdown documentation of the extension's blocks, written next to the AIX | 2.2.0 |
 | GitHub Actions: a setup action and a build and release workflow in new projects | 2.2.0 |
 | Instructions for AI coding agents in every project (`AGENTS.md`, a Claude skill, `rush agents`) | 2.3.0 |
-| A dev container (Codespaces, VS Code) and setup for GitHub Copilot's cloud agent in every project | Unreleased |
+| A dev container (Codespaces, VS Code) and setup for GitHub Copilot's cloud agent in every project | 2.4.0 |
 
 ## Not planned
 
