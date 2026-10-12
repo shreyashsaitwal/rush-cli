@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:pool/pool.dart';
 import 'package:tint/tint.dart';
 
+import 'package:rush/src/commands/build/aix.dart';
 import 'package:rush/src/commands/build/build_dependencies.dart';
 import 'package:rush/src/commands/build/docs.dart';
 import 'package:rush/src/commands/build/resources.dart';
@@ -700,31 +701,29 @@ class BuildCommand extends Command<int> {
 
   Future<void> _assemble() async {
     final org = await _extensionPackage();
+    final rawDir = _fs.buildRawDir.path;
+    final components = await _readJsonList(p.join(rawDir, 'components.json'));
+    final buildInfos = await _readJsonList(
+        p.join(rawDir, 'files', 'component_build_infos.json'));
 
     final outputDir = p.join(_fs.cwd, 'out').asDir(true);
     final aix = p.join(outputDir.path, '$org.aix');
     final zipEncoder = ZipFileEncoder()..create(aix);
-
     try {
-      for (final file in _fs.buildRawDir.listSync(recursive: true)) {
-        if (file is File) {
-          final name = p.relative(file.path, from: _fs.buildRawDir.path);
-          await zipEncoder.addFile(file, p.join(org, name));
-        }
+      for (final entry in aixEntries(components, buildInfos)) {
+        await zipEncoder.addFile(p.join(rawDir, entry).asFile(), '$org/$entry');
       }
       _lgr.info('Generated AIX file at ${aix.blue()}');
-    } catch (e) {
-      rethrow;
     } finally {
       await zipEncoder.close();
     }
 
     final docs = p.join(outputDir.path, '$org.md');
-    final components = jsonDecode(await p
-        .join(_fs.buildRawDir.path, 'components.json')
-        .asFile()
-        .readAsString()) as List;
     await docs.asFile().writeAsString(markdownDocs(components));
     _lgr.info('Generated docs at ${docs.blue()}');
   }
+
+  static Future<List<Map<String, dynamic>>> _readJsonList(String path) async =>
+      (jsonDecode(await path.asFile().readAsString()) as List)
+          .cast<Map<String, dynamic>>();
 }

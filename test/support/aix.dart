@@ -41,6 +41,9 @@ class Aix {
           .cast<Map<String, dynamic>>();
 
   Map<String, dynamic> get component => components.single;
+
+  @override
+  String toString() => 'AIX with ${entries.toList()..sort()}';
 }
 
 Matcher ships(String entry) => _Ships(entry);
