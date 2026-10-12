@@ -33,6 +33,33 @@ void main() {
         expect(result.artifacts[0].coordinate.version, '1.0.0');
       });
 
+      test('keeps the requested type of a classified dependency', () async {
+        repo.addPom('com.example', 'tool', '1.0.0', '''
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>tool</artifactId>
+  <version>1.0.0</version>
+  <packaging>pom</packaging>
+</project>
+''');
+
+        final result = await resolver.resolve(
+          directDependencies: [
+            const Dependency(
+              groupId: 'com.example',
+              artifactId: 'tool',
+              version: '1.0.0',
+              classifier: 'linux',
+            ),
+          ],
+        );
+
+        expect(result.isSuccess, isTrue);
+        expect(result.artifacts.single.coordinate.packaging, 'jar');
+        expect(result.artifacts.single.coordinate.classifier, 'linux');
+      });
+
       test('resolves multiple direct dependencies', () async {
         repo.addSimplePom('com.example', 'lib-a', '1.0.0');
         repo.addSimplePom('com.example', 'lib-b', '2.0.0');

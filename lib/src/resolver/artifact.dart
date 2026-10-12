@@ -86,7 +86,7 @@ class Artifact {
     throw Exception('Unexpected packaging ($packaging) for $coordinate');
   }
 
-  Version get version => Version.from(coordinate.split(':')[2]);
+  Version get version => Version.from(coordinate.split(':').last);
 
   String get groupId => coordinate.split(':')[0];
 

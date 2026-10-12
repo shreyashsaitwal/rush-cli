@@ -109,7 +109,7 @@ class MavenResolver {
     final coord = resolved.coordinate;
     final packaging = coord.packaging == 'aar' ? 'aar' : 'jar';
     return Artifact(
-      coordinate: _gav(coord),
+      coordinate: _coordinate(coord),
       scope: resolved.scope == mvn.DependencyScope.runtime
           ? Scope.runtime
           : Scope.compile,
@@ -117,7 +117,7 @@ class MavenResolver {
       sourcesJar: null,
       dependencies: [
         for (final key in dependencyKeys ?? const <String>{})
-          if (byKey[key] case final dep?) _gav(dep.coordinate),
+          if (byKey[key] case final dep?) _coordinate(dep.coordinate),
       ],
       packaging: packaging,
     );
@@ -166,8 +166,15 @@ class MavenResolver {
   static bool _isPomOnly(mvn.ResolvedArtifact artifact) =>
       artifact.coordinate.packaging == 'pom';
 
-  static String _gav(mvn.ArtifactCoordinate coord) =>
-      '${coord.groupId}:${coord.artifactId}:${coord.version}';
+  static String _coordinate(mvn.ArtifactCoordinate coord) => [
+        coord.groupId,
+        coord.artifactId,
+        if (coord.classifier case final classifier?) ...[
+          coord.packaging,
+          classifier
+        ],
+        coord.version,
+      ].join(':');
 
   static mvn.Exclusion _exclusion(String groupAndArtifact) {
     final [groupId, artifactId] = groupAndArtifact.split(':');

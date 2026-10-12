@@ -254,7 +254,9 @@ final class DependencyResolver {
           groupId: effectivePom.groupId,
           artifactId: effectivePom.artifactId,
           version: effectivePom.version,
-          packaging: effectivePom.packaging,
+          packaging: coord.classifier == null
+              ? effectivePom.packaging
+              : coord.packaging,
           classifier: coord.classifier,
         );
 
