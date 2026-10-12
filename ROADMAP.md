@@ -32,7 +32,6 @@ what is supported, what is planned and what is deliberately out of scope.
 | Feature | Status |
 |---|---|
 | Extension-owned resources and custom XML layouts, shipped in an AAR Rush builds | Design |
-| Several packages in one project, built as separate extensions in one AIX | Not started |
 
 ## Not planned
 
@@ -46,4 +45,5 @@ what is supported, what is planned and what is deliberately out of scope.
 | Stripping annotations from the AIX | App Inventor's components ship them too; the savings are negligible |
 | Other JVM languages, Jetifier, AIDL, string obfuscation | Rarely needed |
 | Core library desugaring below `min_sdk` 24 | The backport adds `java.util.function` classes that can't be relocated, so two extensions would clash |
+| Several packages in one project | Packages would share one dependency set but each ship their own copy; separate projects stay clean, and one package can hold several components |
 | AI Companion support for AAR extensions | The Companion can't load AAR classes or resources |
