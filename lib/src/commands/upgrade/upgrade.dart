@@ -5,11 +5,11 @@ import 'package:args/command_runner.dart';
 import 'package:get_it/get_it.dart';
 import 'package:github/github.dart';
 import 'package:collection/collection.dart';
-import 'package:http/http.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/constants.dart';
+import 'package:rush/src/utils/download.dart';
 import 'package:rush/src/utils/file_extension.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/version.dart';
@@ -108,7 +108,7 @@ class UpgradeCommand extends Command<int> {
     final archiveDist =
         p.join(_fs.rushHomeDir.path, 'temp', archive.name).asFile();
     try {
-      final response = await get(Uri.parse(archive.browserDownloadUrl!));
+      final response = await download(Uri.parse(archive.browserDownloadUrl!));
       if (response.statusCode != 200) {
         _lgr
           ..err('Something went wrong...')

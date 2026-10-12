@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:get_it/get_it.dart';
-import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import 'package:rush/src/commands/build/utils.dart';
@@ -11,6 +10,7 @@ import 'package:rush/src/resolver/artifact.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/constants.dart';
+import 'package:rush/src/utils/download.dart';
 import 'package:rush/src/utils/file_extension.dart';
 
 class Ai2Runtime {
@@ -85,7 +85,7 @@ class Ai2Runtime {
       bytes = await localZip.asFile().readAsBytes();
     } else {
       _lgr.info('Downloading App Inventor runtime $ai2Version...');
-      final res = await http.get(Uri.parse(ai2RuntimeUrl));
+      final res = await download(Uri.parse(ai2RuntimeUrl));
       if (res.statusCode != 200) {
         throw Exception(
             'Failed to download $ai2RuntimeUrl (HTTP ${res.statusCode})');
