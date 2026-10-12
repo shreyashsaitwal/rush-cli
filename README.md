@@ -94,7 +94,12 @@ Companion.
 
 ## GitHub Actions
 
-Workflows can install Rush with the setup action, which also caches the App Inventor
+New projects include `.github/workflows/build.yml`. It builds the extension on every push
+and pull request and uploads the `out` directory as an artifact. Pushing a tag named after
+the version in `rush.yml`, like `v1.0.0`, publishes a GitHub release with the AIX and its
+documentation.
+
+Other workflows can install Rush with the setup action, which also caches the App Inventor
 runtime and Maven dependencies:
 
 ```yaml

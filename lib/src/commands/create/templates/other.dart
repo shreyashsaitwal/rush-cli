@@ -77,6 +77,40 @@ String pgRules(String org) {
 ''';
 }
 
+const String githubWorkflow = r'''
+name: Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: zainulhassan815/rush-cli@v2
+      - run: rush build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.repository.name }}
+          path: out/
+          if-no-files-found: error
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(yq .version rush.yml)
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match version $version in rush.yml"
+            exit 1
+          fi
+          gh release create "$GITHUB_REF_NAME" out/* --generate-notes
+''';
+
 const String dotGitignore = '''
 /out
 /.rush
@@ -112,5 +146,11 @@ Run `rush build` in this directory. The extension is written to the `out`
 directory as an `.aix` file, ready to import into App Inventor.
 
 Run `rush build --optimize` to also optimize and obfuscate the extension's code.
+
+## Releasing
+
+GitHub Actions builds the extension on every push and pull request. To publish
+a release, push a tag named after the version in `rush.yml`, like `v1.0.0`.
+The workflow attaches the `.aix` file and its documentation to the release.
 ''';
 }

@@ -222,6 +222,14 @@ void main() {
     expect(result.output, contains('--language'));
   });
 
+  test('create adds a GitHub workflow that builds with Rush', () async {
+    final project = await createProject('workflow_ext');
+    final workflow = File('${project.dir.path}/.github/workflows/build.yml')
+        .readAsStringSync();
+    expect(workflow, contains('uses: zainulhassan815/rush-cli@v2'));
+    expect(workflow, contains('run: rush build'));
+  });
+
   group('build', () {
     test('keeps Kotlin classes when the project also has Java sources',
         () async {

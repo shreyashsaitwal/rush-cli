@@ -146,6 +146,7 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
       p.join(projectDir, 'rush.yml'): config(lang.toLowerCase() == 'kotlin'),
       p.join(projectDir, 'README.md'): readmeMd(pascalCasedName),
       p.join(projectDir, '.gitignore'): dotGitignore,
+      p.join(projectDir, '.github', 'workflows', 'build.yml'): githubWorkflow,
       p.join(projectDir, 'deps', '.placeholder'):
           'This directory stores your extension\'s local dependencies.',
 

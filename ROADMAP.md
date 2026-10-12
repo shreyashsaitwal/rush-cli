@@ -27,12 +27,7 @@ what is supported, what is planned and what is deliberately out of scope.
 | `rush upgrade` installs new releases | 2.1.0 |
 | `rush migrate` for Rush 1 projects | 2.1.0 |
 | Markdown documentation of the extension's blocks, written next to the AIX | Unreleased |
-
-## Planned
-
-| Feature | Status |
-|---|---|
-| GitHub Actions: a `setup-rush` action and a build and release workflow in new projects | Not started |
+| GitHub Actions: a setup action and a build and release workflow in new projects | Unreleased |
 
 ## Not planned
 
