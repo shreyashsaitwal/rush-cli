@@ -9,9 +9,9 @@ what is supported, what is planned and what is deliberately out of scope.
 |---|---|
 | Kotlin (1.8–2.4) and Java sources, mixed in one project | 2.0.0 |
 | Java 8 language features desugared automatically | 2.0.0 |
-| Java 17 language features (records, sealed classes, switch expressions, text blocks) | Unreleased |
-| Core library desugaring (`java.time` and other Java APIs) for `min_sdk` 24 and higher | Unreleased |
-| Android resources in `res/`, shipped in an AAR with names prefixed by the extension package | Unreleased |
+| Java 17 language features (records, sealed classes, switch expressions, text blocks) | 2.2.0 |
+| Core library desugaring (`java.time` and other Java APIs) for `min_sdk` 24 and higher | 2.2.0 |
+| Android resources in `res/`, shipped in an AAR with names prefixed by the extension package | 2.2.0 |
 | Maven dependencies from Maven Central and Google's Maven repository | 2.0.0 |
 | Local JAR and AAR dependencies in `deps/` | 2.0.0 |
 | AARs shipped with their resources, compiled by App Inventor | 2.0.0 |
@@ -26,8 +26,8 @@ what is supported, what is planned and what is deliberately out of scope.
 | Manifest permission constraints, features and escaped attributes | 2.1.0 |
 | `rush upgrade` installs new releases | 2.1.0 |
 | `rush migrate` for Rush 1 projects | 2.1.0 |
-| Markdown documentation of the extension's blocks, written next to the AIX | Unreleased |
-| GitHub Actions: a setup action and a build and release workflow in new projects | Unreleased |
+| Markdown documentation of the extension's blocks, written next to the AIX | 2.2.0 |
+| GitHub Actions: a setup action and a build and release workflow in new projects | 2.2.0 |
 
 ## Not planned
 
