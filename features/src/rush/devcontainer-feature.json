@@ -1,0 +1,30 @@
+{
+  "id": "rush",
+  "version": "1.0.0",
+  "name": "Rush",
+  "description": "Installs Rush, which builds MIT App Inventor extensions, with JDK 17 and the App Inventor runtime.",
+  "documentationURL": "https://github.com/zainulhassan815/rush-cli/blob/main/docs/dev-containers.md",
+  "licenseURL": "https://github.com/zainulhassan815/rush-cli/blob/main/LICENSE",
+  "options": {
+    "version": {
+      "type": "string",
+      "proposals": ["latest"],
+      "default": "latest",
+      "description": "The Rush version to install, like 2.3.0"
+    }
+  },
+  "dependsOn": {
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "17"
+    }
+  },
+  "containerEnv": {
+    "RUSH_HOME": "/usr/local/rush",
+    "PATH": "/usr/local/rush/bin:${PATH}"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["vscjava.vscode-java-pack"]
+    }
+  }
+}

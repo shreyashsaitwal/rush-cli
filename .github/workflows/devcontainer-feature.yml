@@ -1,0 +1,33 @@
+name: Dev container feature
+
+on:
+  push:
+    branches: [main]
+    paths: ['features/**', '.github/workflows/devcontainer-feature.yml']
+  pull_request:
+    paths: ['features/**', '.github/workflows/devcontainer-feature.yml']
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install -g @devcontainers/cli
+      - run: devcontainer features test --project-folder features --base-image mcr.microsoft.com/devcontainers/base:ubuntu-24.04
+
+  publish:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: devcontainers/action@v1
+        with:
+          publish-features: true
+          base-path-to-features: ./features/src
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
