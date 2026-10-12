@@ -56,7 +56,9 @@ public final class Relocator extends Remapper {
           content = relocateClass(content);
           name = map(name.substring(0, name.length() - CLASS_SUFFIX.length())) + CLASS_SUFFIX;
         }
-        out.putNextEntry(new ZipEntry(name));
+        var relocated = new ZipEntry(name);
+        relocated.setTime(entry.getTime());
+        out.putNextEntry(relocated);
         out.write(content);
         out.closeEntry();
       }

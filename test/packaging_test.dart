@@ -67,6 +67,14 @@ void main() {
 
     setUpAll(() async {
       project = await TestProject.create('reproducible_ext');
+      project.writeJavaExtension('''
+  record Point(int x, int y) {}
+
+  @SimpleFunction
+  public String Describe(int x) {
+    return new Point(x, x).toString();
+  }
+''');
       project.addDependencies(['androidx.core:core-ktx:1.5.0']);
       project.file('assets/data.json').writeAsStringSync('{}');
       project.editConfig('#assets:', 'assets:\n- data.json\n#assets:');
