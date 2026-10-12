@@ -726,6 +726,7 @@ assets:
           result.output,
           contains(
               'string/greeting must be named com_example_resext_greeting'));
+      expect(result.output, isNot(contains('Exception')));
     });
 
     test('report errors at the resource file', () async {

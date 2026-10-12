@@ -175,10 +175,11 @@ class BuildCommand extends Command<int> {
   }
 
   void _catchAndStop(Object e, StackTrace s) {
+    final message = e.toString();
     if (e is ProcessException) {
-      _lgr.dbg(e.toString());
-    } else if (e.toString().isNotEmpty) {
-      _lgr.err(e.toString());
+      _lgr.dbg(message);
+    } else if (message.isNotEmpty && message != 'Exception') {
+      _lgr.err(message);
     }
     _lgr
       ..dbg(s.toString())
