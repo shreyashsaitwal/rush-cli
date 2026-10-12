@@ -30,6 +30,12 @@ mkdir -p "$rush_home"
 unzip -oq "$archive" -d "$rush_home"
 rm "$archive"
 chmod +x "$rush_home/bin/rush"
-chown -R "$user" "$rush_home"
 
+chown -R "$user" "$rush_home"
 su "$user" -c "RUSH_HOME=$rush_home $rush_home/bin/rush --no-color deps sync --dev-deps"
+
+getent group rush >/dev/null || groupadd --system rush
+usermod --append --groups rush "$user"
+chown -R "$user:rush" "$rush_home"
+chmod -R g+rwX "$rush_home"
+find "$rush_home" -type d -exec chmod g+s {} +
