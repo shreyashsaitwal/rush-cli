@@ -1,8 +1,9 @@
-import 'dart:convert';
 import 'dart:io';
 
-import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
+import 'package:test/test.dart';
+
+import 'aix.dart';
 
 final String rushBin = Platform.environment['RUSH_TEST_BIN'] ??
     (throw StateError('Run the tests with tool/test.sh'));
@@ -25,10 +26,11 @@ class TestProject {
 
   static Future<TestProject> create(
     String name, {
-    String language = 'kotlin',
+    String language = 'java',
     String parentPrefix = 'rush-test-',
   }) async {
     final parent = await Directory.systemTemp.createTemp(parentPrefix);
+    addTearDown(() => parent.delete(recursive: true));
     final result = await rush(
       [
         'create',
@@ -78,47 +80,17 @@ class TestProject {
       rush(['build', ...args],
           workingDirectory: dir.path, environment: environment);
 
-  Archive get aix {
+  Aix get aix {
     final out = Directory(p.join(dir.path, 'out'));
-    final aixFile = out
-        .listSync()
-        .whereType<File>()
-        .singleWhere((f) => f.path.endsWith('.aix'));
-    return ZipDecoder().decodeBytes(aixFile.readAsBytesSync());
-  }
-
-  Set<String> get runtimeClasses {
-    final jar = aix.files
-        .singleWhere((f) => f.name.endsWith('files/AndroidRuntime.jar'));
-    return ZipDecoder()
-        .decodeBytes(jar.content)
-        .files
-        .map((f) => f.name)
-        .toSet();
-  }
-
-  Archive bundledAar(String fileName) => ZipDecoder().decodeBytes(
-      aix.files.singleWhere((f) => f.name.endsWith('/aars/$fileName')).content);
-
-  Map<String, dynamic> get buildInfo {
-    final json = aix.files.singleWhere(
-        (f) => f.name.endsWith('files/component_build_infos.json'));
-    return (jsonDecode(utf8.decode(json.content)) as List).single
-        as Map<String, dynamic>;
-  }
-
-  List<String> get libraries => buildInfo['libraries'].cast<String>();
-
-  List<Map<String, dynamic>> get components {
-    final json =
-        aix.files.singleWhere((f) => f.name.endsWith('/components.json'));
-    return (jsonDecode(utf8.decode(json.content)) as List)
-        .cast<Map<String, dynamic>>();
+    return Aix(
+        out
+            .listSync()
+            .whereType<File>()
+            .singleWhere((f) => f.path.endsWith('.aix')),
+        package);
   }
 
   String get packagePath => package.replaceAll('.', '/');
 
   String classFile(String name) => '$packagePath/$name.class';
-
-  Future<void> delete() => dir.parent.delete(recursive: true);
 }
