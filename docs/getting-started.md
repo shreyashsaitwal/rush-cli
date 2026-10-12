@@ -65,8 +65,8 @@ counter/
 Project files put App Inventor's runtime and the project's dependencies on the editor's
 classpath, so code completion works. Every project gets them for VS Code and Eclipse
 (`.project` and `.classpath`). `--ide intellij` or `--ide both` adds them for IntelliJ IDEA
-and Android Studio. `.classpath` holds paths on your computer, so it isn't committed:
-`rush deps sync` and `rush build` write it.
+and Android Studio. `.classpath` and `.idea/libraries/` hold paths on your computer, so
+they aren't committed: `rush deps sync` and `rush build` write them.
 
 The project can also be opened in a [dev container](dev-containers.md), in GitHub
 Codespaces or in VS Code, without installing anything.

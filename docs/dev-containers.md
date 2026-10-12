@@ -50,10 +50,16 @@ It also installs JDK 17 with the
 
 - The container runs on x86_64 Linux. On Macs with Apple silicon, use Codespaces.
 - It can't run Android apps. Test the extension in App Inventor.
-- `.classpath` holds paths inside the container. Rush projects don't commit it:
-  `rush deps sync` and `rush build` write it.
+- `.classpath` and `.idea/libraries/` hold paths on the machine that wrote them, so Rush
+  projects don't commit them: `rush deps sync` and `rush build` write them.
 
 ## Existing projects
 
 `rush agents` adds `.devcontainer/devcontainer.json`, the VS Code project files and the
-[GitHub Copilot setup](ai-agents.md#where-agents-work) to projects that don't have them.
+[GitHub Copilot setup](ai-agents.md#where-agents-work) to projects that don't have them,
+and adds `.classpath` and `.idea/libraries/` to `.gitignore`. If they were committed
+before, stop tracking them:
+
+```sh
+git rm -r --cached .classpath .idea/libraries
+```

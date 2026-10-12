@@ -115,6 +115,7 @@ const String dotGitignore = '''
 /out
 /.rush
 /.classpath
+/.idea/libraries/
 ''';
 
 String androidManifestXml(String org) {

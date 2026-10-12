@@ -372,7 +372,12 @@ class SyncSubCommand extends Command<int> {
       ),
     );
 
-    final libNames = <String>['deps', 'provided-deps'];
+    await p
+        .join(_fs.cwd, '.idea', 'libraries', 'local-deps.xml')
+        .asFile()
+        .writeAsString(ijLocalDepsXml);
+
+    final libNames = <String>['provided-deps', 'local-deps'];
     for (final lib in extensionDeps) {
       final fileName = lib.coordinate.replaceAll(RegExp(r'(:|\.)'), '_');
       final xml =

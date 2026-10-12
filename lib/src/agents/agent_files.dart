@@ -99,21 +99,24 @@ Future<List<String>> writeAgentFiles(String projectDir) async {
       written.add(path);
     }
   }
-  if (written.contains('.project')) {
-    await _ignoreClasspath(projectDir);
-  }
+  await _ignoreMachinePaths(projectDir);
   return written;
 }
 
-Future<void> _ignoreClasspath(String projectDir) async {
+Future<void> _ignoreMachinePaths(String projectDir) async {
   final gitignore = p.join(projectDir, '.gitignore').asFile();
   if (!await gitignore.exists()) {
     return;
   }
   final contents = await gitignore.readAsString();
-  if (!contents.split('\n').contains('/.classpath')) {
+  final lines = contents.split('\n');
+  final missing = [
+    '/.classpath',
+    if (await p.join(projectDir, '.idea').asDir().exists()) '/.idea/libraries/',
+  ].where((path) => !lines.contains(path));
+  if (missing.isNotEmpty) {
     final separator = contents.isEmpty || contents.endsWith('\n') ? '' : '\n';
-    await gitignore.writeAsString('$separator/.classpath\n',
+    await gitignore.writeAsString('$separator${missing.join('\n')}\n',
         mode: FileMode.append);
   }
 }

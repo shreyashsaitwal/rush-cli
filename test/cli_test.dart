@@ -304,6 +304,32 @@ void main() {
     });
   });
 
+  group('IntelliJ project files', () {
+    test('keep machine paths out of git', () async {
+      final project = await createProject('intellij_ext', language: 'java');
+      expect(project.file('.gitignore').readAsStringSync(),
+          contains('/.idea/libraries/'));
+    });
+
+    test('get their libraries from rush deps sync', () async {
+      final project =
+          await createProject('intellij_sync_ext', language: 'java');
+      Directory('${project.dir.path}/.idea/libraries')
+          .deleteSync(recursive: true);
+      final result =
+          await rush(['deps', 'sync'], workingDirectory: project.dir.path);
+      expect(result.exitCode, 0, reason: result.output);
+      expect(
+          project.file('.idea/libraries/provided-deps.xml').readAsStringSync(),
+          contains('annotations.jar'));
+      expect(project.file('.idea/libraries/local-deps.xml').existsSync(), true);
+      final iml =
+          project.file('.idea/intellij-sync-ext.iml').readAsStringSync();
+      expect(iml, contains('name="local-deps"'));
+      expect(iml, isNot(contains('name="deps"')));
+    });
+  });
+
   group('agent instructions', () {
     test('are part of new projects', () async {
       final project = await createProject('agent_ext', language: 'java');
@@ -362,8 +388,8 @@ void main() {
               .existsSync(),
           true);
       expect(project.file('.project').existsSync(), true);
-      expect(
-          project.file('.gitignore').readAsStringSync(), '/out\n/.classpath\n');
+      expect(project.file('.gitignore').readAsStringSync(),
+          '/out\n/.classpath\n/.idea/libraries/\n');
     });
 
     test('need a project', () async {
