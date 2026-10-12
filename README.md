@@ -50,68 +50,14 @@ cd my_extension
 rush build
 ```
 
-The extension (AIX) is generated in the `out` directory. Run `rush build --optimize` to
-shrink and obfuscate it with ProGuard.
+The extension (AIX) is generated in the `out` directory. Continue with
+[getting started](docs/getting-started.md).
 
-## Dependencies
+## Documentation
 
-Declare dependencies in `rush.yml` as Maven coordinates or as JAR/AAR files stored in
-the `deps` directory:
-
-```yaml
-dependencies:
-- org.jetbrains.kotlin:kotlin-stdlib:2.4.20
-- androidx.media3:media3-ui:1.11.1
-- my-library.aar
-```
-
-Run `rush deps sync` after changing them, and `rush deps tree` to inspect the resolved
-dependency tree.
-
-Libraries App Inventor already provides, such as AndroidX `appcompat` or Guava, are never
-bundled. Rush warns when a dependency needs a newer version of such a library than App
-Inventor provides, as App Inventor's version is used at runtime.
-
-## Resources
-
-Put Android resources such as layouts, drawables, strings and colors in a `res` directory
-next to `src`, laid out as in any Android project. Rush validates them, ships them in an
-AAR inside the AIX, and generates the `R` class in your extension's package:
-
-```java
-View card = LayoutInflater.from(form).inflate(R.layout.com_example_myext_card, parent, false);
-```
-
-Every resource name except IDs must start with the extension package, with dots replaced
-by underscores (`com_example_myext_` for `com.example.myext`). All resources of an app
-share one namespace, so this keeps extensions from overriding each other's resources or
-App Inventor's.
-
-Resources can reference each other and Android's own resources (`@android:color/white`,
-`?android:attr/colorAccent`), but not those of AppCompat or other AndroidX libraries.
-Like any extension that ships AARs, these extensions work in built apps but not in the AI
-Companion.
-
-## GitHub Actions
-
-New projects include `.github/workflows/build.yml`. It builds the extension on every push
-and pull request and uploads the `out` directory as an artifact. Pushing a tag named after
-the version in `rush.yml`, like `v1.0.0`, publishes a GitHub release with the AIX and its
-documentation.
-
-Other workflows can install Rush with the setup action, which also caches the App Inventor
-runtime and Maven dependencies:
-
-```yaml
-- uses: zainulhassan815/rush-cli@v2
-  with:
-    version: 2.2.0 # optional, defaults to the latest release
-- run: rush build
-```
-
-## Configuration
-
-`rush.yml` is described by the [JSON schema](schema/rush.yml) in this repository.
+The [documentation](docs/README.md) covers writing extensions, dependencies, resources,
+building, GitHub Actions and migrating from Rush 1, with a reference of `rush.yml`, the
+commands and common errors.
 
 ## Building Rush
 
