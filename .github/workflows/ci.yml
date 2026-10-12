@@ -48,10 +48,19 @@ jobs:
       - run: dart test
 
   cli-tests:
+    needs: [processor, cli]
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2022, macos-14]
+        os: [ubuntu-24.04, windows-2025, macos-15]
+        shard: [0, 1, 2]
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-linux
+          - os: windows-2025
+            target: x86_64-windows
+          - os: macos-15
+            target: arm64-apple-darwin
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -66,7 +75,27 @@ jobs:
         with:
           sdk: 3.13.4
       - run: dart pub get
-      - run: tool/test.sh
+      - uses: actions/download-artifact@v4
+        with:
+          name: libs
+          path: build/test-home/libs
+      - uses: actions/download-artifact@v4
+        with:
+          name: rush-${{ matrix.target }}
+          path: build/dist
+      - uses: actions/cache@v4
+        with:
+          path: build/test-home/ai2
+          key: ai2-runtime-${{ hashFiles('lib/src/utils/constants.dart') }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: m2-${{ runner.os }}-${{ matrix.shard }}-${{ hashFiles('lib/src/services/lib_service.dart', 'lib/src/utils/constants.dart', 'test/**/*_test.dart') }}
+          restore-keys: m2-${{ runner.os }}-${{ matrix.shard }}-
+      - name: Run shard ${{ matrix.shard }} of the CLI tests
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then exe=rush.exe; else exe=rush; chmod +x build/dist/bin/rush; fi
+          RUSH_TEST_BIN="$PWD/build/dist/bin/$exe" tool/test.sh --total-shards 3 --shard-index ${{ matrix.shard }}
 
   setup-action:
     strategy:
