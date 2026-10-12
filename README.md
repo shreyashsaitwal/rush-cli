@@ -18,6 +18,7 @@ created by Shreyash Saitwal, which brings Rush 2.0 to a stable release.
 * Builds against the latest App Inventor release (currently **v206**)
 * Optional shrinking and obfuscation with ProGuard
 * Markdown documentation of every block and dropdown, generated with each build
+* Android resources (layouts, drawables, strings…) shipped with the extension
 
 See the [roadmap](ROADMAP.md) for everything that's supported and planned.
 
@@ -70,6 +71,26 @@ dependency tree.
 Libraries App Inventor already provides, such as AndroidX `appcompat` or Guava, are never
 bundled. Rush warns when a dependency needs a newer version of such a library than App
 Inventor provides, as App Inventor's version is used at runtime.
+
+## Resources
+
+Put Android resources such as layouts, drawables, strings and colors in a `res` directory
+next to `src`, laid out as in any Android project. Rush validates them, ships them in an
+AAR inside the AIX, and generates the `R` class in your extension's package:
+
+```java
+View card = LayoutInflater.from(form).inflate(R.layout.com_example_myext_card, parent, false);
+```
+
+Every resource name except IDs must start with the extension package, with dots replaced
+by underscores (`com_example_myext_` for `com.example.myext`). All resources of an app
+share one namespace, so this keeps extensions from overriding each other's resources or
+App Inventor's.
+
+Resources can reference each other and Android's own resources (`@android:color/white`,
+`?android:attr/colorAccent`), but not those of AppCompat or other AndroidX libraries.
+Like any extension that ships AARs, these extensions work in built apps but not in the AI
+Companion.
 
 ## Configuration
 

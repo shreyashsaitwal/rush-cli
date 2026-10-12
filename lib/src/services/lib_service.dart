@@ -1,4 +1,13 @@
-import 'dart:io' show FileLock, FileMode, FileSystemException, RandomAccessFile;
+import 'dart:io'
+    show
+        FileLock,
+        FileMode,
+        FileSystemException,
+        Platform,
+        Process,
+        RandomAccessFile;
+
+import 'package:archive/archive.dart';
 
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
@@ -20,6 +29,9 @@ const pgCoord = 'com.guardsquare:proguard-base:7.10.0';
 const coreLibraryCoord = 'com.android.tools:desugar_jdk_libs:2.1.5';
 const coreLibraryConfigCoord =
     'com.android.tools:desugar_jdk_libs_configuration:2.1.5';
+final aapt2Coord = 'com.android.tools.build:aapt2:jar:'
+    '${Platform.isWindows ? 'windows' : Platform.isMacOS ? 'osx' : 'linux'}'
+    ':8.13.2-14304508';
 
 const manifMergerAndDeps = <String>[
   'com.android.tools.build:manifest-merger:32.4.0',
@@ -239,6 +251,23 @@ class LibService {
 
   Future<String> coreLibraryConfigJar() async =>
       (await _findArtifact(coreLibraryConfigCoord)).classesJar;
+
+  Future<String> aapt2Exe() async {
+    final jar = (await _findArtifact(aapt2Coord)).classesJar;
+    final exe = p.join(p.dirname(jar), p.basenameWithoutExtension(jar),
+        Platform.isWindows ? 'aapt2.exe' : 'aapt2');
+    if (!await exe.asFile().exists()) {
+      final archive =
+          ZipDecoder().decodeBytes(await jar.asFile().readAsBytes());
+      await exe
+          .asFile(true)
+          .writeAsBytes(archive.findFile(p.basename(exe))!.content);
+      if (!Platform.isWindows) {
+        await Process.run('chmod', ['+x', exe]);
+      }
+    }
+    return exe;
+  }
 
   Future<Set<String>> pgJars() async =>
       (await _findArtifact(pgCoord)).classpathJars(buildLibArtifacts());

@@ -189,6 +189,7 @@ class SyncSubCommand extends Command<int> {
         [
           '$kotlinGroupId:kotlin-compiler-embeddable:$ktVersion',
           '$kotlinGroupId:kotlin-annotation-processing-embeddable:$ktVersion',
+          if (_fs.resDir.existsSync()) aapt2Coord,
         ];
 
     // Build tools to be resolved

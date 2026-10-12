@@ -11,6 +11,7 @@ what is supported, what is planned and what is deliberately out of scope.
 | Java 8 language features desugared automatically | 2.0.0 |
 | Java 17 language features (records, sealed classes, switch expressions, text blocks) | Unreleased |
 | Core library desugaring (`java.time` and other Java APIs) for `min_sdk` 24 and higher | Unreleased |
+| Android resources in `res/`, shipped in an AAR with names prefixed by the extension package | Unreleased |
 | Maven dependencies from Maven Central and Google's Maven repository | 2.0.0 |
 | Local JAR and AAR dependencies in `deps/` | 2.0.0 |
 | AARs shipped with their resources, compiled by App Inventor | 2.0.0 |
@@ -31,7 +32,6 @@ what is supported, what is planned and what is deliberately out of scope.
 
 | Feature | Status |
 |---|---|
-| Extension resources: a `res/` folder shipped in an AAR Rush builds, with names prefixed by the extension package | In progress |
 | GitHub Actions: a `setup-rush` action and a build and release workflow in new projects | Not started |
 
 ## Not planned
@@ -47,4 +47,5 @@ what is supported, what is planned and what is deliberately out of scope.
 | Other JVM languages, Jetifier, AIDL, string obfuscation | Rarely needed |
 | Core library desugaring below `min_sdk` 24 | The backport adds `java.util.function` classes that can't be relocated, so two extensions would clash |
 | Several packages in one project | Packages would share one dependency set but each ship their own copy; separate projects stay clean, and one package can hold several components |
+| Referencing AppCompat and AndroidX resources from extension resources | Rush would need to bundle and link App Inventor's whole AndroidX resource set |
 | AI Companion support for AAR extensions | The Companion can't load AAR classes or resources |

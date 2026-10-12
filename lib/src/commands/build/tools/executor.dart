@@ -105,6 +105,39 @@ class Executor {
         input,
       ]);
 
+  static Future<void> execAapt2Compile({
+    required String resDir,
+    required String output,
+  }) async =>
+      _processRunner.runExecutable(await _libService.aapt2Exe(),
+          ['compile', '--dir', resDir, '-o', output]);
+
+  static Future<void> execAapt2Link({
+    required String manifest,
+    required String compiledResources,
+    required String javaDir,
+    required String symbols,
+    required String output,
+  }) async =>
+      _processRunner.runExecutable(await _libService.aapt2Exe(), [
+        'link',
+        '--static-lib',
+        '--non-final-ids',
+        ...['-I', (await Ai2Runtime.load()).androidJar],
+        ...['--manifest', manifest],
+        ...['--java', javaDir],
+        ...['--output-text-symbols', symbols],
+        ...['-o', output],
+        compiledResources,
+      ]);
+
+  static Future<void> execJavac({
+    required Set<String> sources,
+    required String output,
+  }) =>
+      _processRunner.runExecutable(BuildUtils.javaExe(true),
+          ['--release', '8', '-d', output, ...sources]);
+
   static Future<void> _runR8Tool(String mainClass, List<String> args) async =>
       _processRunner.runExecutable(
           BuildUtils.javaExe(),

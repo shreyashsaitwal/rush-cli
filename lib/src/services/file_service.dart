@@ -37,6 +37,7 @@ class FileService {
   }
 
   Directory get srcDir => p.join(cwd, 'src').asDir();
+  Directory get resDir => p.join(cwd, 'res').asDir();
   Directory get localDepsDir => p.join(cwd, 'deps').asDir();
   Directory get dotRushDir => p.join(cwd, '.rush').asDir();
 

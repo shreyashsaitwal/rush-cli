@@ -12,6 +12,7 @@ import 'package:tint/tint.dart';
 
 import 'package:rush/src/commands/build/build_dependencies.dart';
 import 'package:rush/src/commands/build/docs.dart';
+import 'package:rush/src/commands/build/resources.dart';
 import 'package:rush/src/commands/build/utils.dart';
 import 'package:rush/src/commands/deps/sync.dart';
 import 'package:rush/src/commands/build/tools/compiler.dart';
@@ -75,12 +76,14 @@ class BuildCommand extends Command<int> {
 
     _lgr.startTask('Compiling sources');
     final BuildDependencies deps;
+    final ExtensionResources? resources;
     try {
       deps = await BuildDependencies.load(_libService, config);
       final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
       await _mergeManifests(config, deps.shippedAars);
       await _warnAboutDuplicateAars(deps.shippedAars);
-      await _compile(config, timestampBox);
+      resources = await ExtensionResources.compile(config);
+      await _compile(config, timestampBox, resources);
     } catch (e, s) {
       _catchAndStop(e, s);
       return 1;
@@ -106,7 +109,7 @@ class BuildCommand extends Command<int> {
     try {
       await BuildUtils.copyAssets(config);
       await BuildUtils.copyLicense(config);
-      await _packageAars(config, deps, buildInfosJson);
+      await _packageAars(config, deps, buildInfosJson, resources);
       artJarPath = await _createArtJar(deps.privateJars);
     } catch (e, s) {
       _catchAndStop(e, s);
@@ -120,7 +123,8 @@ class BuildCommand extends Command<int> {
           ? 'Optimizing and obfuscating the bytecode'
           : 'Shrinking bundled libraries');
       try {
-        await _runProGuard(config, artJarPath, deps, optimize: optimize);
+        await _runProGuard(config, artJarPath, deps, resources,
+            optimize: optimize);
       } catch (e, s) {
         _catchAndStop(e, s);
         return 1;
@@ -250,7 +254,8 @@ class BuildCommand extends Command<int> {
   }
 
   /// Compiles extension's source files.
-  Future<void> _compile(Config config, LazyBox<DateTime> timestampBox) async {
+  Future<void> _compile(Config config, LazyBox<DateTime> timestampBox,
+      ExtensionResources? resources) async {
     final srcFiles =
         _fs.srcDir.path.asDir().listSync(recursive: true).whereType<File>();
     final javaFiles = srcFiles
@@ -270,6 +275,9 @@ class BuildCommand extends Command<int> {
         .map((el) => el.classpathJars(dependencies))
         .flattened
         .toSet();
+    if (resources != null) {
+      compileClasspathJars.add(resources.classesDir);
+    }
 
     await p
         .join(_fs.buildDir.path, 'config.json')
@@ -284,8 +292,8 @@ class BuildCommand extends Command<int> {
     );
   }
 
-  Future<void> _packageAars(
-      Config config, BuildDependencies deps, File buildInfosJson) async {
+  Future<void> _packageAars(Config config, BuildDependencies deps,
+      File buildInfosJson, ExtensionResources? resources) async {
     final aarsDir = p.join(_fs.buildRawDir.path, 'aars').asDir();
     if (await aarsDir.exists()) {
       await aarsDir.delete(recursive: true);
@@ -301,6 +309,7 @@ class BuildCommand extends Command<int> {
       ...sharedClasses.entries.map((el) => pool.withResource(() =>
           _packageSharedJar(
               config, desugarer, el.key, el.value, aarsDir.path, deps))),
+      if (resources != null) resources.packageAar(aarsDir.path),
     ]);
 
     final buildInfos = jsonDecode(await buildInfosJson.readAsString()) as List;
@@ -405,8 +414,8 @@ class BuildCommand extends Command<int> {
 ''';
   }
 
-  Future<void> _runProGuard(
-      Config config, String artJarPath, BuildDependencies deps,
+  Future<void> _runProGuard(Config config, String artJarPath,
+      BuildDependencies deps, ExtensionResources? resources,
       {required bool optimize}) async {
     final allDeps = await _libService.extensionDependencies(config,
         includeAi2ProvidedDeps: true, includeProjectProvidedDeps: true);
@@ -420,7 +429,7 @@ class BuildCommand extends Command<int> {
     await Executor.execProGuard(
       config,
       artJarPath,
-      deps.referencedJars,
+      {...deps.referencedJars, if (resources != null) resources.classesDir},
       {
         ...aarRules,
         ...await _bundledProguardRules(deps.privateJars),
