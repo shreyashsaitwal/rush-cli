@@ -1078,6 +1078,28 @@ class Legacy(container: ComponentContainer) : AndroidNonvisibleComponent(contain
       expect(built.exitCode, 0, reason: built.output);
     });
 
+    Future<ProcessResult> migrateWithVersionNumber(String number) {
+      final config = File('${project.path}/rush.yml');
+      config.writeAsStringSync(config.readAsStringSync().replaceFirst(
+          RegExp(r'  number: .*\n  name: .*\n'), '  number: $number\n'));
+      return rush(['migrate'], workingDirectory: project.path);
+    }
+
+    test('uses the version number when there is no version name', () async {
+      final migrated = await migrateWithVersionNumber('3');
+      expect(migrated.exitCode, 0, reason: migrated.output);
+      expect(File('${project.path}/rush.yml').readAsStringSync(),
+          contains("version: '3'"));
+    });
+
+    test('starts at 1.0.0 when the version number was automatic', () async {
+      final migrated = await migrateWithVersionNumber('auto');
+      expect(migrated.exitCode, 0, reason: migrated.output);
+      expect(migrated.output, contains("version: '1.0.0'"));
+      expect(File('${project.path}/rush.yml').readAsStringSync(),
+          contains("version: '1.0.0'"));
+    });
+
     test('keeps unlisted local libraries for compilation only', () async {
       final classes = Directory('${project.path}/lib-classes');
       File('${project.path}/Greeting.java').writeAsStringSync(

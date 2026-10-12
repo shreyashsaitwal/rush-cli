@@ -46,7 +46,7 @@ class MigrateCommand extends Command<int> {
         : <String>[];
 
     final newConfig = Config(
-      version: oldConfig.version.name.toString(),
+      version: _versionName(oldConfig.version),
       minSdk: oldConfig.minSdk ?? 7,
       assets: oldConfig.assets.other ?? [],
       desugar: oldConfig.build?.desugar?.enable ?? false,
@@ -89,6 +89,19 @@ class MigrateCommand extends Command<int> {
 
     // No need to start a task here since the sync command does that on its own.
     return SyncSubCommand().run(title: 'Syncing dependencies');
+  }
+
+  String _versionName(old.Version version) {
+    if (version.name != null) {
+      return version.name.toString();
+    }
+    if (version.number is int) {
+      return version.number.toString();
+    }
+    _lgr.warn(
+        'The old rush.yml has no version name, so the migrated one starts '
+        "at version: '1.0.0'");
+    return '1.0.0';
   }
 
   bool _editSourceFile(File srcFile, old.OldConfig oldConfig) {

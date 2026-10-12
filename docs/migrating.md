@@ -12,7 +12,8 @@ rush migrate
 
 ## What it converts
 
-- **`rush.yml`**: `version.name` becomes `version`; `deps` becomes `dependencies`;
+- **`rush.yml`**: `version.name` becomes `version` (or `version.number` without a name,
+  or `1.0.0` when the number was `auto`); `deps` becomes `dependencies`;
   `assets.other` becomes `assets`; `min_sdk`, `homepage`, `license` and `authors` are
   kept. JARs in `deps` that weren't listed in `deps` become `provided_dependencies`, as
   they were compile-only in Rush 1. Kotlin projects get `kotlin.compiler_version` and the
