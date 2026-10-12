@@ -3,7 +3,7 @@ name: Rush CI
 on:
   push:
     branches: [main]
-    tags: ['v*']
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
   pull_request:
   workflow_dispatch:
 
