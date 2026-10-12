@@ -230,6 +230,17 @@ void main() {
     expect(workflow, contains('run: rush build'));
   });
 
+  test('build warns about rush.yml keys that have no effect', () async {
+    final project = await createProject('ignored_keys_ext', language: 'java');
+    final config = project.file('rush.yml');
+    config.writeAsStringSync(
+        '${config.readAsStringSync()}\nauthors:\n- Jane Doe\ndesugar: true\n');
+    final result = await project.build();
+    expect(result.exitCode, 0, reason: result.output);
+    expect(result.output, contains('`authors` in rush.yml has no effect'));
+    expect(result.output, contains('`desugar` in rush.yml has no effect'));
+  });
+
   test('build explains that it needs a JDK', () async {
     final project = await createProject('no_jdk_ext', language: 'java');
     final missingJdk = '${project.dir.path}${Platform.pathSeparator}no-jdk';
@@ -1070,8 +1081,8 @@ class Legacy(container: ComponentContainer) : AndroidNonvisibleComponent(contain
           allOf(
             contains('homepage: https://example.com/legacy'),
             contains('license: https://example.com/legacy/LICENSE'),
-            contains('desugar: true'),
-            contains('- Jane Doe'),
+            isNot(contains('desugar')),
+            isNot(contains('authors')),
           ));
 
       final built = await rush(['build'], workingDirectory: project.path);

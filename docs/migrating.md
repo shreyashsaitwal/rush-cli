@@ -14,10 +14,11 @@ rush migrate
 
 - **`rush.yml`**: `version.name` becomes `version` (or `version.number` without a name,
   or `1.0.0` when the number was `auto`); `deps` becomes `dependencies`;
-  `assets.other` becomes `assets`; `min_sdk`, `homepage`, `license` and `authors` are
-  kept. JARs in `deps` that weren't listed in `deps` become `provided_dependencies`, as
-  they were compile-only in Rush 1. Kotlin projects get `kotlin.compiler_version` and the
-  Kotlin standard library as a dependency.
+  `assets.other` becomes `assets`; `min_sdk`, `homepage` and `license` are kept, while
+  `authors` and `desugar`, which Rush 2 ignores, are dropped. JARs in `deps` that weren't
+  listed in `deps` become `provided_dependencies`, as they were compile-only in Rush 1.
+  Kotlin projects get `kotlin.compiler_version` and the Kotlin standard library as a
+  dependency.
 - **The extension class**: the source file named after the project's `name` gets an
   `@Extension` annotation with the old description and icon.
 

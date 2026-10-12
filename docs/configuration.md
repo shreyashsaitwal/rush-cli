@@ -73,5 +73,5 @@ default.
 
 ## Ignored keys
 
-`authors` and `desugar` are accepted for compatibility with older projects but have no
-effect: code is always desugared.
+`authors` and `desugar` are accepted for compatibility with older projects, but have no
+effect and make `rush build` warn. Code is always desugared.

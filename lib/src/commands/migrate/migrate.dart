@@ -49,12 +49,10 @@ class MigrateCommand extends Command<int> {
       version: _versionName(oldConfig.version),
       minSdk: oldConfig.minSdk ?? 7,
       assets: oldConfig.assets.other ?? [],
-      desugar: oldConfig.build?.desugar?.enable ?? false,
       dependencies: dependencies,
       providedDependencies: compileOnlyDependencies,
       license: oldConfig.license ?? '',
       homepage: oldConfig.homepage ?? '',
-      authors: oldConfig.authors ?? [],
       kotlin: Kotlin(
         compilerVersion: defaultKtVersion,
       ),
@@ -184,23 +182,6 @@ homepage: ${config.homepage}\n\n''';
 # Path to the license file of your extension. This should be a path to a local file
 # or link to something hosted online.
 license: ${config.license}\n\n''';
-    }
-
-    if (config.authors.isNotEmpty) {
-      contents += '''
-# Authors of your extension.
-authors:
-${config.authors.map((el) => '- $el').join('\n')}
-
-''';
-    }
-
-    if (config.desugar) {
-      contents += '''
-# Desugars Java 8+ language features so that they work on older Android versions.
-desugar: true
-
-''';
     }
 
     if (config.assets.isNotEmpty) {

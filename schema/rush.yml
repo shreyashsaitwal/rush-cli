@@ -29,10 +29,11 @@ properties:
     type: string
 
   authors:
-    description: Authors of the extension.
+    description: Deprecated and ignored.
     type: array
     items:
       type: string
+    deprecated: true
 
   assets:
     description: Files in the `assets` directory to bundle with the extension.

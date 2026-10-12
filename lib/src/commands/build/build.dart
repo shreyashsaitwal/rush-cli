@@ -66,6 +66,9 @@ class BuildCommand extends Command<int> {
       _logFinalLine(false);
       return 1;
     }
+    for (final key in config.ignoredKeys) {
+      _lgr.warn('`$key` in rush.yml has no effect. Remove it.');
+    }
     _lgr.stopTask();
 
     if (await SyncSubCommand.needsSync(config, _libService) &&

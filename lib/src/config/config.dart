@@ -38,13 +38,13 @@ class Config {
   final String license;
 
   @JsonKey(disallowNullValue: true)
-  final bool desugar;
+  final bool? desugar;
 
   @JsonKey(disallowNullValue: true)
   final List<String> assets;
 
   @JsonKey(disallowNullValue: true)
-  final List<String> authors;
+  final List<String>? authors;
 
   @JsonKey(disallowNullValue: true)
   final Kotlin kotlin;
@@ -54,9 +54,9 @@ class Config {
     this.minSdk = 7,
     this.homepage = '',
     this.license = '',
-    this.desugar = false,
+    this.desugar,
     this.assets = const [],
-    this.authors = const [],
+    this.authors,
     this.dependencies = const [],
     this.providedDependencies = const [],
     this.repositories = const [],
@@ -67,6 +67,11 @@ class Config {
   factory Config._fromJson(Map json) => _$ConfigFromJson(json);
 
   Map<String, dynamic> toJson() => _$ConfigToJson(this);
+
+  List<String> get ignoredKeys => [
+        if (authors != null) 'authors',
+        if (desugar != null) 'desugar',
+      ];
 
   static Future<Config?> require(File configFile, Logger lgr) {
     if (!configFile.existsSync()) {
