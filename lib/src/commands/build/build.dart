@@ -58,16 +58,82 @@ class BuildCommand extends Command<int> {
   @override
   Future<int> run() async {
     _stopwatch.start();
-    _lgr.startTask('Initializing build');
+    try {
+      await _build(optimize: argResults!['optimize'] as bool);
+    } on _BuildFailed {
+      _logFinalLine(false);
+      return 1;
+    }
+    _logFinalLine(true);
+    return 0;
+  }
 
+  Future<void> _build({required bool optimize}) async {
+    final config = await _task('Initializing build', _loadConfig);
+
+    if (await SyncSubCommand.needsSync(config, _libService) &&
+        await SyncSubCommand().run(title: 'Syncing dependencies') != 0) {
+      throw const _BuildFailed();
+    }
+
+    final (deps, resources) = await _task('Compiling sources', () async {
+      final deps = await BuildDependencies.load(_libService, config);
+      final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
+      await _mergeManifests(config, deps.shippedAars);
+      await _warnAboutDuplicateAars(deps.shippedAars);
+      final resources = await ExtensionResources.compile(config);
+      await _compile(config, timestampBox, resources);
+      return (deps, resources);
+    });
+
+    final artJarPath = await _task('Processing', () async {
+      final buildInfosJson = await _requireExtension();
+      await BuildUtils.copyAssets(config);
+      await BuildUtils.copyLicense(config);
+      await _packageAars(config, deps, buildInfosJson, resources);
+      return _createArtJar(deps.privateJars);
+    });
+
+    if (optimize || deps.privateJars.isNotEmpty) {
+      await _task(
+          optimize
+              ? 'Optimizing and obfuscating the bytecode'
+              : 'Shrinking bundled libraries',
+          () => _runProGuard(config, artJarPath, deps, resources,
+              optimize: optimize));
+    }
+
+    if (deps.privateJars.isNotEmpty) {
+      await _task('Relocating bundled libraries',
+          () => _relocatePrivateClasses(artJarPath, deps.privateJars));
+    }
+
+    await _task('Desugaring Java 8+ language features',
+        () => _desugarArtJar(config, artJarPath, deps));
+    await _task('Generating DEX bytecode',
+        () => Executor.execD8(config, artJarPath, deps.referencedJars));
+    await _task('Packaging the extension', _assemble);
+  }
+
+  Future<T> _task<T>(String title, Future<T> Function() body) async {
+    _lgr.startTask(title);
+    try {
+      final result = await body();
+      _lgr.stopTask();
+      return result;
+    } catch (e, s) {
+      _reportFailure(e, s);
+      throw const _BuildFailed();
+    }
+  }
+
+  Future<Config> _loadConfig() async {
     await GetIt.I.isReady<LibService>();
     _libService = GetIt.I<LibService>();
 
     final config = await Config.require(_fs.configFile, _lgr);
     if (config == null) {
-      _lgr.stopTask(false);
-      _logFinalLine(false);
-      return 1;
+      throw Exception();
     }
     for (final key in config.ignoredKeys) {
       _lgr.warn('`$key` in rush.yml has no effect. Remove it.');
@@ -77,35 +143,12 @@ class BuildCommand extends Command<int> {
       _lgr.err('$path is listed in rush.yml but doesn\'t exist');
     }
     if (missingFiles.isNotEmpty) {
-      _lgr.stopTask(false);
-      _logFinalLine(false);
-      return 1;
+      throw Exception();
     }
-    _lgr.stopTask();
+    return config;
+  }
 
-    if (await SyncSubCommand.needsSync(config, _libService) &&
-        await SyncSubCommand().run(title: 'Syncing dependencies') != 0) {
-      _logFinalLine(false);
-      return 1;
-    }
-
-    _lgr.startTask('Compiling sources');
-    final BuildDependencies deps;
-    final ExtensionResources? resources;
-    try {
-      deps = await BuildDependencies.load(_libService, config);
-      final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
-      await _mergeManifests(config, deps.shippedAars);
-      await _warnAboutDuplicateAars(deps.shippedAars);
-      resources = await ExtensionResources.compile(config);
-      await _compile(config, timestampBox, resources);
-    } catch (e, s) {
-      _catchAndStop(e, s);
-      return 1;
-    }
-    _lgr.stopTask();
-
-    _lgr.startTask('Processing');
+  Future<File> _requireExtension() async {
     final componentsJson =
         p.join(_fs.buildRawDir.path, 'components.json').asFile();
     final buildInfosJson = p
@@ -116,78 +159,10 @@ class BuildCommand extends Command<int> {
         (jsonDecode(await componentsJson.readAsString()) as List).isEmpty) {
       _lgr
         ..err('No extension found')
-        ..log('Annotate the extension class with @Extension', 'help  '.green())
-        ..stopTask(false);
-      return 1;
+        ..log('Annotate the extension class with @Extension', 'help  '.green());
+      throw Exception();
     }
-
-    final String artJarPath;
-    try {
-      await BuildUtils.copyAssets(config);
-      await BuildUtils.copyLicense(config);
-      await _packageAars(config, deps, buildInfosJson, resources);
-      artJarPath = await _createArtJar(deps.privateJars);
-    } catch (e, s) {
-      _catchAndStop(e, s);
-      return 1;
-    }
-    _lgr.stopTask();
-
-    final optimize = argResults!['optimize'] as bool;
-    if (optimize || deps.privateJars.isNotEmpty) {
-      _lgr.startTask(optimize
-          ? 'Optimizing and obfuscating the bytecode'
-          : 'Shrinking bundled libraries');
-      try {
-        await _runProGuard(config, artJarPath, deps, resources,
-            optimize: optimize);
-      } catch (e, s) {
-        _catchAndStop(e, s);
-        return 1;
-      }
-      _lgr.stopTask();
-    }
-
-    if (deps.privateJars.isNotEmpty) {
-      _lgr.startTask('Relocating bundled libraries');
-      try {
-        await _relocatePrivateClasses(artJarPath, deps.privateJars);
-      } catch (e, s) {
-        _catchAndStop(e, s);
-        return 1;
-      }
-      _lgr.stopTask();
-    }
-
-    _lgr.startTask('Desugaring Java 8+ language features');
-    try {
-      await _desugarArtJar(config, artJarPath, deps);
-    } catch (e, s) {
-      _catchAndStop(e, s);
-      return 1;
-    }
-    _lgr.stopTask();
-
-    _lgr.startTask('Generating DEX bytecode');
-    try {
-      await Executor.execD8(config, artJarPath, deps.referencedJars);
-    } catch (e, s) {
-      _catchAndStop(e, s);
-      return 1;
-    }
-    _lgr.stopTask();
-
-    _lgr.startTask('Packaging the extension');
-    try {
-      await _assemble();
-    } catch (e, s) {
-      _catchAndStop(e, s);
-      return 1;
-    }
-    _lgr.stopTask();
-
-    _logFinalLine(true);
-    return 0;
+    return buildInfosJson;
   }
 
   List<String> _missingFiles(Config config) => [
@@ -200,7 +175,7 @@ class BuildCommand extends Command<int> {
             p.posix.join('deps', dependency),
       ].where((path) => !p.join(_fs.cwd, path).asFile().existsSync()).toList();
 
-  void _catchAndStop(Object e, StackTrace s) {
+  void _reportFailure(Object e, StackTrace s) {
     final message = errorMessage(e);
     if (e is ProcessException) {
       _lgr.dbg(message);
@@ -210,8 +185,6 @@ class BuildCommand extends Command<int> {
     _lgr
       ..dbg(s.toString())
       ..stopTask(false);
-
-    _logFinalLine(false);
   }
 
   void _logFinalLine(bool success) {
@@ -718,4 +691,8 @@ class BuildCommand extends Command<int> {
   static Future<List<Map<String, dynamic>>> _readJsonList(String path) async =>
       (jsonDecode(await path.asFile().readAsString()) as List)
           .cast<Map<String, dynamic>>();
+}
+
+class _BuildFailed implements Exception {
+  const _BuildFailed();
 }
