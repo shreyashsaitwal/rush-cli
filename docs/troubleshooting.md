@@ -34,8 +34,8 @@ Blocks take and return primitives. See [Block types](writing-extensions.md#block
 **`Cannot convert Java type '…' to YAIL type.`** The type can't be a block's parameter or
 result. Use one of the [block types](writing-extensions.md#block-types).
 
-**`java.lang.ClassNotFoundException` naming a dropdown enum.** Dropdown enums must be in
-a directory named `helpers`. See [Dropdowns](writing-extensions.md#dropdowns).
+**`Dropdown enum … must be in a directory named helpers`.** Move the enum into a
+`helpers` directory. See [Dropdowns](writing-extensions.md#dropdowns).
 
 **`string/title must be named com_example_counter_title`.** Resource names must start
 with the extension's package. See [Naming](resources.md#naming).

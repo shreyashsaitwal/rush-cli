@@ -3,9 +3,9 @@ package io.github.shreyashsaitwal.rush.block
 import com.google.appinventor.components.annotations.Asset
 import com.google.appinventor.components.annotations.Options
 import com.google.appinventor.components.common.Default
+import io.github.shreyashsaitwal.rush.ProcessingError
 import org.json.JSONArray
 import org.json.JSONObject
-import java.lang.reflect.Method
 import java.net.URLClassLoader
 import java.nio.file.Paths
 import javax.lang.model.element.Element
@@ -191,17 +191,18 @@ private class OptionListData(element: Element, private val elementUtils: Element
 
     private fun options(): List<JSONObject> {
         val optionListEnumName = elementType.toString()
-        val optionListEnum: Class<*>
-        val toValueMethod: Method
-        try {
-            optionListEnum = HelperSingleton.loader.loadClass(optionListEnumName)
-            toValueMethod = optionListEnum.getDeclaredMethod("toUnderlyingValue")
-        } catch (e: Exception) {
-            throw e
+        val optionListEnum = try {
+            HelperSingleton.loader.loadClass(optionListEnumName)
+        } catch (e: ClassNotFoundException) {
+            throw ProcessingError(
+                "Dropdown enum $optionListEnumName must be in a directory named `helpers`, " +
+                    "like src/.../helpers/${optionListEnumName.substringAfterLast('.')}.java"
+            )
         }
+        val toValueMethod = optionListEnum.getDeclaredMethod("toUnderlyingValue")
 
         if (!optionListEnum.isEnum) {
-            throw Exception("OptionList is not an enum: $optionListEnumName")
+            throw ProcessingError("OptionList is not an enum: $optionListEnumName")
         }
 
         val enumConsts = optionListEnum.enumConstants.associate {

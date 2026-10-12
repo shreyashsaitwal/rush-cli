@@ -414,6 +414,24 @@ void main() {
       expect(returnTypes, {'Count': 'number', 'Check': 'boolean'});
     });
 
+    test('explain that dropdown enums belong in a helpers directory', () async {
+      final project = await createProject('misplaced_ext', language: 'java');
+      project.source('options/Mode.java')
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+            _fill(_helperEnum, project).replaceFirst('.helpers;', '.options;'));
+      final result = await _buildWithFunctions(project, '''
+  @SimpleFunction(description = "Moves")
+  public void Move(${project.package}.options.Mode mode) {
+  }
+''');
+      expect(result.exitCode, 1, reason: result.output);
+      expect(
+          result.output,
+          contains('Dropdown enum ${project.package}.options.Mode must be in '
+              'a directory named `helpers`'));
+    });
+
     test('describe dropdown options and honor @Options on getters', () async {
       final project = await createProject('options_ext', language: 'java');
       project.source('helpers/Mode.java').createSync(recursive: true);
