@@ -177,6 +177,58 @@ void main() {
     });
   });
 
+  group('errors', () {
+    Future<String> failedBuild(TestProject project) async {
+      final result = await project.build();
+      expect(result.exitCode, 1, reason: result.output);
+      expect(result.output, isNot(contains('Exception')));
+      return result.output;
+    }
+
+    void editConfig(TestProject project, String from, String to) {
+      final config = project.file('rush.yml');
+      config
+          .writeAsStringSync(config.readAsStringSync().replaceFirst(from, to));
+    }
+
+    test('explain that no class has @Extension', () async {
+      final project = await createProject('unannotated_ext', language: 'java');
+      final source = project.source('${project.className}.java');
+      source.writeAsStringSync(source
+          .readAsStringSync()
+          .replaceFirst(RegExp(r'@Extension\([^)]*\)'), ''));
+      expect(await failedBuild(project), contains('@Extension'));
+    });
+
+    test('point at the rush.yml line of a configuration mistake', () async {
+      final project = await createProject('typo_ext', language: 'java');
+      editConfig(project, 'min_sdk:', 'min_sdkk:');
+      expect(
+          await failedBuild(project),
+          allOf(
+              contains('rush.yml'), contains('line 7'), contains('min_sdkk')));
+    });
+
+    test('name a missing asset', () async {
+      final project = await createProject('no_asset_ext', language: 'java');
+      editConfig(project, '#assets:', 'assets:\n- missing.txt\n#assets:');
+      expect(await failedBuild(project), contains('assets/missing.txt'));
+    });
+
+    test('name a missing local library', () async {
+      final project = await createProject('no_jar_ext', language: 'java');
+      editConfig(project, '#dependencies:', 'dependencies:\n- missing.jar');
+      expect(await failedBuild(project), contains('deps/missing.jar'));
+    });
+
+    test('list unresolvable dependencies', () async {
+      final project = await createProject('no_artifact_ext', language: 'java');
+      project.addDependencies(['com.example.missing:nothing:9.9.9']);
+      expect(await failedBuild(project),
+          contains('com.example.missing:nothing:9.9.9'));
+    });
+  });
+
   group('output', () {
     final escape = RegExp('\x1b');
 

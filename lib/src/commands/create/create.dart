@@ -19,6 +19,7 @@ import 'package:rush/src/commands/create/templates/extension_source.dart';
 import 'package:rush/src/commands/create/templates/icon.dart';
 import 'package:rush/src/commands/create/templates/intellij_files.dart';
 import 'package:rush/src/commands/create/templates/other.dart';
+import 'package:rush/src/utils/error_message.dart';
 
 class CreateCommand extends Command<int> {
   final FileService _fs = GetIt.I<FileService>();
@@ -178,7 +179,7 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
           .asFile(true)
           .writeAsBytes(base64Decode(extensionIconBase64));
     } catch (e) {
-      GetIt.I<Logger>().err(e.toString());
+      GetIt.I<Logger>().err(errorMessage(e));
       rethrow;
     }
 

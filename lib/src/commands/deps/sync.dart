@@ -18,6 +18,7 @@ import 'package:rush/src/services/lib_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/constants.dart';
 import 'package:rush/src/utils/file_extension.dart';
+import 'package:rush/src/utils/error_message.dart';
 
 const _buildToolCoords = [
   r8Coord,
@@ -93,7 +94,7 @@ class SyncSubCommand extends Command<int> {
         ]);
       } catch (e, s) {
         _lgr
-          ..err(e.toString())
+          ..err(errorMessage(e))
           ..dbg(s.toString())
           ..stopTask(false);
         return 1;
@@ -309,7 +310,7 @@ class SyncSubCommand extends Command<int> {
       return resolvedDeps;
     } catch (e, s) {
       _lgr
-        ..err(e.toString())
+        ..err(errorMessage(e))
         ..dbg(s.toString());
       rethrow;
     } finally {

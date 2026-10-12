@@ -4,6 +4,7 @@ import 'package:checked_yaml/checked_yaml.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/constants.dart';
+import 'package:rush/src/utils/error_message.dart';
 
 part 'kotlin.dart';
 
@@ -86,9 +87,12 @@ class Config {
     if (configFile.existsSync()) {
       try {
         return checkedYamlDecode<Config>(
-            await configFile.readAsString(), (json) => Config._fromJson(json!));
+            await configFile.readAsString(), (json) => Config._fromJson(json!),
+            sourceUrl: Uri.file('rush.yml'));
+      } on ParsedYamlException catch (e) {
+        lgr.err(e.formattedMessage ?? e.message);
       } catch (e) {
-        lgr.err(e.toString());
+        lgr.err(errorMessage(e));
       }
     }
     return null;

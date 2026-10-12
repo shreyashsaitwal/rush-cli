@@ -25,6 +25,7 @@ import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/constants.dart';
 import 'package:rush/src/utils/file_extension.dart';
+import 'package:rush/src/utils/error_message.dart';
 
 const _coreLibraryMinSdk = 24;
 
@@ -69,6 +70,15 @@ class BuildCommand extends Command<int> {
     for (final key in config.ignoredKeys) {
       _lgr.warn('`$key` in rush.yml has no effect. Remove it.');
     }
+    final missingFiles = _missingFiles(config);
+    for (final path in missingFiles) {
+      _lgr.err('$path is listed in rush.yml but doesn\'t exist');
+    }
+    if (missingFiles.isNotEmpty) {
+      _lgr.stopTask(false);
+      _logFinalLine(false);
+      return 1;
+    }
     _lgr.stopTask();
 
     if (await SyncSubCommand.needsSync(config, _libService) &&
@@ -99,11 +109,12 @@ class BuildCommand extends Command<int> {
     final buildInfosJson = p
         .join(_fs.buildRawDir.path, 'files', 'component_build_infos.json')
         .asFile();
-    if (!await componentsJson.exists() || !await buildInfosJson.exists()) {
+    if (!await componentsJson.exists() ||
+        !await buildInfosJson.exists() ||
+        (jsonDecode(await componentsJson.readAsString()) as List).isEmpty) {
       _lgr
-        ..err('Unable to find components.json or component_build_infos.json')
-        ..log(
-            '${'help '.green()} Make sure you have annotated your extension with @Extension annotation')
+        ..err('No extension found')
+        ..log('Annotate the extension class with @Extension', 'help  '.green())
         ..stopTask(false);
       return 1;
     }
@@ -177,8 +188,18 @@ class BuildCommand extends Command<int> {
     return 0;
   }
 
+  List<String> _missingFiles(Config config) => [
+        for (final asset in config.assets) p.posix.join('assets', asset),
+        for (final dependency in [
+          ...config.dependencies,
+          ...config.providedDependencies
+        ])
+          if (dependency.endsWith('.jar') || dependency.endsWith('.aar'))
+            p.posix.join('deps', dependency),
+      ].where((path) => !p.join(_fs.cwd, path).asFile().existsSync()).toList();
+
   void _catchAndStop(Object e, StackTrace s) {
-    final message = e.toString();
+    final message = errorMessage(e);
     if (e is ProcessException) {
       _lgr.dbg(message);
     } else if (message.isNotEmpty && message != 'Exception') {

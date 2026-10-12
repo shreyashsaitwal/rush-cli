@@ -71,12 +71,7 @@ class BuildUtils {
     final assetsDestDir = p.join(_fs.buildRawDir.path, 'assets').asDir(true);
 
     for (final el in assets) {
-      final asset = p.join(assetsDir, el).asFile();
-      if (await asset.exists()) {
-        await asset.copy(p.join(assetsDestDir.path, el));
-      } else {
-        throw Exception('Asset $el does not exist');
-      }
+      await p.join(assetsDir, el).asFile().copy(p.join(assetsDestDir.path, el));
     }
   }
 
