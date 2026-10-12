@@ -1,0 +1,64 @@
+name: Setup Rush
+description: Installs the Rush CLI for building App Inventor extensions and caches its dependencies
+branding:
+  icon: package
+  color: orange
+
+inputs:
+  version:
+    description: The Rush version to install, like 2.2.0
+    default: latest
+
+outputs:
+  version:
+    description: The installed Rush version
+    value: ${{ steps.install.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 17
+
+    - name: Install Rush
+      id: install
+      shell: bash
+      env:
+        RUSH_VERSION: ${{ inputs.version }}
+      run: |
+        case "$RUNNER_OS-$RUNNER_ARCH" in
+          Linux-X64) target=x86_64-linux ;;
+          macOS-ARM64) target=arm64-apple-darwin ;;
+          macOS-X64) target=x86_64-apple-darwin ;;
+          Windows-X64) target=x86_64-windows ;;
+          *)
+            echo "::error::Rush doesn't support $RUNNER_OS on $RUNNER_ARCH"
+            exit 1
+            ;;
+        esac
+        if [ "$RUSH_VERSION" = latest ]; then
+          url="https://github.com/zainulhassan815/rush-cli/releases/latest/download/rush-$target.zip"
+        else
+          url="https://github.com/zainulhassan815/rush-cli/releases/download/v${RUSH_VERSION#v}/rush-$target.zip"
+        fi
+        rush_home="$HOME/.rush"
+        curl --fail --location --silent --show-error -o "$RUNNER_TEMP/rush.zip" "$url"
+        unzip -oq "$RUNNER_TEMP/rush.zip" -d "$rush_home"
+        chmod +x "$rush_home"/bin/*
+        if [ "$RUNNER_OS" = Windows ]; then
+          cygpath -w "$rush_home/bin" >> "$GITHUB_PATH"
+        else
+          echo "$rush_home/bin" >> "$GITHUB_PATH"
+        fi
+        echo "version=$("$rush_home/bin/rush" --version | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+')" >> "$GITHUB_OUTPUT"
+
+    - uses: actions/cache@v4
+      with:
+        path: |
+          ~/.rush/ai2
+          ~/.rush/cache
+          ~/.m2/repository
+        key: rush-${{ runner.os }}-${{ steps.install.outputs.version }}-${{ hashFiles('**/rush.yml') }}
+        restore-keys: rush-${{ runner.os }}-

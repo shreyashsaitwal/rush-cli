@@ -68,6 +68,22 @@ jobs:
       - run: dart pub get
       - run: tool/test.sh
 
+  setup-action:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+      - run: rush create demo --package com.example --language java --ide intellij
+      - run: rush build
+        working-directory: demo
+
   cli:
     strategy:
       matrix:

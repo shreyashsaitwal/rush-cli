@@ -92,6 +92,18 @@ Resources can reference each other and Android's own resources (`@android:color/
 Like any extension that ships AARs, these extensions work in built apps but not in the AI
 Companion.
 
+## GitHub Actions
+
+Workflows can install Rush with the setup action, which also caches the App Inventor
+runtime and Maven dependencies:
+
+```yaml
+- uses: zainulhassan815/rush-cli@v2
+  with:
+    version: 2.2.0 # optional, defaults to the latest release
+- run: rush build
+```
+
 ## Configuration
 
 `rush.yml` is described by the [JSON schema](schema/rush.yml) in this repository.
