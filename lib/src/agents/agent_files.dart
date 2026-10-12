@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
 
 import 'package:rush/src/agents/skill.dart';
+import 'package:rush/src/commands/create/templates/eclipse_files.dart';
 import 'package:rush/src/utils/file_extension.dart';
 
 const _skillPath = '.claude/skills/rush/SKILL.md';
@@ -38,20 +41,79 @@ Add conventions specific to this project here.
 
 const _claudeMd = '@AGENTS.md\n';
 
-Map<String, String> _agentFiles() => {
+const _devcontainerJson = '''
+{
+  "name": "Rush",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/zainulhassan815/rush-cli/rush:1": {}
+  },
+  "postCreateCommand": "rush deps sync",
+  "customizations": {
+    "vscode": {
+      "extensions": ["GitHub.copilot-chat"]
+    }
+  }
+}
+''';
+
+const _copilotSetupSteps = '''
+name: Copilot setup steps
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: zainulhassan815/rush-cli@v2
+      - run: rush deps sync
+''';
+
+Map<String, String> _agentFiles(String projectDir) => {
       'AGENTS.md': _agentsMd,
       'CLAUDE.md': _claudeMd,
       _skillPath: rushSkill,
+      '.devcontainer/devcontainer.json': _devcontainerJson,
+      '.github/workflows/copilot-setup-steps.yml': _copilotSetupSteps,
+      '.project': dotProject(p.basename(projectDir)),
     };
 
 Future<List<String>> writeAgentFiles(String projectDir) async {
   final written = <String>[];
-  for (final MapEntry(key: path, value: contents) in _agentFiles().entries) {
+  for (final MapEntry(key: path, value: contents)
+      in _agentFiles(projectDir).entries) {
     final file = p.join(projectDir, path);
     if (path == _skillPath || !await file.asFile().exists()) {
       await file.asFile(true).writeAsString(contents);
       written.add(path);
     }
   }
+  if (written.contains('.project')) {
+    await _ignoreClasspath(projectDir);
+  }
   return written;
+}
+
+Future<void> _ignoreClasspath(String projectDir) async {
+  final gitignore = p.join(projectDir, '.gitignore').asFile();
+  if (!await gitignore.exists()) {
+    return;
+  }
+  final contents = await gitignore.readAsString();
+  if (!contents.split('\n').contains('/.classpath')) {
+    final separator = contents.isEmpty || contents.endsWith('\n') ? '' : '\n';
+    await gitignore.writeAsString('$separator/.classpath\n',
+        mode: FileMode.append);
+  }
 }

@@ -51,7 +51,10 @@ counter/
 │   └── icon.png              the extension's icon
 ├── deps/                     local JAR and AAR libraries
 ├── .github/workflows/
-│   └── build.yml             builds and releases the extension on GitHub
+│   ├── build.yml             builds and releases the extension on GitHub
+│   └── copilot-setup-steps.yml  prepares GitHub Copilot's cloud agent
+├── .devcontainer/
+│   └── devcontainer.json     a ready-made environment for Codespaces and VS Code
 ├── .project, .classpath      project files for VS Code and Eclipse
 ├── AGENTS.md                 instructions for AI coding agents
 ├── CLAUDE.md
@@ -64,6 +67,9 @@ classpath, so code completion works. Every project gets them for VS Code and Ecl
 (`.project` and `.classpath`). `--ide intellij` or `--ide both` adds them for IntelliJ IDEA
 and Android Studio. `.classpath` holds paths on your computer, so it isn't committed:
 `rush deps sync` and `rush build` write it.
+
+The project can also be opened in a [dev container](dev-containers.md), in GitHub
+Codespaces or in VS Code, without installing anything.
 
 ## Building
 

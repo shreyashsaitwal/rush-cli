@@ -15,7 +15,8 @@ options in a terminal, and fails without them in scripts. See
 
 ## rush agents
 
-Adds or updates the instructions AI coding agents follow in the project. See
+Adds or updates the instructions AI coding agents follow in the project, and the files
+for [dev containers](dev-containers.md) and GitHub Copilot's cloud agent. See
 [AI agents](ai-agents.md).
 
 ## rush build

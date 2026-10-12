@@ -12,6 +12,7 @@
 - [Building](https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/docs/building.md): build output, Java and Kotlin versions, optimization and generated documentation
 - [GitHub Actions](https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/docs/github-actions.md): building and releasing extensions on GitHub
 - [AI agents](https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/docs/ai-agents.md): the instructions Rush gives AI coding agents
+- [Dev containers](https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/docs/dev-containers.md): building in GitHub Codespaces, VS Code dev containers and Copilot's cloud agent
 - [Migrating from Rush 1](https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/docs/migrating.md)
 
 ## Reference

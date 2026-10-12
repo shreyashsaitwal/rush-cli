@@ -21,6 +21,7 @@ created by Shreyash Saitwal, which brings Rush 2.0 to a stable release.
 * Android resources (layouts, drawables, strings…) shipped with the extension
 * Ready for AI coding agents: new projects include instructions that teach them to write,
   build and check extensions
+* Build in GitHub Codespaces or a dev container, with nothing to install
 
 See the [roadmap](ROADMAP.md) for everything that's supported and planned.
 

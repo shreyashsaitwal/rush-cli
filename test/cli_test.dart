@@ -329,6 +329,43 @@ void main() {
       expect(skill.readAsStringSync(), startsWith('---\nname: rush\n'));
     });
 
+    test('include a dev container and Copilot setup steps', () async {
+      final project = await createProject('container_ext', language: 'java');
+      final devcontainer = jsonDecode(project
+          .file('.devcontainer/devcontainer.json')
+          .readAsStringSync()) as Map<String, dynamic>;
+      expect(devcontainer['features'],
+          contains('ghcr.io/zainulhassan815/rush-cli/rush:1'));
+      expect(devcontainer['postCreateCommand'], 'rush deps sync');
+      expect(
+          project
+              .file('.github/workflows/copilot-setup-steps.yml')
+              .readAsStringSync(),
+          contains('copilot-setup-steps:'));
+    });
+
+    test('are added to existing projects by rush agents', () async {
+      final project =
+          await createProject('container_add_ext', language: 'java');
+      project.file('.devcontainer/devcontainer.json').deleteSync();
+      project.file('.github/workflows/copilot-setup-steps.yml').deleteSync();
+      project.file('.project').deleteSync();
+      project.file('.gitignore').writeAsStringSync('/out\n');
+
+      final result = await rush(['agents'], workingDirectory: project.dir.path);
+      expect(result.exitCode, 0, reason: result.output);
+      expect(
+          project.file('.devcontainer/devcontainer.json').existsSync(), true);
+      expect(
+          project
+              .file('.github/workflows/copilot-setup-steps.yml')
+              .existsSync(),
+          true);
+      expect(project.file('.project').existsSync(), true);
+      expect(
+          project.file('.gitignore').readAsStringSync(), '/out\n/.classpath\n');
+    });
+
     test('need a project', () async {
       final empty = await Directory.systemTemp.createTemp('rush-test-empty-');
       addTearDown(() => empty.delete(recursive: true));
