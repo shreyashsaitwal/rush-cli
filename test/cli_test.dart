@@ -1,6 +1,7 @@
 @Timeout(Duration(minutes: 3))
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -239,6 +240,34 @@ void main() {
     expect(result.exitCode, 0, reason: result.output);
     expect(result.output, contains('`authors` in rush.yml has no effect'));
     expect(result.output, contains('`desugar` in rush.yml has no effect'));
+  });
+
+  test('an empty RUSH_AI2_RUNTIME_ZIP downloads the runtime', () async {
+    final home = await Directory.systemTemp.createTemp('rush-home-');
+    addTearDown(() => home.delete(recursive: true));
+    Directory('${home.path}/libs').createSync();
+    final sync = await Process.start(
+        rushBin, ['--no-color', 'deps', 'sync', '--dev-deps'],
+        workingDirectory: home.path,
+        environment: {'RUSH_HOME': home.path, 'RUSH_AI2_RUNTIME_ZIP': ''});
+    final output = StringBuffer();
+    final downloading = Completer<bool>();
+    for (final stream in [sync.stdout, sync.stderr]) {
+      stream.transform(utf8.decoder).listen((text) {
+        output.write(text);
+        if (output.toString().contains('Downloading App Inventor runtime') &&
+            !downloading.isCompleted) {
+          downloading.complete(true);
+        }
+      });
+    }
+    unawaited(sync.exitCode.then((_) {
+      if (!downloading.isCompleted) downloading.complete(false);
+    }));
+    final started = await downloading.future;
+    sync.kill();
+    await sync.exitCode;
+    expect(started, isTrue, reason: output.toString());
   });
 
   test('build explains that it needs a JDK', () async {

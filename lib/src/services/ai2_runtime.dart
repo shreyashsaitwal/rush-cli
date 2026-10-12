@@ -80,7 +80,7 @@ class Ai2Runtime {
   static Future<void> install() async {
     final localZip = Platform.environment['RUSH_AI2_RUNTIME_ZIP'];
     final List<int> bytes;
-    if (localZip != null) {
+    if (localZip != null && localZip.isNotEmpty) {
       _lgr.info('Installing App Inventor runtime $ai2Version from $localZip');
       bytes = await localZip.asFile().readAsBytes();
     } else {
