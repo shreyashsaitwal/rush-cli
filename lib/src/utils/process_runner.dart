@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'dart:io' show Process, ProcessException, systemEncoding;
 
 import 'package:get_it/get_it.dart';
+import 'package:path/path.dart' as p;
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/services/lib_service.dart';
 import 'package:rush/src/services/ai2_runtime.dart';
 import 'package:rush/src/version.dart';
+import 'package:tint/tint.dart';
 
 class ProcessRunner {
   final _fs = GetIt.I<FileService>();
@@ -25,10 +27,11 @@ class ProcessRunner {
         'RUSH_RUNTIME_JAR': runtime.runtimeJar,
         'RUSH_VERSION': packageVersion,
       });
-    } catch (e) {
-      if (e.toString().contains('The system cannot find the file specified')) {
-        _lgr.err(
-            'Could not run `$exe`. Make sure it is installed and in PATH.');
+    } on ProcessException catch (e) {
+      _lgr.err('Could not run `$exe`: ${e.message}');
+      if (p.basenameWithoutExtension(exe).startsWith('java')) {
+        _lgr.log('Rush needs JDK 17 or newer, on PATH or in JAVA_HOME',
+            'help  '.green());
       }
       rethrow;
     }

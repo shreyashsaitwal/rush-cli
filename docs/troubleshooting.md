@@ -2,10 +2,11 @@
 
 ## Build errors
 
+**`Could not run javac`** (or `java`). Rush needs a JDK, version 17 or newer. It runs
+`java` and `javac` from `JAVA_HOME`, or from `PATH` when `JAVA_HOME` isn't set.
+
 **`BUILD FAILED` without an error message.** Run the build again with `--verbose` to see
-what failed. A common cause is a missing JDK (`ProcessException: No such file or
-directory` for `javac`): Rush runs `java` and `javac` from `JAVA_HOME`, or from `PATH`
-when it isn't set.
+what failed.
 
 **`error: release version 17 not supported`.** The JDK is older than 17. Install JDK 17
 or newer, and point `JAVA_HOME` to it.

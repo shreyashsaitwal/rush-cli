@@ -230,6 +230,15 @@ void main() {
     expect(workflow, contains('run: rush build'));
   });
 
+  test('build explains that it needs a JDK', () async {
+    final project = await createProject('no_jdk_ext', language: 'java');
+    final missingJdk = '${project.dir.path}${Platform.pathSeparator}no-jdk';
+    final result = await project.build([], {'JAVA_HOME': missingJdk});
+    expect(result.exitCode, 1, reason: result.output);
+    expect(result.output, contains('Could not run `$missingJdk'));
+    expect(result.output, contains('Rush needs JDK 17 or newer'));
+  });
+
   group('build', () {
     test('keeps Kotlin classes when the project also has Java sources',
         () async {

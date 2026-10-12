@@ -8,9 +8,9 @@ final String rushBin = Platform.environment['RUSH_TEST_BIN'] ??
     (throw StateError('Run the tests with tool/test.sh'));
 
 Future<ProcessResult> rush(List<String> args,
-        {required String workingDirectory}) =>
+        {required String workingDirectory, Map<String, String>? environment}) =>
     Process.run(rushBin, ['--no-color', ...args],
-        workingDirectory: workingDirectory);
+        workingDirectory: workingDirectory, environment: environment);
 
 extension ProcessOutput on ProcessResult {
   String get output => '${this.stdout}${this.stderr}';
@@ -73,8 +73,10 @@ class TestProject {
         RegExp(r'^min_sdk: \d+$', multiLine: true), 'min_sdk: $minSdk'));
   }
 
-  Future<ProcessResult> build([List<String> args = const []]) =>
-      rush(['build', ...args], workingDirectory: dir.path);
+  Future<ProcessResult> build(
+          [List<String> args = const [], Map<String, String>? environment]) =>
+      rush(['build', ...args],
+          workingDirectory: dir.path, environment: environment);
 
   Archive get aix {
     final out = Directory(p.join(dir.path, 'out'));
