@@ -31,7 +31,8 @@ what is supported, what is planned and what is deliberately out of scope.
 
 | Feature | Status |
 |---|---|
-| Extension-owned resources and custom XML layouts, shipped in an AAR Rush builds | Design |
+| Extension resources: a `res/` folder shipped in an AAR Rush builds, with names prefixed by the extension package | In progress |
+| GitHub Actions: a `setup-rush` action and a build and release workflow in new projects | Not started |
 
 ## Not planned
 
