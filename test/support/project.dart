@@ -80,15 +80,12 @@ class TestProject {
       rush(['build', ...args],
           workingDirectory: dir.path, environment: environment);
 
-  Aix get aix {
-    final out = Directory(p.join(dir.path, 'out'));
-    return Aix(
-        out
-            .listSync()
-            .whereType<File>()
-            .singleWhere((f) => f.path.endsWith('.aix')),
-        package);
-  }
+  File get aixFile => Directory(p.join(dir.path, 'out'))
+      .listSync()
+      .whereType<File>()
+      .singleWhere((f) => f.path.endsWith('.aix'));
+
+  Aix get aix => Aix(aixFile, package);
 
   String get packagePath => package.replaceAll('.', '/');
 

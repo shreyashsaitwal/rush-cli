@@ -9,6 +9,7 @@ import 'package:rush/src/config/config.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/file_extension.dart';
+import 'package:rush/src/utils/zip.dart';
 
 class BuildUtils {
   static final _fs = GetIt.I<FileService>();
@@ -40,15 +41,10 @@ class BuildUtils {
     final original =
         ZipDecoder().decodeBytes(await source.asFile().readAsBytes());
     final replacementBytes = await replacement.asFile().readAsBytes();
-    final archive = Archive();
-    for (final file in original.files) {
-      archive.add(file.name == entry
-          ? ArchiveFile.bytes(entry, replacementBytes)
-          : file);
-    }
-    await destination
-        .asFile(true)
-        .writeAsBytes(ZipEncoder().encodeBytes(archive));
+    await writeZip(destination, [
+      for (final file in original.files)
+        file.name == entry ? ArchiveFile.bytes(entry, replacementBytes) : file
+    ]);
   }
 
   static Future<void> extractAars(Iterable<String> aars) async {

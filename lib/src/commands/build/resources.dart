@@ -10,6 +10,7 @@ import 'package:rush/src/config/config.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/file_extension.dart';
+import 'package:rush/src/utils/zip.dart';
 
 class ExtensionResources {
   ExtensionResources._(this.package, this._dir);
@@ -102,11 +103,13 @@ class ExtensionResources {
 
   Future<String> packageAar(String aarsDir) async {
     final name = '$package.aar';
-    final encoder = ZipFileEncoder()..create(p.join(aarsDir, name));
-    await encoder.addFile(_manifest.asFile(), 'AndroidManifest.xml');
-    await encoder.addFile(_symbols.asFile(), 'R.txt');
-    await encoder.addDirectory(_fs.resDir);
-    await encoder.close();
+    await writeZip(p.join(aarsDir, name), [
+      ArchiveFile.bytes(
+          'AndroidManifest.xml', await _manifest.asFile().readAsBytes()),
+      ArchiveFile.bytes('R.txt', await _symbols.asFile().readAsBytes()),
+      for (final file in _fs.resDir.listSync(recursive: true).whereType<File>())
+        await fileEntry(file, from: _fs.resDir.parent.path),
+    ]);
     return name;
   }
 }

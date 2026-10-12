@@ -27,6 +27,7 @@ import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/constants.dart';
 import 'package:rush/src/utils/file_extension.dart';
 import 'package:rush/src/utils/error_message.dart';
+import 'package:rush/src/utils/zip.dart';
 
 const _coreLibraryMinSdk = 24;
 
@@ -406,9 +407,7 @@ class BuildCommand extends Command<int> {
     final sharedJarsDir = p.join(_fs.buildFilesDir.path, 'shared-jars');
     final classesJar = p.join(sharedJarsDir, '$name.jar');
     final desugaredJar = p.join(sharedJarsDir, '$name.desugared.jar');
-    await classesJar
-        .asFile(true)
-        .writeAsBytes(ZipEncoder().encodeBytes(classes));
+    await writeZip(classesJar, classes.files);
 
     await desugarer.desugar(
       input: classesJar,
@@ -416,15 +415,12 @@ class BuildCommand extends Command<int> {
       classpathJars: {...deps.referencedJars, ...deps.privateJars}
         ..remove(jar.classesJar),
     );
-    final aar = Archive()
-      ..add(ArchiveFile.string(
-          'AndroidManifest.xml', _sharedJarManifest(jar, config.minSdk)))
-      ..add(ArchiveFile.bytes(
-          'classes.jar', await desugaredJar.asFile().readAsBytes()));
-    await p
-        .join(aarsDir, name)
-        .asFile(true)
-        .writeAsBytes(ZipEncoder().encodeBytes(aar));
+    await writeZip(p.join(aarsDir, name), [
+      ArchiveFile.string(
+          'AndroidManifest.xml', _sharedJarManifest(jar, config.minSdk)),
+      ArchiveFile.bytes(
+          'classes.jar', await desugaredJar.asFile().readAsBytes()),
+    ]);
     return name;
   }
 
@@ -627,11 +623,11 @@ class BuildCommand extends Command<int> {
     final jar = ZipDecoder().decodeBytes(await jarPath.asFile().readAsBytes());
     final classes =
         ZipDecoder().decodeBytes(await classesJarPath.asFile().readAsBytes());
-    for (final file in classes.files
-        .where((el) => el.isFile && !el.name.startsWith('META-INF/'))) {
-      jar.addFile(file);
-    }
-    await jarPath.asFile().writeAsBytes(ZipEncoder().encode(jar));
+    await writeZip(jarPath, [
+      ...jar.files,
+      ...classes.files
+          .where((el) => el.isFile && !el.name.startsWith('META-INF/')),
+    ]);
   }
 
   static String _aarFileName(Artifact aar) => aar.isMavenArtifact
@@ -641,7 +637,7 @@ class BuildCommand extends Command<int> {
   Future<String> _createArtJar(Set<String> requiredJars) async {
     final artJarPath =
         p.join(_fs.buildRawDir.path, 'files', 'AndroidRuntime.jar');
-    final zipEncoder = ZipFileEncoder()..create(artJarPath);
+    final entries = <ArchiveFile>[];
 
     // Add class files from all required deps into the ART.jar
     if (requiredJars.isNotEmpty) {
@@ -667,7 +663,7 @@ class BuildCommand extends Command<int> {
           return p.extension(el.name) == '.class';
         });
         for (final file in decodedJar) {
-          zipEncoder.addArchiveFile(file..compression = CompressionType.none);
+          entries.add(file..compression = CompressionType.none);
           addedPaths.add(file.name);
         }
       }
@@ -679,12 +675,11 @@ class BuildCommand extends Command<int> {
       if (file is File &&
           !file.path.contains('META-INF') &&
           p.extension(file.path) == '.class') {
-        final path = p.relative(file.path, from: _fs.buildClassesDir.path);
-        await zipEncoder.addFile(file, path);
+        entries.add(await fileEntry(file, from: _fs.buildClassesDir.path));
       }
     }
 
-    await zipEncoder.close();
+    await writeZip(artJarPath, entries);
     return artJarPath;
   }
 
@@ -708,15 +703,12 @@ class BuildCommand extends Command<int> {
 
     final outputDir = p.join(_fs.cwd, 'out').asDir(true);
     final aix = p.join(outputDir.path, '$org.aix');
-    final zipEncoder = ZipFileEncoder()..create(aix);
-    try {
-      for (final entry in aixEntries(components, buildInfos)) {
-        await zipEncoder.addFile(p.join(rawDir, entry).asFile(), '$org/$entry');
-      }
-      _lgr.info('Generated AIX file at ${aix.blue()}');
-    } finally {
-      await zipEncoder.close();
-    }
+    await writeZip(aix, [
+      for (final entry in aixEntries(components, buildInfos))
+        ArchiveFile.bytes(
+            '$org/$entry', await p.join(rawDir, entry).asFile().readAsBytes()),
+    ]);
+    _lgr.info('Generated AIX file at ${aix.blue()}');
 
     final docs = p.join(outputDir.path, '$org.md');
     await docs.asFile().writeAsString(markdownDocs(components));
