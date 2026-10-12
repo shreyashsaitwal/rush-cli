@@ -1,0 +1,21 @@
+# Rush
+
+> Rush is a command-line tool that builds MIT App Inventor extensions from Java or Kotlin sources. It resolves Maven dependencies, ships Android resources, desugars Java 17 code and generates documentation of the extension's blocks.
+
+## Docs
+
+- [Getting started](https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/docs/getting-started.md): installing Rush, creating a project and importing the extension into App Inventor
+- [Writing extensions](https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/docs/writing-extensions.md): functions, properties, events, block types, asynchronous functions, dropdowns and assets
+- [Android manifest](https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/docs/manifest.md): permissions, services, activities and runtime permissions
+- [Dependencies](https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/docs/dependencies.md): Maven and local libraries, what App Inventor provides, and how libraries are shipped
+- [Resources](https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/docs/resources.md): layouts, drawables, strings and colors in res/
+- [Building](https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/docs/building.md): build output, Java and Kotlin versions, optimization and generated documentation
+- [GitHub Actions](https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/docs/github-actions.md): building and releasing extensions on GitHub
+- [AI agents](https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/docs/ai-agents.md): the instructions Rush gives AI coding agents
+- [Migrating from Rush 1](https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/docs/migrating.md)
+
+## Reference
+
+- [rush.yml](https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/docs/configuration.md): every configuration key
+- [Commands](https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/docs/commands.md): commands, options and environment variables
+- [Troubleshooting](https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/docs/troubleshooting.md): error messages and App Inventor's limits

@@ -5,6 +5,7 @@ import 'package:args/command_runner.dart';
 import 'package:get_it/get_it.dart';
 import 'package:tint/tint.dart';
 
+import 'package:rush/src/commands/agents.dart';
 import 'package:rush/src/commands/build/build.dart';
 import 'package:rush/src/commands/clean.dart';
 import 'package:rush/src/commands/create/create.dart';
@@ -54,6 +55,7 @@ class RushCommandRunner extends CommandRunner<int> {
         hide: true,
       );
 
+    addCommand(AgentsCommand());
     addCommand(BuildCommand());
     addCommand(CleanCommand());
     addCommand(CreateCommand());

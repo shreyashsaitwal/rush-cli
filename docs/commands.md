@@ -13,6 +13,11 @@ followed by the project name, unless it already ends with it. Rush asks for miss
 options in a terminal, and fails without them in scripts. See
 [Getting started](getting-started.md#creating-a-project).
 
+## rush agents
+
+Adds or updates the instructions AI coding agents follow in the project. See
+[AI agents](ai-agents.md).
+
 ## rush build
 
 ```sh

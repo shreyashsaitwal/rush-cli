@@ -50,8 +50,12 @@ counter/
 ├── assets/
 │   └── icon.png              the extension's icon
 ├── deps/                     local JAR and AAR libraries
-└── .github/workflows/
-    └── build.yml             builds and releases the extension on GitHub
+├── .github/workflows/
+│   └── build.yml             builds and releases the extension on GitHub
+├── AGENTS.md                 instructions for AI coding agents
+├── CLAUDE.md
+└── .claude/skills/rush/
+    └── SKILL.md              how to write extensions, for AI agents
 ```
 
 `--ide` generates project files for IntelliJ IDEA and Android Studio (`intellij`), for
@@ -79,4 +83,5 @@ includes extensions with [resources](resources.md) and some
 [dependencies](dependencies.md#how-libraries-are-shipped), only work in built apps: test
 those with **Build → Android App (.apk)**.
 
-Next, see [writing extensions](writing-extensions.md).
+Next, see [writing extensions](writing-extensions.md). To work with an AI coding agent,
+see [AI agents](ai-agents.md).

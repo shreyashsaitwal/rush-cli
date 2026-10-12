@@ -19,6 +19,8 @@ created by Shreyash Saitwal, which brings Rush 2.0 to a stable release.
 * Optional shrinking and obfuscation with ProGuard
 * Markdown documentation of every block and dropdown, generated with each build
 * Android resources (layouts, drawables, strings…) shipped with the extension
+* Ready for AI coding agents: new projects include instructions that teach them to write,
+  build and check extensions
 
 See the [roadmap](ROADMAP.md) for everything that's supported and planned.
 

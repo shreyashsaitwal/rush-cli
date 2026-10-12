@@ -17,7 +17,8 @@ resources.
 6. [Building](building.md): what `rush build` produces, optimization, Java versions and
    the generated documentation.
 7. [GitHub Actions](github-actions.md): building and releasing on GitHub.
-8. [Migrating from Rush 1](migrating.md).
+8. [AI agents](ai-agents.md): the instructions Rush gives AI coding agents.
+9. [Migrating from Rush 1](migrating.md).
 
 ## Reference
 

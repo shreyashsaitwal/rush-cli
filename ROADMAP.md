@@ -28,6 +28,7 @@ what is supported, what is planned and what is deliberately out of scope.
 | `rush migrate` for Rush 1 projects | 2.1.0 |
 | Markdown documentation of the extension's blocks, written next to the AIX | 2.2.0 |
 | GitHub Actions: a setup action and a build and release workflow in new projects | 2.2.0 |
+| Instructions for AI coding agents in every project (`AGENTS.md`, a Claude skill, `rush agents`) | Unreleased |
 
 ## Not planned
 

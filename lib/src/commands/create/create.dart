@@ -6,6 +6,7 @@ import 'package:get_it/get_it.dart';
 import 'package:interact/interact.dart' hide Progress;
 import 'package:path/path.dart' as p;
 import 'package:recase/recase.dart';
+import 'package:rush/src/agents/agent_files.dart';
 import 'package:rush/src/commands/create/templates/eclipse_files.dart';
 import 'package:tint/tint.dart';
 
@@ -178,6 +179,7 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
           .join(projectDir, 'assets', 'icon.png')
           .asFile(true)
           .writeAsBytes(base64Decode(extensionIconBase64));
+      await writeAgentFiles(projectDir);
     } catch (e) {
       GetIt.I<Logger>().err(errorMessage(e));
       rethrow;

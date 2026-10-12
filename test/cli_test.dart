@@ -283,6 +283,40 @@ void main() {
     expect(workflow, contains('run: rush build'));
   });
 
+  group('agent instructions', () {
+    test('are part of new projects', () async {
+      final project = await createProject('agent_ext', language: 'java');
+      expect(project.file('AGENTS.md').readAsStringSync(),
+          contains('.claude/skills/rush/SKILL.md'));
+      expect(project.file('CLAUDE.md').readAsStringSync(), '@AGENTS.md\n');
+      expect(project.file('.claude/skills/rush/SKILL.md').readAsStringSync(),
+          startsWith('---\nname: rush\n'));
+    });
+
+    test('are refreshed by rush agents without touching AGENTS.md', () async {
+      final project =
+          await createProject('agent_refresh_ext', language: 'java');
+      project.file('AGENTS.md').writeAsStringSync('My own notes\n');
+      project.file('CLAUDE.md').deleteSync();
+      final skill = project.file('.claude/skills/rush/SKILL.md')
+        ..writeAsStringSync('outdated');
+
+      final result = await rush(['agents'], workingDirectory: project.dir.path);
+      expect(result.exitCode, 0, reason: result.output);
+      expect(project.file('AGENTS.md').readAsStringSync(), 'My own notes\n');
+      expect(project.file('CLAUDE.md').readAsStringSync(), '@AGENTS.md\n');
+      expect(skill.readAsStringSync(), startsWith('---\nname: rush\n'));
+    });
+
+    test('need a project', () async {
+      final empty = await Directory.systemTemp.createTemp('rush-test-empty-');
+      addTearDown(() => empty.delete(recursive: true));
+      final result = await rush(['agents'], workingDirectory: empty.path);
+      expect(result.exitCode, 1, reason: result.output);
+      expect(result.output, contains('rush.yml'));
+    });
+  });
+
   test('build warns about rush.yml keys that have no effect', () async {
     final project = await createProject('ignored_keys_ext', language: 'java');
     final config = project.file('rush.yml');
