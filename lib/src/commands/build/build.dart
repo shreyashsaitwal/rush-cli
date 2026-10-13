@@ -14,6 +14,7 @@ import 'package:rush/src/commands/build/aix.dart';
 import 'package:rush/src/commands/build/build_dependencies.dart';
 import 'package:rush/src/commands/build/descriptor.dart';
 import 'package:rush/src/commands/build/libraries.dart';
+import 'package:rush/src/commands/build/relocation.dart';
 import 'package:rush/src/commands/build/docs.dart';
 import 'package:rush/src/commands/build/resources.dart';
 import 'package:rush/src/commands/build/utils.dart';
@@ -437,14 +438,7 @@ class BuildCommand extends Command<int> {
       String artJarPath, Set<String> privateJars, String package) async {
     final classes = {
       for (final jar in privateJars)
-        ...ZipDecoder()
-            .decodeBytes(await jar.asFile().readAsBytes())
-            .files
-            .where((el) =>
-                el.isFile &&
-                !el.name.startsWith('META-INF') &&
-                p.extension(el.name) == '.class')
-            .map((el) => p.withoutExtension(el.name)),
+        ...relocatableClasses(await _fileEntries(jar)),
     };
     _lgr.info('Moved ${privateJars.length} bundled libraries to '
         '${await _relocate(artJarPath, classes, package)}');
@@ -452,19 +446,17 @@ class BuildCommand extends Command<int> {
 
   Future<void> _relocateDesugarHelpers(
       String artJarPath, String package) async {
-    final helpers = ZipDecoder()
-        .decodeBytes(await artJarPath.asFile().readAsBytes())
-        .files
-        .where((el) =>
-            el.isFile &&
-            (el.name.startsWith('com/android/tools/r8/') ||
-                el.name.startsWith(r'j$/')) &&
-            p.extension(el.name) == '.class')
-        .map((el) => p.withoutExtension(el.name));
+    final helpers = desugarHelpers(await _fileEntries(artJarPath));
     if (helpers.isNotEmpty) {
       await _relocate(artJarPath, helpers, package);
     }
   }
+
+  static Future<Iterable<String>> _fileEntries(String jar) async => ZipDecoder()
+      .decodeBytes(await jar.asFile().readAsBytes())
+      .files
+      .where((el) => el.isFile)
+      .map((el) => el.name);
 
   Future<String> _relocate(
       String artJarPath, Iterable<String> classes, String package) async {
