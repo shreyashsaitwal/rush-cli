@@ -368,6 +368,64 @@ assets:
     });
   });
 
+  group('a rebuilt project', () {
+    const skippedCompile = 'skipped the compile step';
+    const skippedDex = 'skipped the dex step';
+    late TestProject project;
+
+    Future<String> build() async {
+      final result = await project.build();
+      expect(result.exitCode, 0, reason: result.output);
+      return result.output;
+    }
+
+    setUpAll(() async {
+      project = await TestProject.create('rebuild_ext');
+      await build();
+    });
+
+    test('skips compiling and dexing when nothing changed', () async {
+      expect(
+          await build(), allOf(contains(skippedCompile), contains(skippedDex)));
+    });
+
+    test('ships the same AIX as a clean build', () async {
+      await build();
+      expect(await build(), contains(skippedCompile));
+      final rebuilt = project.aixFile.readAsBytesSync();
+      await rush(['clean'], workingDirectory: project.dir.path);
+      expect(await build(), isNot(contains(skippedCompile)));
+      expect(project.aixFile.readAsBytesSync(), rebuilt);
+    });
+
+    test('compiles again when a source changes', () async {
+      project.writeJavaExtension('''
+  @SimpleFunction
+  public int Answer() {
+    return 42;
+  }
+''');
+      expect(await build(),
+          allOf(isNot(contains(skippedCompile)), isNot(contains(skippedDex))));
+      expect((project.aix.component['methods'] as List).map((m) => m['name']),
+          contains('Answer'));
+    });
+
+    test('compiles again when a dependency changes', () async {
+      project.addDependencies(['com.google.code.gson:gson:2.8.9']);
+      expect(await build(), isNot(contains(skippedCompile)));
+    });
+
+    test('compiles again when its classes are deleted', () async {
+      await build();
+      Directory('${project.dir.path}/.rush/build/classes')
+          .deleteSync(recursive: true);
+      expect(await build(), isNot(contains(skippedCompile)));
+      expect(project.aix.classNames,
+          contains(project.classFile(project.className)));
+    });
+  });
+
   test('removes classes of deleted helpers', () async {
     final project = await TestProject.create('helper_ext');
     project.writeHelperEnum();

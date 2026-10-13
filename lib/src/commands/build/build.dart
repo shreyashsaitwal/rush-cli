@@ -1,5 +1,12 @@
 import 'dart:convert' show jsonEncode, utf8;
-import 'dart:io' show File, Platform, ProcessException;
+import 'dart:io'
+    show
+        Directory,
+        File,
+        FileSystemEntity,
+        FileSystemEntityType,
+        Platform,
+        ProcessException;
 
 import 'package:archive/archive_io.dart';
 import 'package:args/command_runner.dart';
@@ -19,6 +26,7 @@ import 'package:rush/src/commands/build/proguard_rules.dart';
 import 'package:rush/src/commands/build/relocation.dart';
 import 'package:rush/src/commands/build/docs.dart';
 import 'package:rush/src/commands/build/resources.dart';
+import 'package:rush/src/commands/build/toolchain.dart';
 import 'package:rush/src/commands/build/utils.dart';
 import 'package:rush/src/commands/deps/sync.dart';
 import 'package:rush/src/commands/build/tools/compiler.dart';
@@ -31,6 +39,7 @@ import 'package:rush/src/services/lib_service.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/constants.dart';
+import 'package:rush/src/utils/content_key.dart';
 import 'package:rush/src/utils/file_extension.dart';
 import 'package:rush/src/utils/error_message.dart';
 import 'package:rush/src/utils/zip.dart';
@@ -120,7 +129,7 @@ class BuildCommand extends Command<int> {
     await _task('Desugaring Java 8+ language features',
         () => _desugarArtJar(config, artJarPath, deps, descriptor.package));
     await _task('Generating DEX bytecode',
-        () => Executor.execD8(config, artJarPath, deps.referencedJars));
+        () => _dex(config, artJarPath, deps.referencedJars));
     await _task('Packaging the extension',
         () => _assemble(config, descriptor, libraries));
   }
@@ -285,14 +294,80 @@ class BuildCommand extends Command<int> {
       ],
       'version': packageVersion,
     }));
-    await Compiler.compile(
-      compileClasspathJars,
-      javaFiles: javaFiles.map((file) => file.path).toSet(),
-      kotlinFiles: ktFiles.map((file) => file.path).toSet(),
-      kotlinVersion: config.kotlin.compilerVersion,
-      timestampBox: timestampBox,
-      processorOptions: processorOptions.path,
+
+    final key = ContentKey()
+      ..add('toolchain', await toolchainKey)
+      ..add('kotlin', config.kotlin.compilerVersion);
+    await key.addFile('processor', _libService.processorJar);
+    await key.addFile('config', configJson.path);
+    await key.addFile('manifest', manifest);
+    await key.addPath('src', _fs.srcDir.path);
+    await key.addPath('assets', p.join(_fs.cwd, 'assets'));
+    if (config.license.isNotEmpty) {
+      await key.addPath('license', p.join(_fs.cwd, config.license));
+    }
+    for (final (i, entry) in compileClasspathJars.indexed) {
+      await key.addPath('classpath $i', entry);
+    }
+
+    await _unlessUnchanged(
+      'compile',
+      key.value,
+      outputs: [
+        _fs.buildClassesDir.path,
+        p.join(_fs.buildRawDir.path, 'components.json'),
+      ],
+      run: () => Compiler.compile(
+        compileClasspathJars,
+        javaFiles: javaFiles.map((file) => file.path).toSet(),
+        kotlinFiles: ktFiles.map((file) => file.path).toSet(),
+        kotlinVersion: config.kotlin.compilerVersion,
+        timestampBox: timestampBox,
+        processorOptions: processorOptions.path,
+      ),
     );
+  }
+
+  Future<void> _dex(
+      Config config, String artJarPath, Set<String> classpath) async {
+    final key = ContentKey()
+      ..add('toolchain', await toolchainKey)
+      ..add('min sdk', config.minSdk);
+    await key.addFile('runtime', artJarPath);
+    await key.addFile('r8', await _libService.r8Jar());
+    for (final (i, jar) in classpath.indexed) {
+      await key.addPath('classpath $i', jar);
+    }
+    await _unlessUnchanged(
+      'dex',
+      key.value,
+      outputs: [p.join(_fs.buildRawDir.path, 'classes.jar')],
+      run: () => Executor.execD8(config, artJarPath, classpath),
+    );
+  }
+
+  static bool _present(String path) =>
+      switch (FileSystemEntity.typeSync(path)) {
+        FileSystemEntityType.directory => Directory(path).listSync().isNotEmpty,
+        FileSystemEntityType.notFound => false,
+        _ => true,
+      };
+
+  Future<void> _unlessUnchanged(String step, String key,
+      {required List<String> outputs,
+      required Future<void> Function() run}) async {
+    final stamp = p.join(_fs.buildDir.path, '$step.key').asFile();
+    if (await stamp.exists() &&
+        await stamp.readAsString() == key &&
+        outputs.every(_present)) {
+      _lgr.info('Nothing changed since the last build, skipped the $step step');
+      return;
+    }
+    if (await stamp.exists()) {
+      await stamp.delete();
+    }
+    await run();
+    await stamp.writeAsString(key);
   }
 
   Future<List<Library>> _packageLibraries(Config config, BuildDependencies deps,
