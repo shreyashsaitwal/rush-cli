@@ -123,6 +123,24 @@ void main() {
         aix.classNames.where((c) => c.contains('com/google/common/')), isEmpty);
   });
 
+  test(
+      'bundled libraries may contain classes of App Inventor libraries '
+      'that only some apps include', () async {
+    final project = await TestProject.create('zxing_ext');
+    project.addDependencies(['com.google.zxing:core:3.5.3']);
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public String Writer() {
+    return new com.google.zxing.qrcode.QRCodeWriter().toString();
+  }
+''');
+    final result = await project.build(['--optimize']);
+    expect(result.exitCode, 0, reason: result.output);
+    expect(
+        project.aix.classNames.where((c) => c.startsWith('com/google/zxing/')),
+        isEmpty);
+  });
+
   group('fonts in shipped AARs', () {
     late TestProject project;
     late ProcessResult build;

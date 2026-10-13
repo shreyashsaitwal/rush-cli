@@ -15,6 +15,7 @@ class ResolvedLibrary {
     this.manifest,
     this.consumerRules,
     this.package,
+    this.inEveryApp = true,
   });
 
   final String coordinate;
@@ -26,6 +27,7 @@ class ResolvedLibrary {
   final String? manifest;
   final String? consumerRules;
   final String? package;
+  final bool inEveryApp;
 
   String get groupId => coordinate.split(':')[0];
 
@@ -82,6 +84,7 @@ LibraryPlan planLibraries({
   final shipped = _shipped(dependencies);
   final shared = _shared(shipped);
   final compileOnly = _compileOnly([...appInventor, ...provided], shipped);
+  final linkedAgainst = _inEveryApp(compileOnly);
   final sharedAars = shared.where((el) => el.isAar);
   final everything = [
     ...dependencies,
@@ -99,7 +102,7 @@ LibraryPlan planLibraries({
         .expand((el) => _classpath(el, everything))
         .toSet(),
     libraryJars: {
-      ...compileOnly.expand((el) => _classpath(el, compileOnly)),
+      ...linkedAgainst.expand((el) => _classpath(el, linkedAgainst)),
       ...sharedAars.map((el) => el.classesJar),
       ...shared.whereNot((el) => el.isAar).map((el) => el.classesJar),
     },
@@ -133,6 +136,9 @@ List<ResolvedLibrary> _compileOnly(
           !shippedLibraries.contains(el.groupAndArtifactId))
       .toList();
 }
+
+List<ResolvedLibrary> _inEveryApp(List<ResolvedLibrary> libraries) =>
+    libraries.where((el) => el.inEveryApp).toList();
 
 List<Problem> _duplicateAars(Iterable<ResolvedLibrary> aars) => [
       for (final MapEntry(key: package, value: copies) in duplicateLibraries({

@@ -8,6 +8,7 @@ ResolvedLibrary _library(
   List<String> dependencies = const [],
   String? package,
   bool consumerRules = false,
+  bool inEveryApp = true,
 }) =>
     ResolvedLibrary(
       coordinate: coordinate,
@@ -19,6 +20,7 @@ ResolvedLibrary _library(
       manifest: aar ? '$coordinate/AndroidManifest.xml' : null,
       consumerRules: consumerRules ? '$coordinate/proguard.txt' : null,
       package: package,
+      inEveryApp: inEveryApp,
     );
 
 LibraryPlan _plan({
@@ -102,6 +104,23 @@ void main() {
       'g:widget:1.jar',
       'g:model:1.jar',
     ]);
+  });
+
+  test('links against App Inventor libraries only when every app has them', () {
+    final plan = _plan(
+      dependencies: [_library('com.google.zxing:core:3.5.3')],
+      appInventor: [
+        _library('android.jar', scope: LibraryScope.provided),
+        _library('QRGenerator.jar',
+            scope: LibraryScope.provided, inEveryApp: false),
+        _library('Barcode.jar',
+            scope: LibraryScope.provided, inEveryApp: false),
+      ],
+    );
+
+    expect(plan.libraryJars, {'android.jar.jar'});
+    expect(plan.compileClasspath,
+        containsAll(['QRGenerator.jar.jar', 'Barcode.jar.jar']));
   });
 
   test('compiles against everything but runtime-only dependencies', () {
