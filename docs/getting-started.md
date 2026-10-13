@@ -1,5 +1,18 @@
 # Getting started
 
+## Without installing anything
+
+The [Rush extension template](https://github.com/zainulhassan815/rush-extension-template) creates a project on GitHub, in the
+browser:
+
+1. Click **Use this template** → **Create a new repository**.
+2. In the new repository's **Actions** tab, run **Create extension** with the extension's
+   name, a package name and the language. It commits the project and starts a build.
+3. Open the repository in a [codespace](dev-containers.md): **Code** → **Codespaces** →
+   **Create codespace on main**.
+
+The rest of this page sets Rush up on your own computer.
+
 ## Requirements
 
 Rush needs a JDK, version 17 or newer, either on your `PATH` or pointed to by `JAVA_HOME`.

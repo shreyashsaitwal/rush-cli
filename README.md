@@ -25,6 +25,12 @@ created by Shreyash Saitwal, which brings Rush 2.0 to a stable release.
 
 See the [roadmap](ROADMAP.md) for everything that's supported and planned.
 
+## Start in your browser
+
+To make an extension without installing anything, create a repository from the
+[Rush extension template](https://github.com/zainulhassan815/rush-extension-template). A workflow creates the project, and a
+codespace gives you VS Code, Rush and GitHub Copilot in the browser.
+
 ## Installation
 
 Rush requires JDK 17 or newer.

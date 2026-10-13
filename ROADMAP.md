@@ -34,6 +34,7 @@ what is supported, what is planned and what is deliberately out of scope.
 | AARs with font resources build on Kodular (fonts moved to `res/raw`, `R.font` kept working) | 2.5.0 |
 | Unchanged compile and DEX steps skipped; desugared libraries cached once for all projects | 2.5.0 |
 | R8 replaces ProGuard (compatibility mode); a mapping file for optimized builds | Unreleased |
+| A template repository that creates a project in the browser | Unreleased |
 
 ## Not planned
 
