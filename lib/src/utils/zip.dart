@@ -1,4 +1,5 @@
 import 'dart:io' show File;
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:collection/collection.dart';
@@ -9,7 +10,7 @@ import 'package:rush/src/utils/file_extension.dart';
 final _modified = DateTime(1980);
 const _fileMode = 0x1a4;
 
-Future<void> writeZip(String path, Iterable<ArchiveFile> entries) async {
+Uint8List zipBytes(Iterable<ArchiveFile> entries) {
   final archive = Archive();
   for (final entry in entries.sortedBy((entry) => entry.name)) {
     if (entry.isFile) {
@@ -17,10 +18,11 @@ Future<void> writeZip(String path, Iterable<ArchiveFile> entries) async {
     }
     archive.add(entry);
   }
-  await path
-      .asFile(true)
-      .writeAsBytes(ZipEncoder().encodeBytes(archive, modified: _modified));
+  return ZipEncoder().encodeBytes(archive, modified: _modified);
 }
+
+Future<void> writeZip(String path, Iterable<ArchiveFile> entries) =>
+    path.asFile(true).writeAsBytes(zipBytes(entries));
 
 Future<ArchiveFile> fileEntry(File file, {required String from}) async =>
     ArchiveFile.bytes(

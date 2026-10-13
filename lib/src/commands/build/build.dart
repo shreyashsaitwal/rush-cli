@@ -1,4 +1,4 @@
-import 'dart:convert' show jsonDecode, jsonEncode;
+import 'dart:convert' show jsonEncode, utf8;
 import 'dart:io' show File, Platform, ProcessException;
 
 import 'package:archive/archive_io.dart';
@@ -87,12 +87,13 @@ class BuildCommand extends Command<int> {
       return (deps, resources);
     });
 
-    final (descriptor, artJarPath) = await _task('Processing', () async {
+    final (descriptor, libraries, artJarPath) =
+        await _task('Processing', () async {
       final descriptor = await _requireExtension();
       await BuildUtils.copyAssets(config);
       await BuildUtils.copyLicense(config);
-      await _packageAars(config, deps, resources);
-      return (descriptor, await _createArtJar(deps.privateJars));
+      final libraries = await _packageLibraries(config, deps, resources);
+      return (descriptor, libraries, await _createArtJar(deps.privateJars));
     });
 
     if (optimize || deps.privateJars.isNotEmpty) {
@@ -115,7 +116,8 @@ class BuildCommand extends Command<int> {
         () => _desugarArtJar(config, artJarPath, deps, descriptor.package));
     await _task('Generating DEX bytecode',
         () => Executor.execD8(config, artJarPath, deps.referencedJars));
-    await _task('Packaging the extension', () => _assemble(descriptor));
+    await _task(
+        'Packaging the extension', () => _assemble(descriptor, libraries));
   }
 
   Future<T> _task<T>(String title, Future<T> Function() body) async {
@@ -277,42 +279,28 @@ class BuildCommand extends Command<int> {
     );
   }
 
-  Future<void> _packageAars(Config config, BuildDependencies deps,
+  Future<List<Library>> _packageLibraries(Config config, BuildDependencies deps,
       ExtensionResources? resources) async {
-    final aarsDir = p.join(_fs.buildRawDir.path, 'aars').asDir();
-    if (await aarsDir.exists()) {
-      await aarsDir.delete(recursive: true);
-    }
-    await aarsDir.create();
-
     final pool = Pool(Platform.numberOfProcessors.clamp(1, 4));
     final sharedClasses = await _sharedJarClasses(deps.sharedJars);
     final desugarer = LibraryDesugarer(config);
     final libraries = await Future.wait([
-      ...deps.shippedAars.map((aar) => pool
-          .withResource(() => _packageAar(desugarer, aar, aarsDir.path, deps))),
-      ...sharedClasses.entries.map((el) => pool.withResource(() =>
-          _packageSharedJar(
-              config, desugarer, el.key, el.value, aarsDir.path, deps))),
-      if (resources != null) resources.packageAar(aarsDir.path),
+      ...deps.shippedAars.map(
+          (aar) => pool.withResource(() => _packageAar(desugarer, aar, deps))),
+      ...sharedClasses.entries.map((el) => pool.withResource(
+          () => _packageSharedJar(config, desugarer, el.key, el.value, deps))),
+      if (resources != null) resources.packageAar(),
     ]);
 
-    final buildInfosJson = p
-        .join(_fs.buildRawDir.path, 'files', 'component_build_infos.json')
-        .asFile();
-    final buildInfos = jsonDecode(await buildInfosJson.readAsString()) as List;
-    for (final info in buildInfos.cast<Map<String, dynamic>>()) {
-      info['libraries'] = libraries;
-    }
-    await buildInfosJson.writeAsString(jsonEncode(buildInfos));
-
     if (libraries.isNotEmpty) {
-      _lgr.info('Packaged ${libraries.length} AAR(s): ${libraries.join(', ')}');
+      _lgr.info('Packaged ${libraries.length} AAR(s): '
+          '${libraries.map((el) => el.fileName).join(', ')}');
     }
+    return libraries;
   }
 
-  Future<String> _packageAar(LibraryDesugarer desugarer, Artifact aar,
-      String aarsDir, BuildDependencies deps) async {
+  Future<Library> _packageAar(
+      LibraryDesugarer desugarer, Artifact aar, BuildDependencies deps) async {
     final name = _aarFileName(aar);
     final desugaredClasses =
         p.join(_fs.buildFilesDir.path, 'desugared-aars', '$name.jar');
@@ -324,13 +312,13 @@ class BuildCommand extends Command<int> {
       classpathJars: {...deps.referencedJars, ...deps.privateJars}
         ..remove(aar.classesJar),
     );
-    await BuildUtils.copyZipReplacingEntry(
-      source: aar.artifactFile,
-      entry: 'classes.jar',
-      replacement: desugaredClasses,
-      destination: p.join(aarsDir, name),
-    );
-    return name;
+    return Library(
+        name,
+        await BuildUtils.zipReplacingEntry(
+          source: aar.artifactFile,
+          entry: 'classes.jar',
+          replacement: desugaredClasses,
+        ));
   }
 
   static Future<Map<Artifact, Archive>> _sharedJarClasses(
@@ -357,13 +345,8 @@ class BuildCommand extends Command<int> {
     return result;
   }
 
-  Future<String> _packageSharedJar(
-      Config config,
-      LibraryDesugarer desugarer,
-      Artifact jar,
-      Archive classes,
-      String aarsDir,
-      BuildDependencies deps) async {
+  Future<Library> _packageSharedJar(Config config, LibraryDesugarer desugarer,
+      Artifact jar, Archive classes, BuildDependencies deps) async {
     final name = _aarFileName(jar);
     final sharedJarsDir = p.join(_fs.buildFilesDir.path, 'shared-jars');
     final classesJar = p.join(sharedJarsDir, '$name.jar');
@@ -376,13 +359,14 @@ class BuildCommand extends Command<int> {
       classpathJars: {...deps.referencedJars, ...deps.privateJars}
         ..remove(jar.classesJar),
     );
-    await writeZip(p.join(aarsDir, name), [
-      ArchiveFile.string(
-          'AndroidManifest.xml', _sharedJarManifest(jar, config.minSdk)),
-      ArchiveFile.bytes(
-          'classes.jar', await desugaredJar.asFile().readAsBytes()),
-    ]);
-    return name;
+    return Library(
+        name,
+        zipBytes([
+          ArchiveFile.string(
+              'AndroidManifest.xml', _sharedJarManifest(jar, config.minSdk)),
+          ArchiveFile.bytes(
+              'classes.jar', await desugaredJar.asFile().readAsBytes()),
+        ]));
   }
 
   static String _sharedJarManifest(Artifact jar, int minSdk) {
@@ -639,19 +623,30 @@ class BuildCommand extends Command<int> {
     return artJarPath;
   }
 
-  Future<void> _assemble(Descriptor descriptor) async {
+  Future<void> _assemble(Descriptor descriptor, List<Library> libraries) async {
     final org = descriptor.package;
     final components = descriptor.components;
-    final rawDir = _fs.buildRawDir.path;
-    final buildInfos = await _readJsonList(
-        p.join(rawDir, 'files', 'component_build_infos.json'));
+    final buildInfos = [
+      for (final info in descriptor.buildInfos)
+        {...info, 'libraries': libraries.map((el) => el.fileName).toList()},
+    ];
+    final generated = {
+      'files/component_build_infos.json': utf8.encode(jsonEncode(buildInfos)),
+      for (final library in libraries)
+        'aars/${library.fileName}': library.bytes,
+    };
 
     final outputDir = p.join(_fs.cwd, 'out').asDir(true);
     final aix = p.join(outputDir.path, '$org.aix');
     await writeZip(aix, [
       for (final entry in aixEntries(components, buildInfos))
         ArchiveFile.bytes(
-            '$org/$entry', await p.join(rawDir, entry).asFile().readAsBytes()),
+            '$org/$entry',
+            generated[entry] ??
+                await p
+                    .join(_fs.buildRawDir.path, entry)
+                    .asFile()
+                    .readAsBytes()),
     ]);
     _lgr.info('Generated AIX file at ${aix.blue()}');
 
@@ -659,10 +654,6 @@ class BuildCommand extends Command<int> {
     await docs.asFile().writeAsString(markdownDocs(components));
     _lgr.info('Generated docs at ${docs.blue()}');
   }
-
-  static Future<List<Map<String, dynamic>>> _readJsonList(String path) async =>
-      (jsonDecode(await path.asFile().readAsString()) as List)
-          .cast<Map<String, dynamic>>();
 }
 
 class _BuildFailed implements Exception {

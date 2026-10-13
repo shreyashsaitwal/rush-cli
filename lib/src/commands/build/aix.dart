@@ -1,5 +1,12 @@
 const _shippedResourceDir = 'aiwebres/';
 
+class Library {
+  const Library(this.fileName, this.bytes);
+
+  final String fileName;
+  final List<int> bytes;
+}
+
 Set<String> aixEntries(List<Map<String, dynamic>> components,
         List<Map<String, dynamic>> buildInfos) =>
     {

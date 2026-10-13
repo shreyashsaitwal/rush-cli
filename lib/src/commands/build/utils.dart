@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io' show File, Platform, Process;
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:get_it/get_it.dart';
@@ -32,16 +33,15 @@ class BuildUtils {
     }
   }
 
-  static Future<void> copyZipReplacingEntry({
+  static Future<Uint8List> zipReplacingEntry({
     required String source,
     required String entry,
     required String replacement,
-    required String destination,
   }) async {
     final original =
         ZipDecoder().decodeBytes(await source.asFile().readAsBytes());
     final replacementBytes = await replacement.asFile().readAsBytes();
-    await writeZip(destination, [
+    return zipBytes([
       for (final file in original.files)
         file.name == entry ? ArchiveFile.bytes(entry, replacementBytes) : file
     ]);

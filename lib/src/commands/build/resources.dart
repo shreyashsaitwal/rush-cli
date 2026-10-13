@@ -5,6 +5,7 @@ import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 import 'package:tint/tint.dart';
 
+import 'package:rush/src/commands/build/aix.dart';
 import 'package:rush/src/commands/build/tools/executor.dart';
 import 'package:rush/src/config/config.dart';
 import 'package:rush/src/services/file_service.dart';
@@ -101,15 +102,14 @@ class ExtensionResources {
     throw Exception();
   }
 
-  Future<String> packageAar(String aarsDir) async {
-    final name = '$package.aar';
-    await writeZip(p.join(aarsDir, name), [
-      ArchiveFile.bytes(
-          'AndroidManifest.xml', await _manifest.asFile().readAsBytes()),
-      ArchiveFile.bytes('R.txt', await _symbols.asFile().readAsBytes()),
-      for (final file in _fs.resDir.listSync(recursive: true).whereType<File>())
-        await fileEntry(file, from: _fs.resDir.parent.path),
-    ]);
-    return name;
-  }
+  Future<Library> packageAar() async => Library(
+      '$package.aar',
+      zipBytes([
+        ArchiveFile.bytes(
+            'AndroidManifest.xml', await _manifest.asFile().readAsBytes()),
+        ArchiveFile.bytes('R.txt', await _symbols.asFile().readAsBytes()),
+        for (final file
+            in _fs.resDir.listSync(recursive: true).whereType<File>())
+          await fileEntry(file, from: _fs.resDir.parent.path),
+      ]));
 }
