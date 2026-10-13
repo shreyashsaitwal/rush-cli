@@ -6,15 +6,14 @@ import 'package:path/path.dart' as p;
 import 'package:pool/pool.dart';
 
 import 'package:rush/src/commands/build/aix.dart';
-import 'package:rush/src/commands/build/build_dependencies.dart';
 import 'package:rush/src/commands/build/fixes/raw_fonts.dart';
 import 'package:rush/src/commands/build/libraries.dart';
+import 'package:rush/src/commands/build/library_plan.dart';
 import 'package:rush/src/commands/build/resources.dart';
 import 'package:rush/src/commands/build/tools/executor.dart';
 import 'package:rush/src/commands/build/tools/library_desugarer.dart';
 import 'package:rush/src/commands/build/utils.dart';
 import 'package:rush/src/config/config.dart';
-import 'package:rush/src/resolver/artifact.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/file_extension.dart';
@@ -23,16 +22,16 @@ import 'package:rush/src/utils/zip.dart';
 final _fs = GetIt.I<FileService>();
 final _lgr = GetIt.I<Logger>();
 
-Future<List<Library>> packageLibraries(Config config, BuildDependencies deps,
-    ExtensionResources? resources) async {
+Future<List<Library>> packageLibraries(
+    Config config, LibraryPlan plan, ExtensionResources? resources) async {
   final pool = Pool(Platform.numberOfProcessors.clamp(1, 4));
-  final sharedClasses = await _sharedJarClasses(deps.sharedJars);
+  final sharedClasses = await _sharedJarClasses(plan.sharedJars);
   final desugarer = LibraryDesugarer(config);
   final libraries = await Future.wait([
-    ...deps.shippedAars.map(
-        (aar) => pool.withResource(() => _packageAar(desugarer, aar, deps))),
+    ...plan.sharedAars.map(
+        (aar) => pool.withResource(() => _packageAar(desugarer, aar, plan))),
     ...sharedClasses.entries.map((el) => pool.withResource(
-        () => _packageSharedJar(config, desugarer, el.key, el.value, deps))),
+        () => _packageSharedJar(config, desugarer, el.key, el.value, plan))),
     if (resources != null) resources.packageAar(),
   ]);
 
@@ -85,25 +84,25 @@ Future<void> _addFontShim(Archive aar, FontShim shim) async {
 }
 
 Future<Library> _packageAar(
-    LibraryDesugarer desugarer, Artifact aar, BuildDependencies deps) async {
+    LibraryDesugarer desugarer, ResolvedLibrary aar, LibraryPlan plan) async {
   final name = _aarFileName(aar);
   final desugaredClasses = await desugarer.desugar(
     name,
     input: aar.classesJar,
-    classpathJars: {...deps.referencedJars, ...deps.privateJars}
+    classpathJars: {...plan.libraryJars, ...plan.privateJars}
       ..remove(aar.classesJar),
   );
   return Library(
       name,
       await BuildUtils.zipReplacingEntry(
-        source: aar.artifactFile,
+        source: aar.file,
         entry: 'classes.jar',
         replacement: desugaredClasses,
       ));
 }
 
-Future<Map<Artifact, List<ArchiveFile>>> _sharedJarClasses(
-    List<Artifact> jars) async {
+Future<Map<ResolvedLibrary, List<ArchiveFile>>> _sharedJarClasses(
+    Iterable<ResolvedLibrary> jars) async {
   final classesByJar = {
     for (final jar in jars)
       jar: ZipDecoder()
@@ -123,7 +122,7 @@ Future<Map<Artifact, List<ArchiveFile>>> _sharedJarClasses(
 }
 
 Future<Library> _packageSharedJar(Config config, LibraryDesugarer desugarer,
-    Artifact jar, List<ArchiveFile> classes, BuildDependencies deps) async {
+    ResolvedLibrary jar, List<ArchiveFile> classes, LibraryPlan plan) async {
   final name = _aarFileName(jar);
   final sharedJarsDir = p.join(_fs.buildFilesDir.path, 'shared-jars');
   final classesJar = p.join(sharedJarsDir, '$name.jar');
@@ -132,7 +131,7 @@ Future<Library> _packageSharedJar(Config config, LibraryDesugarer desugarer,
   final desugaredJar = await desugarer.desugar(
     name,
     input: classesJar,
-    classpathJars: {...deps.referencedJars, ...deps.privateJars}
+    classpathJars: {...plan.libraryJars, ...plan.privateJars}
       ..remove(jar.classesJar),
   );
   return Library(
@@ -145,7 +144,7 @@ Future<Library> _packageSharedJar(Config config, LibraryDesugarer desugarer,
       ]));
 }
 
-String _sharedJarManifest(Artifact jar, int minSdk) {
+String _sharedJarManifest(ResolvedLibrary jar, int minSdk) {
   final package = [...jar.groupId.split('.'), jar.artifactId]
       .map((el) => el.replaceAll(RegExp('[^A-Za-z0-9_.]'), '_'))
       .join('.');
@@ -157,6 +156,6 @@ String _sharedJarManifest(Artifact jar, int minSdk) {
 ''';
 }
 
-String _aarFileName(Artifact aar) => aar.isMavenArtifact
+String _aarFileName(ResolvedLibrary aar) => aar.isMavenArtifact
     ? '${aar.coordinate.replaceAll(':', '-')}.aar'
-    : p.basename(aar.artifactFile);
+    : p.basename(aar.file);

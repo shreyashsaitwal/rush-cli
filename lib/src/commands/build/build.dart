@@ -15,9 +15,9 @@ import 'package:tint/tint.dart';
 
 import 'package:rush/src/commands/build/aar_packager.dart';
 import 'package:rush/src/commands/build/aix_assembly.dart';
-import 'package:rush/src/commands/build/build_dependencies.dart';
 import 'package:rush/src/commands/build/descriptor.dart';
-import 'package:rush/src/commands/build/libraries.dart';
+import 'package:rush/src/commands/build/library_plan.dart';
+import 'package:rush/src/commands/build/project_libraries.dart';
 import 'package:rush/src/commands/build/resources.dart';
 import 'package:rush/src/commands/build/runtime_jar.dart';
 import 'package:rush/src/commands/build/toolchain.dart';
@@ -25,7 +25,6 @@ import 'package:rush/src/commands/deps/sync.dart';
 import 'package:rush/src/commands/build/tools/compiler.dart';
 import 'package:rush/src/commands/build/tools/executor.dart';
 import 'package:rush/src/config/config.dart';
-import 'package:rush/src/resolver/artifact.dart';
 import 'package:rush/src/services/ai2_runtime.dart';
 import 'package:rush/src/services/lib_service.dart';
 import 'package:rush/src/services/file_service.dart';
@@ -81,44 +80,46 @@ class BuildCommand extends Command<int> {
       throw const _BuildFailed();
     }
 
-    final (deps, resources) = await _task('Compiling sources', () async {
-      final deps = await BuildDependencies.load(_libService, config);
+    final (plan, resources) = await _task('Compiling sources', () async {
+      final plan = await planProjectLibraries(_libService, config);
+      for (final problem in plan.problems) {
+        _lgr.warn(problem.message);
+      }
       final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
-      final manifest = await _mergeManifests(config, deps.aarManifests);
-      await _warnAboutDuplicateAars(deps.shippedAars);
+      final manifest = await _mergeManifests(config, plan.manifests);
       final resources = await ExtensionResources.compile(config);
-      await _compile(config, deps, manifest, timestampBox, resources);
-      return (deps, resources);
+      await _compile(config, plan, manifest, timestampBox, resources);
+      return (plan, resources);
     });
 
     final (descriptor, libraries, artJarPath) =
         await _task('Processing', () async {
       final descriptor = await _requireExtension();
       final libraries = await moveLibraryFontsToRaw(
-          await packageLibraries(config, deps, resources));
-      return (descriptor, libraries, await createArtJar(deps.privateJars));
+          await packageLibraries(config, plan, resources));
+      return (descriptor, libraries, await createArtJar(plan.privateJars));
     });
 
-    if (optimize || deps.privateJars.isNotEmpty) {
+    if (optimize || plan.privateJars.isNotEmpty) {
       await _task(
           optimize
               ? 'Optimizing and obfuscating the bytecode'
               : 'Shrinking bundled libraries',
-          () => runProGuard(config, artJarPath, deps, resources,
+          () => runProGuard(config, artJarPath, plan, resources,
               optimize: optimize));
     }
 
-    if (deps.privateJars.isNotEmpty) {
+    if (plan.privateJars.isNotEmpty) {
       await _task(
           'Relocating bundled libraries',
           () => relocatePrivateClasses(
-              artJarPath, deps.privateJars, descriptor.package));
+              artJarPath, plan.privateJars, descriptor.package));
     }
 
     await _task('Desugaring Java 8+ language features',
-        () => desugarArtJar(config, artJarPath, deps, descriptor.package));
+        () => desugarArtJar(config, artJarPath, plan, descriptor.package));
     await _task('Generating DEX bytecode',
-        () => _dex(config, artJarPath, deps.referencedJars));
+        () => _dex(config, artJarPath, plan.libraryJars));
     await _task('Packaging the extension',
         () => assembleAix(config, descriptor, libraries));
   }
@@ -199,33 +200,6 @@ class BuildCommand extends Command<int> {
     _lgr.log(line);
   }
 
-  Future<void> _warnAboutDuplicateAars(List<Artifact> aars) async {
-    final packages = <Artifact, String>{};
-    for (final aar in aars) {
-      final package = await _aarPackage(aar);
-      if (package != null) {
-        packages[aar] = package;
-      }
-    }
-    for (final MapEntry(key: package, value: copies)
-        in duplicateLibraries(packages).entries) {
-      _lgr.warn('${copies.join(' and ')} are the same library ($package). '
-          'App Inventor includes only one of them in the app, so remove '
-          'the others from rush.yml.');
-    }
-  }
-
-  Future<String?> _aarPackage(Artifact aar) async {
-    final manifest =
-        _fs.resourceFromExtractedAar(aar.artifactFile, 'AndroidManifest.xml');
-    if (!await manifest.exists()) {
-      return null;
-    }
-    final package = RegExp(r'<manifest[^>]*\spackage\s*=\s*"([^"]+)"')
-        .firstMatch(await manifest.readAsString());
-    return package?.group(1);
-  }
-
   Future<String> _mergeManifests(Config config, List<String> manifests) async {
     final mainManifest =
         p.join(_fs.srcDir.path, 'AndroidManifest.xml').asFile();
@@ -248,7 +222,7 @@ class BuildCommand extends Command<int> {
   }
 
   /// Compiles extension's source files.
-  Future<void> _compile(Config config, BuildDependencies deps, String manifest,
+  Future<void> _compile(Config config, LibraryPlan plan, String manifest,
       LazyBox<DateTime> timestampBox, ExtensionResources? resources) async {
     final srcFiles =
         _fs.srcDir.path.asDir().listSync(recursive: true).whereType<File>();
@@ -263,7 +237,7 @@ class BuildCommand extends Command<int> {
     _lgr.info('Picked $fileCount source file${fileCount > 1 ? 's' : ''}');
 
     final compileClasspathJars = {
-      ...deps.compileClasspath,
+      ...plan.compileClasspath,
       if (resources != null) resources.classesDir,
     };
 

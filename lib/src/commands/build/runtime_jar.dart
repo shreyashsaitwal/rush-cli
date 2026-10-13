@@ -5,7 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 
-import 'package:rush/src/commands/build/build_dependencies.dart';
+import 'package:rush/src/commands/build/library_plan.dart';
 import 'package:rush/src/commands/build/proguard_rules.dart';
 import 'package:rush/src/commands/build/relocation.dart';
 import 'package:rush/src/commands/build/resources.dart';
@@ -72,17 +72,17 @@ Future<String> createArtJar(Set<String> requiredJars) async {
   return artJarPath;
 }
 
-Future<void> runProGuard(Config config, String artJarPath,
-    BuildDependencies deps, ExtensionResources? resources,
+Future<void> runProGuard(Config config, String artJarPath, LibraryPlan plan,
+    ExtensionResources? resources,
     {required bool optimize}) async {
   final projectRules = p.join(_fs.srcDir.path, 'proguard-rules.pro').asFile();
   await Executor.execProGuard(
     config,
     artJarPath,
-    {...deps.referencedJars, if (resources != null) resources.classesDir},
+    {...plan.libraryJars, if (resources != null) resources.classesDir},
     {
-      ...deps.aarProguardRules,
-      ...await _bundledProguardRules(deps.privateJars),
+      ...plan.consumerRules,
+      ...await _bundledProguardRules(plan.privateJars),
       if (!optimize) await _keepExtensionClassesRules(),
       if (await projectRules.exists()) projectRules.path,
     },
@@ -168,8 +168,8 @@ Future<String> _relocate(
   return repackaged;
 }
 
-Future<void> desugarArtJar(Config config, String artJarPath,
-    BuildDependencies deps, String package) async {
+Future<void> desugarArtJar(
+    Config config, String artJarPath, LibraryPlan plan, String package) async {
   final coreLibraryConfig = config.minSdk >= _coreLibraryMinSdk
       ? await _extractCoreLibraryConfig()
       : null;
@@ -179,7 +179,7 @@ Future<void> desugarArtJar(Config config, String artJarPath,
     config,
     input: artJarPath,
     output: desugared,
-    classpathJars: deps.referencedJars,
+    classpathJars: plan.libraryJars,
     coreLibraryConfig: coreLibraryConfig,
   );
   await desugared.asFile().rename(artJarPath);
