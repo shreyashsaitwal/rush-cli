@@ -1,0 +1,5 @@
+<resources>
+    <style name="com_example_fonts_label">
+        <item name="android:fontFamily">@font/com_example_fonts_numbers</item>
+    </style>
+</resources>
