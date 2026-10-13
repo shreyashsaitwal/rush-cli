@@ -13,6 +13,7 @@ import 'package:tint/tint.dart';
 import 'package:rush/src/commands/build/aix.dart';
 import 'package:rush/src/commands/build/build_dependencies.dart';
 import 'package:rush/src/commands/build/descriptor.dart';
+import 'package:rush/src/commands/build/libraries.dart';
 import 'package:rush/src/commands/build/docs.dart';
 import 'package:rush/src/commands/build/resources.dart';
 import 'package:rush/src/commands/build/utils.dart';
@@ -204,14 +205,11 @@ class BuildCommand extends Command<int> {
         packages[aar] = package;
       }
     }
-    final copiesByPackage = groupBy(packages.keys, (aar) => packages[aar]!);
     for (final MapEntry(key: package, value: copies)
-        in copiesByPackage.entries) {
-      if (copies.length > 1) {
-        _lgr.warn('${copies.join(' and ')} are the same library ($package). '
-            'App Inventor includes only one of them in the app, so remove '
-            'the others from rush.yml.');
-      }
+        in duplicateLibraries(packages).entries) {
+      _lgr.warn('${copies.join(' and ')} are the same library ($package). '
+          'App Inventor includes only one of them in the app, so remove '
+          'the others from rush.yml.');
     }
   }
 
@@ -321,7 +319,7 @@ class BuildCommand extends Command<int> {
         ));
   }
 
-  static Future<Map<Artifact, Archive>> _sharedJarClasses(
+  static Future<Map<Artifact, List<ArchiveFile>>> _sharedJarClasses(
       List<Artifact> jars) async {
     final classesByJar = {
       for (final jar in jars)
@@ -331,27 +329,23 @@ class BuildCommand extends Command<int> {
             .where((el) => el.isFile && p.extension(el.name) == '.class')
             .toList(),
     };
-    final packagedClasses = <String>{};
-    final result = <Artifact, Archive>{};
-    for (final jar in jars.sortedBy<num>((el) => -classesByJar[el]!.length)) {
-      final classes = classesByJar[jar]!
-          .where((el) => packagedClasses.add(el.name))
-          .toList();
-      if (classes.isNotEmpty) {
-        result[jar] = Archive();
-        classes.forEach(result[jar]!.add);
-      }
-    }
-    return result;
+    final assigned = assignSharedClasses({
+      for (final MapEntry(key: jar, value: classes) in classesByJar.entries)
+        jar: classes.map((el) => el.name).toList(),
+    });
+    return {
+      for (final MapEntry(key: jar, value: names) in assigned.entries)
+        jar: classesByJar[jar]!.where((el) => names.contains(el.name)).toList(),
+    };
   }
 
   Future<Library> _packageSharedJar(Config config, LibraryDesugarer desugarer,
-      Artifact jar, Archive classes, BuildDependencies deps) async {
+      Artifact jar, List<ArchiveFile> classes, BuildDependencies deps) async {
     final name = _aarFileName(jar);
     final sharedJarsDir = p.join(_fs.buildFilesDir.path, 'shared-jars');
     final classesJar = p.join(sharedJarsDir, '$name.jar');
     final desugaredJar = p.join(sharedJarsDir, '$name.desugared.jar');
-    await writeZip(classesJar, classes.files);
+    await writeZip(classesJar, classes);
 
     await desugarer.desugar(
       input: classesJar,
