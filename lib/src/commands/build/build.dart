@@ -93,8 +93,6 @@ class BuildCommand extends Command<int> {
     final (descriptor, libraries, artJarPath) =
         await _task('Processing', () async {
       final descriptor = await _requireExtension();
-      await BuildUtils.copyAssets(config);
-      await BuildUtils.copyLicense(config);
       final libraries = await _packageLibraries(config, deps, resources);
       return (descriptor, libraries, await _createArtJar(deps.privateJars));
     });
@@ -119,8 +117,8 @@ class BuildCommand extends Command<int> {
         () => _desugarArtJar(config, artJarPath, deps, descriptor.package));
     await _task('Generating DEX bytecode',
         () => Executor.execD8(config, artJarPath, deps.referencedJars));
-    await _task(
-        'Packaging the extension', () => _assemble(descriptor, libraries));
+    await _task('Packaging the extension',
+        () => _assemble(config, descriptor, libraries));
   }
 
   Future<T> _task<T>(String title, Future<T> Function() body) async {
@@ -606,7 +604,8 @@ class BuildCommand extends Command<int> {
     return artJarPath;
   }
 
-  Future<void> _assemble(Descriptor descriptor, List<Library> libraries) async {
+  Future<void> _assemble(
+      Config config, Descriptor descriptor, List<Library> libraries) async {
     final org = descriptor.package;
     final components = descriptor.components;
     final buildInfos = [
@@ -626,10 +625,7 @@ class BuildCommand extends Command<int> {
         ArchiveFile.bytes(
             '$org/$entry',
             generated[entry] ??
-                await p
-                    .join(_fs.buildRawDir.path, entry)
-                    .asFile()
-                    .readAsBytes()),
+                await _entrySource(config, entry).readAsBytes()),
     ]);
     _lgr.info('Generated AIX file at ${aix.blue()}');
 
@@ -637,6 +633,12 @@ class BuildCommand extends Command<int> {
     await docs.asFile().writeAsString(markdownDocs(components));
     _lgr.info('Generated docs at ${docs.blue()}');
   }
+
+  File _entrySource(Config config, String entry) => switch (entry) {
+        'aiwebres/LICENSE' => p.join(_fs.cwd, config.license).asFile(),
+        _ when entry.startsWith('assets/') => p.join(_fs.cwd, entry).asFile(),
+        _ => p.join(_fs.buildRawDir.path, entry).asFile(),
+      };
 }
 
 class _BuildFailed implements Exception {

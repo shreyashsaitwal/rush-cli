@@ -1,12 +1,11 @@
 import 'dart:convert';
-import 'dart:io' show File, Platform, Process;
+import 'dart:io' show Platform, Process;
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 
-import 'package:rush/src/config/config.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/file_extension.dart';
@@ -55,41 +54,6 @@ class BuildUtils {
 
   /// Classpath string separator.
   static String get cpSeparator => Platform.isWindows ? ';' : ':';
-
-  /// Copies extension's assets to the raw directory.
-  static Future<void> copyAssets(Config config) async {
-    final assets = config.assets;
-    if (assets.isEmpty) {
-      return;
-    }
-
-    final assetsDir = p.join(_fs.cwd, 'assets');
-    final assetsDestDir = p.join(_fs.buildRawDir.path, 'assets').asDir(true);
-
-    for (final el in assets) {
-      await p.join(assetsDir, el).asFile().copy(p.join(assetsDestDir.path, el));
-    }
-  }
-
-  /// Copies LICENSE file if there's any.
-  static Future<void> copyLicense(Config config) async {
-    // Pattern to match URL
-    final urlPattern = RegExp(
-        r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_\+.~#?&\/\/=]*)',
-        dotAll: true);
-
-    final File license;
-    if (config.license != '' && !urlPattern.hasMatch(config.license)) {
-      license = p.join(_fs.cwd, config.license).asFile();
-    } else {
-      return;
-    }
-
-    final dest = p.join(_fs.buildRawDir.path, 'aiwebres').asDir(true);
-    if (await license.exists()) {
-      await license.copy(p.join(dest.path, 'LICENSE'));
-    }
-  }
 
   static Future<String> javaHomeDir() async {
     final javaHomeEnv = Platform.environment['JAVA_HOME'];
