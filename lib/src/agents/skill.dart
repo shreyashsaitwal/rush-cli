@@ -50,11 +50,34 @@ public class Counter extends AndroidNonvisibleComponent {
 }
 ```
 
+- Extensions are always non-visible components: App Inventor's designer lists them below the screen and can't place or size them. Extend `AndroidNonvisibleComponent`, never `AndroidViewComponent`. To show a view, see Showing views.
 - `@Extension` takes a `description` (Markdown; the class Javadoc when empty) and an `icon` (a file in `assets/` or a URL).
 - `form`, inherited from `AndroidNonvisibleComponent`, is the screen. It's an `Activity`: use it as the Android `Context`.
 - Several `@Extension` classes in one project become several components in one AIX. They must all be in the same package.
 - Only methods declared directly in an `@Extension` class become blocks.
 - In Kotlin, escape `$form`: ``AndroidNonvisibleComponent(container.`$form`())``.
+
+## Showing views
+
+Take an arrangement the user placed on the screen as a block parameter, and add the view to it. The arrangement's Width, Height and Visible then control the view.
+
+```java
+@SimpleFunction(description = "Shows the count inside an arrangement, filling it.")
+public void ShowIn(AndroidViewComponent arrangement) {
+  if (!(arrangement.getView() instanceof ViewGroup)) {
+    form.dispatchErrorOccurredEvent(this, "ShowIn", ErrorMessages.ERROR_EXTENSION_ERROR,
+        1, "Counter", "ShowIn needs a HorizontalArrangement or VerticalArrangement.");
+    return;
+  }
+  if (display.getParent() != null) {
+    ((ViewGroup) display.getParent()).removeView(display);
+  }
+  ((ViewGroup) arrangement.getView()).addView(display, new ViewGroup.LayoutParams(
+      ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+}
+```
+
+Create the view in the constructor, with `form` as its `Context`.
 
 ## Blocks
 
@@ -105,7 +128,7 @@ public void Milestone(int count) {
 
 - Call the event method from your code. The name passed to `dispatchEvent` must equal the method name, and the arguments must match its parameters.
 - Fire events on the main thread. From other threads, post them: `form.runOnUiThread(() -> Milestone(count));`.
-- App Inventor drops events fired while `Screen.Initialize` runs, which includes designer property setters. Post startup events to the main looper so they run afterwards: `new Handler(Looper.getMainLooper()).post(() -> Ready());`.
+- App Inventor drops events fired while `Screen.Initialize` runs, which includes designer property setters. Fire startup events from `onInitialize()`: implement `OnInitializeListener` (package `com.google.appinventor.components.runtime.util`) and call `form.registerForOnInitialize(this)` in the constructor. App Inventor calls it once `Screen.Initialize` has finished.
 
 ### Types
 
@@ -183,9 +206,26 @@ Use the enum as a parameter or return type, or keep the underlying type and add 
 - `@Asset String file` gives a parameter a dropdown of the app's media files. Open them with `form.openAsset(file)`.
 - Files the extension ships go in `assets/` and are listed under `assets:` in `rush.yml`. Open them with `form.openAssetForExtension(this, "data.json")`.
 
+### Designing blocks
+
+App Inventor is for beginners. Give each block a distinct name (overloads become duplicate blocks), give properties sensible defaults, prefer simple units (milliseconds), start list positions at 1, and never block the main thread: deliver slow results through an event or an asynchronous function. Put a property's description on its getter or its setter, not both.
+
 ### Deprecated blocks
 
 `@Deprecated` keeps a block working in existing apps but hides it from the docs.
+
+## Lifecycle and errors
+
+Extensions holding players, sensors or connections follow the screen's lifecycle. Implement `OnPauseListener`, `OnResumeListener`, `OnStopListener` or `OnDestroyListener` and register in the constructor with `form.registerForOnPause(this)` (and `OnResume`, `OnStop`, `OnDestroy`). `onResume()` may also run when the screen first starts.
+
+Report errors through the screen's `ErrorOccurred` event:
+
+```java
+form.dispatchErrorOccurredEvent(this, "ShowIn", ErrorMessages.ERROR_EXTENSION_ERROR,
+    1, "Counter", "ShowIn needs a HorizontalArrangement or VerticalArrangement.");
+```
+
+The arguments after `ERROR_EXTENSION_ERROR` (error 3300) are your error code, the extension's name and the message. Without an `ErrorOccurred` handler App Inventor shows an alert. Errors reported while `Screen.Initialize` runs are lost.
 
 ## Manifest and permissions
 
@@ -255,4 +295,6 @@ Layouts, drawables, strings and colors go in `res/`, laid out as in Android. Use
 ## Reference
 
 The full documentation for this Rush version: https://github.com/zainulhassan815/rush-cli/tree/v{version}/docs
+
+App Inventor's guides for component authors: https://ai2.appinventor.mit.edu/reference/other/extensions.html and How to Add a Component (https://docs.google.com/document/d/1xk9dMfczvjbbwD-wMsr-ffqkTlE3ga0ocCE1KOb2wvw/edit). Rush replaces their build steps.
 ''';

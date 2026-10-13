@@ -29,6 +29,8 @@ and the limits App Inventor imposes.
 - Blocks are public methods of the `@Extension` class, annotated with
   `@SimpleFunction`, `@SimpleProperty` or `@SimpleEvent`. Use primitive
   types.
+- Extensions are non-visible. To show a view, add it to an arrangement passed
+  to a block.
 - Dropdown enums go in a directory named `helpers`.
 - Fire events on the main thread, never while `Screen.Initialize` runs.
 - Declare every library in `rush.yml`.
