@@ -119,12 +119,12 @@ class LibService {
   Future<List<Artifact>> providedDependencies(Config? config) async => [
         _rushAnnotations,
         ...(await Ai2Runtime.load()).libs,
-        if (config != null) ...await _projectProvidedDependencies(config),
+        if (config != null) ...await projectProvidedDependencies(config),
       ];
 
   Future<List<Artifact>> dependenciesInEveryApp(Config config) async => [
         ...(await Ai2Runtime.load()).alwaysIncludedLibs,
-        ...await _projectProvidedDependencies(config),
+        ...await projectProvidedDependencies(config),
       ];
 
   Artifact get _rushAnnotations => Artifact(
@@ -136,7 +136,7 @@ class LibService {
         sourcesJar: null,
       );
 
-  Future<List<Artifact>> _projectProvidedDependencies(Config config) async {
+  Future<List<Artifact>> projectProvidedDependencies(Config config) async {
     final allExtRemoteDeps = await _retrieveArtifactsFromBox(extensionDepsBox!);
     final remote = config.providedDependencies
         .map((el) =>
@@ -183,13 +183,6 @@ class LibService {
         .whereNotNull();
     final requiredDeps = _requiredDeps(allExtRemoteDeps, projectDeps);
 
-    final projectProvidedDeps = config.providedDependencies
-        .map((el) =>
-            allExtRemoteDeps.firstWhereOrNull((dep) => dep.coordinate == el))
-        .whereNotNull();
-    final requiredProjectProvidedDeps =
-        _requiredDeps(allExtRemoteDeps, projectProvidedDeps);
-
     final localDeps = config.dependencies
         .where((el) => el.endsWith('.jar') || el.endsWith('.aar'))
         .map((el) {
@@ -210,8 +203,18 @@ class LibService {
       ...requiredDeps,
       if (includeLocal) ...localDeps,
       if (includeAi2ProvidedDeps) ...await providedDependencies(config),
-      if (includeProjectProvidedDeps) ...requiredProjectProvidedDeps,
+      if (includeProjectProvidedDeps)
+        ...await projectProvidedWithDependencies(config),
     ];
+  }
+
+  Future<List<Artifact>> projectProvidedWithDependencies(Config config) async {
+    final allExtRemoteDeps = await _retrieveArtifactsFromBox(extensionDepsBox!);
+    final projectProvidedDeps = config.providedDependencies
+        .map((el) =>
+            allExtRemoteDeps.firstWhereOrNull((dep) => dep.coordinate == el))
+        .whereNotNull();
+    return _requiredDeps(allExtRemoteDeps, projectProvidedDeps);
   }
 
   List<Artifact> buildLibArtifacts() => _buildLibs.values.toList();
