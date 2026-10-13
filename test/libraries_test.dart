@@ -48,17 +48,25 @@ void main() {
       if (result.exitCode != 0) fail(result.output);
     });
 
-    test('is desugared again only when the dependencies change', () async {
-      final desugared = project.file(
-          '.rush/build/files/desugared-aars/androidx.core-core-ktx-1.5.0.aar.jar');
-      final firstBuild = desugared.lastModifiedSync();
-      expect((await project.build()).exitCode, 0);
-      expect(desugared.lastModifiedSync(), firstBuild);
+    test('is desugared again only when its classpath changes', () async {
+      const desugaring = 'Desugaring androidx.core-core-ktx-1.5.0.aar';
+      project.file('deps/stamp.jar').writeAsBytesSync(ZipEncoder().encode(
+          Archive()
+            ..addFile(ArchiveFile.string(
+                'stamp.txt', '${DateTime.now().microsecondsSinceEpoch}'))));
+      project.addDependencies(['stamp.jar']);
+      final changed = await project.build();
+      expect(changed.exitCode, 0, reason: changed.output);
+      expect(changed.output, contains(desugaring));
 
-      project.addDependencies(['com.google.code.gson:gson:2.8.9']);
-      final result = await project.build();
-      expect(result.exitCode, 0, reason: result.output);
-      expect(desugared.lastModifiedSync(), isNot(firstBuild));
+      final unchanged = await project.build();
+      expect(unchanged.exitCode, 0, reason: unchanged.output);
+      expect(unchanged.output, isNot(contains(desugaring)));
+
+      await rush(['clean'], workingDirectory: project.dir.path);
+      final cleaned = await project.build();
+      expect(cleaned.exitCode, 0, reason: cleaned.output);
+      expect(cleaned.output, isNot(contains(desugaring)));
     });
 
     test('warns when it is both local and remote', () async {

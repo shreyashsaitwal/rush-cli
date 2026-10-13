@@ -393,13 +393,9 @@ class BuildCommand extends Command<int> {
   Future<Library> _packageAar(
       LibraryDesugarer desugarer, Artifact aar, BuildDependencies deps) async {
     final name = _aarFileName(aar);
-    final desugaredClasses =
-        p.join(_fs.buildFilesDir.path, 'desugared-aars', '$name.jar');
-    p.dirname(desugaredClasses).asDir(true);
-
-    await desugarer.desugar(
+    final desugaredClasses = await desugarer.desugar(
+      name,
       input: aar.classesJar,
-      output: desugaredClasses,
       classpathJars: {...deps.referencedJars, ...deps.privateJars}
         ..remove(aar.classesJar),
     );
@@ -437,12 +433,11 @@ class BuildCommand extends Command<int> {
     final name = _aarFileName(jar);
     final sharedJarsDir = p.join(_fs.buildFilesDir.path, 'shared-jars');
     final classesJar = p.join(sharedJarsDir, '$name.jar');
-    final desugaredJar = p.join(sharedJarsDir, '$name.desugared.jar');
     await writeZip(classesJar, classes);
 
-    await desugarer.desugar(
+    final desugaredJar = await desugarer.desugar(
+      name,
       input: classesJar,
-      output: desugaredJar,
       classpathJars: {...deps.referencedJars, ...deps.privateJars}
         ..remove(jar.classesJar),
     );
