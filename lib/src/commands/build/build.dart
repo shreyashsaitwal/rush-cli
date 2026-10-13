@@ -12,6 +12,7 @@ import 'package:tint/tint.dart';
 
 import 'package:rush/src/commands/build/aix.dart';
 import 'package:rush/src/commands/build/build_dependencies.dart';
+import 'package:rush/src/commands/build/descriptor.dart';
 import 'package:rush/src/commands/build/docs.dart';
 import 'package:rush/src/commands/build/resources.dart';
 import 'package:rush/src/commands/build/utils.dart';
@@ -86,12 +87,12 @@ class BuildCommand extends Command<int> {
       return (deps, resources);
     });
 
-    final artJarPath = await _task('Processing', () async {
-      final buildInfosJson = await _requireExtension();
+    final (descriptor, artJarPath) = await _task('Processing', () async {
+      final descriptor = await _requireExtension();
       await BuildUtils.copyAssets(config);
       await BuildUtils.copyLicense(config);
-      await _packageAars(config, deps, buildInfosJson, resources);
-      return _createArtJar(deps.privateJars);
+      await _packageAars(config, deps, resources);
+      return (descriptor, await _createArtJar(deps.privateJars));
     });
 
     if (optimize || deps.privateJars.isNotEmpty) {
@@ -104,15 +105,17 @@ class BuildCommand extends Command<int> {
     }
 
     if (deps.privateJars.isNotEmpty) {
-      await _task('Relocating bundled libraries',
-          () => _relocatePrivateClasses(artJarPath, deps.privateJars));
+      await _task(
+          'Relocating bundled libraries',
+          () => _relocatePrivateClasses(
+              artJarPath, deps.privateJars, descriptor.package));
     }
 
     await _task('Desugaring Java 8+ language features',
-        () => _desugarArtJar(config, artJarPath, deps));
+        () => _desugarArtJar(config, artJarPath, deps, descriptor.package));
     await _task('Generating DEX bytecode',
         () => Executor.execD8(config, artJarPath, deps.referencedJars));
-    await _task('Packaging the extension', _assemble);
+    await _task('Packaging the extension', () => _assemble(descriptor));
   }
 
   Future<T> _task<T>(String title, Future<T> Function() body) async {
@@ -148,21 +151,15 @@ class BuildCommand extends Command<int> {
     return config;
   }
 
-  Future<File> _requireExtension() async {
-    final componentsJson =
-        p.join(_fs.buildRawDir.path, 'components.json').asFile();
-    final buildInfosJson = p
-        .join(_fs.buildRawDir.path, 'files', 'component_build_infos.json')
-        .asFile();
-    if (!await componentsJson.exists() ||
-        !await buildInfosJson.exists() ||
-        (jsonDecode(await componentsJson.readAsString()) as List).isEmpty) {
+  Future<Descriptor> _requireExtension() async {
+    final descriptor = await Descriptor.read(_fs.buildRawDir.path);
+    if (descriptor == null) {
       _lgr
         ..err('No extension found')
         ..log('Annotate the extension class with @Extension', 'help  '.green());
       throw Exception();
     }
-    return buildInfosJson;
+    return descriptor;
   }
 
   List<String> _missingFiles(Config config) => [
@@ -281,7 +278,7 @@ class BuildCommand extends Command<int> {
   }
 
   Future<void> _packageAars(Config config, BuildDependencies deps,
-      File buildInfosJson, ExtensionResources? resources) async {
+      ExtensionResources? resources) async {
     final aarsDir = p.join(_fs.buildRawDir.path, 'aars').asDir();
     if (await aarsDir.exists()) {
       await aarsDir.delete(recursive: true);
@@ -300,6 +297,9 @@ class BuildCommand extends Command<int> {
       if (resources != null) resources.packageAar(aarsDir.path),
     ]);
 
+    final buildInfosJson = p
+        .join(_fs.buildRawDir.path, 'files', 'component_build_infos.json')
+        .asFile();
     final buildInfos = jsonDecode(await buildInfosJson.readAsString()) as List;
     for (final info in buildInfos.cast<Map<String, dynamic>>()) {
       info['libraries'] = libraries;
@@ -456,7 +456,7 @@ class BuildCommand extends Command<int> {
   }
 
   Future<void> _relocatePrivateClasses(
-      String artJarPath, Set<String> privateJars) async {
+      String artJarPath, Set<String> privateJars, String package) async {
     final classes = {
       for (final jar in privateJars)
         ...ZipDecoder()
@@ -468,11 +468,12 @@ class BuildCommand extends Command<int> {
                 p.extension(el.name) == '.class')
             .map((el) => p.withoutExtension(el.name)),
     };
-    final package = await _relocate(artJarPath, classes);
-    _lgr.info('Moved ${privateJars.length} bundled libraries to $package');
+    _lgr.info('Moved ${privateJars.length} bundled libraries to '
+        '${await _relocate(artJarPath, classes, package)}');
   }
 
-  Future<void> _relocateDesugarHelpers(String artJarPath) async {
+  Future<void> _relocateDesugarHelpers(
+      String artJarPath, String package) async {
     final helpers = ZipDecoder()
         .decodeBytes(await artJarPath.asFile().readAsBytes())
         .files
@@ -483,30 +484,31 @@ class BuildCommand extends Command<int> {
             p.extension(el.name) == '.class')
         .map((el) => p.withoutExtension(el.name));
     if (helpers.isNotEmpty) {
-      await _relocate(artJarPath, helpers);
+      await _relocate(artJarPath, helpers, package);
     }
   }
 
-  Future<String> _relocate(String artJarPath, Iterable<String> classes) async {
+  Future<String> _relocate(
+      String artJarPath, Iterable<String> classes, String package) async {
     final classList =
         p.join(_fs.buildFilesDir.path, 'relocated-classes.txt').asFile();
     await classList.writeAsString(classes.join('\n'));
 
-    final package = '${await _extensionPackage()}.repacked';
+    final repackaged = '$package.repacked';
     final relocated =
         p.join(_fs.buildFilesDir.path, 'AndroidRuntime.relocated.jar');
     await Executor.execRelocator(
       input: artJarPath,
       output: relocated,
-      prefix: '${package.replaceAll('.', '/')}/',
+      prefix: '${repackaged.replaceAll('.', '/')}/',
       classList: classList.path,
     );
     await relocated.asFile().rename(artJarPath);
-    return package;
+    return repackaged;
   }
 
-  Future<void> _desugarArtJar(
-      Config config, String artJarPath, BuildDependencies deps) async {
+  Future<void> _desugarArtJar(Config config, String artJarPath,
+      BuildDependencies deps, String package) async {
     final coreLibraryConfig = config.minSdk >= _coreLibraryMinSdk
         ? await _extractCoreLibraryConfig()
         : null;
@@ -523,7 +525,7 @@ class BuildCommand extends Command<int> {
     if (coreLibraryConfig != null) {
       await _addCoreLibrary(config.minSdk, coreLibraryConfig, artJarPath);
     }
-    await _relocateDesugarHelpers(artJarPath);
+    await _relocateDesugarHelpers(artJarPath, package);
   }
 
   Future<String> _extractCoreLibraryConfig() async {
@@ -637,21 +639,10 @@ class BuildCommand extends Command<int> {
     return artJarPath;
   }
 
-  Future<String> _extensionPackage() async {
-    final componentsJsonFile =
-        p.join(_fs.buildDir.path, 'raw', 'components.json').asFile();
-
-    final json = jsonDecode(await componentsJsonFile.readAsString());
-    final type = json[0]['type'] as String;
-
-    final split = type.split('.')..removeLast();
-    return split.join('.');
-  }
-
-  Future<void> _assemble() async {
-    final org = await _extensionPackage();
+  Future<void> _assemble(Descriptor descriptor) async {
+    final org = descriptor.package;
+    final components = descriptor.components;
     final rawDir = _fs.buildRawDir.path;
-    final components = await _readJsonList(p.join(rawDir, 'components.json'));
     final buildInfos = await _readJsonList(
         p.join(rawDir, 'files', 'component_build_infos.json'));
 
