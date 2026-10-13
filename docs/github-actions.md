@@ -5,8 +5,11 @@
 `rush create` adds `.github/workflows/build.yml` to new projects. Once the project is
 pushed to GitHub, it:
 
-- builds the extension on every push and pull request, and uploads the `out` directory
-  (the AIX and its documentation) as an artifact of the run;
+- builds the extension on every push and pull request that changes the project
+  (`rush.yml`, `src`, `assets`, `deps` or `res`), and uploads the `out` directory (the AIX
+  and its documentation) as an artifact of the run;
+- builds it on demand: open the **Actions** tab, choose **Build** and click **Run
+  workflow**;
 - publishes a release when a tag starting with `v` is pushed, with the AIX and its
   documentation attached and release notes generated from the commits.
 
@@ -28,7 +31,20 @@ name: Build
 
 on:
   push:
+    paths:
+      - rush.yml
+      - src/**
+      - assets/**
+      - deps/**
+      - res/**
   pull_request:
+    paths:
+      - rush.yml
+      - src/**
+      - assets/**
+      - deps/**
+      - res/**
+  workflow_dispatch:
 
 jobs:
   build:

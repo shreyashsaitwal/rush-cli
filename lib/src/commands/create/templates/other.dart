@@ -72,7 +72,20 @@ name: Build
 
 on:
   push:
+    paths:
+      - rush.yml
+      - src/**
+      - assets/**
+      - deps/**
+      - res/**
   pull_request:
+    paths:
+      - rush.yml
+      - src/**
+      - assets/**
+      - deps/**
+      - res/**
+  workflow_dispatch:
 
 jobs:
   build:
@@ -141,7 +154,7 @@ Run `rush build --optimize` to also optimize and obfuscate the extension's code.
 
 ## Releasing
 
-GitHub Actions builds the extension on every push and pull request. To publish
+GitHub Actions builds the extension when a push or pull request changes it. To publish
 a release, push a tag named after the version in `rush.yml`, like `v1.0.0`.
 The workflow attaches the `.aix` file and its documentation to the release.
 ''';

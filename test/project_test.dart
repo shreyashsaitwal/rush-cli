@@ -37,6 +37,8 @@ void main() {
             project.file('.github/workflows/build.yml').readAsStringSync();
         expect(workflow, contains('uses: zainulhassan815/rush-cli@v2'));
         expect(workflow, contains('run: rush build'));
+        expect(workflow, contains('workflow_dispatch:'));
+        expect(workflow, contains('- src/**'));
       });
 
       test('have agent instructions', () {
