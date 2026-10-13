@@ -14,6 +14,7 @@ import 'package:rush/src/commands/build/aix.dart';
 import 'package:rush/src/commands/build/build_dependencies.dart';
 import 'package:rush/src/commands/build/descriptor.dart';
 import 'package:rush/src/commands/build/libraries.dart';
+import 'package:rush/src/commands/build/proguard_rules.dart';
 import 'package:rush/src/commands/build/relocation.dart';
 import 'package:rush/src/commands/build/docs.dart';
 import 'package:rush/src/commands/build/resources.dart';
@@ -419,18 +420,14 @@ class BuildCommand extends Command<int> {
 
   Future<String> _keepExtensionClassesRules() async {
     final classesDir = _fs.buildClassesDir.path;
-    final classNames = _fs.buildClassesDir
+    final classFiles = _fs.buildClassesDir
         .listSync(recursive: true)
         .whereType<File>()
-        .where((el) => p.extension(el.path) == '.class')
         .map((el) =>
-            p.split(p.withoutExtension(p.relative(el.path, from: classesDir))))
-        .where((el) => el.first != 'META-INF')
-        .map((el) => el.join('.'));
+            p.posix.joinAll(p.split(p.relative(el.path, from: classesDir))));
     final rules =
         p.join(_fs.buildFilesDir.path, 'keep-extension-classes.pro').asFile();
-    await rules.writeAsString(
-        classNames.map((el) => '-keep class $el { *; }').join('\n'));
+    await rules.writeAsString(keepClassesRules(classFiles));
     return rules.path;
   }
 
