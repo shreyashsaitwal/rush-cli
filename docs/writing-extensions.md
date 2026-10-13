@@ -5,6 +5,12 @@ An extension is a class annotated with `@Extension` that extends
 the block annotations below. The examples on this page come from one extension, a
 counter, which builds as shown.
 
+App Inventor's own guides cover the same ground for its built-in components:
+[App Inventor extensions](https://ai2.appinventor.mit.edu/reference/other/extensions.html)
+and [How to Add a Component](https://docs.google.com/document/d/1xk9dMfczvjbbwD-wMsr-ffqkTlE3ga0ocCE1KOb2wvw/edit).
+Rush replaces their build steps (building App Inventor from source, `ant extensions`), but
+their advice on designing components applies as is.
+
 ## The extension class
 
 ```java
@@ -43,6 +49,36 @@ In Kotlin, `$form` must be escaped:
 class Counter(container: ComponentContainer) : AndroidNonvisibleComponent(container.`$form`()) {
 }
 ```
+
+## Showing views
+
+App Inventor shows every extension as a non-visible component: the designer lists it
+below the screen and can't place or size it. An extension can still show views in the
+app. Let the user place an arrangement where the view should go, and take it as a block
+parameter:
+
+```java
+@SimpleFunction(description = "Shows the count inside an arrangement, filling it.")
+public void ShowIn(AndroidViewComponent arrangement) {
+  if (!(arrangement.getView() instanceof ViewGroup)) {
+    form.dispatchErrorOccurredEvent(this, "ShowIn", ErrorMessages.ERROR_EXTENSION_ERROR,
+        1, "Counter", "ShowIn needs a HorizontalArrangement or VerticalArrangement.");
+    return;
+  }
+  if (display.getParent() != null) {
+    ((ViewGroup) display.getParent()).removeView(display);
+  }
+  ((ViewGroup) arrangement.getView()).addView(display, new ViewGroup.LayoutParams(
+      ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+}
+```
+
+`display` is a `TextView` the constructor creates with `new TextView(form)`. The
+arrangement's Width, Height and Visible properties then size and show the view, and
+HorizontalArrangement and VerticalArrangement both work.
+
+Don't extend `AndroidViewComponent` instead: such an extension builds, but App Inventor
+can't place it on the screen, and its inherited Width and Height have no blocks.
 
 ## Functions
 
@@ -155,14 +191,21 @@ match its parameters.
 Fire events on the main thread. Work done on another thread must be posted back, for
 example with `form.runOnUiThread(…)` or a `Handler` on the main looper.
 
-Events fired while `Screen.Initialize` runs are dropped. If an extension fires an event
-from a designer property's setter or during startup, post it to the main looper so it
-runs after initialization:
+Events fired while `Screen.Initialize` runs are dropped, and that includes designer
+property setters. To fire an event at startup, implement `OnInitializeListener` (from
+`com.google.appinventor.components.runtime.util`). App Inventor calls `onInitialize()`
+once `Screen.Initialize` has finished:
 
 ```java
-private final Handler handler = new Handler(Looper.getMainLooper());
+public Counter(ComponentContainer container) {
+  super(container.$form());
+  form.registerForOnInitialize(this);
+}
 
-handler.post(() -> Ready());
+@Override
+public void onInitialize() {
+  Ready();
+}
 ```
 
 ## Asynchronous functions
@@ -189,9 +232,74 @@ public void AssetSize(@Asset String asset, Continuation<Integer> callback) {
 }
 ```
 
+`handler` is a `new Handler(Looper.getMainLooper())`, which runs code on the main thread.
+
 `T` is the result type: one of the [block types](#block-types), with boxed types such as
 `Integer` and `Boolean` instead of primitives, or `Void` for a block without a result
 (call `callback.call(null)`). Call the continuation on the main thread, exactly once.
+
+## The screen's lifecycle
+
+Extensions that hold resources, such as players, sensors or connections, should follow
+the screen's lifecycle. Implement the listener and register it in the constructor:
+
+| Interface | Called when | Register with |
+|---|---|---|
+| `OnPauseListener` | another activity comes to the front, or the screen turns off | `form.registerForOnPause(this)` |
+| `OnResumeListener` | the screen comes back | `form.registerForOnResume(this)` |
+| `OnStopListener` | the screen is no longer visible | `form.registerForOnStop(this)` |
+| `OnDestroyListener` | the screen is closing | `form.registerForOnDestroy(this)` |
+
+```java
+@Override
+public void onPause() {
+  paused = true;
+}
+
+@Override
+public void onResume() {
+  if (paused) {
+    paused = false;
+    Resumed();
+  }
+}
+```
+
+`onResume()` may also run when the screen first starts, before any pause, so the counter
+only fires `Resumed` after one. A component that implements `Deleteable` gets `onDelete()`
+when it's deleted while the app runs, which mostly happens in the AI Companion.
+
+## Reporting errors
+
+Report errors through the screen's `ErrorOccurred` event, the way App Inventor's own
+components do:
+
+```java
+form.dispatchErrorOccurredEvent(this, "ShowIn", ErrorMessages.ERROR_EXTENSION_ERROR,
+    1, "Counter", "ShowIn needs a HorizontalArrangement or VerticalArrangement.");
+```
+
+`ERROR_EXTENSION_ERROR` is error 3300, and its arguments are your own error code, the
+extension's name and the message. `Screen.ErrorOccurred` receives the function name, 3300
+and `Error 1 in extension Counter: ShowIn needs…`. Without an `ErrorOccurred` handler,
+App Inventor shows the message in an alert. Errors reported while `Screen.Initialize`
+runs are lost, like events.
+
+## Designing blocks
+
+App Inventor is made for beginners, and its guide for component authors asks for blocks
+that follow these principles:
+
+- **Each block name is used once.** App Inventor doesn't support overloading: give each
+  function a distinct name.
+- **Properties have sensible defaults,** so the extension works before the user changes
+  anything.
+- **Blocks do what their names say.** Choose the behavior that surprises a beginner least,
+  and prefer simple units, such as milliseconds over fractions of a second.
+- **Lists start at 1,** like App Inventor's own lists.
+- **Slow work doesn't block the app.** Run it on another thread and deliver the result
+  through an event or an [asynchronous function](#asynchronous-functions).
+- **A property's description goes on its getter or its setter,** not both.
 
 ## Dropdowns
 
