@@ -10,8 +10,8 @@ rush build
 - `com.example.counter.aix`: the extension, ready to import into App Inventor.
 - `com.example.counter.md`: a [reference of its blocks](#generated-documentation).
 
-Intermediate files live in `.rush`. `rush clean` deletes them, and the next build starts
-from scratch.
+Intermediate files live in `.rush`. `rush clean` deletes them, and the next build compiles
+everything again.
 
 ## What's in the AIX
 
@@ -87,6 +87,12 @@ Returns `number`.
 
 ## Build cache
 
-Rush keeps resolved dependencies, desugared libraries and the core library backport in
-`.rush` and in `~/.rush/cache`, so later builds are faster. If a build behaves
-strangely after manual changes to these files, run `rush clean`.
+Rush skips compiling and generating DEX bytecode when nothing they depend on changed: the
+sources, assets, dependencies, `rush.yml`, the manifest, the JDK and Rush itself. It
+compares file contents, not modification times, so a skipped build produces exactly the
+same AIX as a clean one.
+
+Desugared libraries are cached in `~/.rush/cache/desugar` and shared by all your projects.
+`rush clean` keeps them; delete that folder to free the space. Resolved dependencies and
+the core library backport are kept in `.rush`. If a build behaves strangely after manual
+changes to these files, run `rush clean`.
