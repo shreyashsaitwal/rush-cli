@@ -1,4 +1,4 @@
-import 'dart:convert' show jsonEncode, utf8;
+import 'dart:convert' show jsonEncode;
 import 'dart:io'
     show
         Directory,
@@ -7,7 +7,6 @@ import 'dart:io'
         FileSystemEntityType,
         ProcessException;
 
-import 'package:archive/archive_io.dart';
 import 'package:args/command_runner.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
@@ -15,11 +14,10 @@ import 'package:path/path.dart' as p;
 import 'package:tint/tint.dart';
 
 import 'package:rush/src/commands/build/aar_packager.dart';
-import 'package:rush/src/commands/build/aix.dart';
+import 'package:rush/src/commands/build/aix_assembly.dart';
 import 'package:rush/src/commands/build/build_dependencies.dart';
 import 'package:rush/src/commands/build/descriptor.dart';
 import 'package:rush/src/commands/build/libraries.dart';
-import 'package:rush/src/commands/build/docs.dart';
 import 'package:rush/src/commands/build/resources.dart';
 import 'package:rush/src/commands/build/runtime_jar.dart';
 import 'package:rush/src/commands/build/toolchain.dart';
@@ -36,7 +34,6 @@ import 'package:rush/src/utils/constants.dart';
 import 'package:rush/src/utils/content_key.dart';
 import 'package:rush/src/utils/file_extension.dart';
 import 'package:rush/src/utils/error_message.dart';
-import 'package:rush/src/utils/zip.dart';
 import 'package:rush/src/version.dart';
 
 class BuildCommand extends Command<int> {
@@ -123,7 +120,7 @@ class BuildCommand extends Command<int> {
     await _task('Generating DEX bytecode',
         () => _dex(config, artJarPath, deps.referencedJars));
     await _task('Packaging the extension',
-        () => _assemble(config, descriptor, libraries));
+        () => assembleAix(config, descriptor, libraries));
   }
 
   Future<T> _task<T>(String title, Future<T> Function() body) async {
@@ -361,42 +358,6 @@ class BuildCommand extends Command<int> {
     await run();
     await stamp.writeAsString(key);
   }
-
-  Future<void> _assemble(
-      Config config, Descriptor descriptor, List<Library> libraries) async {
-    final org = descriptor.package;
-    final components = descriptor.components;
-    final buildInfos = [
-      for (final info in descriptor.buildInfos)
-        {...info, 'libraries': libraries.map((el) => el.fileName).toList()},
-    ];
-    final generated = {
-      'files/component_build_infos.json': utf8.encode(jsonEncode(buildInfos)),
-      for (final library in libraries)
-        'aars/${library.fileName}': library.bytes,
-    };
-
-    final outputDir = p.join(_fs.cwd, 'out').asDir(true);
-    final aix = p.join(outputDir.path, '$org.aix');
-    await writeZip(aix, [
-      for (final entry in aixEntries(components, buildInfos))
-        ArchiveFile.bytes(
-            '$org/$entry',
-            generated[entry] ??
-                await _entrySource(config, entry).readAsBytes()),
-    ]);
-    _lgr.info('Generated AIX file at ${aix.blue()}');
-
-    final docs = p.join(outputDir.path, '$org.md');
-    await docs.asFile().writeAsString(markdownDocs(components));
-    _lgr.info('Generated docs at ${docs.blue()}');
-  }
-
-  File _entrySource(Config config, String entry) => switch (entry) {
-        'aiwebres/LICENSE' => p.join(_fs.cwd, config.license).asFile(),
-        _ when entry.startsWith('assets/') => p.join(_fs.cwd, entry).asFile(),
-        _ => p.join(_fs.buildRawDir.path, entry).asFile(),
-      };
 }
 
 class _BuildFailed implements Exception {
