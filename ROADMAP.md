@@ -30,6 +30,9 @@ what is supported, what is planned and what is deliberately out of scope.
 | GitHub Actions: a setup action and a build and release workflow in new projects | 2.2.0 |
 | Instructions for AI coding agents in every project (`AGENTS.md`, a Claude skill, `rush agents`) | 2.3.0 |
 | A dev container (Codespaces, VS Code) and setup for GitHub Copilot's cloud agent in every project | 2.4.0 |
+| Byte-reproducible AIX output: two clean builds of a project produce identical files | 2.5.0 |
+| AARs with font resources build on Kodular (fonts moved to `res/raw`, `R.font` kept working) | 2.5.0 |
+| Unchanged compile and DEX steps skipped; desugared libraries cached once for all projects | 2.5.0 |
 
 ## Not planned
 
