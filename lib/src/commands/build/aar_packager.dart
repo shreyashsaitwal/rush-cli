@@ -7,8 +7,10 @@ import 'package:pool/pool.dart';
 
 import 'package:rush/src/commands/build/aix.dart';
 import 'package:rush/src/commands/build/build_dependencies.dart';
+import 'package:rush/src/commands/build/fixes/raw_fonts.dart';
 import 'package:rush/src/commands/build/libraries.dart';
 import 'package:rush/src/commands/build/resources.dart';
+import 'package:rush/src/commands/build/tools/executor.dart';
 import 'package:rush/src/commands/build/tools/library_desugarer.dart';
 import 'package:rush/src/commands/build/utils.dart';
 import 'package:rush/src/config/config.dart';
@@ -39,6 +41,47 @@ Future<List<Library>> packageLibraries(Config config, BuildDependencies deps,
         '${libraries.map((el) => el.fileName).join(', ')}');
   }
   return libraries;
+}
+
+Future<List<Library>> moveLibraryFontsToRaw(List<Library> libraries) async {
+  final fixed = moveFontsToRaw({
+    for (final library in libraries)
+      library.fileName: ZipDecoder().decodeBytes(library.bytes),
+  });
+  if (fixed.libraries.isEmpty) {
+    return libraries;
+  }
+  for (final MapEntry(key: fileName, value: shim) in fixed.shims.entries) {
+    await _addFontShim(fixed.libraries[fileName]!, shim);
+  }
+  _lgr.info('Moved fonts to res/raw so Kodular can build: '
+      '${fixed.libraries.keys.join(', ')}');
+  return [
+    for (final library in libraries)
+      if (fixed.libraries[library.fileName] case final archive?)
+        Library(library.fileName, zipBytes(archive.files))
+      else
+        library,
+  ];
+}
+
+Future<void> _addFontShim(Archive aar, FontShim shim) async {
+  final dir = p.join(_fs.buildFilesDir.path, 'font-shims', shim.package);
+  final source = p.join(dir, 'R.java').asFile(true);
+  await source.writeAsString(shim.source);
+  final classes = p.join(dir, 'classes');
+  await Executor.execJavac(sources: {source.path}, output: classes);
+
+  final shimEntry = '${shim.package.replaceAll('.', '/')}/R\$font.class';
+  final classesJar = aar.findFile('classes.jar');
+  aar.add(ArchiveFile.bytes(
+      'classes.jar',
+      zipBytes([
+        if (classesJar != null)
+          ...ZipDecoder().decodeBytes(classesJar.content).files,
+        ArchiveFile.bytes(
+            shimEntry, await p.join(classes, shimEntry).asFile().readAsBytes()),
+      ])));
 }
 
 Future<Library> _packageAar(
