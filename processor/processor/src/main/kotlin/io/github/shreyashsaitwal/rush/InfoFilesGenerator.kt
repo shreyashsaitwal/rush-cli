@@ -15,7 +15,6 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
-import java.nio.file.Paths
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
@@ -25,7 +24,7 @@ import javax.lang.model.element.Element as JavaElement
 import javax.tools.Diagnostic
 import javax.xml.parsers.DocumentBuilderFactory
 import javax.xml.parsers.ParserConfigurationException
-import kotlin.io.path.createDirectory
+import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 
 private const val WRITE_EXTERNAL_STORAGE = "android.permission.WRITE_EXTERNAL_STORAGE"
@@ -41,14 +40,14 @@ data class ExtensionModel(
 
 class InfoFilesGenerator(
     private val extensions: List<ExtensionModel>,
+    private val options: ProcessorOptions,
     private val elementUtils: Elements,
     private val messager: Messager,
 ) {
-    private val projectRoot = System.getenv("RUSH_PROJECT_ROOT")
-    private val rawBuildDir = Paths.get(projectRoot, ".rush", "build", "raw").apply {
-        if (!this.exists()) this.createDirectory()
+    private val outputDir = options.output.apply {
+        if (!this.exists()) this.createDirectories()
     }
-    private val config = JSONObject(Paths.get(projectRoot, ".rush", "build", "config.json").toFile().readText())
+    private val config = JSONObject(options.config.toFile().readText())
     private val minSdk = config.optInt("min_sdk", 7).coerceAtLeast(7).toString()
     private val urlPattern = Pattern.compile(
         """https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_+.~#?&//=]*)"""
@@ -105,7 +104,7 @@ class InfoFilesGenerator(
             componentsJsonArray.put(extJsonObj)
         }
 
-        val componentsJsonFile = Paths.get(rawBuildDir.toString(), "components.json").toFile()
+        val componentsJsonFile = outputDir.resolve("components.json").toFile()
         componentsJsonFile.writeText(componentsJsonArray.toString())
     }
 
@@ -118,7 +117,7 @@ class InfoFilesGenerator(
      */
     fun generateBuildInfoJson() {
         val buildInfoJsonArray = JSONArray()
-        val rushVersion = System.getenv("RUSH_VERSION")
+        val rushVersion = options.version
 
         for (ext in extensions) {
             val extJsonObj = JSONObject()
@@ -130,15 +129,7 @@ class InfoFilesGenerator(
             buildInfoJsonArray.put(extJsonObj)
         }
 
-        // Before the annotation processor runs, the CLI merges the manifests of all the AAR deps with the extension's
-        // main manifest into a single manifest file.
-        // So, if the merged manifest is found use it instead of the main manifest.
-        val mergedManifest = Paths.get(rawBuildDir.toString(), "..", "files", "AndroidManifest.xml")
-        val manifest = if (mergedManifest.exists()) {
-            mergedManifest.toFile()
-        } else {
-            Paths.get(projectRoot, "src", "AndroidManifest.xml").toFile()
-        }
+        val manifest = options.manifest.toFile()
 
         val builder = DocumentBuilderFactory.newInstance().newDocumentBuilder()
         val doc = builder.parse(manifest)
@@ -225,7 +216,7 @@ class InfoFilesGenerator(
         }
 
         val buildInfoJsonFile =
-            Paths.get(rawBuildDir.toString(), "files", "component_build_infos.json").toFile().apply {
+            outputDir.resolve("files").resolve("component_build_infos.json").toFile().apply {
                 this.parentFile.mkdirs()
             }
         buildInfoJsonFile.writeText(buildInfoJsonArray.toString())
@@ -325,12 +316,12 @@ class InfoFilesGenerator(
         if (urlPattern.matcher(icon).find()) {
             return icon
         }
-        val source = Paths.get(projectRoot, "assets", icon).toFile()
+        val source = options.project.resolve("assets").resolve(icon).toFile()
         if (!source.isFile) {
             messager.printMessage(Diagnostic.Kind.ERROR, "Icon file assets/$icon not found.", element)
             return icon
         }
-        source.copyTo(Paths.get(rawBuildDir.toString(), "aiwebres", icon).toFile(), overwrite = true)
+        source.copyTo(outputDir.resolve("aiwebres").resolve(icon).toFile(), overwrite = true)
         return "aiwebres/$icon"
     }
 
@@ -338,7 +329,7 @@ class InfoFilesGenerator(
         if (license.isBlank() || urlPattern.matcher(license).find()) {
             return license
         }
-        if (!Paths.get(projectRoot, license).toFile().isFile) {
+        if (!options.project.resolve(license).toFile().isFile) {
             messager.printMessage(Diagnostic.Kind.WARNING, "License file $license not found.")
             return ""
         }

@@ -7,7 +7,7 @@ import io.github.shreyashsaitwal.rush.ProcessingError
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLClassLoader
-import java.nio.file.Paths
+import java.nio.file.Path
 import javax.lang.model.element.Element
 import javax.lang.model.element.ExecutableElement
 import javax.lang.model.element.TypeElement
@@ -137,29 +137,17 @@ private class AssetData(private val fileExtensions: Array<String> = arrayOf()) :
     }
 }
 
+fun loadHelpersFrom(classpath: List<Path>) {
+    HelperSingleton.loader = URLClassLoader(classpath.map { it.toUri().toURL() }.toTypedArray())
+}
+
 private object HelperSingleton {
     /**
      * This stores [OptionListData]s of helpers that have already been processed.
      */
     val optionListCache = mutableMapOf<String, OptionListData>()
 
-    val loader: ClassLoader
-
-    init {
-        val classesDir = Paths.get(System.getenv("RUSH_PROJECT_ROOT"), ".rush", "build", "classes")
-        val annotationsJar = Paths.get(System.getenv("RUSH_ANNOTATIONS_JAR"))
-        val runtimeJar = Paths.get(System.getenv("RUSH_RUNTIME_JAR"))
-
-        // TODO: Should the external dependencies be added as well?
-
-        loader = URLClassLoader(
-            arrayOf(
-                classesDir.toUri().toURL(),
-                annotationsJar.toUri().toURL(),
-                runtimeJar.toUri().toURL()
-            )
-        )
-    }
+    lateinit var loader: ClassLoader
 }
 
 private class OptionListData(element: Element, private val elementUtils: Elements) : HelperData() {

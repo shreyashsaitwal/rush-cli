@@ -9,6 +9,7 @@ import io.github.shreyashsaitwal.rush.block.DesignerProperty
 import io.github.shreyashsaitwal.rush.block.Event
 import io.github.shreyashsaitwal.rush.block.Function
 import io.github.shreyashsaitwal.rush.block.Property
+import io.github.shreyashsaitwal.rush.block.loadHelpersFrom
 import javax.annotation.processing.*
 import javax.lang.model.SourceVersion
 import javax.lang.model.element.Element
@@ -37,6 +38,8 @@ class ExtensionProcessor : AbstractProcessor() {
 
     override fun getSupportedSourceVersion(): SourceVersion = SourceVersion.latestSupported()
 
+    override fun getSupportedOptions(): Set<String> = setOf(ProcessorOptions.OPTIONS)
+
     @Synchronized
     override fun init(processingEnv: ProcessingEnvironment) {
         super.init(processingEnv)
@@ -50,6 +53,14 @@ class ExtensionProcessor : AbstractProcessor() {
         }
         isFirstRound = false
 
+        val options = try {
+            ProcessorOptions(processingEnv.options)
+        } catch (e: ProcessingError) {
+            messager.printMessage(Kind.ERROR, e.message)
+            return false
+        }
+        loadHelpersFrom(options.helperClasspath)
+
         val elements = roundEnv.getElementsAnnotatedWith(Extension::class.java)
         val extensions = elements.map { processExtensionElement(it) }
         val packages = extensions.map { it.fqcn.substringBeforeLast('.') }.distinct()
@@ -61,7 +72,7 @@ class ExtensionProcessor : AbstractProcessor() {
             return false
         }
 
-        val generator = InfoFilesGenerator(extensions, elementUtils, messager)
+        val generator = InfoFilesGenerator(extensions, options, elementUtils, messager)
         try {
             generator.generateComponentsJson()
             generator.generateBuildInfoJson()

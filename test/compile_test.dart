@@ -3,6 +3,8 @@ library;
 
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+import 'package:rush/src/utils/constants.dart';
 import 'package:test/test.dart';
 
 import 'support/aix.dart';
@@ -389,6 +391,26 @@ assets:
   });
 
   group('errors', () {
+    test('name the processor option the build left out', () async {
+      final project = await TestProject.create('no_options_ext');
+      final home = Platform.environment['RUSH_HOME']!;
+      final result = await Process.run('javac', [
+        '-proc:only',
+        ...['-processorpath', p.join(home, 'libs', 'processor.jar')],
+        ...[
+          '-cp',
+          [
+            p.join(home, 'libs', 'annotations.jar'),
+            p.join(home, 'ai2', ai2Version, 'libs', 'AndroidRuntime.jar'),
+          ].join(Platform.isWindows ? ';' : ':'),
+        ],
+        project.source('${project.className}.java').path,
+      ]);
+      expect(result.exitCode, isNot(0));
+      expect(result.output,
+          contains('Missing annotation processor option -Arush.options'));
+    });
+
     test('explain that dropdown enums belong in a helpers directory', () async {
       final project = await TestProject.create('misplaced_ext');
       project.source('options/Mode.java')

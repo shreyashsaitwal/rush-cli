@@ -12,6 +12,7 @@ import 'package:rush/src/services/lib_service.dart';
 import 'package:rush/src/commands/build/utils.dart';
 
 const helpersTimestampKey = 'helper-enums';
+const _processorOptionsKey = 'rush.options';
 
 class Compiler {
   static final _fs = GetIt.I<FileService>();
@@ -26,18 +27,19 @@ class Compiler {
     required Set<String> kotlinFiles,
     required String kotlinVersion,
     required LazyBox<DateTime> timestampBox,
+    required String processorOptions,
   }) async {
     await _compileHelpers(classpathJars, timestampBox, kotlinVersion);
     final startedOn = await _markCompilationStart();
     if (kotlinFiles.isNotEmpty) {
-      await _kapt(classpathJars, kotlinVersion);
+      await _kapt(classpathJars, kotlinVersion, processorOptions);
       await _kotlinc(classpathJars, kotlinVersion, {_fs.srcDir.path});
     }
     if (javaFiles.isNotEmpty) {
       await _javac(
         javaFiles,
         {...classpathJars, _fs.buildClassesDir.path},
-        withProcessor: kotlinFiles.isEmpty,
+        processorOptions: kotlinFiles.isEmpty ? processorOptions : null,
       );
     }
     await _removeClassesOlderThan(startedOn);
@@ -85,7 +87,7 @@ class Compiler {
     if (hasKtFiles) {
       await _kotlinc(classpathJars, kotlinVersion, helperPaths);
     } else {
-      await _javac(helperPaths, classpathJars, withProcessor: false);
+      await _javac(helperPaths, classpathJars);
     }
     await timestampBox.put(helpersTimestampKey, DateTime.now());
   }
@@ -105,7 +107,7 @@ class Compiler {
   static Future<void> _javac(
     Set<String> files,
     Set<String> classpath, {
-    required bool withProcessor,
+    String? processorOptions,
   }) =>
       _runWithArgsFile(
         executable: BuildUtils.javaExe(true),
@@ -115,13 +117,16 @@ class Compiler {
           ...['-encoding', 'UTF8'],
           ...['-d', _fs.buildClassesDir.path],
           ...['-cp', classpath.join(BuildUtils.cpSeparator)],
-          if (withProcessor) ...['-processorpath', _libService.processorJar],
+          if (processorOptions != null) ...[
+            ...['-processorpath', _libService.processorJar],
+            '-A$_processorOptionsKey=$processorOptions',
+          ],
           ...files,
         ],
       );
 
-  static Future<void> _kapt(
-      Set<String> classpathJars, String kotlinVersion) async {
+  static Future<void> _kapt(Set<String> classpathJars, String kotlinVersion,
+      String processorOptions) async {
     final kaptJars = await _libService.kaptJars(kotlinVersion);
     await _makeKaptPluginDiscoverableByKotlinc(kaptJars.first);
 
@@ -141,6 +146,7 @@ class Compiler {
         '-Kapt-classpath=${_libService.processorJar}',
         '-Kapt-strip-metadata=true',
         '-Kapt-map-diagnostic-locations=true',
+        '-Kapt-option:$_processorOptionsKey=$processorOptions',
         '-no-stdlib',
         _fs.srcDir.path,
       ],

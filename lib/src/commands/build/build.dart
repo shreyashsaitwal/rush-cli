@@ -25,6 +25,7 @@ import 'package:rush/src/commands/build/tools/executor.dart';
 import 'package:rush/src/commands/build/tools/library_desugarer.dart';
 import 'package:rush/src/config/config.dart';
 import 'package:rush/src/resolver/artifact.dart';
+import 'package:rush/src/services/ai2_runtime.dart';
 import 'package:rush/src/services/lib_service.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
@@ -32,6 +33,7 @@ import 'package:rush/src/utils/constants.dart';
 import 'package:rush/src/utils/file_extension.dart';
 import 'package:rush/src/utils/error_message.dart';
 import 'package:rush/src/utils/zip.dart';
+import 'package:rush/src/version.dart';
 
 const _coreLibraryMinSdk = 24;
 
@@ -83,10 +85,10 @@ class BuildCommand extends Command<int> {
     final (deps, resources) = await _task('Compiling sources', () async {
       final deps = await BuildDependencies.load(_libService, config);
       final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
-      await _mergeManifests(config, deps.aarManifests);
+      final manifest = await _mergeManifests(config, deps.aarManifests);
       await _warnAboutDuplicateAars(deps.shippedAars);
       final resources = await ExtensionResources.compile(config);
-      await _compile(config, deps, timestampBox, resources);
+      await _compile(config, deps, manifest, timestampBox, resources);
       return (deps, resources);
     });
 
@@ -224,7 +226,7 @@ class BuildCommand extends Command<int> {
     return package?.group(1);
   }
 
-  Future<void> _mergeManifests(Config config, List<String> manifests) async {
+  Future<String> _mergeManifests(Config config, List<String> manifests) async {
     final mainManifest =
         p.join(_fs.srcDir.path, 'AndroidManifest.xml').asFile();
     final outputManifest =
@@ -233,7 +235,7 @@ class BuildCommand extends Command<int> {
     if (manifests.isEmpty) {
       _lgr.dbg('No manifests found in dependencies; skipping manifest merge');
       await outputManifest.delete();
-      return;
+      return mainManifest.path;
     }
 
     _lgr.info('Merging Android manifests...');
@@ -242,10 +244,11 @@ class BuildCommand extends Command<int> {
       mainManifest.path,
       manifests.toSet(),
     );
+    return outputManifest.path;
   }
 
   /// Compiles extension's source files.
-  Future<void> _compile(Config config, BuildDependencies deps,
+  Future<void> _compile(Config config, BuildDependencies deps, String manifest,
       LazyBox<DateTime> timestampBox, ExtensionResources? resources) async {
     final srcFiles =
         _fs.srcDir.path.asDir().listSync(recursive: true).whereType<File>();
@@ -264,16 +267,29 @@ class BuildCommand extends Command<int> {
       if (resources != null) resources.classesDir,
     };
 
-    await p
-        .join(_fs.buildDir.path, 'config.json')
-        .asFile(true)
-        .writeAsString(jsonEncode(config.toJson()));
+    final configJson = p.join(_fs.buildDir.path, 'config.json').asFile(true);
+    await configJson.writeAsString(jsonEncode(config.toJson()));
+    final processorOptions =
+        p.join(_fs.buildDir.path, 'processor.json').asFile(true);
+    await processorOptions.writeAsString(jsonEncode({
+      'config': configJson.path,
+      'manifest': manifest,
+      'output': _fs.buildRawDir.path,
+      'project': _fs.cwd,
+      'helperClasspath': [
+        _fs.buildClassesDir.path,
+        _libService.annotationsJar,
+        (await Ai2Runtime.load()).runtimeJar,
+      ],
+      'version': packageVersion,
+    }));
     await Compiler.compile(
       compileClasspathJars,
       javaFiles: javaFiles.map((file) => file.path).toSet(),
       kotlinFiles: ktFiles.map((file) => file.path).toSet(),
       kotlinVersion: config.kotlin.compilerVersion,
       timestampBox: timestampBox,
+      processorOptions: processorOptions.path,
     );
   }
 
