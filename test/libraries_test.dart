@@ -2,6 +2,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:test/test.dart';
@@ -112,5 +113,93 @@ void main() {
         contains('package="com.google.guava.guava"'));
     expect(
         aix.classNames.where((c) => c.contains('com/google/common/')), isEmpty);
+  });
+
+  group('fonts in shipped AARs', () {
+    late TestProject project;
+    late ProcessResult build;
+    late Aix aix;
+
+    String text(Archive archive, String name) =>
+        utf8.decode(archive.findFile(name)!.content);
+
+    Set<String> classNames(Archive aar) => {
+          for (final file in ZipDecoder()
+              .decodeBytes(aar.findFile('classes.jar')!.content)
+              .files)
+            file.name,
+        };
+
+    setUpAll(() async {
+      project = await TestProject.create('fonts_ext');
+      project.setMinSdk(26);
+      project
+          .addDependencies(['androidx.media3:media3-ui:1.11.1', 'player.aar']);
+      project.file('deps/player.aar').writeAsBytesSync(ZipEncoder().encode(
+          Archive()
+            ..addFile(ArchiveFile.string('AndroidManifest.xml',
+                '<manifest package="com.example.player"/>'))
+            ..addFile(ArchiveFile.string(
+                'R.txt', 'int font roboto_medium_numbers 0x7f010001\n'))
+            ..addFile(ArchiveFile.string(
+                'res/values/styles.xml',
+                '<resources><style name="player_time"><item '
+                    'name="android:fontFamily">@font/roboto_medium_numbers'
+                    '</item></style></resources>'))
+            ..addFile(ArchiveFile.bytes(
+                'classes.jar', ZipEncoder().encode(Archive())))));
+      project.file('res/font/com_example_fontsext_numbers.ttf')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(File(
+                'tool/e2e/fixtures/fonts/res/font/com_example_fonts_numbers.ttf')
+            .readAsBytesSync());
+      project.writeJavaExtension('''
+  @SimpleFunction
+  public int Numbers() {
+    return R.font.com_example_fontsext_numbers;
+  }
+''');
+      build = await project.build();
+      if (build.exitCode != 0) fail(build.output);
+      aix = project.aix;
+    });
+
+    test('move to res/raw with their symbols retyped', () {
+      final ui = aix.library('androidx.media3-media3-ui-1.11.1.aar');
+      expect(ui.findFile('res/raw/roboto_medium_numbers.ttf'), isNotNull);
+      expect(ui.files.where((el) => el.name.startsWith('res/font')), isEmpty);
+      expect(text(ui, 'R.txt'), contains('int raw roboto_medium_numbers '));
+      expect(text(ui, 'R.txt'), isNot(contains('int font ')));
+    });
+
+    test('are referenced as raw resources by dependent AARs', () {
+      final player = aix.library('player.aar');
+      expect(text(player, 'res/values/styles.xml'),
+          contains('@raw/roboto_medium_numbers'));
+      expect(
+          text(player, 'R.txt'), 'int raw roboto_medium_numbers 0x7f010001\n');
+    });
+
+    test('stay reachable through R.font', () {
+      expect(classNames(aix.library('androidx.media3-media3-ui-1.11.1.aar')),
+          contains(r'androidx/media3/ui/R$font.class'));
+      expect(classNames(aix.library('player.aar')),
+          contains(r'com/example/player/R$font.class'));
+      expect(classNames(aix.library('com.example.fontsext.aar')),
+          contains(r'com/example/fontsext/R$font.class'));
+    });
+
+    test('include the extension own fonts', () {
+      final own = aix.library('com.example.fontsext.aar');
+      expect(
+          own.findFile('res/raw/com_example_fontsext_numbers.ttf'), isNotNull);
+      expect(text(own, 'R.txt'),
+          contains('int raw com_example_fontsext_numbers '));
+    });
+
+    test('are reported in the build output', () {
+      expect(build.output,
+          contains('Moved fonts to res/raw so Kodular can build'));
+    });
   });
 }

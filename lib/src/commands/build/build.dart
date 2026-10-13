@@ -13,6 +13,7 @@ import 'package:tint/tint.dart';
 import 'package:rush/src/commands/build/aix.dart';
 import 'package:rush/src/commands/build/build_dependencies.dart';
 import 'package:rush/src/commands/build/descriptor.dart';
+import 'package:rush/src/commands/build/fixes/raw_fonts.dart';
 import 'package:rush/src/commands/build/libraries.dart';
 import 'package:rush/src/commands/build/proguard_rules.dart';
 import 'package:rush/src/commands/build/relocation.dart';
@@ -95,7 +96,8 @@ class BuildCommand extends Command<int> {
     final (descriptor, libraries, artJarPath) =
         await _task('Processing', () async {
       final descriptor = await _requireExtension();
-      final libraries = await _packageLibraries(config, deps, resources);
+      final libraries = await _moveFontsToRaw(
+          await _packageLibraries(config, deps, resources));
       return (descriptor, libraries, await _createArtJar(deps.privateJars));
     });
 
@@ -565,6 +567,47 @@ class BuildCommand extends Command<int> {
       ...classes.files
           .where((el) => el.isFile && !el.name.startsWith('META-INF/')),
     ]);
+  }
+
+  Future<List<Library>> _moveFontsToRaw(List<Library> libraries) async {
+    final fixed = moveFontsToRaw({
+      for (final library in libraries)
+        library.fileName: ZipDecoder().decodeBytes(library.bytes),
+    });
+    if (fixed.libraries.isEmpty) {
+      return libraries;
+    }
+    for (final MapEntry(key: fileName, value: shim) in fixed.shims.entries) {
+      await _addFontShim(fixed.libraries[fileName]!, shim);
+    }
+    _lgr.info('Moved fonts to res/raw so Kodular can build: '
+        '${fixed.libraries.keys.join(', ')}');
+    return [
+      for (final library in libraries)
+        if (fixed.libraries[library.fileName] case final archive?)
+          Library(library.fileName, zipBytes(archive.files))
+        else
+          library,
+    ];
+  }
+
+  Future<void> _addFontShim(Archive aar, FontShim shim) async {
+    final dir = p.join(_fs.buildFilesDir.path, 'font-shims', shim.package);
+    final source = p.join(dir, 'R.java').asFile(true);
+    await source.writeAsString(shim.source);
+    final classes = p.join(dir, 'classes');
+    await Executor.execJavac(sources: {source.path}, output: classes);
+
+    final shimEntry = '${shim.package.replaceAll('.', '/')}/R\$font.class';
+    final classesJar = aar.findFile('classes.jar');
+    aar.add(ArchiveFile.bytes(
+        'classes.jar',
+        zipBytes([
+          if (classesJar != null)
+            ...ZipDecoder().decodeBytes(classesJar.content).files,
+          ArchiveFile.bytes(shimEntry,
+              await p.join(classes, shimEntry).asFile().readAsBytes()),
+        ])));
   }
 
   static String _aarFileName(Artifact aar) => aar.isMavenArtifact
