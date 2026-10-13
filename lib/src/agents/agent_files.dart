@@ -77,7 +77,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: zainulhassan815/rush-cli@v2
       - run: rush deps sync
 ''';
