@@ -79,10 +79,10 @@ class BuildCommand extends Command<int> {
     final (deps, resources) = await _task('Compiling sources', () async {
       final deps = await BuildDependencies.load(_libService, config);
       final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
-      await _mergeManifests(config, deps.shippedAars);
+      await _mergeManifests(config, deps.aarManifests);
       await _warnAboutDuplicateAars(deps.shippedAars);
       final resources = await ExtensionResources.compile(config);
-      await _compile(config, timestampBox, resources);
+      await _compile(config, deps, timestampBox, resources);
       return (deps, resources);
     });
 
@@ -227,13 +227,7 @@ class BuildCommand extends Command<int> {
     return package?.group(1);
   }
 
-  Future<void> _mergeManifests(Config config, List<Artifact> aars) async {
-    final manifests = aars
-        .map((el) => _fs.resourceFromExtractedAar(
-            el.artifactFile, 'AndroidManifest.xml'))
-        .where((el) => el.existsSync())
-        .map((el) => el.path);
-
+  Future<void> _mergeManifests(Config config, List<String> manifests) async {
     final mainManifest =
         p.join(_fs.srcDir.path, 'AndroidManifest.xml').asFile();
     final outputManifest =
@@ -254,8 +248,8 @@ class BuildCommand extends Command<int> {
   }
 
   /// Compiles extension's source files.
-  Future<void> _compile(Config config, LazyBox<DateTime> timestampBox,
-      ExtensionResources? resources) async {
+  Future<void> _compile(Config config, BuildDependencies deps,
+      LazyBox<DateTime> timestampBox, ExtensionResources? resources) async {
     final srcFiles =
         _fs.srcDir.path.asDir().listSync(recursive: true).whereType<File>();
     final javaFiles = srcFiles
@@ -268,16 +262,10 @@ class BuildCommand extends Command<int> {
     final fileCount = javaFiles.length + ktFiles.length;
     _lgr.info('Picked $fileCount source file${fileCount > 1 ? 's' : ''}');
 
-    final dependencies = await _libService.extensionDependencies(config,
-        includeAi2ProvidedDeps: true, includeProjectProvidedDeps: true);
-    final compileClasspathJars = dependencies
-        .where((el) => el.scope == Scope.compile || el.scope == Scope.provided)
-        .map((el) => el.classpathJars(dependencies))
-        .flattened
-        .toSet();
-    if (resources != null) {
-      compileClasspathJars.add(resources.classesDir);
-    }
+    final compileClasspathJars = {
+      ...deps.compileClasspath,
+      if (resources != null) resources.classesDir,
+    };
 
     await p
         .join(_fs.buildDir.path, 'config.json')
@@ -412,23 +400,16 @@ class BuildCommand extends Command<int> {
   Future<void> _runProGuard(Config config, String artJarPath,
       BuildDependencies deps, ExtensionResources? resources,
       {required bool optimize}) async {
-    final allDeps = await _libService.extensionDependencies(config,
-        includeAi2ProvidedDeps: true, includeProjectProvidedDeps: true);
-    final aarRules = allDeps
-        .where((el) => el.packaging == 'aar')
-        .map((el) =>
-            _fs.resourceFromExtractedAar(el.artifactFile, 'proguard.txt'))
-        .where((el) => el.existsSync())
-        .map((el) => el.path);
-
+    final projectRules = p.join(_fs.srcDir.path, 'proguard-rules.pro').asFile();
     await Executor.execProGuard(
       config,
       artJarPath,
       {...deps.referencedJars, if (resources != null) resources.classesDir},
       {
-        ...aarRules,
+        ...deps.aarProguardRules,
         ...await _bundledProguardRules(deps.privateJars),
         if (!optimize) await _keepExtensionClassesRules(),
+        if (await projectRules.exists()) projectRules.path,
       },
       shrinkOnly: !optimize,
     );
