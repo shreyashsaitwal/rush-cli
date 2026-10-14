@@ -62,6 +62,14 @@ class Function(
                 Kind.WARNING, "Function should not have more than one continuation parameter.", element
             )
         }
+        if (continuationResultType() != null && !deprecated) {
+            messager.printMessage(
+                Kind.WARNING,
+                "App Inventor reads the continuation's result as soon as the function returns, so a result " +
+                    "passed later is lost. Return the value, or deliver slow results through an event.",
+                element
+            )
+        }
         continuations.firstOrNull()?.apply {
             val typeArgs = (element.asType() as DeclaredType).typeArguments
             if (typeArgs.isEmpty()) {

@@ -221,6 +221,7 @@ void main() {
 
   group('a Java extension', () {
     late TestProject project;
+    late ProcessResult build;
     late Aix aix;
 
     setUpAll(() async {
@@ -229,9 +230,25 @@ void main() {
       project.writeJavaExtension(_javaBlocks);
       project.editSource(
           '${project.className}.java', RegExp(r',\s*icon = "icon.png"'), '');
-      final result = await project.build();
-      if (result.exitCode != 0) fail(result.output);
+      build = await project.build();
+      if (build.exitCode != 0) fail(build.output);
       aix = project.aix;
+    });
+
+    test('warns that blocks read continuation results right away', () {
+      final source =
+          project.source('${project.className}.java').readAsLinesSync();
+      String location(String function) => '${project.className}.java:'
+          '${source.indexWhere((line) => line.contains(' $function(')) + 1}:';
+      final warned = RegExp(r'^.*reads the continuation.*$', multiLine: true)
+          .allMatches(build.output)
+          .map((match) => match[0]!)
+          .toList();
+      expect(warned, hasLength(3));
+      expect(
+          warned.join('\n'),
+          allOf(contains(location('Fetch')), contains(location('Count')),
+              contains(location('Check'))));
     });
 
     test('makes functions with a continuation asynchronous', () {
