@@ -44,12 +44,12 @@ ${enableKt ? '- $kotlinGroupId:kotlin-stdlib:$defaultKtVersion\n' : ''}#- exampl
 # file or link to something hosted online.
 #license: LICENSE.txt
 
-# Similar to dependencies, except libraries defined as provided are not included
-# in the final AIX. This is useful when you want to use a library in your
-# extension but don't want to include it in the final AIX because it's already
-# included in the App Inventor.
-#provided_dependencies:
-#- com.example:foo-bar:1.2.3
+# Where a library from dependencies goes, when Rush's choice doesn't fit:
+# exclude (never resolved), provided (compiled against, not shipped), shared
+# (shipped unchanged as an AAR) or private (relocated into the extension). Keys
+# are <groupId>:<artifactId>, or file names in the "deps" directory.
+#libraries:
+#  com.example:foo-bar: provided
 ''';
 }
 

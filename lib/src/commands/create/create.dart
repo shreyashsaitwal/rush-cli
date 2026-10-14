@@ -127,7 +127,7 @@ ${'Success!'.green()} Generated a new extension project in ${p.relative(projectD
       await Ai2Runtime.install();
     }
 
-    final artifacts = await libService.providedDependencies(null);
+    final artifacts = await libService.providedDependencies();
     final providedDepJars = artifacts.map((el) => el.classesJar).whereNotNull();
     final providedDepSources =
         artifacts.map((el) => el.sourcesJar).whereNotNull();

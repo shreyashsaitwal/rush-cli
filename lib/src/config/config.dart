@@ -63,12 +63,20 @@ class Config {
     this.desugar,
     this.assets = const [],
     this.authors,
-    this.dependencies = const [],
+    List<String> dependencies = const [],
     this.providedDependencies = const [],
-    this.libraries = const {},
+    Map<String, LibraryPlacement> libraries = const {},
     this.repositories = const [],
     this.kotlin = const Kotlin(compilerVersion: defaultKtVersion),
-  });
+  })  : dependencies = [
+          ...dependencies,
+          ...providedDependencies.whereNot(dependencies.contains),
+        ],
+        libraries = {
+          for (final dependency in providedDependencies)
+            libraryKey(dependency): LibraryPlacement.provided,
+          ...libraries,
+        };
 
   // ignore: strict_raw_type
   factory Config._fromJson(Map json) =>
@@ -90,6 +98,10 @@ class Config {
           '$excludedDependency is in dependencies, so it can\'t be excluded. Remove it from dependencies instead.');
     }
   }
+
+  List<String> get deprecatedKeys => [
+        if (providedDependencies.isNotEmpty) 'provided_dependencies',
+      ];
 
   List<String> get ignoredKeys => [
         if (authors != null) 'authors',

@@ -144,6 +144,11 @@ class BuildCommand extends Command<int> {
     if (config == null) {
       throw Exception();
     }
+    for (final key in config.deprecatedKeys) {
+      _lgr.warn('`$key` in rush.yml is deprecated. Run `rush migrate` to '
+          'move its libraries to `dependencies`, placed as provided under '
+          '`libraries`.');
+    }
     for (final key in config.ignoredKeys) {
       _lgr.warn('`$key` in rush.yml has no effect. Remove it.');
     }
@@ -170,10 +175,7 @@ class BuildCommand extends Command<int> {
 
   List<String> _missingFiles(Config config) => [
         for (final asset in config.assets) p.posix.join('assets', asset),
-        for (final dependency in [
-          ...config.dependencies,
-          ...config.providedDependencies
-        ])
+        for (final dependency in config.dependencies)
           if (dependency.endsWith('.jar') || dependency.endsWith('.aar'))
             p.posix.join('deps', dependency),
       ].where((path) => !p.join(_fs.cwd, path).asFile().existsSync()).toList();

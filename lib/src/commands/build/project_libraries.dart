@@ -19,12 +19,8 @@ Future<LibraryPlan> planProjectLibraries(
   return planLibraries(
     dependencies:
         await _resolved(await libService.extensionDependencies(config)),
-    appInventor: await _resolved(
-        await libService.providedDependencies(null), conditional),
-    provided:
-        await _resolved(await libService.projectProvidedDependencies(config)),
-    providedWithDependencies: await _resolved(
-        await libService.projectProvidedWithDependencies(config)),
+    appInventor:
+        await _resolved(await libService.providedDependencies(), conditional),
   );
 }
 

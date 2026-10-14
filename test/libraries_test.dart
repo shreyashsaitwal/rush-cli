@@ -200,6 +200,25 @@ void main() {
       expect(project.aix.libraries, isEmpty);
     });
 
+    test('can still be listed in provided_dependencies, with a warning',
+        () async {
+      final legacy = await TestProject.create('legacy_provided_ext');
+      legacy.editConfig('#license: LICENSE.txt',
+          'provided_dependencies:\n- com.google.guava:guava:33.3.1-android');
+      legacy.writeJavaExtension('''
+  @SimpleFunction
+  public String Blank(String text) {
+    return com.google.common.base.Strings.nullToEmpty(text);
+  }
+''');
+      final build = await legacy.build(['--optimize']);
+      expect(build.exitCode, 0, reason: build.output);
+      expect(build.output,
+          allOf(contains('provided_dependencies'), contains('deprecated')));
+      expect(legacy.aix.classNames.where((c) => c.contains('com/google/')),
+          isEmpty);
+    });
+
     test('is shown as provided with what only it needs', () async {
       final tree = (await project.depsTree()).output;
       expect(

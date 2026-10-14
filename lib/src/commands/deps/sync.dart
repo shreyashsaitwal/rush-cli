@@ -113,7 +113,7 @@ class SyncSubCommand extends Command<int> {
       return 0;
     }
 
-    final ai2ProvidedDepArtifacts = await libService.providedDependencies(null);
+    final ai2ProvidedDepArtifacts = await libService.providedDependencies();
 
     Hive.init(_fs.dotRushDir.path);
     final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
@@ -125,23 +125,13 @@ class SyncSubCommand extends Command<int> {
 
       final extDepCoords = config.dependencies
           .where((el) => !el.endsWith('.jar') && !el.endsWith('.aar'));
-      final extProvidedDepCoords = config.providedDependencies
-          .where((el) => !el.endsWith('.jar') && !el.endsWith('.aar'));
 
       try {
         await sync(
           cacheBox: libService.extensionDepsBox!,
-          coordinates: {Scope.provided: extProvidedDepCoords},
-          repositories: config.repositories,
-          downloadSources: true,
-        );
-
-        final inEveryApp = await libService.dependenciesInEveryApp(config);
-        await sync(
-          cacheBox: libService.extensionDepsBox!,
           coordinates: {Scope.compile: extDepCoords},
           repositories: config.repositories,
-          providedArtifacts: inEveryApp,
+          providedArtifacts: (await Ai2Runtime.load()).alwaysIncludedLibs,
           excluded: config.librariesPlacedAs(LibraryPlacement.exclude),
           providedLibraries:
               config.librariesPlacedAs(LibraryPlacement.provided),
@@ -154,8 +144,7 @@ class SyncSubCommand extends Command<int> {
         _lgr.stopTask(false);
         return 1;
       }
-      await _removeRogueDeps({...extDepCoords, ...extProvidedDepCoords},
-          libService.extensionDepsBox!);
+      await _removeRogueDeps(extDepCoords, libService.extensionDepsBox!);
       _lgr.stopTask();
     } else if (!onlyDevDeps) {
       _lgr
@@ -166,8 +155,7 @@ class SyncSubCommand extends Command<int> {
     _lgr.startTask('Adding resolved dependencies to your IDE\'s lib index');
 
     try {
-      final extensionDeps = await libService.extensionDependencies(config,
-          includeProjectProvidedDeps: true);
+      final extensionDeps = await libService.extensionDependencies(config);
       await BuildUtils.extractAars(
         extensionDeps
             .where((el) => el.artifactFile.endsWith('.aar'))

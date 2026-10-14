@@ -5,6 +5,7 @@ import 'package:rush/src/services/lib_service.dart';
 import 'package:tint/tint.dart';
 
 import 'package:rush/src/config/config.dart';
+import 'package:rush/src/config/library_placement.dart';
 import 'package:rush/src/resolver/artifact.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
@@ -28,12 +29,10 @@ class TreeSubCommand extends Command<int> {
     await GetIt.I.isReady<LibService>();
     final libService = GetIt.I<LibService>();
 
-    final remoteExtDepIndex = await libService.extensionDependencies(config,
-        includeLocal: false, includeProjectProvidedDeps: true);
+    final remoteExtDepIndex =
+        await libService.extensionDependencies(config, includeLocal: false);
     final requiredRemoteDeps = remoteExtDepIndex
-        .where((el) =>
-            config.dependencies.contains(el.coordinate) ||
-            config.providedDependencies.contains(el.coordinate))
+        .where((el) => config.dependencies.contains(el.coordinate))
         .toList(growable: true);
 
     _lgr.log(p.basename(_fs.cwd).cyan().bold());
@@ -42,21 +41,11 @@ class TreeSubCommand extends Command<int> {
     final local = _localDepGraph(
       config.dependencies.where(
           (el) => p.extension(el) == '.jar' || p.extension(el) == '.aar'),
-      false,
+      config,
       remoteExtDepIndex.isEmpty,
     );
     if (local.isNotEmpty) {
       _lgr.log(local);
-    }
-
-    final providedLocal = _localDepGraph(
-      config.providedDependencies.where(
-          (el) => p.extension(el) == '.jar' || p.extension(el) == '.aar'),
-      true,
-      remoteExtDepIndex.isEmpty,
-    );
-    if (providedLocal.isNotEmpty) {
-      _lgr.log(providedLocal);
     }
 
     final remoteDepsGraph = <String>{
@@ -75,7 +64,7 @@ class TreeSubCommand extends Command<int> {
 
   String _localDepGraph(
     Iterable<String> deps,
-    bool isProvided,
+    Config config,
     bool noRemoteDeps,
   ) {
     final graph = <String>[];
@@ -84,7 +73,8 @@ class TreeSubCommand extends Command<int> {
       var branch = isLast ? Connector.lastSibling : Connector.sibling;
       branch += Connector.horizontal * (_branchGap + 1) + Connector.empty;
       branch += dep.blue() +
-          ' (${isProvided ? 'provided' : 'compile'}, local)'.grey();
+          ' (${config.libraries[dep] == LibraryPlacement.provided ? 'provided' : 'compile'}, local)'
+              .grey();
       graph.add(branch);
     }
     return graph.join('\n');

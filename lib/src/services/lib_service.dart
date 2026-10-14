@@ -117,15 +117,9 @@ class LibService {
     return artifacts.whereNotNull().toList();
   }
 
-  Future<List<Artifact>> providedDependencies(Config? config) async => [
+  Future<List<Artifact>> providedDependencies() async => [
         _rushAnnotations,
         ...(await Ai2Runtime.load()).libs,
-        if (config != null) ...await projectProvidedDependencies(config),
-      ];
-
-  Future<List<Artifact>> dependenciesInEveryApp(Config config) async => [
-        ...(await Ai2Runtime.load()).alwaysIncludedLibs,
-        ...await projectProvidedDependencies(config),
       ];
 
   Artifact get _rushAnnotations => Artifact(
@@ -136,25 +130,6 @@ class LibService {
         dependencies: [],
         sourcesJar: null,
       );
-
-  Future<List<Artifact>> projectProvidedDependencies(Config config) async {
-    final allExtRemoteDeps = await _retrieveArtifactsFromBox(extensionDepsBox!);
-    final remote = config.providedDependencies
-        .map((el) =>
-            allExtRemoteDeps.firstWhereOrNull((dep) => dep.coordinate == el))
-        .whereNotNull();
-    final local = config.providedDependencies
-        .where((el) => el.endsWith('.jar') || el.endsWith('.aar'))
-        .map((el) => Artifact(
-              scope: Scope.provided,
-              coordinate: el,
-              artifactFile: p.join(_fs.localDepsDir.path, el),
-              packaging: p.extension(el).substring(1),
-              dependencies: [],
-              sourcesJar: null,
-            ));
-    return [...remote, ...local];
-  }
 
   List<Artifact> _requiredDeps(
       Iterable<Artifact> allDeps, Iterable<Artifact> directDeps) {
@@ -172,8 +147,6 @@ class LibService {
 
   Future<List<Artifact>> extensionDependencies(
     Config config, {
-    bool includeAi2ProvidedDeps = false,
-    bool includeProjectProvidedDeps = false,
     bool includeLocal = true,
   }) async {
     final allExtRemoteDeps = await _retrieveArtifactsFromBox(extensionDepsBox!);
@@ -205,19 +178,7 @@ class LibService {
     return [
       ...requiredDeps,
       if (includeLocal) ...localDeps,
-      if (includeAi2ProvidedDeps) ...await providedDependencies(config),
-      if (includeProjectProvidedDeps)
-        ...await projectProvidedWithDependencies(config),
     ];
-  }
-
-  Future<List<Artifact>> projectProvidedWithDependencies(Config config) async {
-    final allExtRemoteDeps = await _retrieveArtifactsFromBox(extensionDepsBox!);
-    final projectProvidedDeps = config.providedDependencies
-        .map((el) =>
-            allExtRemoteDeps.firstWhereOrNull((dep) => dep.coordinate == el))
-        .whereNotNull();
-    return _requiredDeps(allExtRemoteDeps, projectProvidedDeps);
   }
 
   List<Artifact> buildLibArtifacts() => _buildLibs.values.toList();

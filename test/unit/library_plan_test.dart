@@ -26,14 +26,10 @@ ResolvedLibrary _library(
 LibraryPlan _plan({
   List<ResolvedLibrary> dependencies = const [],
   List<ResolvedLibrary> appInventor = const [],
-  List<ResolvedLibrary> provided = const [],
-  List<ResolvedLibrary> providedWithDependencies = const [],
 }) =>
     planLibraries(
       dependencies: dependencies,
       appInventor: appInventor,
-      provided: provided,
-      providedWithDependencies: providedWithDependencies,
     );
 
 List<String> _coordinates(Iterable<ResolvedLibrary> libraries) =>
@@ -70,14 +66,16 @@ void main() {
 
   test('compiles against provided libraries the extension does not ship', () {
     final plan = _plan(
-      dependencies: [_library('com.google.code.gson:gson:2.13.2')],
+      dependencies: [
+        _library('com.google.code.gson:gson:2.13.2'),
+        _library('g:host:1', scope: LibraryScope.provided),
+      ],
       appInventor: [
         _library('rush-annotations', scope: LibraryScope.provided),
         _library('com.google.code.gson:gson:2.8.9',
             scope: LibraryScope.provided),
         _library('QRGenerator.jar', scope: LibraryScope.provided),
       ],
-      provided: [_library('g:host:1', scope: LibraryScope.provided)],
     );
 
     expect(_coordinates(plan.provided),
@@ -90,8 +88,6 @@ void main() {
         _library('g:widget:1', aar: true, dependencies: ['g:model:1']),
         _library('g:model:1'),
         _library('g:json:1'),
-      ],
-      provided: [
         _library('g:host:1',
             scope: LibraryScope.provided, dependencies: ['g:base:1']),
         _library('g:other:1', scope: LibraryScope.provided),
@@ -131,21 +127,19 @@ void main() {
         _library('g:api:1', dependencies: ['g:runtime:1']),
         _library('g:runtime:1', scope: LibraryScope.runtime),
         _library('g:impl:1', scope: LibraryScope.runtime),
+        _library('g:host:1',
+            scope: LibraryScope.provided, dependencies: ['g:base:1']),
+        _library('g:base:1', scope: LibraryScope.provided),
       ],
       appInventor: [_library('android.jar', scope: LibraryScope.provided)],
-      provided: [_library('g:host:1', scope: LibraryScope.provided)],
-      providedWithDependencies: [
-        _library('g:host:1', dependencies: ['g:base:1']),
-        _library('g:base:1'),
-      ],
     );
 
     expect(plan.compileClasspath.toList(), [
       'g:api:1.jar',
       'g:runtime:1.jar',
-      'android.jar.jar',
       'g:host:1.jar',
       'g:base:1.jar',
+      'android.jar.jar',
     ]);
   });
 
@@ -154,9 +148,8 @@ void main() {
       dependencies: [
         _library('g:widget:1', aar: true, consumerRules: true),
         _library('g:plain:1', aar: true),
-      ],
-      providedWithDependencies: [
-        _library('g:host:1', aar: true, consumerRules: true),
+        _library('g:host:1',
+            scope: LibraryScope.provided, aar: true, consumerRules: true),
       ],
     );
 

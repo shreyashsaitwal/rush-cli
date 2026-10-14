@@ -78,24 +78,16 @@ class LibraryPlan {
 LibraryPlan planLibraries({
   required List<ResolvedLibrary> dependencies,
   required List<ResolvedLibrary> appInventor,
-  required List<ResolvedLibrary> provided,
-  required List<ResolvedLibrary> providedWithDependencies,
 }) {
   final shipped = _shipped(dependencies);
   final shared = _shared(shipped);
   final compileOnly = _compileOnly([
     ...appInventor,
-    ...provided,
     ...dependencies.where((el) => el.scope == LibraryScope.provided),
   ], shipped);
   final linkedAgainst = _inEveryApp(compileOnly);
   final sharedAars = shared.where((el) => el.isAar);
-  final everything = [
-    ...dependencies,
-    ...appInventor,
-    ...provided,
-    ...providedWithDependencies,
-  ];
+  final everything = [...dependencies, ...appInventor];
   return LibraryPlan(
     shared: shared,
     private: shipped.whereNot(shared.contains).toList(),
