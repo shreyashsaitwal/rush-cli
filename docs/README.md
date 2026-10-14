@@ -9,7 +9,7 @@ resources.
 1. [Getting started](getting-started.md): install Rush, create a project and import it
    into App Inventor.
 2. [Writing extensions](writing-extensions.md): functions, properties, events, dropdowns
-   and asynchronous blocks.
+   and slow work.
 3. [Android manifest](manifest.md): permissions, activities, services and other manifest
    entries.
 4. [Dependencies](dependencies.md): using Maven libraries and local JARs and AARs.

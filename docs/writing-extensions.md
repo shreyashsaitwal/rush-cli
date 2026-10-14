@@ -208,15 +208,14 @@ public void onInitialize() {
 }
 ```
 
-## Asynchronous functions
+## Slow work
 
-A function whose last parameter is a `Continuation<T>` becomes an asynchronous block: its
-result is passed to the continuation, and the blocks after it wait for that result.
-The function must return `void`.
+App Inventor doesn't wait for results delivered later. Run slow work on another thread and
+deliver its result through an event, as `Web` does with `GotText`:
 
 ```java
 @SimpleFunction(description = "Counts the bytes of an asset without blocking the app.")
-public void AssetSize(@Asset String asset, Continuation<Integer> callback) {
+public void CountAssetSize(@Asset String asset) {
   new Thread(() -> {
     int size = 0;
     try (InputStream in = form.openAsset(asset)) {
@@ -227,16 +226,25 @@ public void AssetSize(@Asset String asset, Continuation<Integer> callback) {
       size = -1;
     }
     int result = size;
-    handler.post(() -> callback.call(result));
+    handler.post(() -> AssetSizeCounted(asset, result));
   }).start();
+}
+
+@SimpleEvent(description = "An asset's bytes were counted. The size is -1 if it can't be read.")
+public void AssetSizeCounted(String asset, int size) {
+  EventDispatcher.dispatchEvent(this, "AssetSizeCounted", asset, size);
 }
 ```
 
 `handler` is a `new Handler(Looper.getMainLooper())`, which runs code on the main thread.
 
-`T` is the result type: one of the [block types](#block-types), with boxed types such as
-`Integer` and `Boolean` instead of primitives, or `Void` for a block without a result
-(call `callback.call(null)`). Call the continuation on the main thread, exactly once.
+### Continuations
+
+A function whose last parameter is a `Continuation<T>` looks asynchronous, but App Inventor
+reads the result as soon as the function returns: a result passed to the continuation later
+is lost, and the block returns `false`. Rush warns about these functions. Return the value
+instead, or deliver it through an event as above. A `Continuation<Void>` function builds
+without a warning, but the blocks after it don't wait for it either.
 
 ## The screen's lifecycle
 
@@ -298,7 +306,7 @@ that follow these principles:
   and prefer simple units, such as milliseconds over fractions of a second.
 - **Lists start at 1,** like App Inventor's own lists.
 - **Slow work doesn't block the app.** Run it on another thread and deliver the result
-  through an event or an [asynchronous function](#asynchronous-functions).
+  through an event, as in [Slow work](#slow-work).
 - **A property's description goes on its getter or its setter,** not both.
 
 ## Dropdowns
@@ -354,7 +362,7 @@ public void Direction(@Options(Direction.class) String direction) {
 ## Assets
 
 `@Asset` on a `String` parameter gives the block a dropdown of the app's media files, as
-in `AssetSize` above. Read them with `form.openAsset(name)`.
+in `CountAssetSize` above. Read them with `form.openAsset(name)`.
 
 Files the extension itself needs go in the `assets` directory and must be listed in
 `rush.yml`:

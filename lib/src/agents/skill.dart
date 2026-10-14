@@ -146,13 +146,13 @@ public void Milestone(int count) {
 
 Use primitives: `Integer`, `Boolean` and Kotlin's `Int?` fail the build. Arrays, `char`, maps and your own classes aren't block types.
 
-### Asynchronous functions
+### Slow work
 
-A function whose last parameter is a `Continuation<T>` delivers its result later. It must return `void`. Do slow work on another thread, then call the continuation on the main thread, exactly once.
+App Inventor doesn't wait for results delivered later. Run slow work on another thread and deliver the result through an event:
 
 ```java
 @SimpleFunction(description = "Counts the bytes of an asset without blocking the app.")
-public void AssetSize(@Asset String asset, Continuation<Integer> callback) {
+public void CountAssetSize(@Asset String asset) {
   new Thread(() -> {
     int size = 0;
     try (InputStream in = form.openAsset(asset)) {
@@ -163,12 +163,17 @@ public void AssetSize(@Asset String asset, Continuation<Integer> callback) {
       size = -1;
     }
     int result = size;
-    form.runOnUiThread(() -> callback.call(result));
+    form.runOnUiThread(() -> AssetSizeCounted(asset, result));
   }).start();
+}
+
+@SimpleEvent(description = "An asset's bytes were counted. The size is -1 if it can't be read.")
+public void AssetSizeCounted(String asset, int size) {
+  EventDispatcher.dispatchEvent(this, "AssetSizeCounted", asset, size);
 }
 ```
 
-`T` uses boxed types (`Integer`, `Boolean`, `String`, `YailList`…), or `Void` for a block without a result, called with `callback.call(null)`.
+Don't use `Continuation<T>` for slow work: App Inventor reads its result as soon as the function returns, so a result passed later is lost and the block returns `false`. Rush warns about it.
 
 ### Dropdowns
 

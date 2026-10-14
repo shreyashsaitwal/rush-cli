@@ -87,15 +87,13 @@ Part of the generated reference for the counter from
 [Writing extensions](writing-extensions.md):
 
 ```markdown
-### AssetSize(asset)
+### CountAssetSize(asset)
 
 Counts the bytes of an asset without blocking the app.
 
 | Parameter | Type |
 |---|---|
 | asset | text |
-
-Returns `number`.
 ```
 
 ## Build cache
