@@ -1,5 +1,6 @@
 import 'dart:io' show File;
 
+import 'package:archive/archive_io.dart';
 import 'package:get_it/get_it.dart';
 
 import 'package:rush/src/commands/build/library_plan.dart';
@@ -21,21 +22,22 @@ Future<LibraryPlan> planProjectLibraries(
   final conditional =
       {...runtime.libs}.difference({...runtime.alwaysIncludedLibs});
   return planLibraries(
-    dependencies:
-        await _resolved(await libService.extensionDependencies(config)),
-    appInventor:
-        await _resolved(await libService.providedDependencies(), conditional),
+    dependencies: await _resolved(
+        await libService.extensionDependencies(config),
+        listResources: true),
+    appInventor: await _resolved(await libService.providedDependencies(),
+        conditional: conditional),
     placements: config.libraries,
   );
 }
 
 Future<List<ResolvedLibrary>> _resolved(List<Artifact> artifacts,
-        [Set<Artifact> conditional = const {}]) =>
-    Future.wait(artifacts
-        .map((el) => _library(el, inEveryApp: !conditional.contains(el))));
+        {Set<Artifact> conditional = const {}, bool listResources = false}) =>
+    Future.wait(artifacts.map((el) => _library(el,
+        inEveryApp: !conditional.contains(el), listResources: listResources)));
 
 Future<ResolvedLibrary> _library(Artifact artifact,
-    {required bool inEveryApp}) async {
+    {required bool inEveryApp, required bool listResources}) async {
   final isAar = artifact.packaging == 'aar';
   final manifest =
       isAar ? await _extracted(artifact, 'AndroidManifest.xml') : null;
@@ -51,7 +53,20 @@ Future<ResolvedLibrary> _library(Artifact artifact,
     package: manifest == null ? null : await _package(manifest),
     inEveryApp: inEveryApp,
     originalContents: isAar ? await _originalContents(artifact) : const {},
+    resources: listResources ? await _resources(artifact.classesJar) : const [],
   );
+}
+
+Future<List<String>> _resources(String jar) async {
+  final input = InputFileStream(jar);
+  try {
+    return [
+      for (final file in ZipDecoder().decodeStream(input).files)
+        if (file.isFile && !file.name.endsWith('.class')) file.name,
+    ];
+  } finally {
+    await input.close();
+  }
 }
 
 Future<Set<OriginalContent>> _originalContents(Artifact aar) async => {

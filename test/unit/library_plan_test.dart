@@ -11,6 +11,7 @@ ResolvedLibrary _library(
   bool consumerRules = false,
   bool inEveryApp = true,
   Set<OriginalContent> originalContents = const {},
+  List<String> resources = const [],
 }) =>
     ResolvedLibrary(
       coordinate: coordinate,
@@ -24,6 +25,7 @@ ResolvedLibrary _library(
       package: package,
       inEveryApp: inEveryApp,
       originalContents: originalContents,
+      resources: resources,
     );
 
 LibraryPlan _plan({
@@ -271,5 +273,54 @@ void main() {
       'g:host:1': 'provided: rush.yml',
       'g:base:1': 'provided: only provided libraries need it',
     });
+  });
+
+  test('warns about files App Inventor leaves out of the app', () {
+    final plan = _plan(dependencies: [
+      _library('com.squareup.okhttp3:okhttp-jvm:5.3.2', resources: [
+        'META-INF/MANIFEST.MF',
+        'META-INF/okhttp.kotlin_module',
+        'META-INF/maven/com.squareup.okhttp3/okhttp/pom.xml',
+        'okhttp3/internal/publicsuffix/PublicSuffixDatabase.list',
+      ]),
+      _library('g:crypto:1', aar: true, resources: [
+        'META-INF/services/g.crypto.Provider',
+        'META-INF/androidx.crypto_crypto.version',
+      ]),
+      _library('org.jetbrains.kotlin:kotlin-stdlib:2.4.20', resources: [
+        'kotlin/collections/collections.kotlin_builtins',
+      ]),
+      _library('org.jetbrains.kotlin:kotlin-stdlib-common:1.4.31', resources: [
+        'kotlin/ArithmeticException.kotlin_metadata',
+      ]),
+      _library('g:host:1', scope: LibraryScope.provided, resources: [
+        'META-INF/services/g.host.Plugin',
+      ]),
+    ]);
+
+    expect([
+      for (final problem in plan.problems) problem.message
+    ], [
+      'com.squareup.okhttp3:okhttp-jvm:5.3.2 ships files App Inventor leaves '
+          'out of the app, so code that loads them won\'t find them: '
+          'okhttp3/internal/publicsuffix/PublicSuffixDatabase.list',
+      'g:crypto:1 ships files App Inventor leaves out of the app, so code '
+          'that loads them won\'t find them: META-INF/services/g.crypto.Provider',
+    ]);
+    expect(plan.problems.any((el) => el.isError), isFalse);
+  });
+
+  test('knows which dropped files coroutines can do without', () {
+    final plan = _plan(dependencies: [
+      _library('org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0',
+          resources: [
+            'META-INF/services/kotlinx.coroutines.internal.MainDispatcherFactory',
+            'META-INF/services/kotlinx.coroutines.CoroutineExceptionHandler',
+          ]),
+      _library('org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.11.0',
+          resources: ['DebugProbesKt.bin']),
+    ]);
+
+    expect(plan.problems, isEmpty);
   });
 }
