@@ -54,7 +54,9 @@ App Inventor already limits that permission to Android 10.
 When the extension [ships AARs](dependencies.md#how-libraries-are-shipped), their
 manifests are merged into the extension's, the same way Android Studio merges library
 manifests. A library's permissions, activities and services therefore reach the app
-without being copied into `src/AndroidManifest.xml`.
+without being copied into `src/AndroidManifest.xml`. `${applicationId}` in a library's
+manifest becomes the app's package too, so apps that use the same extension can be
+installed side by side.
 
 ## Runtime permissions
 
