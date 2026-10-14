@@ -237,7 +237,7 @@ Layouts, drawables, strings and colors go in `res/`, laid out as in Android. Use
 
 ## Optimizing
 
-`rush build --optimize` shrinks and obfuscates with ProGuard. Add `-keep` rules to `src/proguard-rules.pro` for classes reached by reflection.
+`rush build --optimize` shrinks and obfuscates with R8 (in ProGuard compatibility mode) and writes `out/<package>.mapping.txt`. Rush moves optimized classes under `<package>.repacked` itself, so never set `-repackageclasses`. A `Missing class` error means shipped code uses a class nothing ships: add its library to `dependencies`, or `-dontwarn` it if that code never runs. Add `-keep` rules to `src/proguard-rules.pro` for classes reached by reflection.
 
 ## Fixing common errors
 

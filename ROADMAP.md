@@ -33,12 +33,12 @@ what is supported, what is planned and what is deliberately out of scope.
 | Byte-reproducible AIX output: two clean builds of a project produce identical files | 2.5.0 |
 | AARs with font resources build on Kodular (fonts moved to `res/raw`, `R.font` kept working) | 2.5.0 |
 | Unchanged compile and DEX steps skipped; desugared libraries cached once for all projects | 2.5.0 |
+| R8 replaces ProGuard (compatibility mode); a mapping file for optimized builds | Unreleased |
 
 ## Not planned
 
 | Feature | Reason |
 |---|---|
-| R8 as an alternative to ProGuard | ProGuard covers shrinking and obfuscation |
 | Project-specific JDK in `rush.yml` | `JAVA_HOME` selects the JDK without committing a machine-specific path |
 | Default build arguments | `rush build` has a single flag |
 | Block images | Needs a Blockly renderer for little benefit |

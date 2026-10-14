@@ -3,7 +3,7 @@
 ## Requirements
 
 Rush needs a JDK, version 17 or newer, either on your `PATH` or pointed to by `JAVA_HOME`.
-A JRE isn't enough: Rush runs `javac`, and ProGuard reads the JDK's `jmods`.
+A JRE isn't enough: Rush runs `javac`, and R8 reads classes from the JDK's `jmods`.
 
 ## Installation
 

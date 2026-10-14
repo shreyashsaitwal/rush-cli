@@ -26,7 +26,7 @@ rush build [--optimize]
 ```
 
 Builds the extension into `out`. `--optimize` (`-o`) shrinks, optimizes and obfuscates
-it with ProGuard. See [Building](building.md).
+it with R8. See [Building](building.md#optimizing).
 
 ## rush clean
 

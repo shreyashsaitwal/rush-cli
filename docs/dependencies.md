@@ -54,8 +54,8 @@ to one of:
 
 - **`exclude`**: never resolved, nor what only it needs. Neither compiled against nor
   shipped. A library listed in `dependencies` can't be excluded: remove it instead. When
-  code you ship still references it, ProGuard reports `can't find referenced class`; if
-  that code never runs, say so in `src/proguard-rules.pro`. For example, Ktor's server
+  code you ship still references it, R8 reports `Missing class`; if that code never runs,
+  say so in `src/proguard-rules.pro`. For example, Ktor's server
   code references `kotlin-reflect`:
 
   ```

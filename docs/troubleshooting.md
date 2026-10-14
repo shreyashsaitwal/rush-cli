@@ -44,6 +44,13 @@ with the extension's package. See [Naming](resources.md#naming).
 **`Icon file assets/… not found.`** The `icon` of `@Extension` must be a file in
 `assets`, or a URL.
 
+**`Missing class …`.** Code the extension ships uses a class that nothing ships. Add the
+library that provides it to `dependencies`, or, if that code never runs, add `-dontwarn`
+rules for it to `src/proguard-rules.pro`. See [Optimizing](building.md#optimizing).
+
+**`src/proguard-rules.pro sets -repackageclasses`.** Rush moves optimized classes under
+the extension's package itself. Remove the rule, or run `rush migrate`.
+
 **`Asset … does not exist`.** A file listed under `assets` in `rush.yml` is missing from
 the `assets` directory.
 

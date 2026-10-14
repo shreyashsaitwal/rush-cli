@@ -16,7 +16,7 @@ created by Shreyash Saitwal, which brings Rush 2.0 to a stable release.
   their layouts, drawables and styles and generates their `R` classes
 * `AndroidManifest.xml` support, merged with the manifests of AAR dependencies
 * Builds against the latest App Inventor release (currently **v206**)
-* Optional shrinking and obfuscation with ProGuard
+* Optional shrinking and obfuscation with R8
 * Markdown documentation of every block and dropdown, generated with each build
 * Android resources (layouts, drawables, strings…) shipped with the extension
 * Ready for AI coding agents: new projects include instructions that teach them to write,
