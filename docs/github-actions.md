@@ -84,7 +84,7 @@ dependencies between runs.
 ```yaml
 - uses: shreyashsaitwal/rush-cli@v2
   with:
-    version: 2.2.0
+    version: 2.0.0
 - run: rush build
 ```
 

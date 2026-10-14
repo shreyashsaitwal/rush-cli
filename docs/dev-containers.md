@@ -41,7 +41,7 @@ The container gets Rush from the Rush feature, which any dev container can use:
 
 | Option | Default | Description |
 |---|---|---|
-| `version` | `latest` | The Rush version to install, like `2.3.0` |
+| `version` | `latest` | The Rush version to install, like `2.0.0` |
 
 It also installs JDK 17 with the
 [Java feature](https://github.com/devcontainers/features/tree/main/src/java).
