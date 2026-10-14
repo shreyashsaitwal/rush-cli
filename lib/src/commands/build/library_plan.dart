@@ -29,7 +29,6 @@ class ResolvedLibrary {
     this.package,
     this.inEveryApp = true,
     this.originalContents = const {},
-    this.resources = const [],
   });
 
   final String coordinate;
@@ -43,7 +42,6 @@ class ResolvedLibrary {
   final String? package;
   final bool inEveryApp;
   final Set<OriginalContent> originalContents;
-  final List<String> resources;
 
   String get key => libraryKey(coordinate);
 
@@ -119,7 +117,6 @@ LibraryPlan planLibraries({
     provided: compileOnly,
     problems: [
       ..._misplacedPrivateLibraries(shared, private, placements),
-      ..._droppedContent(shipped),
       ..._duplicateAars(sharedAars),
     ],
     compileClasspath: everything
@@ -181,31 +178,6 @@ String _whyShared(ResolvedLibrary library, List<ResolvedLibrary> shared,
 bool _placedInRushYml(
         ResolvedLibrary library, Map<String, LibraryPlacement> placements) =>
     placements.containsKey(library.key);
-
-const _contentAppsDoWithout = {
-  'META-INF/services/kotlinx.coroutines.internal.MainDispatcherFactory',
-  'META-INF/services/kotlinx.coroutines.CoroutineExceptionHandler',
-  'DebugProbesKt.bin',
-};
-
-const _compilerMetadata = ['.kotlin_builtins', '.kotlin_metadata'];
-
-bool _isLoadedAtRuntime(String resource) =>
-    resource.startsWith('META-INF/services/') ||
-    !resource.startsWith('META-INF/') &&
-        !_compilerMetadata.any(resource.endsWith);
-
-List<Problem> _droppedContent(List<ResolvedLibrary> shipped) => [
-      for (final library in shipped)
-        if (library.resources
-                .where(_isLoadedAtRuntime)
-                .whereNot(_contentAppsDoWithout.contains)
-                .toList()
-            case final dropped when dropped.isNotEmpty)
-          Problem.warning('$library ships files App Inventor leaves out of '
-              'the app, so code that loads them won\'t find them: '
-              '${dropped.join(', ')}'),
-    ];
 
 List<Problem> _misplacedPrivateLibraries(
         List<ResolvedLibrary> shared,

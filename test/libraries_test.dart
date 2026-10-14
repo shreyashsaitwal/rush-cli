@@ -229,38 +229,6 @@ class {className}(container: ComponentContainer) :
     expect(allowed.exitCode, 0, reason: allowed.output);
   });
 
-  test('bundled libraries warn about files App Inventor leaves out', () async {
-    final project = await TestProject.create('dropped_content_ext');
-    project.file('deps/plugins.jar')
-      ..createSync(recursive: true)
-      ..writeAsBytesSync(ZipEncoder().encode(Archive()
-        ..addFile(ArchiveFile.string(
-            'META-INF/services/com.example.Plugin', 'com.example.Impl'))
-        ..addFile(ArchiveFile.string('com/example/words.txt', 'hello'))
-        ..addFile(ArchiveFile.string('META-INF/MANIFEST.MF', 'Version: 1'))));
-    project.addDependencies(['plugins.jar']);
-    final build = await project.build();
-    expect(build.exitCode, 0, reason: build.output);
-    expect(
-        build.output,
-        allOf(
-            contains('plugins.jar ships files App Inventor leaves out of the '
-                'app'),
-            contains('META-INF/services/com.example.Plugin'),
-            contains('com/example/words.txt'),
-            isNot(contains('MANIFEST.MF'))));
-  });
-
-  test('coroutines warn about nothing App Inventor leaves out', () async {
-    final project =
-        await TestProject.create('coroutines_ext', language: 'kotlin');
-    project.addDependencies(
-        ['org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0']);
-    final build = await project.build();
-    expect(build.exitCode, 0, reason: build.output);
-    expect(build.output, isNot(contains('leaves out of the app')));
-  });
-
   test('optimized builds write the mapping of renamed classes', () async {
     final project = await TestProject.create('mapping_ext');
     final mapping = project.file('out/${project.package}.mapping.txt');
