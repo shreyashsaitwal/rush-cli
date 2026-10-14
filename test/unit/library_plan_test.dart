@@ -1,4 +1,5 @@
 import 'package:rush/src/commands/build/library_plan.dart';
+import 'package:rush/src/config/library_placement.dart';
 import 'package:test/test.dart';
 
 ResolvedLibrary _library(
@@ -9,6 +10,7 @@ ResolvedLibrary _library(
   String? package,
   bool consumerRules = false,
   bool inEveryApp = true,
+  Set<OriginalContent> originalContents = const {},
 }) =>
     ResolvedLibrary(
       coordinate: coordinate,
@@ -21,16 +23,24 @@ ResolvedLibrary _library(
       consumerRules: consumerRules ? '$coordinate/proguard.txt' : null,
       package: package,
       inEveryApp: inEveryApp,
+      originalContents: originalContents,
     );
 
 LibraryPlan _plan({
   List<ResolvedLibrary> dependencies = const [],
   List<ResolvedLibrary> appInventor = const [],
+  Map<String, LibraryPlacement> placements = const {},
 }) =>
     planLibraries(
       dependencies: dependencies,
       appInventor: appInventor,
+      placements: placements,
     );
+
+List<String> _errors(LibraryPlan plan) => [
+      for (final problem in plan.problems)
+        if (problem.isError) problem.message,
+    ];
 
 List<String> _coordinates(Iterable<ResolvedLibrary> libraries) =>
     [for (final library in libraries) library.coordinate];
@@ -172,6 +182,67 @@ void main() {
       'g:core:1 and core.aar are the same library (androidx.core). App '
           'Inventor includes only one of them in the app, so remove the '
           'others from rush.yml.',
+    ]);
+  });
+
+  test('places libraries where rush.yml says', () {
+    final plan = _plan(
+      dependencies: [
+        _library('g:widget:1', aar: true, dependencies: ['g:util:1']),
+        _library('g:util:1'),
+        _library('g:json:1', dependencies: ['g:base:1']),
+        _library('g:base:1'),
+      ],
+      placements: {
+        'g:widget': LibraryPlacement.private,
+        'g:json': LibraryPlacement.shared,
+      },
+    );
+
+    expect(_coordinates(plan.shared), ['g:json:1', 'g:base:1']);
+    expect(_coordinates(plan.private), ['g:widget:1', 'g:util:1']);
+    expect(plan.problems, isEmpty);
+  });
+
+  test('merges the manifests of private AARs', () {
+    final plan = _plan(
+      dependencies: [_library('g:widget:1', aar: true)],
+      placements: {'g:widget': LibraryPlacement.private},
+    );
+
+    expect(plan.manifests, ['g:widget:1/AndroidManifest.xml']);
+  });
+
+  test('refuses private libraries whose contents need them shared', () {
+    final plan = _plan(
+      dependencies: [
+        _library('g:widget:1', aar: true, originalContents: {
+          OriginalContent.resources,
+          OriginalContent.assets,
+        }),
+      ],
+      placements: {'g:widget': LibraryPlacement.private},
+    );
+
+    expect(_errors(plan), [
+      'g:widget:1 can\'t be private: its Android resources and its assets '
+          'would be left out. Place it as shared or remove it from '
+          '`libraries` in rush.yml.',
+    ]);
+  });
+
+  test('refuses private libraries a shared library uses', () {
+    final plan = _plan(
+      dependencies: [
+        _library('g:widget:1', aar: true, dependencies: ['g:util:1']),
+        _library('g:util:1'),
+      ],
+      placements: {'g:util': LibraryPlacement.private},
+    );
+
+    expect(_errors(plan), [
+      'g:util:1 can\'t be private: g:widget:1 ships unchanged and uses it by '
+          'its original name. Remove it from `libraries` in rush.yml.',
     ]);
   });
 }

@@ -82,9 +82,7 @@ class BuildCommand extends Command<int> {
 
     final (plan, resources) = await _task('Compiling sources', () async {
       final plan = await planProjectLibraries(_libService, config);
-      for (final problem in plan.problems) {
-        _lgr.warn(problem.message);
-      }
+      _reportProblems(plan.problems);
       final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
       final manifest = await _mergeManifests(config, plan.manifests);
       final resources = await ExtensionResources.compile(config);
@@ -160,6 +158,15 @@ class BuildCommand extends Command<int> {
       throw Exception();
     }
     return config;
+  }
+
+  void _reportProblems(List<Problem> problems) {
+    for (final problem in problems) {
+      problem.isError ? _lgr.err(problem.message) : _lgr.warn(problem.message);
+    }
+    if (problems.any((el) => el.isError)) {
+      throw Exception();
+    }
   }
 
   Future<Descriptor> _requireExtension() async {

@@ -1,8 +1,20 @@
 import 'package:collection/collection.dart';
 
 import 'package:rush/src/commands/build/libraries.dart';
+import 'package:rush/src/config/library_placement.dart';
 
 enum LibraryScope { compile, runtime, provided }
+
+enum OriginalContent {
+  resources('its Android resources'),
+  assets('its assets'),
+  nativeLibraries('its native libraries'),
+  components('its manifest components');
+
+  const OriginalContent(this.description);
+
+  final String description;
+}
 
 class ResolvedLibrary {
   const ResolvedLibrary({
@@ -16,6 +28,7 @@ class ResolvedLibrary {
     this.consumerRules,
     this.package,
     this.inEveryApp = true,
+    this.originalContents = const {},
   });
 
   final String coordinate;
@@ -28,6 +41,9 @@ class ResolvedLibrary {
   final String? consumerRules;
   final String? package;
   final bool inEveryApp;
+  final Set<OriginalContent> originalContents;
+
+  String get key => libraryKey(coordinate);
 
   String get groupId => coordinate.split(':')[0];
 
@@ -42,9 +58,12 @@ class ResolvedLibrary {
 }
 
 class Problem {
-  const Problem(this.message);
+  const Problem.warning(this.message) : isError = false;
+
+  const Problem.error(this.message) : isError = true;
 
   final String message;
+  final bool isError;
 }
 
 class LibraryPlan {
@@ -78,9 +97,11 @@ class LibraryPlan {
 LibraryPlan planLibraries({
   required List<ResolvedLibrary> dependencies,
   required List<ResolvedLibrary> appInventor,
+  required Map<String, LibraryPlacement> placements,
 }) {
   final shipped = _shipped(dependencies);
-  final shared = _shared(shipped);
+  final shared = _shared(shipped, placements);
+  final private = shipped.whereNot(shared.contains).toList();
   final compileOnly = _compileOnly([
     ...appInventor,
     ...dependencies.where((el) => el.scope == LibraryScope.provided),
@@ -90,9 +111,12 @@ LibraryPlan planLibraries({
   final everything = [...dependencies, ...appInventor];
   return LibraryPlan(
     shared: shared,
-    private: shipped.whereNot(shared.contains).toList(),
+    private: private,
     provided: compileOnly,
-    problems: _duplicateAars(sharedAars),
+    problems: [
+      ..._misplacedPrivateLibraries(shared, private, placements),
+      ..._duplicateAars(sharedAars),
+    ],
     compileClasspath: everything
         .where((el) => el.scope != LibraryScope.runtime)
         .expand((el) => _classpath(el, everything))
@@ -102,7 +126,11 @@ LibraryPlan planLibraries({
       ...sharedAars.map((el) => el.classesJar),
       ...shared.whereNot((el) => el.isAar).map((el) => el.classesJar),
     },
-    manifests: sharedAars.map((el) => el.manifest).nonNulls.toList(),
+    manifests: shipped
+        .where((el) => el.isAar)
+        .map((el) => el.manifest)
+        .nonNulls
+        .toList(),
     consumerRules: everything.map((el) => el.consumerRules).nonNulls.toSet(),
   );
 }
@@ -110,15 +138,56 @@ LibraryPlan planLibraries({
 List<ResolvedLibrary> _shipped(List<ResolvedLibrary> dependencies) =>
     dependencies.where((el) => el.scope != LibraryScope.provided).toList();
 
-List<ResolvedLibrary> _shared(List<ResolvedLibrary> shipped) {
-  final aarClasspath = shipped
-      .where((el) => el.isAar)
+List<ResolvedLibrary> _shared(
+    List<ResolvedLibrary> shipped, Map<String, LibraryPlacement> placements) {
+  final sharedClasspath = shipped
+      .where((el) => switch (placements[el.key]) {
+            LibraryPlacement.shared => true,
+            LibraryPlacement.private => false,
+            _ => el.isAar,
+          })
       .expand((el) => _classpath(el, shipped))
       .toSet();
   return shipped
-      .where((el) => el.isAar || aarClasspath.contains(el.classesJar))
+      .where((el) => sharedClasspath.contains(el.classesJar))
       .toList();
 }
+
+List<Problem> _misplacedPrivateLibraries(
+        List<ResolvedLibrary> shared,
+        List<ResolvedLibrary> private,
+        Map<String, LibraryPlacement> placements) =>
+    [
+      for (final library in shared)
+        if (placements[library.key] == LibraryPlacement.private)
+          if (shared.firstWhereOrNull(
+                  (el) => el.dependencies.contains(library.coordinate))
+              case final user?)
+            Problem.error('$library can\'t be private: $user ships unchanged '
+                'and uses it by its original name. Remove it from '
+                '`libraries` in rush.yml.'),
+      for (final library in private)
+        if (library.originalContents.isNotEmpty)
+          Problem.error('$library can\'t be private: '
+              '${_lostContents(library.originalContents)}. Place it as shared '
+              'or remove it from `libraries` in rush.yml.'),
+    ];
+
+String _lostContents(Set<OriginalContent> contents) {
+  final leftOut = contents
+      .whereNot((el) => el == OriginalContent.components)
+      .map((el) => el.description)
+      .toList();
+  return [
+    if (leftOut.isNotEmpty) '${_listed(leftOut)} would be left out',
+    if (contents.contains(OriginalContent.components))
+      '${OriginalContent.components.description} would name renamed classes',
+  ].join(', and ');
+}
+
+String _listed(List<String> items) => items.length == 1
+    ? items.single
+    : '${items.take(items.length - 1).join(', ')} and ${items.last}';
 
 List<ResolvedLibrary> _compileOnly(
     List<ResolvedLibrary> provided, List<ResolvedLibrary> shipped) {
@@ -141,7 +210,8 @@ List<Problem> _duplicateAars(Iterable<ResolvedLibrary> aars) => [
         for (final aar in aars)
           if (aar.package case final package?) aar: package,
       }).entries)
-        Problem('${copies.join(' and ')} are the same library ($package). '
+        Problem.warning(
+            '${copies.join(' and ')} are the same library ($package). '
             'App Inventor includes only one of them in the app, so remove '
             'the others from rush.yml.'),
     ];

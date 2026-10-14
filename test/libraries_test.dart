@@ -227,6 +227,65 @@ void main() {
     });
   });
 
+  group('libraries placed in rush.yml', () {
+    test('ship as AARs when shared', () async {
+      final project = await TestProject.create('shared_jar_ext');
+      project.addDependencies(['com.google.code.gson:gson:2.8.9']);
+      project.placeLibraries({'com.google.code.gson:gson': 'shared'});
+      final build = await project.build();
+      expect(build.exitCode, 0, reason: build.output);
+      expect(project.aix.libraries, ['com.google.code.gson-gson-2.8.9.aar']);
+    });
+
+    test('move into the extension when private, keeping their manifest',
+        () async {
+      final project = await TestProject.create('private_aar_ext');
+      project.file('deps/vibrate.aar')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(ZipEncoder().encode(Archive()
+          ..addFile(ArchiveFile.string(
+              'AndroidManifest.xml',
+              '<manifest xmlns:android="http://schemas.android.com/apk/res/'
+                  'android" package="com.example.vibrate"><uses-permission '
+                  'android:name="android.permission.VIBRATE"/></manifest>'))
+          ..addFile(ArchiveFile.bytes(
+              'classes.jar', ZipEncoder().encode(Archive())))));
+      project.addDependencies(['vibrate.aar']);
+      project.placeLibraries({'vibrate.aar': 'private'});
+      final build = await project.build();
+      expect(build.exitCode, 0, reason: build.output);
+      expect(project.aix.libraries, isEmpty);
+      expect(jsonEncode(project.aix.buildInfo),
+          contains('android.permission.VIBRATE'));
+    });
+
+    test('are refused as private when their resources would be left out',
+        () async {
+      final project = await TestProject.create('private_res_ext');
+      project.addDependencies(['androidx.cardview:cardview:1.0.0']);
+      project.placeLibraries({'androidx.cardview:cardview': 'private'});
+      final build = await project.build();
+      expect(build.exitCode, 1, reason: build.output);
+      expect(
+          build.output,
+          contains("androidx.cardview:cardview:1.0.0 can't be private: its "
+              'Android resources would be left out'));
+    });
+
+    test('are refused as private when a shared library uses them', () async {
+      final project = await TestProject.create('private_used_ext');
+      project.addDependencies(['androidx.media3:media3-common:1.11.1']);
+      project.setMinSdk(23);
+      project.placeLibraries({'com.google.guava:guava': 'private'});
+      final build = await project.build();
+      expect(build.exitCode, 1, reason: build.output);
+      expect(
+          build.output,
+          contains("com.google.guava:guava:33.3.1-android can't be private: "
+              'androidx.media3:media3-common:1.11.1 ships unchanged'));
+    });
+  });
+
   group('fonts in shipped AARs', () {
     late TestProject project;
     late ProcessResult build;
