@@ -103,6 +103,7 @@ void main() {
     final ruled = await project.build();
     expect(ruled.exitCode, 0, reason: ruled.output);
     expect(project.aix.classNames, contains(parser));
+    expect(project.aix.classNames, isNot(contains('module-info.class')));
   });
 
   test('bundled libraries ship as AARs when a bundled AAR depends on them',

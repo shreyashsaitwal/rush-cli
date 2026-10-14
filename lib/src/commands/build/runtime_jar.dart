@@ -43,7 +43,9 @@ Future<String> createArtJar(Set<String> requiredJars) async {
           .decodeBytes(await jar.readAsBytes())
           .files
           .whereNot((el) =>
-              addedPaths.contains(el.name) || el.name.startsWith('META-INF'))
+              addedPaths.contains(el.name) ||
+              el.name.startsWith('META-INF') ||
+              el.name == 'module-info.class')
           // Do not include files other than .class files.
           .where((el) {
         if (!el.isFile) {
