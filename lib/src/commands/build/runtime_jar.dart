@@ -1,9 +1,10 @@
-import 'dart:io' show File;
+import 'dart:io' show File, ProcessException;
 
 import 'package:archive/archive_io.dart';
 import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
+import 'package:tint/tint.dart';
 
 import 'package:rush/src/commands/build/library_plan.dart';
 import 'package:rush/src/commands/build/proguard_rules.dart';
@@ -92,21 +93,30 @@ Future<void> shrinkRuntimeJar(String artJarPath, LibraryPlan plan,
     {required bool optimize}) async {
   final projectRules = _projectRules;
   final mapping = _mapping(package);
-  await Executor.execR8(
-    artJarPath,
-    libraryJars: {
-      ...plan.libraryJars,
-      if (resources != null) resources.classesJar,
-    },
-    rules: {
-      ...plan.consumerRules,
-      ...await _bundledProguardRules(plan.privateJars),
-      if (!optimize) ...await _shrinkOnlyRules(),
-      if (optimize) await _repackageRules(package),
-      if (await projectRules.exists()) projectRules.path,
-    },
-    mapping: optimize ? mapping.path : null,
-  );
+  try {
+    await Executor.execR8(
+      artJarPath,
+      libraryJars: {
+        ...plan.libraryJars,
+        if (resources != null) resources.classesJar,
+      },
+      rules: {
+        ...plan.consumerRules,
+        ...await _bundledProguardRules(plan.privateJars),
+        if (!optimize) ...await _shrinkOnlyRules(),
+        if (optimize) await _repackageRules(package),
+        if (await projectRules.exists()) projectRules.path,
+      },
+      mapping: optimize ? mapping.path : null,
+    );
+  } on ProcessException {
+    _lgr.log(
+        'If R8 reports missing classes, add the library that provides them '
+        'to `dependencies`, or, if that code never runs, add -dontwarn rules '
+        'for them to src/proguard-rules.pro',
+        'help  '.green());
+    rethrow;
+  }
   if (optimize) {
     _lgr.info('Wrote the mapping of renamed classes to '
         '${p.relative(mapping.path, from: _fs.cwd)}');

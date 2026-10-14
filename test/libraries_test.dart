@@ -177,6 +177,51 @@ class {className}(container: ComponentContainer) :
         contains('serializer'));
   });
 
+  test('bundled libraries that use missing classes fail until rules allow it',
+      () async {
+    final project = await TestProject.create('missing_class_ext');
+    final sources = Directory(p.join(project.dir.path, 'library-src'));
+    File(p.join(sources.path, 'optional', 'Plugin.java'))
+      ..createSync(recursive: true)
+      ..writeAsStringSync('package optional; public class Plugin {}');
+    File(p.join(sources.path, 'library', 'Loader.java'))
+      ..createSync(recursive: true)
+      ..writeAsStringSync('package library; public class Loader { '
+          'public static Object load() { return new optional.Plugin(); } }');
+    final classes = p.join(project.dir.path, 'library-classes');
+    final javac = await Process.run('javac', [
+      '-d',
+      classes,
+      p.join(sources.path, 'optional', 'Plugin.java'),
+      p.join(sources.path, 'library', 'Loader.java'),
+    ]);
+    expect(javac.exitCode, 0, reason: '${javac.stderr}');
+    final loader = File(p.join(classes, 'library', 'Loader.class'));
+    project.file('deps/loader.jar')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(ZipEncoder().encode(Archive()
+        ..addFile(ArchiveFile.bytes(
+            'library/Loader.class', loader.readAsBytesSync()))));
+    project.addDependencies(['loader.jar']);
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public String Load() {
+    return String.valueOf(library.Loader.load());
+  }
+''');
+
+    final missing = await project.build();
+    expect(missing.exitCode, 1, reason: missing.output);
+    expect(missing.output,
+        allOf(contains('optional.Plugin'), contains('-dontwarn')));
+
+    final rules = project.file('src/proguard-rules.pro');
+    rules.writeAsStringSync(
+        '${rules.readAsStringSync()}\n-dontwarn optional.**\n');
+    final allowed = await project.build();
+    expect(allowed.exitCode, 0, reason: allowed.output);
+  });
+
   test('optimized builds write the mapping of renamed classes', () async {
     final project = await TestProject.create('mapping_ext');
     final mapping = project.file('out/${project.package}.mapping.txt');
