@@ -50,7 +50,7 @@ class CreateCommand extends Command<int> {
   String get name => 'create';
 
   T _ask<T>(String option, T Function() prompt) {
-    if (!stdin.hasTerminal) {
+    if (!stdin.hasTerminal || stdioType(stdout) != StdioType.terminal) {
       usageException(
           'Missing --$option. Pass it when not running in a terminal.');
     }

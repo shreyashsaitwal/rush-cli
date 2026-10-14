@@ -86,6 +86,23 @@ void main() {
       expect(result.exitCode, 64, reason: result.output);
       expect(result.output, contains('--language'));
     });
+
+    test('asks for nothing when stdin is /dev/null', () async {
+      final parent = await Directory.systemTemp.createTemp('rush-test-');
+      addTearDown(() => parent.delete(recursive: true));
+      final result = await Process.run(
+              'sh',
+              [
+                '-c',
+                '"\$0" --no-color create null_ext -p com.example -l java '
+                    '< /dev/null',
+                rushBin
+              ],
+              workingDirectory: parent.path)
+          .timeout(const Duration(seconds: 20));
+      expect(result.exitCode, 64, reason: result.output);
+      expect(result.output, contains('Missing --ide'));
+    }, testOn: '!windows');
   });
 
   group('agents', () {
