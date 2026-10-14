@@ -203,6 +203,7 @@ class Executor {
       ...['--main', mainManifest],
       ...['--libs', depManifests.join(BuildUtils.cpSeparator)],
       ...['--property', 'MIN_SDK_VERSION=${minSdk.toString()}'],
+      ...['--placeholder', 'applicationId=%packageName%'],
       ...['--out', output],
       ...['--log', 'INFO'],
     ];

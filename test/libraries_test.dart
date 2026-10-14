@@ -229,6 +229,40 @@ class {className}(container: ComponentContainer) :
     expect(allowed.exitCode, 0, reason: allowed.output);
   });
 
+  test('AAR manifests keep the app package for \${applicationId}', () async {
+    final project = await TestProject.create('app_id_ext');
+    project.file('deps/files.aar')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(ZipEncoder().encode(Archive()
+        ..addFile(ArchiveFile.string(
+            'AndroidManifest.xml',
+            '<manifest xmlns:android="http://schemas.android.com/apk/res/'
+                'android" package="com.example.files"><application>'
+                '<provider android:name="com.example.files.LibraryProvider" '
+                'android:authorities="\${applicationId}.library.files" '
+                'android:exported="false"/></application></manifest>'))
+        ..addFile(
+            ArchiveFile.bytes('classes.jar', ZipEncoder().encode(Archive())))));
+    project.addDependencies(['files.aar']);
+    final manifest = project.file('src/AndroidManifest.xml');
+    manifest.writeAsStringSync(manifest.readAsStringSync().replaceFirst(
+        '<application>',
+        '<application><provider android:name="com.example.ExtensionProvider" '
+            'android:authorities="\${applicationId}.extension.files" '
+            'android:exported="false"/>'));
+
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+    final buildInfo = jsonEncode(project.aix.buildInfo);
+    expect(
+        buildInfo,
+        allOf(
+            contains('%packageName%.library.files'),
+            contains('%packageName%.extension.files'),
+            isNot(contains('${project.package}.library.files')),
+            isNot(contains('${project.package}.extension.files'))));
+  });
+
   test('optimized builds write the mapping of renamed classes', () async {
     final project = await TestProject.create('mapping_ext');
     final mapping = project.file('out/${project.package}.mapping.txt');
