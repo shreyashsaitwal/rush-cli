@@ -10,7 +10,7 @@ class ProcessRunner {
   final _lgr = GetIt.I<Logger>();
 
   Future<void> runExecutable(String exe, List<String> args,
-      {RegExp? debugLines}) async {
+      {RegExp? debugLines, bool debugStdout = false}) async {
     final Process process;
     try {
       process = await Process.start(exe, args);
@@ -23,15 +23,17 @@ class ProcessRunner {
       rethrow;
     }
 
-    for (final output in [process.stdout, process.stderr]) {
-      output
-          .transform(systemEncoding.decoder)
-          .transform(const LineSplitter())
-          .listen((line) => _lgr.parseAndLog(line, debugLines: debugLines));
-    }
+    _lines(process.stdout).listen(debugStdout
+        ? _lgr.dbg
+        : (line) => _lgr.parseAndLog(line, debugLines: debugLines));
+    _lines(process.stderr)
+        .listen((line) => _lgr.parseAndLog(line, debugLines: debugLines));
 
     if (await process.exitCode != 0) {
       throw ProcessException(exe, args);
     }
   }
+
+  Stream<String> _lines(Stream<List<int>> output) =>
+      output.transform(systemEncoding.decoder).transform(const LineSplitter());
 }

@@ -143,6 +143,73 @@ void main() {
         isEmpty);
   });
 
+  test('bundled libraries keep serializers looked up by reflection', () async {
+    final project =
+        await TestProject.create('serializers_ext', language: 'kotlin');
+    project.addDependencies(
+        ['org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0']);
+    project.writeSource('${project.className}.kt', '''
+package {package}
+
+import com.google.appinventor.components.annotations.Extension
+import com.google.appinventor.components.annotations.SimpleFunction
+import com.google.appinventor.components.runtime.AndroidNonvisibleComponent
+import com.google.appinventor.components.runtime.ComponentContainer
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.serializer
+
+@Extension(description = "Encodes JSON.", icon = "icon.png")
+class {className}(container: ComponentContainer) :
+    AndroidNonvisibleComponent(container.`\$form`()) {
+
+  @SimpleFunction(description = "Encodes a JSON array.")
+  fun Encode(): String =
+      Json.encodeToString(serializer<JsonArray>(), JsonArray(listOf(JsonPrimitive(1))))
+}
+''');
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+    expect(
+        project.aix.methodNames('${project.packagePath}/repacked/'
+            'kotlinx/serialization/json/JsonArray\$Companion'),
+        contains('serializer'));
+  });
+
+  test('Kotlin extensions can opt in to experimental APIs', () async {
+    final project = await TestProject.create('opt_in_ext', language: 'kotlin');
+    project.writeSource('${project.className}.kt', '''
+package {package}
+
+import androidx.annotation.OptIn
+import androidx.annotation.RequiresOptIn
+import com.google.appinventor.components.annotations.Extension
+import com.google.appinventor.components.annotations.SimpleFunction
+import com.google.appinventor.components.runtime.AndroidNonvisibleComponent
+import com.google.appinventor.components.runtime.ComponentContainer
+
+@RequiresOptIn
+annotation class Experimental
+
+@Extension(description = "Opts in.", icon = "icon.png")
+class {className}(container: ComponentContainer) :
+    AndroidNonvisibleComponent(container.`\$form`()) {
+
+  @OptIn(markerClass = [Experimental::class])
+  @SimpleFunction(description = "Returns one.")
+  fun One(): Int = 1
+}
+''');
+    for (final args in [
+      <String>[],
+      ['--optimize']
+    ]) {
+      final build = await project.build(args);
+      expect(build.exitCode, 0, reason: build.output);
+    }
+  });
+
   group('an excluded library', () {
     late TestProject project;
     late ProcessResult build;

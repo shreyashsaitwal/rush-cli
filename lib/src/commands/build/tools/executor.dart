@@ -3,6 +3,7 @@ import 'package:path/path.dart' as p;
 import 'package:rush/src/config/config.dart';
 
 import 'package:rush/src/services/file_service.dart';
+import 'package:rush/src/commands/build/tools/jdk_library.dart';
 import 'package:rush/src/commands/build/utils.dart';
 import 'package:rush/src/services/lib_service.dart';
 import 'package:rush/src/services/ai2_runtime.dart';
@@ -138,14 +139,16 @@ class Executor {
       _processRunner.runExecutable(BuildUtils.javaExe(true),
           ['--release', '8', '-d', output, ...sources]);
 
-  static Future<void> _runR8Tool(String mainClass, List<String> args) async =>
+  static Future<void> _runR8Tool(String mainClass, List<String> args,
+          {bool debugStdout = false}) async =>
       _processRunner.runExecutable(
           BuildUtils.javaExe(),
           [
             ...['-cp', await _libService.r8Jar()],
             mainClass,
             ...args,
-          ].map((el) => el.replaceAll('\\', '/')).toList());
+          ].map((el) => el.replaceAll('\\', '/')).toList(),
+          debugStdout: debugStdout);
 
   static Future<void> execRelocator({
     required String input,
@@ -159,53 +162,26 @@ class Executor {
               .map((el) => el.replaceAll('\\', '/'))
               .toList());
 
-  static Future<void> execProGuard(
-    Config config,
-    String artJarPath,
-    Set<String> libraryJars,
-    Set<String> rules, {
-    required bool shrinkOnly,
+  static Future<void> execR8(
+    String artJarPath, {
+    required Set<String> libraryJars,
+    required Set<String> rules,
   }) async {
-    final optimizedJar =
-        p.join(p.dirname(artJarPath), 'AndroidRuntime.optimized.jar').asFile();
-
-    final pgJars = await _libService.pgJars();
-
-    final args = <String>[
-      ...['-cp', pgJars.join(BuildUtils.cpSeparator)],
-      'proguard.ProGuard',
-      ...['-injars', artJarPath],
-      ...['-outjars', optimizedJar.path],
-      ...['-libraryjars', libraryJars.join(BuildUtils.cpSeparator)],
-      for (final module in await _javaModules()) ...['-libraryjars', module],
-      for (final el in rules) '-include $el',
-      if (shrinkOnly) ...[
-        '-dontobfuscate',
-        '-dontoptimize',
-        '-keepattributes *',
-        '-dontwarn',
-        '-dontnote',
+    final shrunk = p.join(p.dirname(artJarPath), 'AndroidRuntime.shrunk.jar');
+    await _runR8Tool(
+      'com.android.tools.r8.R8',
+      [
+        '--classfile',
+        '--pg-compat',
+        ...['--lib', await jdkLibrary()],
+        for (final jar in libraryJars) ...['--lib', jar],
+        for (final rule in rules) ...['--pg-conf', rule],
+        ...['--output', shrunk],
+        artJarPath,
       ],
-    ];
-
-    try {
-      await _processRunner.runExecutable(BuildUtils.javaExe(),
-          args.map((el) => el.replaceAll('\\', '/')).toList(),
-          debugLines: RegExp('^ProGuard, version '));
-    } catch (e) {
-      rethrow;
-    }
-
-    await optimizedJar.copy(artJarPath);
-    await optimizedJar.delete();
-  }
-
-  static Future<List<String>> _javaModules() async {
-    final jmods = p.join(await BuildUtils.javaHomeDir(), 'jmods');
-    return [
-      for (final module in ['java.base', 'java.compiler'])
-        '${p.join(jmods, '$module.jmod')}(!**.jar;!module-info.class)',
-    ];
+      debugStdout: true,
+    );
+    await shrunk.asFile().rename(artJarPath);
   }
 
   static Future<void> execManifMerger(

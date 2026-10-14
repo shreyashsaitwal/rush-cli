@@ -24,6 +24,8 @@ class ExtensionResources {
 
   String get classesDir => p.join(_dir, 'classes');
 
+  String get classesJar => p.join(_dir, 'classes.jar');
+
   String get _symbols => p.join(_dir, 'R.txt');
 
   String get _manifest => p.join(_dir, 'AndroidManifest.xml');
@@ -65,6 +67,13 @@ class ExtensionResources {
           .toSet(),
       output: resources.classesDir,
     );
+    await writeZip(resources.classesJar, [
+      for (final file in resources.classesDir
+          .asDir()
+          .listSync(recursive: true)
+          .whereType<File>())
+        await fileEntry(file, from: resources.classesDir),
+    ]);
     return resources;
   }
 

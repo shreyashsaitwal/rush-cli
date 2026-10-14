@@ -87,23 +87,31 @@ Future<void> checkProjectRules() async {
   }
 }
 
-Future<void> runProGuard(Config config, String artJarPath, LibraryPlan plan,
+Future<void> shrinkRuntimeJar(String artJarPath, LibraryPlan plan,
     ExtensionResources? resources, String package,
     {required bool optimize}) async {
   final projectRules = _projectRules;
-  await Executor.execProGuard(
-    config,
+  await Executor.execR8(
     artJarPath,
-    {...plan.libraryJars, if (resources != null) resources.classesDir},
-    {
+    libraryJars: {
+      ...plan.libraryJars,
+      if (resources != null) resources.classesJar,
+    },
+    rules: {
       ...plan.consumerRules,
       ...await _bundledProguardRules(plan.privateJars),
-      if (!optimize) await _keepExtensionClassesRules(),
+      if (!optimize) ...await _shrinkOnlyRules(),
       if (optimize) await _repackageRules(package),
       if (await projectRules.exists()) projectRules.path,
     },
-    shrinkOnly: !optimize,
   );
+}
+
+Future<List<String>> _shrinkOnlyRules() async {
+  final rules = p.join(_fs.buildFilesDir.path, 'shrink-only.pro').asFile();
+  await rules.writeAsString('-dontobfuscate\n-dontoptimize\n-keepattributes *\n'
+      '-keep class kotlin.Metadata { *; }\n');
+  return [rules.path, await _keepExtensionClassesRules()];
 }
 
 Future<List<String>> _bundledProguardRules(Set<String> jars) async {

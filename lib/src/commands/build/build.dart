@@ -44,8 +44,7 @@ class BuildCommand extends Command<int> {
     argParser.addFlag(
       'optimize',
       abbr: 'o',
-      help:
-          'Optimizes, shrinks and obfuscates extension\'s code using ProGuard.',
+      help: 'Optimizes, shrinks and obfuscates extension\'s code using R8.',
     );
   }
 
@@ -103,8 +102,8 @@ class BuildCommand extends Command<int> {
           optimize
               ? 'Optimizing and obfuscating the bytecode'
               : 'Shrinking bundled libraries',
-          () => runProGuard(
-              config, artJarPath, plan, resources, descriptor.package,
+          () => shrinkRuntimeJar(
+              artJarPath, plan, resources, descriptor.package,
               optimize: optimize));
     }
 

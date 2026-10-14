@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:test/test.dart';
 
+import 'class_file.dart' as class_file;
+
 class Aix {
   Aix(File file, this.package)
       : _archive = ZipDecoder().decodeBytes(file.readAsBytesSync());
@@ -21,11 +23,15 @@ class Aix {
 
   String text(String entry) => utf8.decode(bytes(entry));
 
+  late final Archive _runtime =
+      ZipDecoder().decodeBytes(bytes('files/AndroidRuntime.jar'));
+
   late final Set<String> classNames = {
-    for (final file
-        in ZipDecoder().decodeBytes(bytes('files/AndroidRuntime.jar')).files)
-      file.name
+    for (final file in _runtime.files) file.name
   };
+
+  Set<String> methodNames(String className) =>
+      class_file.methodNames(_runtime.findFile('$className.class')!.content);
 
   Archive library(String fileName) =>
       ZipDecoder().decodeBytes(bytes('aars/$fileName'));

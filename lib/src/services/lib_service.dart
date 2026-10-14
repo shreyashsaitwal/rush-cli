@@ -26,7 +26,6 @@ import 'package:rush/src/utils/file_extension.dart';
 import 'package:tint/tint.dart';
 
 const r8Coord = 'com.android.tools:r8:9.4.24';
-const pgCoord = 'com.guardsquare:proguard-base:7.10.0';
 const coreLibraryCoord = 'com.android.tools:desugar_jdk_libs:2.1.5';
 const coreLibraryConfigCoord =
     'com.android.tools:desugar_jdk_libs_configuration:2.1.5';
@@ -235,9 +234,6 @@ class LibService {
     }
     return exe;
   }
-
-  Future<Set<String>> pgJars() async =>
-      (await _findArtifact(pgCoord)).classpathJars(buildLibArtifacts());
 
   Future<Set<String>> manifMergerJars() async => [
         for (final lib in manifMergerAndDeps)

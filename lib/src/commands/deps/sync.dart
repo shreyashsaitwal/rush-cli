@@ -24,7 +24,6 @@ import 'package:rush/src/utils/error_message.dart';
 
 const _buildToolCoords = [
   r8Coord,
-  pgCoord,
   coreLibraryCoord,
   coreLibraryConfigCoord,
   ...manifMergerAndDeps,
