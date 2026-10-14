@@ -6,7 +6,7 @@ branding:
 
 inputs:
   version:
-    description: The Rush version to install, like 2.2.0
+    description: The Rush version to install, like 2.0.0
     default: latest
 
 outputs:

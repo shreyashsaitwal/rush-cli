@@ -10,7 +10,7 @@
       "type": "string",
       "proposals": ["latest"],
       "default": "latest",
-      "description": "The Rush version to install, like 2.3.0"
+      "description": "The Rush version to install, like 2.0.0"
     }
   },
   "dependsOn": {
