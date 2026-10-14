@@ -31,6 +31,13 @@ void main() {
       expect(aix.classNames.where((c) => c.startsWith('kotlin/')), isEmpty);
     });
 
+    test('keeps Kotlin\'s null checks', () {
+      expect(
+          aix.classNames,
+          contains(
+              '${project.packagePath}/repacked/kotlin/jvm/internal/Intrinsics.class'));
+    });
+
     test('shrinks to what the extension uses', () {
       final stdlib = aix.classNames.where(
           (c) => c.startsWith('${project.packagePath}/repacked/kotlin/'));

@@ -136,7 +136,7 @@ Future<void> removeMapping(String package) async {
 Future<List<String>> _shrinkOnlyRules() async {
   final rules = p.join(_fs.buildFilesDir.path, 'shrink-only.pro').asFile();
   await rules.writeAsString('-dontobfuscate\n-dontoptimize\n-keepattributes *\n'
-      '-keep class kotlin.Metadata { *; }\n');
+      '-keep class kotlin.Metadata { *; }\n-processkotlinnullchecks keep\n');
   return [rules.path, await _keepExtensionClassesRules()];
 }
 

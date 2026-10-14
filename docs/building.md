@@ -67,8 +67,9 @@ from older projects). Optimized builds also write `out/<package>.mapping.txt`, t
 mapping of renamed classes, to read stack traces from the extension.
 
 Without `--optimize`, private libraries are still shrunk to the code the extension uses,
-but nothing is renamed or optimized, and signatures, annotations and Kotlin metadata are
-kept.
+but nothing is renamed or optimized, and signatures, annotations, Kotlin metadata and
+Kotlin's null checks are kept. With it, R8 removes Kotlin's null checks, as in Android
+release builds.
 
 In both cases, a class that shipped code uses but nothing ships fails the build with
 R8's `Missing class` error. Add the library that provides it to `dependencies`, or, if
