@@ -140,6 +140,9 @@ class SyncSubCommand extends Command<int> {
           coordinates: {Scope.compile: extDepCoords},
           repositories: config.repositories,
           providedArtifacts: inEveryApp,
+          excluded: config.excludedLibraries,
+          placedLibraries:
+              config.libraries.keys.whereNot(config.dependencies.contains),
           downloadSources: true,
         );
         await timestampBox.put(configTimestampKey, DateTime.now());
@@ -278,6 +281,8 @@ class SyncSubCommand extends Command<int> {
     required Map<Scope, Iterable<String>> coordinates,
     Iterable<String> repositories = const [],
     Iterable<Artifact> providedArtifacts = const [],
+    Set<String> excluded = const {},
+    Iterable<String> placedLibraries = const [],
     bool downloadSources = false,
   }) async {
     _lgr.info('Resolving ${coordinates.values.flattened.length} artifacts...');
@@ -294,14 +299,16 @@ class SyncSubCommand extends Command<int> {
             el.groupAndArtifactId: el,
       };
 
-      if (provided.isNotEmpty) {
-        _warnAboutOutdatedProvidedDeps(
-            await resolver.resolve(coordinates), provided);
+      if (provided.isNotEmpty || placedLibraries.isNotEmpty) {
+        final unexcluded = await resolver.resolve(coordinates);
+        _warnAboutOutdatedProvidedDeps(unexcluded, provided);
+        _warnAboutUnmatchedLibraries(placedLibraries, unexcluded);
       }
 
       _lgr.info('Downloading resolved artifacts...');
       final resolvedDeps = await resolver.download(
-        await resolver.resolve(coordinates, exclude: provided.keys.toSet()),
+        await resolver
+            .resolve(coordinates, exclude: {...provided.keys, ...excluded}),
         withSources: downloadSources,
       );
       await cacheBox.putAll({
@@ -333,6 +340,15 @@ class SyncSubCommand extends Command<int> {
         _lgr.dbg('Provided alternative found for ${dep.coordinate}: '
             '${provided.coordinate}');
       }
+    }
+  }
+
+  void _warnAboutUnmatchedLibraries(
+      Iterable<String> placedLibraries, Iterable<Artifact> resolved) {
+    final libraries = resolved.map((el) => el.groupAndArtifactId).toSet();
+    for (final library in placedLibraries.whereNot(libraries.contains)) {
+      _lgr.warn('`$library` in `libraries` matches no library in the '
+          'dependencies. Check its spelling.');
     }
   }
 

@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import 'support/aix.dart';
@@ -139,6 +140,41 @@ void main() {
     expect(
         project.aix.classNames.where((c) => c.startsWith('com/google/zxing/')),
         isEmpty);
+  });
+
+  group('an excluded library', () {
+    late TestProject project;
+    late ProcessResult build;
+
+    setUpAll(() async {
+      project = await TestProject.create('excluded_ext');
+      project.addDependencies(['com.google.guava:guava:33.3.1-android']);
+      project.placeLibraries({
+        'com.google.guava:failureaccess': 'exclude',
+        'com.example:nothing': 'exclude',
+      });
+      build = await project.build();
+      if (build.exitCode != 0) fail(build.output);
+    });
+
+    test('is not resolved', () async {
+      final tree = await project.depsTree();
+      expect(tree.output, contains('com.google.guava:guava'));
+      expect(tree.output, isNot(contains('failureaccess')));
+      expect(
+          Directory(p.join(project.dir.path, '.idea', 'libraries'))
+              .listSync()
+              .map((el) => p.basename(el.path)),
+          allOf(contains('com_google_guava_guava_33_3_1-android.xml'),
+              isNot(anyElement(contains('failureaccess')))));
+    });
+
+    test('warns when it matches no library', () {
+      expect(
+          build.output,
+          allOf(
+              contains('com.example:nothing'), contains('matches no library')));
+    });
   });
 
   group('fonts in shipped AARs', () {

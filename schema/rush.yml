@@ -58,6 +58,27 @@ properties:
     items:
       type: string
 
+  libraries:
+    description: |
+      Where a library goes, overriding Rush's own choice. Keys are
+      `group:artifact` without a version, or the file name of a JAR/AAR in the
+      `deps` directory.
+    type: object
+    propertyNames:
+      pattern: '^([^:\s]+:[^:\s]+|[^:\s/]+\.(jar|aar))$'
+    additionalProperties:
+      oneOf:
+        - const: exclude
+          description: Not resolved at all, nor what only it needs.
+        - const: provided
+          description: Compiled against but not shipped, nor what only it needs.
+        - const: shared
+          description: |
+            Shipped unchanged; App Inventor keeps one copy for every extension
+            in the app.
+        - const: private
+          description: The extension's own copy, relocated under its package.
+
   repositories:
     description: |
       Additional Maven repositories to resolve dependencies from. Maven Central

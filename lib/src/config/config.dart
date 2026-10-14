@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:checked_yaml/checked_yaml.dart';
+import 'package:collection/collection.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:rush/src/config/library_placement.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/constants.dart';
 import 'package:rush/src/utils/error_message.dart';
@@ -25,6 +27,9 @@ class Config {
 
   @JsonKey(name: 'provided_dependencies', disallowNullValue: true)
   final List<String> providedDependencies;
+
+  @JsonKey(disallowNullValue: true)
+  final Map<String, LibraryPlacement> libraries;
 
   @JsonKey(name: 'min_sdk', disallowNullValue: true)
   final int minSdk;
@@ -60,14 +65,32 @@ class Config {
     this.authors,
     this.dependencies = const [],
     this.providedDependencies = const [],
+    this.libraries = const {},
     this.repositories = const [],
     this.kotlin = const Kotlin(compilerVersion: defaultKtVersion),
   });
 
   // ignore: strict_raw_type
-  factory Config._fromJson(Map json) => _$ConfigFromJson(json);
+  factory Config._fromJson(Map json) =>
+      _$ConfigFromJson(json).._checkLibraries(json);
 
   Map<String, dynamic> toJson() => _$ConfigToJson(this);
+
+  Set<String> get excludedLibraries => {
+        for (final MapEntry(key: library, value: placement)
+            in libraries.entries)
+          if (placement == LibraryPlacement.exclude) library,
+      };
+
+  // ignore: strict_raw_type
+  void _checkLibraries(Map json) {
+    final excludedDependency = excludedLibraries
+        .firstWhereOrNull(dependencies.map(libraryKey).toSet().contains);
+    if (excludedDependency != null) {
+      throw CheckedFromJsonException(json, 'libraries', 'Config',
+          '$excludedDependency is in dependencies, so it can\'t be excluded. Remove it from dependencies instead.');
+    }
+  }
 
   List<String> get ignoredKeys => [
         if (authors != null) 'authors',

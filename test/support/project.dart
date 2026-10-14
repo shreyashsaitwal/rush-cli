@@ -69,6 +69,21 @@ class TestProject {
         ['dependencies:', for (final c in coordinates) '- $c'].join('\n')));
   }
 
+  void placeLibraries(Map<String, String> placements) =>
+      file('rush.yml').writeAsStringSync(
+          [
+            '',
+            'libraries:',
+            for (final MapEntry(key: library, value: placement)
+                in placements.entries)
+              '  $library: $placement',
+            '',
+          ].join('\n'),
+          mode: FileMode.append);
+
+  Future<ProcessResult> depsTree() =>
+      rush(['deps', 'tree'], workingDirectory: dir.path);
+
   void setMinSdk(int minSdk) {
     final config = file('rush.yml');
     config.writeAsStringSync(config.readAsStringSync().replaceFirst(

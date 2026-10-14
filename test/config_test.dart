@@ -57,6 +57,25 @@ void main() {
               contains('rush.yml'), contains('line 7'), contains('min_sdkk')));
     });
 
+    test('reject excluding a library rush.yml depends on directly', () async {
+      final project = await TestProject.create('excluded_direct_ext');
+      project.addDependencies(['com.google.code.gson:gson:2.8.9']);
+      project.placeLibraries({'com.google.code.gson:gson': 'exclude'});
+      expect(
+          await failedBuild(project),
+          allOf(contains('rush.yml'), contains('com.google.code.gson:gson'),
+              contains('dependencies')));
+    });
+
+    test('name the placements a library can have', () async {
+      final project = await TestProject.create('placement_typo_ext');
+      project.placeLibraries({'com.google.code.gson:gson': 'bundled'});
+      expect(
+          await failedBuild(project),
+          allOf(contains('bundled'), contains('exclude'), contains('provided'),
+              contains('shared'), contains('private')));
+    });
+
     test('name a missing asset', () async {
       final project = await TestProject.create('no_asset_ext');
       project.editConfig('#assets:', 'assets:\n- missing.txt\n#assets:');
