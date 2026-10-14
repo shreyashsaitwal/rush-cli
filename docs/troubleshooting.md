@@ -87,4 +87,5 @@ Inventor's, whose version always wins. See
 [What App Inventor provides](dependencies.md#what-app-inventor-provides).
 
 **An event doesn't fire when the app starts.** App Inventor drops events fired while
-`Screen.Initialize` runs. [Post them to the main looper](writing-extensions.md#events).
+`Screen.Initialize` runs, and posting them to the main looper doesn't reliably delay them
+long enough. Fire them from [`onInitialize()`](writing-extensions.md#events) instead.
