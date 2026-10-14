@@ -133,10 +133,10 @@ Two kinds of libraries notice:
   `META-INF/services/`. They find none.
 - Libraries that read a file with `getResource`, such as OkHttp's public suffix list.
 
-`rush build` warns about each library that ships such files, and names them. Metadata
-nothing reads at runtime doesn't warn, nor do the files coroutines can do without. The
-build still succeeds: whether the code that reads them runs depends on how you use the
-library. If it does:
+To find them, list a library's JAR (or an AAR's `classes.jar`) and look for
+`META-INF/services/` and files outside `META-INF`. Whether the code that reads them runs
+depends on how you use the library; coroutines, for example, works without its
+services. If it does run:
 
 - Give the library what it would have looked up, if it lets you. For example, create
   Ktor's client with an engine, `HttpClient(OkHttp)`, instead of `HttpClient()`.

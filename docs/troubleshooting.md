@@ -61,10 +61,6 @@ instead.`** A dependency needs a newer AndroidX library than App Inventor's. Use
 version of the dependency that works with App Inventor's, or test the features you use
 carefully. See [What App Inventor provides](dependencies.md#what-app-inventor-provides).
 
-**`… ships files App Inventor leaves out of the app, so code that loads them won't find
-them: …`.** The library reads files that never reach the app, through `ServiceLoader` or
-`getResource`. See [What App Inventor leaves out](dependencies.md#what-app-inventor-leaves-out).
-
 **`… and … are the same library (…). App Inventor includes only one of them in the
 app`.** Two shipped AARs have the same package. Keep one of them in `rush.yml`.
 
