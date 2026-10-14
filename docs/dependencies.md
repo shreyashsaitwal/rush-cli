@@ -53,7 +53,15 @@ Keys are `group:artifact`, without a version, or file names in `deps`. Each libr
 to one of:
 
 - **`exclude`**: never resolved, nor what only it needs. Neither compiled against nor
-  shipped. A library listed in `dependencies` can't be excluded: remove it instead.
+  shipped. A library listed in `dependencies` can't be excluded: remove it instead. When
+  code you ship still references it, ProGuard reports `can't find referenced class`; if
+  that code never runs, say so in `src/proguard-rules.pro`. For example, Ktor's server
+  code references `kotlin-reflect`:
+
+  ```
+  -dontwarn kotlin.reflect.full.**
+  -dontwarn kotlin.reflect.jvm.**
+  ```
 - **`provided`**: compiled against but not shipped, nor what only it needs, for
   libraries that are already present at runtime. The version comes from `dependencies`,
   so a compile-only library you don't otherwise depend on goes there too.
