@@ -1,6 +1,7 @@
 import 'package:args/command_runner.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush/src/commands/build/project_libraries.dart';
 import 'package:rush/src/services/lib_service.dart';
 import 'package:tint/tint.dart';
 
@@ -35,13 +36,16 @@ class TreeSubCommand extends Command<int> {
         .where((el) => config.dependencies.contains(el.coordinate))
         .toList(growable: true);
 
+    final placements =
+        (await planProjectLibraries(libService, config)).placements;
+
     _lgr.log(p.basename(_fs.cwd).cyan().bold());
 
     // Print local deps first
     final local = _localDepGraph(
       config.dependencies.where(
           (el) => p.extension(el) == '.jar' || p.extension(el) == '.aar'),
-      config,
+      placements,
       remoteExtDepIndex.isEmpty,
     );
     if (local.isNotEmpty) {
@@ -52,19 +56,23 @@ class TreeSubCommand extends Command<int> {
       for (final dep in requiredRemoteDeps)
         _remoteDepsGraph(
           dep,
-          config,
+          placements,
           remoteExtDepIndex,
           isLast: dep == requiredRemoteDeps.last,
         )
     }.join();
     _lgr.log(remoteDepsGraph);
 
+    final excluded = config.librariesPlacedAs(LibraryPlacement.exclude);
+    if (excluded.isNotEmpty) {
+      _lgr.log('Excluded in rush.yml: ${excluded.join(', ')}'.grey());
+    }
     return 0;
   }
 
   String _localDepGraph(
     Iterable<String> deps,
-    Config config,
+    Map<String, String> placements,
     bool noRemoteDeps,
   ) {
     final graph = <String>[];
@@ -72,9 +80,7 @@ class TreeSubCommand extends Command<int> {
       final isLast = dep == deps.last && noRemoteDeps;
       var branch = isLast ? Connector.lastSibling : Connector.sibling;
       branch += Connector.horizontal * (_branchGap + 1) + Connector.empty;
-      branch += dep.blue() +
-          ' (${config.libraries[dep] == LibraryPlacement.provided ? 'provided' : 'compile'}, local)'
-              .grey();
+      branch += _placed(dep, '${placements[dep]}, local');
       graph.add(branch);
     }
     return graph.join('\n');
@@ -87,7 +93,7 @@ class TreeSubCommand extends Command<int> {
 
   String _remoteDepsGraph(
     Artifact artifact,
-    Config config,
+    Map<String, String> placements,
     List<Artifact> extDepIndex, {
     required bool isLast,
     String prefix = '',
@@ -104,28 +110,8 @@ class TreeSubCommand extends Command<int> {
         hasDeps && !isPrinted ? Connector.childDeps : Connector.horizontal;
     connector += Connector.empty;
 
-    if (artifact.scope == Scope.runtime) {
-      connector += artifact.groupId.green() +
-          ':'.grey() +
-          artifact.artifactId.green() +
-          ':'.grey() +
-          artifact.version.toString().green() +
-          ' (runtime)'.grey();
-    } else if (artifact.scope == Scope.compile) {
-      connector += artifact.groupId.blue() +
-          ':'.grey() +
-          artifact.artifactId.blue() +
-          ':'.grey() +
-          artifact.version.toString().blue() +
-          ' (compile)'.grey();
-    } else {
-      connector += artifact.groupId.magenta() +
-          ':'.grey() +
-          artifact.artifactId.magenta() +
-          ':'.grey() +
-          artifact.version.toString().magenta() +
-          ' (provided)'.grey();
-    }
+    connector +=
+        _placed(artifact.coordinate, placements[artifact.coordinate] ?? '');
 
     if (isPrinted && hasDeps) {
       connector = connector.italic() + ' *'.grey().italic();
@@ -144,7 +130,7 @@ class TreeSubCommand extends Command<int> {
           extDepIndex.firstWhere((element) => element.coordinate == dep);
       connector += _remoteDepsGraph(
         depArtifact,
-        config,
+        placements,
         extDepIndex,
         isLast: dep == artifact.dependencies.last,
         prefix: newPrefix,
@@ -154,6 +140,15 @@ class TreeSubCommand extends Command<int> {
     alreadyPrinted.add(artifact);
     return connector;
   }
+}
+
+String _placed(String coordinate, String placement) {
+  final colored = switch (placement.split(':').first) {
+    'shared' => coordinate.blue(),
+    'private' => coordinate.green(),
+    _ => coordinate.magenta(),
+  };
+  return '$colored${' ($placement)'.grey()}';
 }
 
 class Connector {

@@ -159,8 +159,13 @@ void main() {
 
     test('is not resolved', () async {
       final tree = await project.depsTree();
-      expect(tree.output, contains('com.google.guava:guava'));
-      expect(tree.output, isNot(contains('failureaccess')));
+      expect(tree.output,
+          contains('com.google.guava:guava:33.3.1-android (private: jar)'));
+      expect(
+          tree.output,
+          contains('Excluded in rush.yml: com.google.guava:failureaccess, '
+              'com.example:nothing'));
+      expect(tree.output, isNot(contains('failureaccess:')));
       expect(
           Directory(p.join(project.dir.path, '.idea', 'libraries'))
               .listSync()
@@ -222,8 +227,13 @@ void main() {
     test('is shown as provided with what only it needs', () async {
       final tree = (await project.depsTree()).output;
       expect(
-          tree, contains('com.google.guava:guava:33.3.1-android (provided)'));
-      expect(tree, contains('com.google.guava:failureaccess:1.0.2 (provided)'));
+          tree,
+          contains(
+              'com.google.guava:guava:33.3.1-android (provided: rush.yml)'));
+      expect(
+          tree,
+          contains('com.google.guava:failureaccess:1.0.2 '
+              '(provided: only provided libraries need it)'));
     });
   });
 

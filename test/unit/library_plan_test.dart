@@ -245,4 +245,31 @@ void main() {
           'its original name. Remove it from `libraries` in rush.yml.',
     ]);
   });
+
+  test('explains where each library goes', () {
+    final plan = _plan(
+      dependencies: [
+        _library('g:widget:1', aar: true, dependencies: ['g:util:1']),
+        _library('g:util:1'),
+        _library('g:json:1'),
+        _library('g:gson:1'),
+        _library('g:host:1',
+            scope: LibraryScope.provided, dependencies: ['g:base:1']),
+        _library('g:base:1', scope: LibraryScope.provided),
+      ],
+      placements: {
+        'g:gson': LibraryPlacement.shared,
+        'g:host': LibraryPlacement.provided,
+      },
+    );
+
+    expect(plan.placements, {
+      'g:widget:1': 'shared: AAR',
+      'g:util:1': 'shared: used by g:widget:1',
+      'g:gson:1': 'shared: rush.yml',
+      'g:json:1': 'private: jar',
+      'g:host:1': 'provided: rush.yml',
+      'g:base:1': 'provided: only provided libraries need it',
+    });
+  });
 }

@@ -76,6 +76,7 @@ class LibraryPlan {
     required this.libraryJars,
     required this.manifests,
     required this.consumerRules,
+    required this.placements,
   });
 
   final List<ResolvedLibrary> shared;
@@ -86,6 +87,7 @@ class LibraryPlan {
   final Set<String> libraryJars;
   final List<String> manifests;
   final Set<String> consumerRules;
+  final Map<String, String> placements;
 
   Iterable<ResolvedLibrary> get sharedAars => shared.where((el) => el.isAar);
 
@@ -132,6 +134,18 @@ LibraryPlan planLibraries({
         .nonNulls
         .toList(),
     consumerRules: everything.map((el) => el.consumerRules).nonNulls.toSet(),
+    placements: {
+      for (final library in shared)
+        library.coordinate:
+            'shared: ${_whyShared(library, shared, placements)}',
+      for (final library in private)
+        library.coordinate:
+            'private: ${_placedInRushYml(library, placements) ? 'rush.yml' : 'jar'}',
+      for (final library
+          in dependencies.where((el) => el.scope == LibraryScope.provided))
+        library.coordinate: 'provided: '
+            '${_placedInRushYml(library, placements) ? 'rush.yml' : 'only provided libraries need it'}',
+    },
   );
 }
 
@@ -152,6 +166,18 @@ List<ResolvedLibrary> _shared(
       .where((el) => sharedClasspath.contains(el.classesJar))
       .toList();
 }
+
+String _whyShared(ResolvedLibrary library, List<ResolvedLibrary> shared,
+        Map<String, LibraryPlacement> placements) =>
+    _placedInRushYml(library, placements)
+        ? 'rush.yml'
+        : library.isAar
+            ? 'AAR'
+            : 'used by ${shared.firstWhere((el) => el.dependencies.contains(library.coordinate))}';
+
+bool _placedInRushYml(
+        ResolvedLibrary library, Map<String, LibraryPlacement> placements) =>
+    placements.containsKey(library.key);
 
 List<Problem> _misplacedPrivateLibraries(
         List<ResolvedLibrary> shared,
