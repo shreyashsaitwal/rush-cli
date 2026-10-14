@@ -16,8 +16,8 @@ dependencies:
 - com.google.code.gson:gson:2.13.1
 - my-library.aar
 
-provided_dependencies:
-- some-sdk-stubs.jar
+libraries:
+  com.google.errorprone:error_prone_annotations: exclude
 
 repositories:
 - https://jitpack.io
@@ -57,10 +57,11 @@ Files from the `assets` directory to package with the extension. See
 Libraries the extension uses, as Maven coordinates (`group:artifact:version`) or file
 names in the `deps` directory. See [Dependencies](dependencies.md).
 
-## provided_dependencies
+## libraries
 
-Libraries the extension compiles against without shipping them. See
-[Provided dependencies](dependencies.md#provided-dependencies).
+Where a library goes, when Rush's choice doesn't fit: `exclude`, `provided`, `shared` or
+`private`, keyed by `group:artifact` or by file name in `deps`. See
+[Placing libraries](dependencies.md#placing-libraries).
 
 ## repositories
 
@@ -75,3 +76,9 @@ default.
 
 `authors` and `desugar` are accepted for compatibility with older projects, but have no
 effect and make `rush build` warn. Code is always desugared.
+
+## Deprecated keys
+
+`provided_dependencies` lists libraries to compile against without shipping them. It
+still works, with a warning, as if each entry were in `dependencies` and placed as
+`provided` under `libraries`. `rush migrate` converts it.

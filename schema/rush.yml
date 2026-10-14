@@ -52,8 +52,9 @@ properties:
 
   provided_dependencies:
     description: |
-      Libraries the extension compiles against but doesn't bundle, as they are
-      provided at runtime.
+      Deprecated: list these libraries in `dependencies` and place them as
+      `provided` under `libraries` (`rush migrate` does it).
+    deprecated: true
     type: array
     items:
       type: string

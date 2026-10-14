@@ -25,23 +25,51 @@ Downloads are stored in the local Maven repository (`~/.m2/repository`, or
 their own dependencies: list those too.
 
 `rush build` syncs dependencies when `rush.yml` changes. `rush deps sync` does it on its
-own, and `rush deps tree` prints what was resolved:
+own, and `rush deps tree` prints what was resolved, where each library goes and why (see
+[How libraries are shipped](#how-libraries-are-shipped)):
 
 ```
 counter
-└──┬ com.google.code.gson:gson:2.13.1 (compile)
-   └─── com.google.errorprone:error_prone_annotations:2.38.0 (compile)
+└──┬ com.google.code.gson:gson:2.13.1 (private: jar)
+   └─── com.google.errorprone:error_prone_annotations:2.38.0 (private: jar)
 ```
 
-## Provided dependencies
+## Placing libraries
 
-`provided_dependencies` are compiled against but never shipped, for libraries that are
-already present at runtime:
+Rush decides where each library goes. When its choice doesn't fit, `libraries` overrides
+it, for a library you depend on directly or one pulled in by another:
 
 ```yaml
-provided_dependencies:
-- some-sdk-stubs.jar
+dependencies:
+- io.github.jan-tennert.supabase:postgrest-kt-jvm:3.8.0
+- com.example:host-api:1.2
+
+libraries:
+  org.jetbrains.kotlin:kotlin-reflect: exclude
+  com.example:host-api: provided
 ```
+
+Keys are `group:artifact`, without a version, or file names in `deps`. Each library goes
+to one of:
+
+- **`exclude`**: never resolved, nor what only it needs. Neither compiled against nor
+  shipped. A library listed in `dependencies` can't be excluded: remove it instead.
+- **`provided`**: compiled against but not shipped, nor what only it needs, for
+  libraries that are already present at runtime. The version comes from `dependencies`,
+  so a compile-only library you don't otherwise depend on goes there too.
+- **`shared`**: shipped unchanged as an AAR; App Inventor keeps one copy for every
+  extension in the app. What it depends on is shared too.
+- **`private`**: the extension's own copy, moved under its package. Its manifest's
+  permissions, queries and meta-data are still merged. Rush refuses it when the result
+  can't work: for an AAR whose resources, assets or native libraries would be left out,
+  or whose manifest declares components, and for a library a shared library uses by its
+  original name.
+
+A key that matches no library is a warning, as it's likely a typo.
+
+`provided_dependencies`, which earlier versions used for compile-only libraries, still
+works but is deprecated: `rush migrate` moves its entries to `dependencies`, placed as
+`provided`.
 
 ## What App Inventor provides
 
@@ -79,6 +107,8 @@ same library would clash (`defined multiple times`). Rush avoids this:
   moved under the extension's package (`com.example.counter.repacked.…`), so they can't
   clash with another extension's copy. Rush also rewrites strings that name a moved
   class.
+
+[`libraries`](#placing-libraries) overrides these choices.
 
 Extensions that ship AARs work in built apps but not in the AI Companion, which can't
 load them.

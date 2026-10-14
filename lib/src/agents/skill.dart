@@ -209,8 +209,9 @@ Throw `new PermissionException(permission)` from a block that needs a denied per
 dependencies:
 - com.google.code.gson:gson:2.13.1   # Maven: group:artifact:version
 - my-library.jar                     # a file in deps/
-provided_dependencies:
-- stubs.jar                          # compiled against, never shipped
+libraries:                           # overrides where a library goes
+  com.example:unwanted: exclude      # never resolved, nor what only it needs
+  my-library.jar: provided           # compiled against, never shipped
 repositories:
 - https://jitpack.io                 # besides Maven Central and Google
 ```
@@ -219,7 +220,7 @@ repositories:
 - App Inventor always provides its runtime, Kawa and 2018-era AndroidX (appcompat 1.0.0, core 1.9.0, fragment 1.0.0, lifecycle 2.0.0…). These versions always win. Rush warns when a dependency needs a newer one; such libraries may fail at runtime. Jetpack Compose can't work.
 - Rush moves bundled JARs under the extension's package, so extensions bundling the same library don't clash. AARs, and JARs they depend on, ship as AARs: App Inventor keeps one copy per app. Extensions that ship AARs don't work in the AI Companion.
 - Kotlin projects need `org.jetbrains.kotlin:kotlin-stdlib:<version>` in `dependencies` and the compiler version in `kotlin.compiler_version`.
-- `rush deps tree` shows what was resolved.
+- `rush deps tree` shows what was resolved, where each library goes and why. `libraries` places a library (`group:artifact` or file name) as `exclude`, `provided`, `shared` (shipped unchanged as an AAR) or `private` (moved under the extension's package). Rush refuses `private` for AARs with resources, assets, native libraries or manifest components.
 
 ## Resources
 

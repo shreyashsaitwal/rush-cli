@@ -53,12 +53,16 @@ Eclipse project files with the resolved libraries.
 
 ## rush deps tree
 
-Prints the project's resolved dependency tree. A subtree printed earlier is marked `*`.
+Prints the project's resolved dependency tree, with where each library goes and why
+(`shared`, `private` or `provided`), followed by the libraries `rush.yml` excludes. A
+subtree printed earlier is marked `*`.
 
 ## rush migrate
 
 Converts a Rush 1 project in the current directory to Rush 2. See
-[Migrating from Rush 1](migrating.md).
+[Migrating from Rush 1](migrating.md). In a Rush 2 project, moves `provided_dependencies`
+to `dependencies` placed as `provided` under
+[`libraries`](dependencies.md#placing-libraries).
 
 ## rush upgrade
 
