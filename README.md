@@ -2,9 +2,6 @@
 
 **Rush** is a modern extension builder for MIT App Inventor 2.
 
-This is a maintained fork of [shreyashsaitwal/rush-cli](https://github.com/shreyashsaitwal/rush-cli),
-created by Shreyash Saitwal, which brings Rush 2.0 to a stable release.
-
 ## Features
 
 * Kotlin and Java support, with Java 17 language features (records, switch expressions,
