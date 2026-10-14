@@ -121,6 +121,29 @@ same library would clash (`defined multiple times`). Rush avoids this:
 Extensions that ship AARs work in built apps but not in the AI Companion, which can't
 load them.
 
+## What App Inventor leaves out
+
+Only classes reach the app. Java resources in a library's JAR, or in an AAR's
+`classes.jar`, don't: Rush keeps only classes, and App Inventor doesn't package them
+either. AAR `assets/`, `jni/` and resources are packaged and work.
+
+Two kinds of libraries notice:
+
+- Libraries that find implementations with `ServiceLoader`, listed in
+  `META-INF/services/`. They find none.
+- Libraries that read a file with `getResource`, such as OkHttp's public suffix list.
+
+`rush build` warns about each library that ships such files, and names them. Metadata
+nothing reads at runtime doesn't warn, nor do the files coroutines can do without. The
+build still succeeds: whether the code that reads them runs depends on how you use the
+library. If it does:
+
+- Give the library what it would have looked up, if it lets you. For example, create
+  Ktor's client with an engine, `HttpClient(OkHttp)`, instead of `HttpClient()`.
+- Or leave the library out, with [`exclude`](#placing-libraries). Without
+  `kotlin-reflect`, for example, `typeOf<T>()` falls back to the standard library's own
+  implementation.
+
 Rush warns when two shipped AARs are the same library, since App Inventor would keep an
 arbitrary one.
 
