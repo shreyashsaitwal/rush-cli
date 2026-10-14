@@ -5,10 +5,13 @@ import 'package:collection/collection.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 import 'package:tint/tint.dart';
+import 'package:yaml_edit/yaml_edit.dart';
 
 import 'package:rush/src/commands/deps/sync.dart';
 import 'package:rush/src/commands/migrate/old_config/old_config.dart' as old;
+import 'package:rush/src/commands/migrate/provided_dependencies.dart';
 import 'package:rush/src/config/config.dart';
+import 'package:rush/src/config/library_placement.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/constants.dart';
@@ -19,13 +22,17 @@ class MigrateCommand extends Command<int> {
 
   @override
   String get description =>
-      'Migrates extension projects built with Rush v1 to Rush v2';
+      'Migrates extension projects built with Rush v1 to Rush v2, and moves '
+      'provided_dependencies to libraries';
 
   @override
   String get name => 'migrate';
 
   @override
   Future<int> run() async {
+    if (!_isRush1Project()) {
+      return _moveProvidedDependencies();
+    }
     _lgr.startTask('Initializing');
     final oldConfig = await old.OldConfig.load(_fs.configFile, _lgr);
     if (oldConfig == null) {
@@ -49,8 +56,11 @@ class MigrateCommand extends Command<int> {
       version: _versionName(oldConfig.version),
       minSdk: oldConfig.minSdk ?? 7,
       assets: oldConfig.assets.other ?? [],
-      dependencies: dependencies,
-      providedDependencies: compileOnlyDependencies,
+      dependencies: [...dependencies, ...compileOnlyDependencies],
+      libraries: {
+        for (final dependency in compileOnlyDependencies)
+          dependency: LibraryPlacement.provided,
+      },
       license: oldConfig.license ?? '',
       homepage: oldConfig.homepage ?? '',
       kotlin: Kotlin(
@@ -158,6 +168,29 @@ class MigrateCommand extends Command<int> {
     });
   }
 
+  bool _isRush1Project() =>
+      (YamlEditor(_fs.configFile.readAsStringSync()).parseAt([]).value as Map)
+          .containsKey('name');
+
+  Future<int> _moveProvidedDependencies() async {
+    _lgr.startTask('Moving provided_dependencies to libraries');
+    final config = await Config.load(_fs.configFile, _lgr);
+    if (config == null) {
+      _lgr.stopTask(false);
+      return 1;
+    }
+    if (config.providedDependencies.isEmpty) {
+      _lgr
+        ..info('Nothing to migrate')
+        ..stopTask();
+      return 0;
+    }
+    await _fs.configFile.writeAsString(withProvidedDependenciesAsLibraries(
+        await _fs.configFile.readAsString()));
+    _lgr.stopTask();
+    return 0;
+  }
+
   void _updateConfig(Config config, bool enableKotlin) {
     var contents = '''
 # This is the version name of your extension. You should update it everytime you
@@ -219,12 +252,11 @@ ${dependencies.map((el) => '- $el').join('\n')}
 ''';
     }
 
-    if (config.providedDependencies.isNotEmpty) {
+    if (config.libraries.isNotEmpty) {
       contents += '''
-# Similar to dependencies, except libraries defined as provided are not included
-# in the final AIX.
-provided_dependencies:
-${config.providedDependencies.map((el) => '- $el').join('\n')}
+# Where a library from dependencies goes, when Rush's choice doesn't fit.
+libraries:
+${config.libraries.entries.map((el) => '  ${el.key}: ${el.value.name}').join('\n')}
 
 ''';
     }

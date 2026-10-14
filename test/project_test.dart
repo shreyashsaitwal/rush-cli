@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:test/test.dart';
 
+import 'support/fixtures.dart';
 import 'support/project.dart';
 
 void main() {
@@ -301,11 +302,46 @@ class Legacy(container: ComponentContainer) : AndroidNonvisibleComponent(contain
 
       final migrated = await rush(['migrate'], workingDirectory: project.path);
       expect(migrated.exitCode, 0, reason: migrated.output);
-      expect(File('${project.path}/rush.yml').readAsStringSync(),
-          contains('provided_dependencies:\n- greeting.jar'));
+      expect(
+          File('${project.path}/rush.yml').readAsStringSync(),
+          allOf(
+              contains('- greeting.jar'),
+              contains('libraries:\n  greeting.jar: provided'),
+              isNot(contains('provided_dependencies'))));
 
       final built = await rush(['build'], workingDirectory: project.path);
       expect(built.exitCode, 0, reason: built.output);
+    });
+
+    test('moves provided_dependencies of Rush 2 projects to libraries',
+        () async {
+      final project = await TestProject.create('provided_migrate_ext');
+      project.addDependencies(['com.google.code.gson:gson:2.8.9']);
+      project.editConfig(
+          '#license: LICENSE.txt',
+          '# Compile-only libraries.\n'
+              'provided_dependencies:\n'
+              '- com.google.guava:guava:33.3.1-android\n'
+              '- com.google.code.gson:gson:2.8.9');
+
+      final migrated =
+          await rush(['migrate'], workingDirectory: project.dir.path);
+      expect(migrated.exitCode, 0, reason: migrated.output);
+      final config = project.file('rush.yml').readAsStringSync();
+      expect(
+          config,
+          allOf(
+              contains('- com.google.code.gson:gson:2.8.9\n'
+                  '- com.google.guava:guava:33.3.1-android'),
+              contains('libraries:\n'
+                  '  com.google.guava:guava: provided\n'
+                  '  com.google.code.gson:gson: provided'),
+              isNot(contains('provided_dependencies')),
+              isNot(contains('Compile-only libraries'))));
+
+      final built = await project.build();
+      expect(built.exitCode, 0, reason: built.output);
+      expect(built.output, isNot(contains('deprecated')));
     });
   });
 }
