@@ -68,7 +68,11 @@ app`.** Two shipped AARs have the same package. Keep one of them in `rush.yml`.
 
 **The app build fails with `defined multiple times`.** Two extensions contain the same
 class. This happens with extensions built by Rush 1, Rush 2.0 or other tools, which
-bundled libraries without moving them. Rebuild them with this Rush, or remove one.
+bundled libraries without moving them. Rebuild them with this Rush, or remove one. If
+only apps that also use a built-in component fail, the extension ships a library that
+App Inventor adds for that component. See
+[How libraries are shipped](dependencies.md#how-libraries-are-shipped) for when placing
+it as `private` fixes it.
 
 **The extension works in a built app but not in the AI Companion.** The Companion can't
 load AARs, so extensions with [resources](resources.md) or AAR dependencies only work in

@@ -118,6 +118,17 @@ same library would clash (`defined multiple times`). Rush avoids this:
 
 [`libraries`](#placing-libraries) overrides these choices.
 
+App Inventor de-duplicates AARs against AARs only. Some of its own libraries, such as
+MPAndroidChart for the Chart component or Guava for Texting, are added as plain JARs to
+apps that use the matching built-in component. When a shared library has their classes,
+apps that use both fail with `defined multiple times`:
+
+- If nothing shared uses the library, place it as `private` under `libraries`: it moves
+  into the extension, and the clash is gone.
+- If a shared AAR uses it, it can't move. Apps can't combine the extension with that
+  component until App Inventor de-duplicates its libraries; say so in the extension's
+  documentation.
+
 Extensions that ship AARs work in built apps but not in the AI Companion, which can't
 load them.
 
