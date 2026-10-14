@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo="zainulhassan815/rush-cli"
+repo="shreyashsaitwal/rush-cli"
 
 if ! command -v unzip >/dev/null; then
   echo 'err: `unzip` is required to install Rush. Please install it and try again.' >&2

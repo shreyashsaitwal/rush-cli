@@ -23,13 +23,13 @@ A JRE isn't enough: Rush runs `javac`, and R8 reads classes from the JDK's `jmod
 On Linux and macOS:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/scripts/install/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.sh | bash
 ```
 
 On Windows, in PowerShell:
 
 ```ps1
-iwr https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/scripts/install/install.ps1 -useb | iex
+iwr https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.ps1 -useb | iex
 ```
 
 The installer puts Rush in `~/.rush` (`%UserProfile%\.rush` on Windows) and offers to

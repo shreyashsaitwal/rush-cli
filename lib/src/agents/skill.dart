@@ -299,7 +299,7 @@ Layouts, drawables, strings and colors go in `res/`, laid out as in Android. Use
 
 ## Reference
 
-The full documentation for this Rush version: https://github.com/zainulhassan815/rush-cli/tree/v{version}/docs
+The full documentation for this Rush version: https://github.com/shreyashsaitwal/rush-cli/tree/v{version}/docs
 
 App Inventor's guides for component authors: https://ai2.appinventor.mit.edu/reference/other/extensions.html and How to Add a Component (https://docs.google.com/document/d/1xk9dMfczvjbbwD-wMsr-ffqkTlE3ga0ocCE1KOb2wvw/edit). Rush replaces their build steps.
 ''';

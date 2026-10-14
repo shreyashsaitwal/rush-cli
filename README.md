@@ -38,7 +38,7 @@ Rush requires JDK 17 or newer.
 ### Linux and macOS
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/scripts/install/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.sh | bash
 ```
 
 Then add `$HOME/.rush/bin` to your `PATH`.
@@ -48,7 +48,7 @@ Then add `$HOME/.rush/bin` to your `PATH`.
 In PowerShell, run:
 
 ```ps1
-iwr https://raw.githubusercontent.com/zainulhassan815/rush-cli/main/scripts/install/install.ps1 -useb | iex
+iwr https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.ps1 -useb | iex
 ```
 
 ## Quick start

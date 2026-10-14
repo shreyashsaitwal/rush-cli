@@ -39,9 +39,9 @@ runs:
             ;;
         esac
         if [ "$RUSH_VERSION" = latest ]; then
-          url="https://github.com/zainulhassan815/rush-cli/releases/latest/download/rush-$target.zip"
+          url="https://github.com/shreyashsaitwal/rush-cli/releases/latest/download/rush-$target.zip"
         else
-          url="https://github.com/zainulhassan815/rush-cli/releases/download/v${RUSH_VERSION#v}/rush-$target.zip"
+          url="https://github.com/shreyashsaitwal/rush-cli/releases/download/v${RUSH_VERSION#v}/rush-$target.zip"
         fi
         rush_home="$HOME/.rush"
         curl --fail --location --silent --show-error -o "$RUNNER_TEMP/rush.zip" "$url"

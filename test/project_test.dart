@@ -35,7 +35,7 @@ void main() {
       test('have a GitHub workflow that builds with Rush', () {
         final workflow =
             project.file('.github/workflows/build.yml').readAsStringSync();
-        expect(workflow, contains('uses: zainulhassan815/rush-cli@v2'));
+        expect(workflow, contains('uses: shreyashsaitwal/rush-cli@v2'));
         expect(workflow, contains('run: rush build'));
         expect(workflow, contains('workflow_dispatch:'));
         expect(workflow, contains('- src/**'));
@@ -54,7 +54,7 @@ void main() {
             .file('.devcontainer/devcontainer.json')
             .readAsStringSync()) as Map<String, dynamic>;
         expect(devcontainer['features'],
-            contains('ghcr.io/zainulhassan815/rush-cli/rush:1'));
+            contains('ghcr.io/shreyashsaitwal/rush-cli/rush:1'));
         expect(devcontainer['postCreateCommand'], 'rush deps sync');
         expect(
             project

@@ -6,7 +6,7 @@ const configTimestampKey = 'rush-yaml';
 
 const defaultKtVersion = '2.4.20';
 
-const rushRepo = 'zainulhassan815/rush-cli';
+const rushRepo = 'shreyashsaitwal/rush-cli';
 
 const ai2Version = 'v206';
 const ai2RuntimeUrl = 'https://github.com/$rushRepo/releases/download/'

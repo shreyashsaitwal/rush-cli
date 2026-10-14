@@ -48,7 +48,7 @@ const _devcontainerJson = '''
   "name": "Rush",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
   "features": {
-    "ghcr.io/zainulhassan815/rush-cli/rush:1": {}
+    "ghcr.io/shreyashsaitwal/rush-cli/rush:1": {}
   },
   "postCreateCommand": "rush deps sync",
   "customizations": {
@@ -78,7 +78,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
-      - uses: zainulhassan815/rush-cli@v2
+      - uses: shreyashsaitwal/rush-cli@v2
       - run: rush deps sync
 ''';
 

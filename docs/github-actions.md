@@ -53,7 +53,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
-      - uses: zainulhassan815/rush-cli@v2
+      - uses: shreyashsaitwal/rush-cli@v2
       - run: rush build
       - uses: actions/upload-artifact@v7
         with:
@@ -77,12 +77,12 @@ Change `rush build` to `rush build --optimize` to release optimized builds.
 
 ## The setup action
 
-`zainulhassan815/rush-cli@v2` installs Rush in any workflow, on Linux, macOS and Windows
+`shreyashsaitwal/rush-cli@v2` installs Rush in any workflow, on Linux, macOS and Windows
 runners. It also sets up JDK 17 and caches the App Inventor runtime and Maven
 dependencies between runs.
 
 ```yaml
-- uses: zainulhassan815/rush-cli@v2
+- uses: shreyashsaitwal/rush-cli@v2
   with:
     version: 2.2.0
 - run: rush build

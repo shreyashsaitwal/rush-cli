@@ -19,9 +19,9 @@ if [ ${#missing[@]} -gt 0 ]; then
 fi
 
 if [ "$VERSION" = latest ]; then
-  url="https://github.com/zainulhassan815/rush-cli/releases/latest/download/rush-x86_64-linux.zip"
+  url="https://github.com/shreyashsaitwal/rush-cli/releases/latest/download/rush-x86_64-linux.zip"
 else
-  url="https://github.com/zainulhassan815/rush-cli/releases/download/v${VERSION#v}/rush-x86_64-linux.zip"
+  url="https://github.com/shreyashsaitwal/rush-cli/releases/download/v${VERSION#v}/rush-x86_64-linux.zip"
 fi
 
 archive="$(mktemp)"

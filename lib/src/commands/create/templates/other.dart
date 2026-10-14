@@ -94,7 +94,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
-      - uses: zainulhassan815/rush-cli@v2
+      - uses: shreyashsaitwal/rush-cli@v2
       - run: rush build
       - uses: actions/upload-artifact@v7
         with:
@@ -143,7 +143,7 @@ String readmeMd(String name) {
   return '''
 # $name
 
-An App Inventor 2 extension created using [Rush](https://github.com/zainulhassan815/rush-cli).
+An App Inventor 2 extension created using [Rush](https://github.com/shreyashsaitwal/rush-cli).
 
 ## Building
 

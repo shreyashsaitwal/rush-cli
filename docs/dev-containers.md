@@ -35,7 +35,7 @@ The container gets Rush from the Rush feature, which any dev container can use:
 
 ```json
 "features": {
-  "ghcr.io/zainulhassan815/rush-cli/rush:1": {}
+  "ghcr.io/shreyashsaitwal/rush-cli/rush:1": {}
 }
 ```
 
