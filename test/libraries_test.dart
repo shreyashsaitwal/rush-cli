@@ -263,6 +263,33 @@ class {className}(container: ComponentContainer) :
             isNot(contains('${project.package}.extension.files'))));
   });
 
+  test('shipped AARs declare ids in the long form legacy aapt accepts',
+      () async {
+    final project = await TestProject.create('id_resources_ext');
+    project.file('deps/owners.aar')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(ZipEncoder().encode(Archive()
+        ..addFile(ArchiveFile.string(
+            'AndroidManifest.xml',
+            '<manifest xmlns:android="http://schemas.android.com/apk/res/'
+                'android" package="com.example.owners"/>'))
+        ..addFile(ArchiveFile.string('res/values/values.xml',
+            '<resources><id name="view_tree_owner"/></resources>'))
+        ..addFile(ArchiveFile.string('R.txt', 'int id view_tree_owner 0x0\n'))
+        ..addFile(
+            ArchiveFile.bytes('classes.jar', ZipEncoder().encode(Archive())))));
+    project.addDependencies(['owners.aar']);
+
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+    expect(
+        utf8.decode(project.aix
+            .library('owners.aar')
+            .findFile('res/values/values.xml')!
+            .content),
+        '<resources><item name="view_tree_owner" type="id"/></resources>');
+  });
+
   test('optimized builds write the mapping of renamed classes', () async {
     final project = await TestProject.create('mapping_ext');
     final mapping = project.file('out/${project.package}.mapping.txt');

@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:pool/pool.dart';
 
 import 'package:rush/src/commands/build/aix.dart';
+import 'package:rush/src/commands/build/fixes/id_resources.dart';
 import 'package:rush/src/commands/build/fixes/raw_fonts.dart';
 import 'package:rush/src/commands/build/libraries.dart';
 import 'package:rush/src/commands/build/library_plan.dart';
@@ -43,10 +44,7 @@ Future<List<Library>> packageLibraries(
 }
 
 Future<List<Library>> moveLibraryFontsToRaw(List<Library> libraries) async {
-  final fixed = moveFontsToRaw({
-    for (final library in libraries)
-      library.fileName: ZipDecoder().decodeBytes(library.bytes),
-  });
+  final fixed = moveFontsToRaw(_archives(libraries));
   if (fixed.libraries.isEmpty) {
     return libraries;
   }
@@ -55,14 +53,32 @@ Future<List<Library>> moveLibraryFontsToRaw(List<Library> libraries) async {
   }
   _lgr.info('Moved fonts to res/raw so Kodular can build: '
       '${fixed.libraries.keys.join(', ')}');
-  return [
-    for (final library in libraries)
-      if (fixed.libraries[library.fileName] case final archive?)
-        Library(library.fileName, zipBytes(archive.files))
-      else
-        library,
-  ];
+  return _replaced(libraries, fixed.libraries);
 }
+
+List<Library> writeLongIdResources(List<Library> libraries) {
+  final fixed = withLongIdResources(_archives(libraries));
+  if (fixed.isEmpty) {
+    return libraries;
+  }
+  _lgr.info('Wrote id resources in the long form App Inventor\'s aapt '
+      'accepts: ${fixed.keys.join(', ')}');
+  return _replaced(libraries, fixed);
+}
+
+Map<String, Archive> _archives(List<Library> libraries) => {
+      for (final library in libraries)
+        library.fileName: ZipDecoder().decodeBytes(library.bytes),
+    };
+
+List<Library> _replaced(List<Library> libraries, Map<String, Archive> fixed) =>
+    [
+      for (final library in libraries)
+        if (fixed[library.fileName] case final archive?)
+          Library(library.fileName, zipBytes(archive.files))
+        else
+          library,
+    ];
 
 Future<void> _addFontShim(Archive aar, FontShim shim) async {
   final dir = p.join(_fs.buildFilesDir.path, 'font-shims', shim.package);
