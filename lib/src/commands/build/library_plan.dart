@@ -83,7 +83,11 @@ LibraryPlan planLibraries({
 }) {
   final shipped = _shipped(dependencies);
   final shared = _shared(shipped);
-  final compileOnly = _compileOnly([...appInventor, ...provided], shipped);
+  final compileOnly = _compileOnly([
+    ...appInventor,
+    ...provided,
+    ...dependencies.where((el) => el.scope == LibraryScope.provided),
+  ], shipped);
   final linkedAgainst = _inEveryApp(compileOnly);
   final sharedAars = shared.where((el) => el.isAar);
   final everything = [

@@ -76,15 +76,14 @@ class Config {
 
   Map<String, dynamic> toJson() => _$ConfigToJson(this);
 
-  Set<String> get excludedLibraries => {
-        for (final MapEntry(key: library, value: placement)
-            in libraries.entries)
-          if (placement == LibraryPlacement.exclude) library,
+  Set<String> librariesPlacedAs(LibraryPlacement placement) => {
+        for (final MapEntry(key: library, value: placed) in libraries.entries)
+          if (placed == placement) library,
       };
 
   // ignore: strict_raw_type
   void _checkLibraries(Map json) {
-    final excludedDependency = excludedLibraries
+    final excludedDependency = librariesPlacedAs(LibraryPlacement.exclude)
         .firstWhereOrNull(dependencies.map(libraryKey).toSet().contains);
     if (excludedDependency != null) {
       throw CheckedFromJsonException(json, 'libraries', 'Config',

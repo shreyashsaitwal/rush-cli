@@ -16,6 +16,7 @@ import 'package:collection/collection.dart';
 
 import 'package:rush/src/commands/build/utils.dart';
 import 'package:rush/src/config/config.dart';
+import 'package:rush/src/config/library_placement.dart';
 import 'package:rush/src/services/ai2_runtime.dart';
 import 'package:rush/src/resolver/artifact.dart';
 import 'package:rush/src/services/file_service.dart';
@@ -187,7 +188,9 @@ class LibService {
         .where((el) => el.endsWith('.jar') || el.endsWith('.aar'))
         .map((el) {
       return Artifact(
-        scope: Scope.compile,
+        scope: config.libraries[el] == LibraryPlacement.provided
+            ? Scope.provided
+            : Scope.compile,
         coordinate: el,
         artifactFile: p.join(_fs.localDepsDir.path, el),
         packaging: p.extension(el).substring(1),

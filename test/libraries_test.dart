@@ -177,6 +177,37 @@ void main() {
     });
   });
 
+  group('a provided library', () {
+    late TestProject project;
+
+    setUpAll(() async {
+      project = await TestProject.create('provided_ext');
+      project.addDependencies(['com.google.guava:guava:33.3.1-android']);
+      project.placeLibraries({'com.google.guava:guava': 'provided'});
+      project.writeJavaExtension('''
+  @SimpleFunction
+  public String Blank(String text) {
+    return com.google.common.base.Strings.nullToEmpty(text);
+  }
+''');
+      final build = await project.build(['--optimize']);
+      if (build.exitCode != 0) fail(build.output);
+    });
+
+    test('is compiled against but not shipped, nor what only it needs', () {
+      expect(project.aix.classNames.where((c) => c.contains('com/google/')),
+          isEmpty);
+      expect(project.aix.libraries, isEmpty);
+    });
+
+    test('is shown as provided with what only it needs', () async {
+      final tree = (await project.depsTree()).output;
+      expect(
+          tree, contains('com.google.guava:guava:33.3.1-android (provided)'));
+      expect(tree, contains('com.google.guava:failureaccess:1.0.2 (provided)'));
+    });
+  });
+
   group('fonts in shipped AARs', () {
     late TestProject project;
     late ProcessResult build;

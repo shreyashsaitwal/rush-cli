@@ -49,6 +49,8 @@ void main() {
 
     expect(_coordinates(plan.private), ['g:compile:1', 'g:runtime:1']);
     expect(plan.shared, isEmpty);
+    expect(_coordinates(plan.provided), ['g:provided:1']);
+    expect(plan.libraryJars, {'g:provided:1.jar'});
   });
 
   test('shares AARs and the jars they need, and relocates the other jars', () {

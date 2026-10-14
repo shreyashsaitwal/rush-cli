@@ -10,8 +10,10 @@ import 'package:rush/src/commands/build/utils.dart';
 import 'package:rush/src/commands/create/templates/eclipse_files.dart';
 import 'package:rush/src/commands/create/templates/intellij_files.dart';
 import 'package:rush/src/config/config.dart';
+import 'package:rush/src/config/library_placement.dart';
 import 'package:rush/src/resolver/artifact.dart';
 import 'package:rush/src/resolver/maven.dart';
+import 'package:rush/src/resolver/provided_libraries.dart';
 import 'package:rush/src/services/ai2_runtime.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/lib_service.dart';
@@ -140,7 +142,9 @@ class SyncSubCommand extends Command<int> {
           coordinates: {Scope.compile: extDepCoords},
           repositories: config.repositories,
           providedArtifacts: inEveryApp,
-          excluded: config.excludedLibraries,
+          excluded: config.librariesPlacedAs(LibraryPlacement.exclude),
+          providedLibraries:
+              config.librariesPlacedAs(LibraryPlacement.provided),
           placedLibraries:
               config.libraries.keys.whereNot(config.dependencies.contains),
           downloadSources: true,
@@ -282,6 +286,7 @@ class SyncSubCommand extends Command<int> {
     Iterable<String> repositories = const [],
     Iterable<Artifact> providedArtifacts = const [],
     Set<String> excluded = const {},
+    Set<String> providedLibraries = const {},
     Iterable<String> placedLibraries = const [],
     bool downloadSources = false,
   }) async {
@@ -311,6 +316,7 @@ class SyncSubCommand extends Command<int> {
             .resolve(coordinates, exclude: {...provided.keys, ...excluded}),
         withSources: downloadSources,
       );
+      _markProvided(resolvedDeps, directCoords, providedLibraries);
       await cacheBox.putAll({
         for (final dep in resolvedDeps) dep.coordinate: dep,
       });
@@ -340,6 +346,19 @@ class SyncSubCommand extends Command<int> {
         _lgr.dbg('Provided alternative found for ${dep.coordinate}: '
             '${provided.coordinate}');
       }
+    }
+  }
+
+  void _markProvided(List<Artifact> resolved, Set<String> roots,
+      Set<String> providedLibraries) {
+    final provided = providedOnly(
+      roots: roots,
+      dependencies: {for (final el in resolved) el.coordinate: el.dependencies},
+      provided: providedLibraries,
+    );
+    for (final artifact
+        in resolved.where((el) => provided.contains(el.coordinate))) {
+      artifact.scope = Scope.provided;
     }
   }
 
