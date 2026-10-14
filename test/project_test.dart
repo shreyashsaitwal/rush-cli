@@ -20,6 +20,13 @@ void main() {
         project = await TestProject.create('template_ext');
       });
 
+      test('leave repackaging to Rush', () {
+        expect(
+            project.file('src/proguard-rules.pro').readAsStringSync(),
+            allOf(isNot(contains('-repackageclasses')),
+                isNot(contains('-keeppackagenames'))));
+      });
+
       test('target Android 5.0 (API 21)', () {
         expect(project.file('rush.yml').readAsStringSync(),
             contains('min_sdk: 21'));
@@ -342,6 +349,35 @@ class Legacy(container: ComponentContainer) : AndroidNonvisibleComponent(contain
       final built = await project.build();
       expect(built.exitCode, 0, reason: built.output);
       expect(built.output, isNot(contains('deprecated')));
+    });
+
+    test('removes the repackaging rules Rush applies itself', () async {
+      final project = await TestProject.create('old_rules_ext');
+      project.editConfig('#license: LICENSE.txt',
+          'provided_dependencies:\n- com.google.code.gson:gson:2.8.9');
+      final rules = project.file('src/proguard-rules.pro');
+      rules.writeAsStringSync('''${rules.readAsStringSync()}
+# ProGuard sometimes renames references to these classes.
+-keeppackagenames gnu.kawa**, gnu.expr**
+
+# Repackages the optimized classes.
+-repackageclasses ${project.package}.repacked
+''');
+
+      final migrated =
+          await rush(['migrate'], workingDirectory: project.dir.path);
+      expect(migrated.exitCode, 0, reason: migrated.output);
+      expect(
+          rules.readAsStringSync(),
+          allOf(
+              isNot(contains('-repackageclasses')),
+              isNot(contains('-keeppackagenames')),
+              isNot(contains('Repackages the optimized classes')),
+              contains('-keep @com.google.appinventor')));
+      expect(project.file('rush.yml').readAsStringSync(),
+          isNot(contains('provided_dependencies')));
+      final built = await project.build(['--optimize']);
+      expect(built.exitCode, 0, reason: built.output);
     });
   });
 }

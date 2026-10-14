@@ -103,7 +103,8 @@ class BuildCommand extends Command<int> {
           optimize
               ? 'Optimizing and obfuscating the bytecode'
               : 'Shrinking bundled libraries',
-          () => runProGuard(config, artJarPath, plan, resources,
+          () => runProGuard(
+              config, artJarPath, plan, resources, descriptor.package,
               optimize: optimize));
     }
 
@@ -150,6 +151,7 @@ class BuildCommand extends Command<int> {
     for (final key in config.ignoredKeys) {
       _lgr.warn('`$key` in rush.yml has no effect. Remove it.');
     }
+    await checkProjectRules();
     final missingFiles = _missingFiles(config);
     for (final path in missingFiles) {
       _lgr.err('$path is listed in rush.yml but doesn\'t exist');

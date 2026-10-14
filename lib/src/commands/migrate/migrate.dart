@@ -10,11 +10,13 @@ import 'package:yaml_edit/yaml_edit.dart';
 import 'package:rush/src/commands/deps/sync.dart';
 import 'package:rush/src/commands/migrate/old_config/old_config.dart' as old;
 import 'package:rush/src/commands/migrate/provided_dependencies.dart';
+import 'package:rush/src/commands/migrate/rush_rules.dart';
 import 'package:rush/src/config/config.dart';
 import 'package:rush/src/config/library_placement.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/constants.dart';
+import 'package:rush/src/utils/file_extension.dart';
 
 class MigrateCommand extends Command<int> {
   final _fs = GetIt.I<FileService>();
@@ -31,7 +33,7 @@ class MigrateCommand extends Command<int> {
   @override
   Future<int> run() async {
     if (!_isRush1Project()) {
-      return _moveProvidedDependencies();
+      return _updateRush2Project();
     }
     _lgr.startTask('Initializing');
     final oldConfig = await old.OldConfig.load(_fs.configFile, _lgr);
@@ -92,6 +94,7 @@ class MigrateCommand extends Command<int> {
 
     _lgr.startTask('Updating config file (rush.yml)');
     _updateConfig(newConfig, oldConfig.build?.kotlin?.enable ?? false);
+    await _removeRushRules();
     _deleteOldHiveBoxes();
     _lgr.stopTask();
 
@@ -172,23 +175,38 @@ class MigrateCommand extends Command<int> {
       (YamlEditor(_fs.configFile.readAsStringSync()).parseAt([]).value as Map)
           .containsKey('name');
 
-  Future<int> _moveProvidedDependencies() async {
-    _lgr.startTask('Moving provided_dependencies to libraries');
+  Future<int> _updateRush2Project() async {
+    _lgr.startTask('Updating rush.yml and src/proguard-rules.pro');
     final config = await Config.load(_fs.configFile, _lgr);
     if (config == null) {
       _lgr.stopTask(false);
       return 1;
     }
-    if (config.providedDependencies.isEmpty) {
-      _lgr
-        ..info('Nothing to migrate')
-        ..stopTask();
-      return 0;
+    final movedDependencies = config.providedDependencies.isNotEmpty;
+    if (movedDependencies) {
+      await _fs.configFile.writeAsString(withProvidedDependenciesAsLibraries(
+          await _fs.configFile.readAsString()));
     }
-    await _fs.configFile.writeAsString(withProvidedDependenciesAsLibraries(
-        await _fs.configFile.readAsString()));
+    final removedRules = await _removeRushRules();
+    if (!movedDependencies && !removedRules) {
+      _lgr.info('Nothing to migrate');
+    }
     _lgr.stopTask();
     return 0;
+  }
+
+  Future<bool> _removeRushRules() async {
+    final rules = p.join(_fs.srcDir.path, 'proguard-rules.pro').asFile();
+    if (!await rules.exists()) {
+      return false;
+    }
+    final contents = await rules.readAsString();
+    final cleaned = withoutRushRules(contents);
+    if (cleaned == contents) {
+      return false;
+    }
+    await rules.writeAsString(cleaned);
+    return true;
   }
 
   void _updateConfig(Config config, bool enableKotlin) {

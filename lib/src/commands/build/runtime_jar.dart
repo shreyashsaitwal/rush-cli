@@ -72,10 +72,23 @@ Future<String> createArtJar(Set<String> requiredJars) async {
   return artJarPath;
 }
 
+final _repackageRule = RegExp(r'^\s*-repackageclasses\b', multiLine: true);
+
+File get _projectRules =>
+    p.join(_fs.srcDir.path, 'proguard-rules.pro').asFile();
+
+Future<void> checkProjectRules() async {
+  if (await _projectRules.exists() &&
+      _repackageRule.hasMatch(await _projectRules.readAsString())) {
+    throw Exception('src/proguard-rules.pro sets -repackageclasses, which Rush '
+        'applies itself to optimized builds. Remove it, or run `rush migrate`.');
+  }
+}
+
 Future<void> runProGuard(Config config, String artJarPath, LibraryPlan plan,
-    ExtensionResources? resources,
+    ExtensionResources? resources, String package,
     {required bool optimize}) async {
-  final projectRules = p.join(_fs.srcDir.path, 'proguard-rules.pro').asFile();
+  final projectRules = _projectRules;
   await Executor.execProGuard(
     config,
     artJarPath,
@@ -84,6 +97,7 @@ Future<void> runProGuard(Config config, String artJarPath, LibraryPlan plan,
       ...plan.consumerRules,
       ...await _bundledProguardRules(plan.privateJars),
       if (!optimize) await _keepExtensionClassesRules(),
+      if (optimize) await _repackageRules(package),
       if (await projectRules.exists()) projectRules.path,
     },
     shrinkOnly: !optimize,
@@ -111,6 +125,12 @@ Future<List<String>> _bundledProguardRules(Set<String> jars) async {
     }
   }
   return rules;
+}
+
+Future<String> _repackageRules(String package) async {
+  final rules = p.join(_fs.buildFilesDir.path, 'repackage.pro').asFile();
+  await rules.writeAsString('-repackageclasses $package.repacked\n');
+  return rules.path;
 }
 
 Future<String> _keepExtensionClassesRules() async {

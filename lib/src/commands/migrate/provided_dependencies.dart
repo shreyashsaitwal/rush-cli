@@ -1,12 +1,14 @@
 import 'package:collection/collection.dart';
 import 'package:yaml_edit/yaml_edit.dart';
 
+import 'package:rush/src/commands/migrate/comments.dart';
 import 'package:rush/src/config/library_placement.dart';
 
 const _key = 'provided_dependencies';
 
 String withProvidedDependenciesAsLibraries(String config) {
-  final editor = YamlEditor(_withoutCommentAbove(config, _key));
+  final editor = YamlEditor(
+      withoutCommentsAbove(config, (line) => line.startsWith('$_key:')));
   final document = editor.parseAt([]).value as Map;
   final provided = [...?document[_key] as List?].cast<String>();
   final dependencies = [...?document['dependencies'] as List?];
@@ -36,14 +38,4 @@ String withProvidedDependenciesAsLibraries(String config) {
 
   editor.remove([_key]);
   return editor.toString();
-}
-
-String _withoutCommentAbove(String config, String key) {
-  final lines = config.split('\n');
-  final keyLine = lines.indexWhere((el) => el.startsWith('$key:'));
-  var commentStart = keyLine;
-  while (commentStart > 0 && lines[commentStart - 1].startsWith('#')) {
-    commentStart--;
-  }
-  return [...lines.take(commentStart), ...lines.skip(keyLine)].join('\n');
 }

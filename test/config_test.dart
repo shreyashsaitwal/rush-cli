@@ -76,6 +76,17 @@ void main() {
               contains('shared'), contains('private')));
     });
 
+    test('refuse -repackageclasses in the project rules', () async {
+      final project = await TestProject.create('repackaging_ext');
+      final rules = project.file('src/proguard-rules.pro');
+      rules.writeAsStringSync(
+          '${rules.readAsStringSync()}\n-repackageclasses x.repacked\n');
+      expect(
+          await failedBuild(project),
+          allOf(contains('src/proguard-rules.pro'),
+              contains('-repackageclasses'), contains('rush migrate')));
+    });
+
     test('name a missing asset', () async {
       final project = await TestProject.create('no_asset_ext');
       project.editConfig('#assets:', 'assets:\n- missing.txt\n#assets:');
