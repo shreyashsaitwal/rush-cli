@@ -91,6 +91,7 @@ Future<void> shrinkRuntimeJar(String artJarPath, LibraryPlan plan,
     ExtensionResources? resources, String package,
     {required bool optimize}) async {
   final projectRules = _projectRules;
+  final mapping = _mapping(package);
   await Executor.execR8(
     artJarPath,
     libraryJars: {
@@ -104,7 +105,22 @@ Future<void> shrinkRuntimeJar(String artJarPath, LibraryPlan plan,
       if (optimize) await _repackageRules(package),
       if (await projectRules.exists()) projectRules.path,
     },
+    mapping: optimize ? mapping.path : null,
   );
+  if (optimize) {
+    _lgr.info('Wrote the mapping of renamed classes to '
+        '${p.relative(mapping.path, from: _fs.cwd)}');
+  }
+}
+
+File _mapping(String package) =>
+    p.join(_fs.cwd, 'out', '$package.mapping.txt').asFile();
+
+Future<void> removeMapping(String package) async {
+  final mapping = _mapping(package);
+  if (await mapping.exists()) {
+    await mapping.delete();
+  }
 }
 
 Future<List<String>> _shrinkOnlyRules() async {

@@ -166,6 +166,7 @@ class Executor {
     String artJarPath, {
     required Set<String> libraryJars,
     required Set<String> rules,
+    String? mapping,
   }) async {
     final shrunk = p.join(p.dirname(artJarPath), 'AndroidRuntime.shrunk.jar');
     await _runR8Tool(
@@ -176,6 +177,7 @@ class Executor {
         ...['--lib', await jdkLibrary()],
         for (final jar in libraryJars) ...['--lib', jar],
         for (final rule in rules) ...['--pg-conf', rule],
+        if (mapping != null) ...['--pg-map-output', mapping],
         ...['--output', shrunk],
         artJarPath,
       ],

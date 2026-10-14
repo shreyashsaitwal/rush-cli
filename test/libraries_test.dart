@@ -177,6 +177,20 @@ class {className}(container: ComponentContainer) :
         contains('serializer'));
   });
 
+  test('optimized builds write the mapping of renamed classes', () async {
+    final project = await TestProject.create('mapping_ext');
+    final mapping = project.file('out/${project.package}.mapping.txt');
+
+    final optimized = await project.build(['--optimize']);
+    expect(optimized.exitCode, 0, reason: optimized.output);
+    expect(mapping.readAsStringSync(),
+        contains('${project.package}.${project.className} ->'));
+
+    final plain = await project.build();
+    expect(plain.exitCode, 0, reason: plain.output);
+    expect(mapping.existsSync(), isFalse);
+  });
+
   test('Kotlin extensions can opt in to experimental APIs', () async {
     final project = await TestProject.create('opt_in_ext', language: 'kotlin');
     project.writeSource('${project.className}.kt', '''

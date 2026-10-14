@@ -92,6 +92,7 @@ class BuildCommand extends Command<int> {
     final (descriptor, libraries, artJarPath) =
         await _task('Processing', () async {
       final descriptor = await _requireExtension();
+      await removeMapping(descriptor.package);
       final libraries = await moveLibraryFontsToRaw(
           await packageLibraries(config, plan, resources));
       return (descriptor, libraries, await createArtJar(plan.privateJars));
