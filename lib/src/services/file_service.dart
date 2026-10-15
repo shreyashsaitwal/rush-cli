@@ -17,15 +17,8 @@ class FileService {
 
     if (env.containsKey('RUSH_HOME')) {
       homeDir = env['RUSH_HOME']!.asDir();
-    } else if (env.containsKey('RUSH_DATA_DIR')) {
-      _lgr.warn('RUSH_DATA_DIR env var is deprecated. Use RUSH_HOME instead.');
-      homeDir = env['RUSH_DATA_DIR']!.asDir();
     } else {
-      if (Platform.operatingSystem == 'windows') {
-        homeDir = p.join(env['UserProfile']!, '.rush').asDir();
-      } else {
-        homeDir = p.join(env['HOME']!, '.rush').asDir();
-      }
+      homeDir = _defaultHomeDir(env).asDir();
     }
 
     if (!homeDir.existsSync() || homeDir.listSync().isEmpty) {
@@ -72,5 +65,28 @@ class FileService {
   File get kotlincArgsFile =>
       p.join(buildFilesDir.path, 'kotlinc.args').asFile(true);
 
-  File get kaptArgsFile => p.join(buildFilesDir.path, 'kapt.args').asFile(true);
+  File get kaptArgsFile =>
+      p.join(buildFilesDir.path, 'kapt.args').asFile(true);
+
+  /// Returns the default Rush home directory path using platform-appropriate
+  /// data directories:
+  ///
+  /// - **Linux / macOS**: `$XDG_DATA_HOME/rush` (defaults to `~/.local/share/rush`)
+  /// - **Windows**: `%LOCALAPPDATA%\rush` (defaults to `%USERPROFILE%\.local\share\rush`)
+  static String _defaultHomeDir(Map<String, String> env) {
+    if (Platform.isWindows) {
+      final localAppData = env['LOCALAPPDATA'];
+      if (localAppData != null && localAppData.isNotEmpty) {
+        return p.join(localAppData, 'rush');
+      }
+      return p.join(env['USERPROFILE']!, '.local', 'share', 'rush');
+    }
+
+    // Linux, macOS, and any other Unix-like platform: follow XDG Base Dir spec.
+    final xdgDataHome = env['XDG_DATA_HOME'];
+    if (xdgDataHome != null && xdgDataHome.isNotEmpty) {
+      return p.join(xdgDataHome, 'rush');
+    }
+    return p.join(env['HOME']!, '.local', 'share', 'rush');
+  }
 }

@@ -15,7 +15,7 @@ else {
     $RushHome = (Get-Item (Get-Command "rush.exe").Path).Directory.Parent.FullName
   }
   else {
-    $RushHome = "$Home\.rush"
+    $RushHome = if ($env:LOCALAPPDATA) { "$env:LOCALAPPDATA\rush" } else { "$Home\.local\share\rush" }
   }
 }
 New-Item $RushHome -ItemType Directory -Force | Out-Null

@@ -86,7 +86,7 @@ is hit.
 
 | Variable | |
 |---|---|
-| `RUSH_HOME` | Where Rush is installed, `~/.rush` by default |
+| `RUSH_HOME` | Overrides where Rush is installed. Defaults to `~/.local/share/rush` (Linux/macOS, or `$XDG_DATA_HOME/rush` if set) or `%LOCALAPPDATA%\rush` (Windows) |
 | `JAVA_HOME` | The JDK to use. Otherwise `java` and `javac` are taken from `PATH` |
 | `M2_HOME` | The local Maven repository is `$M2_HOME/repository` instead of `~/.m2/repository` |
 | `NO_COLOR` | Turns colors off |
