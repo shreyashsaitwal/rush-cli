@@ -1,7 +1,7 @@
 include: package:lints/recommended.yaml
 
 analyzer:
-  exclude: ['**.g.dart', 'packages/**', 'processor/**']
+  exclude: ['**.g.dart', 'packages/**', 'jvm/**']
   language:
     strict-raw-types: true
     strict-inference: true

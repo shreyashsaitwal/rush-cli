@@ -23,9 +23,9 @@ jobs:
       - name: Collect JARs
         run: |
           mkdir libs
-          cp processor/processor/build/libs/processor-*[0-9].jar libs/processor.jar
-          cp processor/annotations/build/libs/annotations-*[0-9].jar libs/annotations.jar
-          cp processor/relocator/build/libs/relocator-*[0-9].jar libs/relocator.jar
+          cp jvm/processor/build/libs/processor-*[0-9].jar libs/processor.jar
+          cp jvm/annotations/build/libs/annotations-*[0-9].jar libs/annotations.jar
+          cp jvm/relocator/build/libs/relocator-*[0-9].jar libs/relocator.jar
       - uses: actions/upload-artifact@v4
         with:
           name: libs

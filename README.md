@@ -38,7 +38,7 @@ Rush requires JDK 17 or newer.
 curl -fsSL https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.sh | bash
 ```
 
-Then add `$HOME/.rush/bin` to your `PATH`.
+Then add `$HOME/.local/share/rush/bin` to your `PATH`.
 
 ### Windows
 

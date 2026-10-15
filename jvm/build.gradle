@@ -19,7 +19,7 @@ subprojects {
         publications {
             mavenJava(MavenPublication) {
                 pom {
-                    url = 'https://github.com/shreyashsaitwal/rush-cli/tree/2.0/processor'
+                    url = 'https://github.com/shreyashsaitwal/rush-cli/tree/2.0/jvm'
                     licenses {
                         license {
                             name = 'GPL-3.0'

@@ -103,7 +103,7 @@ sources, assets, dependencies, `rush.yml`, the manifest, the JDK and Rush itself
 compares file contents, not modification times, so a skipped build produces exactly the
 same AIX as a clean one.
 
-Desugared libraries are cached in `~/.rush/cache/desugar` and shared by all your projects.
+Desugared libraries are cached in `~/.local/share/rush/cache/desugar` (or the platform equivalent) and shared by all your projects.
 `rush clean` keeps them; delete that folder to free the space. Resolved dependencies and
 the core library backport are kept in `.rush`. If a build behaves strangely after manual
 changes to these files, run `rush clean`.

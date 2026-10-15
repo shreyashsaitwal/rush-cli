@@ -13,7 +13,7 @@ if [ -n "${RUSH_HOME:-}" ]; then
 elif command -v rush >/dev/null; then
   rush_home="$(dirname "$(dirname "$(command -v rush)")")"
 else
-  rush_home="$HOME/.rush"
+  rush_home="${XDG_DATA_HOME:-${HOME}/.local/share}/rush"
 fi
 
 case "$(uname -sm)" in

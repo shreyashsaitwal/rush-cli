@@ -32,9 +32,10 @@ On Windows, in PowerShell:
 iwr https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.ps1 -useb | iex
 ```
 
-The installer puts Rush in `~/.rush` (`%UserProfile%\.rush` on Windows) and offers to
-download the App Inventor runtime and build tools, about 140 MB. Add `~/.rush/bin` to your
-`PATH` as it suggests, then check the installation:
+The installer puts Rush in `~/.local/share/rush` on Linux and macOS (or `$XDG_DATA_HOME/rush`
+if that env var is set), and `%LOCALAPPDATA%\\rush` on Windows. It offers to download the App
+Inventor runtime and build tools (about 140 MB). Add the `bin` subdirectory to your `PATH` as
+it suggests, then check the installation:
 
 ```sh
 rush --version
