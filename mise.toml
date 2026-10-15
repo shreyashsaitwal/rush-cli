@@ -1,0 +1,4 @@
+[tools]
+dart = "3.13"
+gradle = "9.8"
+java = "temurin-17"
