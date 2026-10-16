@@ -2,10 +2,9 @@ import 'dart:convert';
 
 import 'package:archive/archive.dart';
 import 'package:collection/collection.dart';
-import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart';
 
-import 'package:rush/src/commands/build/android_manifest.dart';
+import 'package:rush/src/commands/build/aar_contents.dart';
 import 'package:rush/src/commands/build/android_xml.dart';
 
 const androidDefaultRules = '''
@@ -29,7 +28,7 @@ String androidKeepRules({
     for (final element in manifestElements)
       ..._namedIn(parseAndroidXmlFragment(element)),
   }.where(programClasses.contains).sorted();
-  final packages = aars.map(_package).nonNulls.toSet().sorted();
+  final packages = aars.map((el) => el.package).nonNulls.toSet().sorted();
   return [
     for (final package in packages)
       '-dontwarn $package.R\n-dontwarn $package.R\$*\n',
@@ -38,9 +37,10 @@ String androidKeepRules({
 }
 
 Iterable<String> _namedInAar(Archive aar) => [
-      if (_text(aar, 'AndroidManifest.xml') case final manifest?)
-        ..._namedIn(parseAndroidXml(manifest), package: _package(aar)),
-      for (final file in aar.files.where(_isResourceXml))
+      if (aar.text('AndroidManifest.xml') case final manifest?)
+        ..._namedIn(parseAndroidXml(manifest), package: aar.package),
+      for (final file
+          in aar.files.where((el) => el.isFile && isResourceXml(el.name)))
         ..._namedIn(parseAndroidXml(utf8.decode(file.content))),
     ];
 
@@ -58,16 +58,3 @@ Iterable<String> _namesIn(String value, String? package) => [
       package != null && value.startsWith('.') ? '$package$value' : value,
       if (value.contains(':')) value.substring(value.lastIndexOf(':') + 1),
     ];
-
-bool _isResourceXml(ArchiveFile file) =>
-    file.isFile &&
-    file.name.startsWith('res/') &&
-    p.posix.extension(file.name) == '.xml';
-
-String? _package(Archive aar) =>
-    manifestPackage(_text(aar, 'AndroidManifest.xml') ?? '');
-
-String? _text(Archive aar, String name) => switch (aar.findFile(name)) {
-      final file? => utf8.decode(file.content),
-      null => null,
-    };

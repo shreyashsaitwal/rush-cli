@@ -4,7 +4,7 @@ import 'package:archive/archive.dart';
 import 'package:collection/collection.dart';
 import 'package:xml/xml.dart';
 
-import 'package:rush/src/commands/build/android_manifest.dart';
+import 'package:rush/src/commands/build/aar_contents.dart';
 import 'package:rush/src/commands/build/android_xml.dart';
 import 'package:rush/src/commands/build/relocation.dart' as relocation;
 import 'package:rush/src/commands/build/resource_names.dart';
@@ -22,13 +22,8 @@ class PrivateNames {
     final rFields = <relocation.RenamedMember>[];
     for (final MapEntry(key: fileName, value: aar) in aars.entries) {
       final owner = _rClass(_packageOf(aar, fileName));
-      final rTxt = _text(aar, 'R.txt') ?? '';
-      final types = const LineSplitter()
-          .convert(rTxt)
-          .map((line) => line.split(' '))
-          .where((parts) => parts.length >= 3)
-          .map((parts) => parts[1])
-          .toSet();
+      final rTxt = aar.text('R.txt') ?? '';
+      final types = rTxtRows(rTxt).map((el) => el.type).toSet();
       if (types.isNotEmpty) {
         rClasses.addAll([owner, for (final type in types) '$owner\$$type']);
       }
@@ -44,7 +39,7 @@ class PrivateNames {
     };
     final intentNames = {
       for (final aar in aars.values)
-        if (_text(aar, 'AndroidManifest.xml') case final manifest?)
+        if (aar.text('AndroidManifest.xml') case final manifest?)
           ..._intentNames(parseAndroidXml(manifest)),
       for (final element in manifestElements)
         ..._intentNames(parseAndroidXmlFragment(element)),
@@ -93,7 +88,7 @@ class PrivateNames {
       final content = switch (file.name) {
         'classes.jar' => classes,
         'AndroidManifest.xml' => utf8.encode(_renamedManifest(file)),
-        final name when name.startsWith('res/') && name.endsWith('.xml') =>
+        final name when isResourceXml(name) =>
           utf8.encode(_renamedClassReferences(utf8.decode(file.content))),
         _ => file.content,
       };
@@ -191,14 +186,8 @@ class PrivateNames {
   }
 
   static String _packageOf(Archive aar, String fileName) =>
-      manifestPackage(_text(aar, 'AndroidManifest.xml') ?? '') ??
+      aar.package ??
       (throw Exception('$fileName declares no package in its manifest'));
 
   static String _rClass(String package) => '${package.replaceAll('.', '/')}/R';
-
-  static String? _text(Archive aar, String name) =>
-      switch (aar.findFile(name)) {
-        final file? => utf8.decode(file.content),
-        null => null,
-      };
 }

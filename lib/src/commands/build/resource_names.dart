@@ -4,6 +4,7 @@ import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart';
 
+import 'package:rush/src/commands/build/aar_contents.dart';
 import 'package:rush/src/commands/build/android_xml.dart';
 
 typedef RenamedField = ({String type, String from, String to});
@@ -56,7 +57,7 @@ class ResourceRenaming {
       if (resource != null) {
         defined.add((resource.type, resource.name));
       }
-      if (file.name.startsWith('res/') && file.name.endsWith('.xml')) {
+      if (isResourceXml(file.name)) {
         final document = parseAndroidXml(utf8.decode(file.content));
         if (_isValues(file.name)) {
           _collectValues(document.rootElement, defined, styleables);
@@ -88,7 +89,7 @@ class ResourceRenaming {
   }
 
   List<RenamedField> renamedFields(String rTxt) => [
-        for (final row in _rows(rTxt))
+        for (final row in rTxtRows(rTxt))
           if (_fields[(row.type, row.name)] case final to?)
             (type: row.type, from: row.name, to: to),
       ];
@@ -97,14 +98,13 @@ class ResourceRenaming {
     if (file.name == 'R.txt') {
       return utf8.encode(_renamedRTxt(utf8.decode(file.content)));
     }
-    final isResourceXml =
-        file.name.startsWith('res/') && file.name.endsWith('.xml');
-    if (!isResourceXml && file.name != 'AndroidManifest.xml') {
+    final resourceXml = isResourceXml(file.name);
+    if (!resourceXml && file.name != 'AndroidManifest.xml') {
       return file.content;
     }
     final document = parseAndroidXml(utf8.decode(file.content));
     renameReferences(document);
-    if (isResourceXml && _isValues(file.name)) {
+    if (resourceXml && _isValues(file.name)) {
       _renameValues(document.rootElement);
     }
     return utf8.encode(document.toXmlString());
@@ -253,13 +253,6 @@ class ResourceRenaming {
                     '${fieldOf(renamed('attr', attr))}',
     };
   }
-
-  static Iterable<({String type, String name})> _rows(String rTxt) =>
-      const LineSplitter()
-          .convert(rTxt)
-          .map((line) => line.split(' '))
-          .where((parts) => parts.length >= 3)
-          .map((parts) => (type: parts[1], name: parts[2]));
 
   static bool _isValues(String path) =>
       p.posix.split(path)[1].startsWith('values');
