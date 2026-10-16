@@ -62,6 +62,23 @@ void main() {
         isEmpty);
   });
 
+  test('resources can\'t use the prefix of private libraries', () async {
+    final project = await TestProject.create('res_ext');
+    _writeResources(project);
+    project.file('res/values/greetings.xml').writeAsStringSync('''
+<resources>
+    <string name="com_example_resext_repacked_greeting">Hi</string>
+</resources>
+''');
+    final result = await project.build();
+    expect(result.exitCode, isNot(0));
+    expect(
+        result.output,
+        contains('string/com_example_resext_repacked_greeting can\'t start '
+            'with com_example_resext_repacked_, which Rush gives the '
+            'resources of private libraries'));
+  });
+
   test('resources must be prefixed with the extension package', () async {
     final project = await TestProject.create('res_ext');
     _writeResources(project);

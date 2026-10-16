@@ -7,6 +7,7 @@ import 'package:tint/tint.dart';
 
 import 'package:rush/src/commands/build/aix.dart';
 import 'package:rush/src/commands/build/android_manifest.dart';
+import 'package:rush/src/commands/build/private_names.dart';
 import 'package:rush/src/commands/build/tools/executor.dart';
 import 'package:rush/src/config/config.dart';
 import 'package:rush/src/services/file_service.dart';
@@ -91,18 +92,21 @@ class ExtensionResources {
 
   Future<void> _checkNames() async {
     final prefix = '${package.toLowerCase().replaceAll('.', '_')}_';
-    final misnamed = {
+    final reserved = PrivateNames.resourcePrefix(package);
+    final problems = {
       for (final line in await _symbols.asFile().readAsLines())
         if (line.split(' ') case [_, final type, final name, ...]
-            when type != 'id' && !name.startsWith(prefix))
-          (type, name),
+            when type != 'id')
+          if (!name.startsWith(prefix))
+            '$type/$name must be named $prefix$name'
+          else if (name.startsWith(reserved))
+            "$type/$name can't start with $reserved, which Rush gives the "
+                'resources of private libraries',
     };
-    if (misnamed.isEmpty) {
+    if (problems.isEmpty) {
       return;
     }
-    for (final (type, name) in misnamed) {
-      _lgr.err('$type/$name must be named $prefix$name');
-    }
+    problems.forEach(_lgr.err);
     _lgr.log(
         'Resource names start with the extension package so they never clash '
         'with other extensions or App Inventor',
