@@ -65,8 +65,7 @@ class FileService {
   File get kotlincArgsFile =>
       p.join(buildFilesDir.path, 'kotlinc.args').asFile(true);
 
-  File get kaptArgsFile =>
-      p.join(buildFilesDir.path, 'kapt.args').asFile(true);
+  File get kaptArgsFile => p.join(buildFilesDir.path, 'kapt.args').asFile(true);
 
   /// Returns the default Rush home directory path using platform-appropriate
   /// data directories:
