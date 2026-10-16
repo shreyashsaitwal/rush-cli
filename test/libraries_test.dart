@@ -606,6 +606,40 @@ class {className}(container: ComponentContainer) :
     expect(code, contains(renamed));
   });
 
+  test('private libraries switch on renamed class names', () async {
+    final project = await TestProject.create('private_switch_ext');
+    project.file('deps/util.jar')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(_jar(await _compiled(project, {
+        'com/example/util/Plugin':
+            'package com.example.util; public class Plugin {}',
+        'com/example/util/Lookup': 'package com.example.util; '
+            'public class Lookup { public static int find(String name) { '
+            'switch (name) { case "com.example.util.Plugin": return 1; '
+            'case "com.example.util.Other": return 2; default: return 0; '
+            '} } }',
+      })));
+    project.addDependencies(['util.jar']);
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public int Find() {
+    return com.example.util.Lookup.find(
+        com.example.util.Plugin.class.getName());
+  }
+''');
+
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+    final lookup = ZipDecoder()
+        .decodeBytes(project.aix.bytes('files/AndroidRuntime.jar'))
+        .findFile(
+            '${project.packagePath}/repacked/com/example/util/Lookup.class')!;
+    expect(
+        latin1.decode(lookup.content),
+        allOf(contains('${project.package}.repacked.com.example.util.Plugin'),
+            isNot(contains('hashCode'))));
+  });
+
   test('private libraries keep intent actions the extension queries', () async {
     final project = await TestProject.create('private_query_ext');
     final classes = await _compiled(project, {
