@@ -9,6 +9,8 @@ import 'package:tint/tint.dart';
 import 'package:rush/src/commands/build/aix.dart';
 import 'package:rush/src/commands/build/android_manifest.dart';
 import 'package:rush/src/commands/build/private_names.dart';
+import 'package:rush/src/commands/build/resource_names.dart';
+import 'package:rush/src/commands/build/resource_symbols.dart';
 import 'package:rush/src/commands/build/tools/executor.dart';
 import 'package:rush/src/config/config.dart';
 import 'package:rush/src/services/file_service.dart';
@@ -33,7 +35,8 @@ class ExtensionResources {
 
   String get _manifest => p.join(_dir, 'AndroidManifest.xml');
 
-  static Future<ExtensionResources?> compile(Config config) async {
+  static Future<ExtensionResources?> compile(
+      Config config, Iterable<Archive> libraries) async {
     if (!await _fs.resDir.exists()) {
       return null;
     }
@@ -51,15 +54,23 @@ class ExtensionResources {
 ''');
 
     final compiled = p.join(dir.path, 'compiled.zip');
-    final javaDir = p.join(dir.path, 'java');
     await Executor.execAapt2Compile(resDir: _fs.resDir.path, output: compiled);
+    final linkedSymbols = p.join(dir.path, 'linked-R.txt');
     await Executor.execAapt2Link(
       manifest: resources._manifest,
       compiledResources: compiled,
-      javaDir: javaDir,
-      symbols: resources._symbols,
+      librarySymbols: await _librarySymbols(dir.path, libraries),
+      symbols: linkedSymbols,
       output: p.join(dir.path, 'resources.apk'),
     );
+    final symbols = ownSymbols(await linkedSymbols.asFile().readAsString(),
+        ResourceDefinitions.of([await _archive()]));
+    await resources._symbols.asFile().writeAsString(symbols);
+    final javaDir = p.join(dir.path, 'java');
+    await p
+        .join(javaDir, 'R.java')
+        .asFile(true)
+        .writeAsString(rClass(resources.package, symbols));
     await resources._checkNames();
     await Executor.execJavac(
       sources: javaDir
@@ -78,6 +89,26 @@ class ExtensionResources {
         await fileEntry(file, from: resources.classesDir),
     ]);
     return resources;
+  }
+
+  static Future<String> _librarySymbols(
+      String dir, Iterable<Archive> libraries) async {
+    final stubs = p.join(dir, 'library-symbols');
+    await p
+        .join(stubs, 'values', 'values.xml')
+        .asFile(true)
+        .writeAsString(ResourceDefinitions.of(libraries).stubs);
+    final compiled = p.join(dir, 'library-symbols.zip');
+    await Executor.execAapt2Compile(resDir: stubs, output: compiled);
+    return compiled;
+  }
+
+  static Future<Archive> _archive() async {
+    final archive = Archive();
+    for (final file in _files) {
+      archive.addFile(await fileEntry(file, from: _fs.resDir.parent.path));
+    }
+    return archive;
   }
 
   static Future<String> _manifestPackage() async {
@@ -136,7 +167,7 @@ class ExtensionResources {
         : entry;
   }
 
-  Iterable<File> get _files =>
+  static Iterable<File> get _files =>
       _fs.resDir.listSync(recursive: true).whereType<File>();
 
   static bool _isXml(File file) => p.extension(file.path) == '.xml';

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:archive/archive.dart';
+import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart';
 
@@ -43,15 +44,16 @@ const _resAuto = 'http://schemas.android.com/apk/res-auto';
 final _reference = RegExp(r'^@(\+?)([a-z]+)/([\w.]+)$');
 final _themeReference = RegExp(r'^\?(attr/)?([A-Za-z_]\w*)$');
 
-class ResourceRenaming {
-  ResourceRenaming._(
-      this._prefix, this._defined, Map<String, List<String>> styleables)
-      : _fields = _renamedFieldNames(_prefix, _defined, styleables);
+String resourceField(String name) =>
+    name.replaceAll('.', '_').replaceAll(':', '_');
 
-  factory ResourceRenaming.of(Iterable<Archive> libraries,
-      {required String prefix}) {
+class ResourceDefinitions {
+  ResourceDefinitions._(this.defined, this.styleables, this._attributes);
+
+  factory ResourceDefinitions.of(Iterable<Archive> libraries) {
     final defined = <(String, String)>{};
     final styleables = <String, List<String>>{};
+    final attributes = <String, XmlElement>{};
     for (final file in libraries.expand((el) => el.files)) {
       final resource = _ResourceFile.parse(file.name);
       if (resource != null) {
@@ -60,13 +62,87 @@ class ResourceRenaming {
       if (isResourceXml(file.name)) {
         final document = parseAndroidXml(utf8.decode(file.content));
         if (_isValues(file.name)) {
-          _collectValues(document.rootElement, defined, styleables);
+          _collectValues(document.rootElement, defined, styleables, attributes);
         } else {
           _collectIds(document, defined);
         }
       }
     }
-    return ResourceRenaming._(prefix, defined, styleables);
+    return ResourceDefinitions._(defined, styleables, attributes);
+  }
+
+  final Set<(String, String)> defined;
+  final Map<String, List<String>> styleables;
+  final Map<String, XmlElement> _attributes;
+
+  String get stubs => [
+        '<resources>',
+        for (final name in _attributes.keys.sorted())
+          _attributes[name]!.toXmlString(),
+        for (final (type, name) in defined
+            .where((el) => el.$1 != 'attr' && el.$1 != 'styleable')
+            .sorted((a, b) => '${a.$1} ${a.$2}'.compareTo('${b.$1} ${b.$2}')))
+          switch (type) {
+            'style' => '<style name="$name" parent=""/>',
+            'id' => '<item type="id" name="$name"/>',
+            _ => '<item type="$type" name="$name">@null</item>',
+          },
+        '</resources>',
+      ].join();
+
+  static void _collectValues(
+      XmlElement resources,
+      Set<(String, String)> defined,
+      Map<String, List<String>> styleables,
+      Map<String, XmlElement> attributes) {
+    for (final element in resources.childElements) {
+      final type = _definedType(element);
+      final elementName = element.getAttribute('name');
+      if (type == null || elementName == null) {
+        continue;
+      }
+      defined.add((type, elementName));
+      if (type == 'attr') {
+        attributes[elementName] = element.copy();
+      }
+      if (element.localName == 'declare-styleable') {
+        final attrs = element.findElements('attr').toList();
+        styleables[elementName] = [
+          for (final attr in attrs) attr.getAttribute('name')!,
+        ];
+        for (final attr in attrs.where(_definesAttribute)) {
+          defined.add(('attr', attr.getAttribute('name')!));
+          attributes[attr.getAttribute('name')!] = attr.copy();
+        }
+      }
+    }
+  }
+
+  static void _collectIds(XmlDocument document, Set<(String, String)> defined) {
+    for (final attribute
+        in document.descendantElements.expand((el) => el.attributes)) {
+      final reference = _reference.firstMatch(attribute.value);
+      if (reference != null && reference[1] == '+' && reference[2] == 'id') {
+        defined.add(('id', reference[3]!));
+      }
+    }
+  }
+
+  static bool _definesAttribute(XmlElement attr) =>
+      !attr.getAttribute('name')!.startsWith('android:') &&
+      (attr.getAttribute('format') != null || attr.childElements.isNotEmpty);
+}
+
+class ResourceRenaming {
+  ResourceRenaming._(
+      this._prefix, this._defined, Map<String, List<String>> styleables)
+      : _fields = _renamedFieldNames(_prefix, _defined, styleables);
+
+  factory ResourceRenaming.of(Iterable<Archive> libraries,
+      {required String prefix}) {
+    final definitions = ResourceDefinitions.of(libraries);
+    return ResourceRenaming._(
+        prefix, definitions.defined, definitions.styleables);
   }
 
   final String _prefix;
@@ -192,71 +268,32 @@ class ResourceRenaming {
     }
   }
 
-  static void _collectValues(XmlElement resources,
-      Set<(String, String)> defined, Map<String, List<String>> styleables) {
-    for (final element in resources.childElements) {
-      final type = _definedType(element);
-      final elementName = element.getAttribute('name');
-      if (type == null || elementName == null) {
-        continue;
-      }
-      defined.add((type, elementName));
-      if (element.localName == 'declare-styleable') {
-        final attrs = element.findElements('attr').toList();
-        styleables[elementName] = [
-          for (final attr in attrs) attr.getAttribute('name')!,
-        ];
-        for (final attr in attrs.where(_definesAttribute)) {
-          defined.add(('attr', attr.getAttribute('name')!));
-        }
-      }
-    }
-  }
-
-  static void _collectIds(XmlDocument document, Set<(String, String)> defined) {
-    for (final attribute
-        in document.descendantElements.expand((el) => el.attributes)) {
-      final reference = _reference.firstMatch(attribute.value);
-      if (reference != null && reference[1] == '+' && reference[2] == 'id') {
-        defined.add(('id', reference[3]!));
-      }
-    }
-  }
-
-  static String? _definedType(XmlElement element) =>
-      switch (element.localName) {
-        'attr' => 'attr',
-        'declare-styleable' => 'styleable',
-        'item' => element.getAttribute('type'),
-        final tag => _valueTypes[tag],
-      };
-
-  static bool _definesAttribute(XmlElement attr) =>
-      !attr.getAttribute('name')!.startsWith('android:') &&
-      (attr.getAttribute('format') != null || attr.childElements.isNotEmpty);
-
   static Map<(String, String), String> _renamedFieldNames(String prefix,
       Set<(String, String)> defined, Map<String, List<String>> styleables) {
-    String fieldOf(String name) =>
-        name.replaceAll('.', '_').replaceAll(':', '_');
     String renamed(String type, String name) =>
         defined.contains((type, name)) ? '$prefix$name' : name;
     return {
       for (final (type, name) in defined)
-        (type, fieldOf(name)): fieldOf('$prefix$name'),
+        (type, resourceField(name)): resourceField('$prefix$name'),
       for (final MapEntry(key: styleable, value: attrs) in styleables.entries)
         for (final attr in attrs)
           if (defined.contains(('styleable', styleable)) ||
               defined.contains(('attr', attr)))
-            ('styleable', '${styleable}_${fieldOf(attr)}'):
-                '${fieldOf(renamed('styleable', styleable))}_'
-                    '${fieldOf(renamed('attr', attr))}',
+            ('styleable', '${styleable}_${resourceField(attr)}'):
+                '${resourceField(renamed('styleable', styleable))}_'
+                    '${resourceField(renamed('attr', attr))}',
     };
   }
-
-  static bool _isValues(String path) =>
-      p.posix.split(path)[1].startsWith('values');
 }
+
+String? _definedType(XmlElement element) => switch (element.localName) {
+      'attr' => 'attr',
+      'declare-styleable' => 'styleable',
+      'item' => element.getAttribute('type'),
+      final tag => _valueTypes[tag],
+    };
+
+bool _isValues(String path) => p.posix.split(path)[1].startsWith('values');
 
 class _ResourceFile {
   const _ResourceFile(this.directory, this.type, this.name, this.extension);

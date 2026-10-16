@@ -3,6 +3,7 @@ library;
 
 import 'dart:convert';
 
+import 'package:archive/archive.dart';
 import 'package:test/test.dart';
 
 import 'support/fixtures.dart';
@@ -33,6 +34,38 @@ void _writeResources(TestProject project) {
     android:layout_height="wrap_content"
     android:text="@string/com_example_resext_title" />
 ''');
+}
+
+void _useLibraryResources(TestProject project) {
+  project.file('deps/widgets.aar')
+    ..createSync(recursive: true)
+    ..writeAsBytesSync(ZipEncoder().encode(Archive()
+      ..addFile(ArchiveFile.string(
+          'AndroidManifest.xml', '<manifest package="com.example.widgets"/>'))
+      ..addFile(ArchiveFile.string('res/drawable/play.xml', '<vector/>'))
+      ..addFile(ArchiveFile.string(
+          'res/values/values.xml',
+          '<resources><attr name="widgetSize" format="dimension"/>'
+              '<style name="Widget.Theme" parent="Theme.AppCompat">'
+              '<item name="widgetSize">4dp</item></style></resources>'))
+      ..addFile(ArchiveFile.string('R.txt',
+          'int attr widgetSize 0x0\nint drawable play 0x0\nint style Widget_Theme 0x0\n'))
+      ..addFile(
+          ArchiveFile.bytes('classes.jar', ZipEncoder().encode(Archive())))));
+  project.addDependencies(['widgets.aar']);
+  project.file('res/layout/com_example_resext_icon.xml')
+    ..createSync(recursive: true)
+    ..writeAsStringSync('<ImageView '
+        'xmlns:android="http://schemas.android.com/apk/res/android" '
+        'xmlns:app="http://schemas.android.com/apk/res-auto" '
+        'android:layout_width="wrap_content" '
+        'android:layout_height="wrap_content" android:src="@drawable/play" '
+        'app:widgetSize="2dp"/>');
+  project.file('res/values/styles.xml')
+    ..createSync(recursive: true)
+    ..writeAsStringSync('<resources>'
+        '<style name="com_example_resext_theme" parent="Widget.Theme">'
+        '<item name="widgetSize">8dp</item></style></resources>');
 }
 
 void main() {
@@ -77,6 +110,24 @@ void main() {
         contains('string/com_example_resext_repacked_greeting can\'t start '
             'with com_example_resext_repacked_, which Rush gives the '
             'resources of private libraries'));
+  });
+
+  test('resources can reference the resources of shared libraries', () async {
+    final project = await TestProject.create('res_ext');
+    _useLibraryResources(project);
+    project.placeLibraries({'widgets.aar': 'shared'});
+
+    final result = await project.build();
+    expect(result.exitCode, 0, reason: result.output);
+    final aar = project.aix.library('com.example.resext.aar');
+    expect(
+        utf8.decode(aar.findFile('R.txt')!.content),
+        'int layout com_example_resext_icon 0x00000000\n'
+        'int style com_example_resext_theme 0x00000000\n');
+    expect(
+        utf8.decode(
+            aar.findFile('res/layout/com_example_resext_icon.xml')!.content),
+        contains('android:src="@drawable/play"'));
   });
 
   test('resources must be prefixed with the extension package', () async {

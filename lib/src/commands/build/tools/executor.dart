@@ -115,7 +115,7 @@ class Executor {
   static Future<void> execAapt2Link({
     required String manifest,
     required String compiledResources,
-    required String javaDir,
+    required String librarySymbols,
     required String symbols,
     required String output,
   }) async =>
@@ -125,7 +125,7 @@ class Executor {
         '--non-final-ids',
         ...['-I', (await Ai2Runtime.load()).androidJar],
         ...['--manifest', manifest],
-        ...['--java', javaDir],
+        ...['--auto-add-overlay', '-R', librarySymbols],
         ...['--output-text-symbols', symbols],
         ...['-o', output],
         compiledResources,

@@ -7,6 +7,7 @@ import 'dart:io'
         FileSystemEntityType,
         ProcessException;
 
+import 'package:archive/archive.dart';
 import 'package:args/command_runner.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
@@ -85,7 +86,10 @@ class BuildCommand extends Command<int> {
       _reportProblems(plan.problems);
       final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
       final manifest = await _mergeManifests(config, plan.manifests);
-      final resources = await ExtensionResources.compile(config);
+      final resources = await ExtensionResources.compile(config, [
+        for (final aar in [...plan.sharedAars, ...plan.privateAars])
+          ZipDecoder().decodeBytes(await aar.file.asFile().readAsBytes()),
+      ]);
       await _compile(config, plan, manifest, timestampBox, resources);
       return (plan, resources);
     });
