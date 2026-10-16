@@ -2,6 +2,7 @@ import 'dart:io' show File;
 
 import 'package:get_it/get_it.dart';
 
+import 'package:rush/src/commands/build/android_manifest.dart';
 import 'package:rush/src/commands/build/library_plan.dart';
 import 'package:rush/src/config/config.dart';
 import 'package:rush/src/resolver/artifact.dart';
@@ -13,7 +14,6 @@ import 'package:rush/src/utils/file_extension.dart';
 final _fs = GetIt.I<FileService>();
 final _component =
     RegExp(r'<(activity|activity-alias|service|receiver|provider)[\s>]');
-final _manifestPackage = RegExp(r'<manifest[^>]*\spackage\s*=\s*"([^"]+)"');
 
 Future<LibraryPlan> planProjectLibraries(
     LibService libService, Config config) async {
@@ -82,9 +82,8 @@ Future<bool> _declaresComponents(Artifact aar) async {
       _component.hasMatch(await manifest.readAsString());
 }
 
-Future<String?> _package(String manifest) async => _manifestPackage
-    .firstMatch(await manifest.asFile().readAsString())
-    ?.group(1);
+Future<String?> _package(String manifest) async =>
+    manifestPackage(await manifest.asFile().readAsString());
 
 Future<String?> _extracted(Artifact aar, String fileName) async {
   final file = _fs.resourceFromExtractedAar(aar.artifactFile, fileName);

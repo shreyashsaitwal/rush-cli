@@ -3,13 +3,13 @@ import 'dart:convert';
 import 'package:archive/archive.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
+import 'package:rush/src/commands/build/android_manifest.dart';
 
 final _fontFile =
     RegExp(r'^res/font((?:-[^/]+)?)/([^/.]+)\.(ttf|otf|ttc|xml)$');
 final _rawOrXmlFile = RegExp(r'^res/(raw|xml)(?:-[^/]+)?/([^/.]+)\.');
 final _fontReference = RegExp(r'@([\w.]+:)?font/(\w+)');
 final _fontRow = RegExp(r'^int font (\w+) ', multiLine: true);
-final _manifestPackage = RegExp(r'<manifest[^>]*\spackage\s*=\s*"([^"]+)"');
 const _sameBytes = ListEquality<int>();
 
 class FontShim {
@@ -120,9 +120,8 @@ void _checkClashes(Map<String, Archive> libraries, Map<String, String> kinds) {
 
 String _package(Archive library, String fileName) {
   final manifest = library.findFile('AndroidManifest.xml');
-  final package = manifest == null
-      ? null
-      : _manifestPackage.firstMatch(utf8.decode(manifest.content))?.group(1);
+  final package =
+      manifest == null ? null : manifestPackage(utf8.decode(manifest.content));
   return package ??
       (throw Exception('$fileName has font resources but no manifest package'));
 }

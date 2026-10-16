@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:tint/tint.dart';
 
 import 'package:rush/src/commands/build/aix.dart';
+import 'package:rush/src/commands/build/android_manifest.dart';
 import 'package:rush/src/commands/build/tools/executor.dart';
 import 'package:rush/src/config/config.dart';
 import 'package:rush/src/services/file_service.dart';
@@ -79,9 +80,7 @@ class ExtensionResources {
 
   static Future<String> _manifestPackage() async {
     final manifest = p.join(_fs.srcDir.path, 'AndroidManifest.xml').asFile();
-    final package = RegExp(r'<manifest[^>]*\spackage\s*=\s*"([^"]+)"')
-        .firstMatch(await manifest.readAsString())
-        ?.group(1);
+    final package = manifestPackage(await manifest.readAsString());
     if (package == null) {
       _lgr.err('src/AndroidManifest.xml must declare the extension package '
           'to use resources');
