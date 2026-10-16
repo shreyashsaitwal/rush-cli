@@ -103,7 +103,7 @@ class ResourceRenaming {
       return file.content;
     }
     final document = parseAndroidXml(utf8.decode(file.content));
-    _renameReferences(document);
+    renameReferences(document);
     if (isResourceXml && _isValues(file.name)) {
       _renameValues(document.rootElement);
     }
@@ -123,8 +123,8 @@ class ResourceRenaming {
       .map((line) => '$line\n')
       .join();
 
-  void _renameReferences(XmlDocument document) {
-    for (final element in document.descendantElements) {
+  void renameReferences(XmlNode root) {
+    for (final element in root.descendantElements) {
       for (final attribute in [...element.attributes]) {
         attribute.value = _renamedReference(attribute.value);
         if (attribute.name.namespaceUri == _resAuto) {

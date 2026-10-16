@@ -10,9 +10,15 @@ Iterable<String> desugarHelpers(Iterable<String> entries) => entries
     .where((el) => _desugarHelperPackages.any(el.startsWith) && _isClass(el))
     .map(p.posix.withoutExtension);
 
-String relocationSpec(String prefix, Iterable<String> classes) => [
+typedef RenamedMember = ({String owner, String name, String to});
+
+String relocationSpec(String prefix, Iterable<String> classes,
+        {Iterable<RenamedMember> fields = const []}) =>
+    [
       'prefix $prefix',
-      for (final name in classes) 'class $name'
+      for (final name in classes) 'class $name',
+      for (final field in fields)
+        'field ${field.owner} ${field.name} ${field.to}',
     ].map((line) => '$line\n').join();
 
 bool _isClass(String entry) => p.posix.extension(entry) == '.class';

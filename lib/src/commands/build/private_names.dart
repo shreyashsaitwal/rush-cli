@@ -1,0 +1,147 @@
+import 'dart:convert';
+
+import 'package:archive/archive.dart';
+import 'package:collection/collection.dart';
+import 'package:xml/xml.dart';
+
+import 'package:rush/src/commands/build/android_manifest.dart';
+import 'package:rush/src/commands/build/android_xml.dart';
+import 'package:rush/src/commands/build/relocation.dart' as relocation;
+import 'package:rush/src/commands/build/resource_names.dart';
+
+class PrivateNames {
+  factory PrivateNames({
+    required String package,
+    required Set<String> classes,
+    required Map<String, Archive> aars,
+  }) {
+    final resources = ResourceRenaming.of(aars.values,
+        prefix: '${package.replaceAll('.', '_')}_');
+    final rClasses = <String>{};
+    final rFields = <relocation.RenamedMember>[];
+    for (final MapEntry(key: fileName, value: aar) in aars.entries) {
+      final owner = _rClass(_packageOf(aar, fileName));
+      final rTxt = _text(aar, 'R.txt') ?? '';
+      final types = const LineSplitter()
+          .convert(rTxt)
+          .map((line) => line.split(' '))
+          .where((parts) => parts.length >= 3)
+          .map((parts) => parts[1])
+          .toSet();
+      if (types.isNotEmpty) {
+        rClasses.addAll([owner, for (final type in types) '$owner\$$type']);
+      }
+      rFields.addAll([
+        for (final field in resources.renamedFields(rTxt))
+          (owner: '$owner\$${field.type}', name: field.from, to: field.to),
+      ]);
+    }
+    return PrivateNames._(
+        package, {...classes, ...rClasses}, rFields, resources);
+  }
+
+  PrivateNames._(this.package, this._classes, this._rFields, this.resources);
+
+  final String package;
+  final Set<String> _classes;
+  final List<relocation.RenamedMember> _rFields;
+  final ResourceRenaming resources;
+
+  String get _classPrefix => '${package.replaceAll('.', '/')}/repacked/';
+
+  String get relocationSpec => relocation.relocationSpec(
+        _classPrefix,
+        _classes.sorted(),
+        fields: _rFields.sortedBy((el) => '${el.owner} ${el.name}'),
+      );
+
+  String className(String name) => _classes.contains(name.replaceAll('.', '/'))
+      ? '$package.repacked.$name'
+      : name;
+
+  String aarFileName(String fileName) => '$package.repacked.$fileName';
+
+  Archive renameAar(Archive aar, {required List<int> classes}) {
+    final renamed = Archive();
+    for (final file in resources.rename(aar).files) {
+      renamed.add(ArchiveFile.bytes(
+          file.name,
+          switch (file.name) {
+            'classes.jar' => classes,
+            'AndroidManifest.xml' => utf8.encode(_renamedManifest(file)),
+            final name when name.startsWith('res/') && name.endsWith('.xml') =>
+              utf8.encode(_renamedViews(file)),
+            _ => file.content,
+          }));
+    }
+    return renamed;
+  }
+
+  String renameBuildInfos(String buildInfos) => jsonEncode([
+        for (final Map<String, dynamic> info in jsonDecode(buildInfos))
+          {
+            ...info,
+            if (info['activities'] case final List<dynamic> elements)
+              'activities': [
+                for (final String element in elements)
+                  _renamedFragment(element),
+              ],
+          },
+      ]);
+
+  String _renamedManifest(ArchiveFile manifest) {
+    final document = parseAndroidXml(utf8.decode(manifest.content));
+    final root = document.rootElement;
+    root.setAttribute(
+        'package', '$package.repacked.${root.getAttribute('package')}');
+    _renameClassNames(document);
+    return document.toXmlString();
+  }
+
+  String _renamedFragment(String element) {
+    final fragment = parseAndroidXmlFragment(element);
+    _renameClassNames(fragment);
+    resources.renameReferences(fragment);
+    return fragment.children.map((el) => el.toXmlString()).join();
+  }
+
+  void _renameClassNames(XmlNode root) {
+    for (final attribute in root.descendantElements
+        .expand((el) => el.attributes)
+        .where((el) => el.name.qualified == 'android:name')) {
+      attribute.value = className(attribute.value);
+    }
+  }
+
+  String _renamedViews(ArchiveFile file) {
+    final document = parseAndroidXml(utf8.decode(file.content));
+    for (final element in document.descendantElements.toList().reversed) {
+      final view = element.getAttribute('class');
+      if (view != null) {
+        element.setAttribute('class', className(view));
+      }
+      final renamed = className(element.name.qualified);
+      if (renamed != element.name.qualified) {
+        element.replace(XmlElement(
+          XmlName(renamed),
+          element.attributes.map((el) => el.copy()),
+          element.children.map((el) => el.copy()),
+          element.isSelfClosing,
+        ));
+      }
+    }
+    return document.toXmlString();
+  }
+
+  static String _packageOf(Archive aar, String fileName) =>
+      manifestPackage(_text(aar, 'AndroidManifest.xml') ?? '') ??
+      (throw Exception('$fileName declares no package in its manifest'));
+
+  static String _rClass(String package) => '${package.replaceAll('.', '/')}/R';
+
+  static String? _text(Archive aar, String name) =>
+      switch (aar.findFile(name)) {
+        final file? => utf8.decode(file.content),
+        null => null,
+      };
+}
