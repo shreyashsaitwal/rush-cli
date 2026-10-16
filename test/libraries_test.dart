@@ -99,6 +99,7 @@ void main() {
     setUpAll(() async {
       project = await TestProject.create('core_aar_ext');
       project.addDependencies(['androidx.core:core-ktx:1.5.0']);
+      project.placeLibraries({'androidx.core:core-ktx': 'shared'});
       final result = await project.build();
       if (result.exitCode != 0) fail(result.output);
     });
@@ -160,10 +161,11 @@ void main() {
     expect(project.aix.classNames, isNot(contains('module-info.class')));
   });
 
-  test('bundled libraries ship as AARs when a bundled AAR depends on them',
+  test('bundled libraries ship as AARs when a shared AAR depends on them',
       () async {
     final project = await TestProject.create('media_ext');
     project.addDependencies(['androidx.media3:media3-common:1.11.1']);
+    project.placeLibraries({'androidx.media3:media3-common': 'shared'});
     project.setMinSdk(23);
     final result = await project.build();
     expect(result.exitCode, 0, reason: result.output);
@@ -719,12 +721,14 @@ class {className}(container: ComponentContainer) :
 
     final build = await project.build();
     expect(build.exitCode, 0, reason: build.output);
+    final prefix = '${project.package.replaceAll('.', '_')}_';
     expect(
         utf8.decode(project.aix
-            .library('owners.aar')
+            .library('${project.package}.repacked.owners.aar')
             .findFile('res/values/values.xml')!
             .content),
-        '<resources><item name="view_tree_owner" type="id"/></resources>');
+        '<resources><item name="${prefix}view_tree_owner" type="id"/>'
+        '</resources>');
   });
 
   test('optimized builds write the mapping of renamed classes', () async {
@@ -792,7 +796,7 @@ class {className}(container: ComponentContainer) :
     test('is not resolved', () async {
       final tree = await project.depsTree();
       expect(tree.output,
-          contains('com.google.guava:guava:33.3.1-android (private: jar)'));
+          contains('com.google.guava:guava:33.3.1-android (private: default)'));
       expect(
           tree.output,
           contains('Excluded in rush.yml: com.google.guava:failureaccess, '
@@ -928,7 +932,10 @@ class {className}(container: ComponentContainer) :
       final project = await TestProject.create('private_used_ext');
       project.addDependencies(['androidx.media3:media3-common:1.11.1']);
       project.setMinSdk(23);
-      project.placeLibraries({'com.google.guava:guava': 'private'});
+      project.placeLibraries({
+        'androidx.media3:media3-common': 'shared',
+        'com.google.guava:guava': 'private',
+      });
       final build = await project.build();
       expect(build.exitCode, 1, reason: build.output);
       expect(
@@ -945,6 +952,10 @@ class {className}(container: ComponentContainer) :
 
     String text(Archive archive, String name) =>
         utf8.decode(archive.findFile(name)!.content);
+
+    String renamed() => '${project.package}.repacked';
+
+    String prefix() => '${project.package.replaceAll('.', '_')}_';
 
     Set<String> classNames(Archive aar) => {
           for (final file in ZipDecoder()
@@ -988,26 +999,32 @@ class {className}(container: ComponentContainer) :
     });
 
     test('move to res/raw with their symbols retyped', () {
-      final ui = aix.library('androidx.media3-media3-ui-1.11.1.aar');
-      expect(ui.findFile('res/raw/roboto_medium_numbers.ttf'), isNotNull);
+      final ui =
+          aix.library('${renamed()}.androidx.media3-media3-ui-1.11.1.aar');
+      expect(ui.findFile('res/raw/${prefix()}roboto_medium_numbers.ttf'),
+          isNotNull);
       expect(ui.files.where((el) => el.name.startsWith('res/font')), isEmpty);
-      expect(text(ui, 'R.txt'), contains('int raw roboto_medium_numbers '));
+      expect(text(ui, 'R.txt'),
+          contains('int raw ${prefix()}roboto_medium_numbers '));
       expect(text(ui, 'R.txt'), isNot(contains('int font ')));
     });
 
     test('are referenced as raw resources by dependent AARs', () {
-      final player = aix.library('player.aar');
+      final player = aix.library('${renamed()}.player.aar');
       expect(text(player, 'res/values/styles.xml'),
-          contains('@raw/roboto_medium_numbers'));
-      expect(
-          text(player, 'R.txt'), 'int raw roboto_medium_numbers 0x7f010001\n');
+          contains('@raw/${prefix()}roboto_medium_numbers'));
+      expect(text(player, 'R.txt'),
+          'int raw ${prefix()}roboto_medium_numbers 0x7f010001\n');
     });
 
     test('stay reachable through R.font', () {
-      expect(classNames(aix.library('androidx.media3-media3-ui-1.11.1.aar')),
-          contains(r'androidx/media3/ui/R$font.class'));
-      expect(classNames(aix.library('player.aar')),
-          contains(r'com/example/player/R$font.class'));
+      final repacked = '${project.packagePath}/repacked';
+      expect(
+          classNames(
+              aix.library('${renamed()}.androidx.media3-media3-ui-1.11.1.aar')),
+          contains('$repacked/androidx/media3/ui/R\$font.class'));
+      expect(classNames(aix.library('${renamed()}.player.aar')),
+          contains('$repacked/com/example/player/R\$font.class'));
       expect(classNames(aix.library('com.example.fontsext.aar')),
           contains(r'com/example/fontsext/R$font.class'));
     });

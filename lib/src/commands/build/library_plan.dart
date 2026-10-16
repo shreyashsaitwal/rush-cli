@@ -128,7 +128,7 @@ LibraryPlan planLibraries({
     provided: compileOnly,
     problems: [
       ..._misplacedPrivateLibraries(shared, private, placements),
-      ..._duplicateAars(sharedAars),
+      ..._duplicateAars(shipped.where((el) => el.isAar)),
     ],
     compileClasspath: everything
         .where((el) => el.scope != LibraryScope.runtime)
@@ -151,7 +151,7 @@ LibraryPlan planLibraries({
             'shared: ${_whyShared(library, shared, placements)}',
       for (final library in private)
         library.coordinate:
-            'private: ${_placedInRushYml(library, placements) ? 'rush.yml' : 'jar'}',
+            'private: ${_placedInRushYml(library, placements) ? 'rush.yml' : 'default'}',
       for (final library
           in dependencies.where((el) => el.scope == LibraryScope.provided))
         library.coordinate: 'provided: '
@@ -166,11 +166,7 @@ List<ResolvedLibrary> _shipped(List<ResolvedLibrary> dependencies) =>
 List<ResolvedLibrary> _shared(
     List<ResolvedLibrary> shipped, Map<String, LibraryPlacement> placements) {
   final sharedClasspath = shipped
-      .where((el) => switch (placements[el.key]) {
-            LibraryPlacement.shared => true,
-            LibraryPlacement.private => false,
-            _ => el.isAar,
-          })
+      .where((el) => placements[el.key] == LibraryPlacement.shared)
       .expand((el) => _classpath(el, shipped))
       .toSet();
   return shipped
@@ -182,9 +178,7 @@ String _whyShared(ResolvedLibrary library, List<ResolvedLibrary> shared,
         Map<String, LibraryPlacement> placements) =>
     _placedInRushYml(library, placements)
         ? 'rush.yml'
-        : library.isAar
-            ? 'AAR'
-            : 'used by ${shared.firstWhere((el) => el.dependencies.contains(library.coordinate))}';
+        : 'used by ${shared.firstWhere((el) => el.dependencies.contains(library.coordinate))}';
 
 bool _placedInRushYml(
         ResolvedLibrary library, Map<String, LibraryPlacement> placements) =>
@@ -207,7 +201,8 @@ List<Problem> _misplacedPrivateLibraries(
         if (library.originalContents.isNotEmpty)
           Problem.error('$library can\'t be private: '
               '${_listed(library.originalContents.map((el) => el.description).toList())}. '
-              'Place it as shared or remove it from `libraries` in rush.yml.'),
+              'Place it as shared in rush.yml: '
+              '`libraries: {${library.key}: shared}`.'),
     ];
 
 String _listed(List<String> items) => items.length == 1

@@ -150,14 +150,16 @@ public class Point implements Parcelable {
       expect(result.exitCode, 0, reason: result.output);
     });
 
-    group('of a Kotlin extension with AARs that depend on bundled libraries',
-        () {
+    group(
+        'of a Kotlin extension with shared AARs that depend on bundled '
+        'libraries', () {
       late TestProject project;
       late ProcessResult build;
 
       setUpAll(() async {
         project = await TestProject.create('ktx_ext', language: 'kotlin');
         project.addDependencies(['androidx.core:core-ktx:1.5.0']);
+        project.placeLibraries({'androidx.core:core-ktx': 'shared'});
         build = await project.build(['--optimize']);
         if (build.exitCode != 0) fail(build.output);
       });
