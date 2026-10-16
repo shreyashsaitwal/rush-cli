@@ -258,4 +258,67 @@ void main() {
     expect(names.relocationSpec,
         contains('keep-string lib.session.SessionService\n'));
   });
+
+  test('renames private class names anywhere in resources', () {
+    final material = _aar({
+      'AndroidManifest.xml': '<manifest package="lib.material"/>',
+      'res/layout/sheet.xml': '<FrameLayout '
+          'xmlns:android="http://schemas.android.com/apk/res/android" '
+          'xmlns:app="http://schemas.android.com/apk/res-auto">'
+          '<fragment android:name="lib.material.Picker" android:tag="lib.material.Picker"/>'
+          '<View app:layout_behavior="lib.material.Sheet\$Behavior" '
+          'android:contentDescription="lib.material.Unknown"/>'
+          '</FrameLayout>',
+      'res/menu/actions.xml': '<menu '
+          'xmlns:app="http://schemas.android.com/apk/res-auto">'
+          '<item app:actionViewClass="lib.material.Search" '
+          'app:actionProviderClass="lib.material.Share"/></menu>',
+      'res/xml/settings.xml': '<PreferenceScreen '
+          'xmlns:android="http://schemas.android.com/apk/res/android">'
+          '<Preference android:fragment="lib.material.Picker"/>'
+          '</PreferenceScreen>',
+      'res/values/strings.xml': '<resources>'
+          '<string name="sheet_behavior">\n  lib.material.Sheet\$Behavior\n</string>'
+          '<string name="title">lib.material.Unknown</string>'
+          '</resources>',
+      'R.txt': 'int layout sheet 0x0\nint menu actions 0x0\n'
+          'int xml settings 0x0\nint string sheet_behavior 0x0\n'
+          'int string title 0x0\n',
+      'classes.jar': '',
+    });
+    final names = PrivateNames(
+      package: 'com.example.ext',
+      classes: {
+        'lib/material/Picker',
+        'lib/material/Sheet\$Behavior',
+        'lib/material/Search',
+        'lib/material/Share',
+      },
+      aars: {'material.aar': material},
+    );
+    final renamed = names.renameAar(material, classes: null);
+    const ext = 'com.example.ext.repacked.lib.material';
+
+    expect(
+        _text(renamed, 'res/layout/com_example_ext_sheet.xml'),
+        '<FrameLayout '
+        'xmlns:android="http://schemas.android.com/apk/res/android" '
+        'xmlns:app="http://schemas.android.com/apk/res-auto">'
+        '<fragment android:name="$ext.Picker" android:tag="$ext.Picker"/>'
+        '<View app:layout_behavior="$ext.Sheet\$Behavior" '
+        'android:contentDescription="lib.material.Unknown"/>'
+        '</FrameLayout>');
+    expect(
+        _text(renamed, 'res/menu/com_example_ext_actions.xml'),
+        contains('app:actionViewClass="$ext.Search" '
+            'app:actionProviderClass="$ext.Share"'));
+    expect(_text(renamed, 'res/xml/com_example_ext_settings.xml'),
+        contains('android:fragment="$ext.Picker"'));
+    expect(
+        _text(renamed, 'res/values/strings.xml'),
+        '<resources>'
+        '<string name="com_example_ext_sheet_behavior">\n  $ext.Sheet\$Behavior\n</string>'
+        '<string name="com_example_ext_title">lib.material.Unknown</string>'
+        '</resources>');
+  });
 }
