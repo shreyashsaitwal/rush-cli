@@ -255,13 +255,25 @@ class ResourceRenaming {
     }
   }
 
+  void renameLibraryReferences(XmlNode root) {
+    renameReferences(root);
+    root.descendantElements
+        .where((el) => el.localName == 'style')
+        .forEach(_renameStyleReferences);
+  }
+
   void _renameStyle(XmlElement style, String original) {
+    if (style.getAttribute('parent') == null && original.contains('.')) {
+      final implied = original.substring(0, original.lastIndexOf('.'));
+      style.setAttribute('parent', '@style/${name('style', implied)}');
+    }
+    _renameStyleReferences(style);
+  }
+
+  void _renameStyleReferences(XmlElement style) {
     final parent = style.getAttribute('parent');
     if (parent != null && !parent.startsWith('@')) {
       style.setAttribute('parent', name('style', parent));
-    } else if (parent == null && original.contains('.')) {
-      final implied = original.substring(0, original.lastIndexOf('.'));
-      style.setAttribute('parent', '@style/${name('style', implied)}');
     }
     for (final item in style.findElements('item')) {
       item.setAttribute('name', name('attr', item.getAttribute('name')!));

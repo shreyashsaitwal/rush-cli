@@ -273,7 +273,8 @@ Layouts, drawables, strings and colors go in `res/`, laid out as in Android. Use
 
 - Every name except IDs starts with the package, dots replaced by underscores: `com_example_counter_title` in `com.example.counter`.
 - `src/AndroidManifest.xml` must declare `package="<extension package>"`.
-- References to Android's own resources work (`@android:color/white`, `?android:attr/selectableItemBackground`). AppCompat and AndroidX resources (`?attr/colorAccent`) don't.
+- References to Android's own resources work (`@android:color/white`, `?android:attr/selectableItemBackground`), and so do those of the extension's dependencies (`@drawable/exo_icon_play`, a library style as parent); Rush renames them with private libraries. App Inventor's AppCompat and AndroidX resources (`?attr/colorAccent`) don't.
+- The extension's `R` class has only its own resources; reach a library's through that library's `R` class.
 
 ## Java, Kotlin and Android versions
 

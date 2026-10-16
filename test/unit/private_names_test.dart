@@ -27,6 +27,8 @@ final _player = _aar({
       '<receiver android:name=".ButtonReceiver"/>'
       '</application></manifest>',
   'res/drawable/play.xml': '<vector/>',
+  'res/values/values.xml': '<resources><style name="Player.Theme"/>'
+      '<attr name="playerSize" format="reference"/></resources>',
   'res/layout/controls.xml': '<lib.player.TimeBar '
       'xmlns:android="http://schemas.android.com/apk/res/android">'
       '<view class="lib.player.Scrubber" android:id="@+id/scrubber"/>'
@@ -334,5 +336,38 @@ void main() {
         isNotNull);
     expect(names.resources.name('drawable', 'play'),
         'com_example_ext_repacked_play');
+  });
+
+  test('renames references to private libraries in extension resources', () {
+    final names = _names();
+
+    expect(
+        names.renameExtensionResource('<lib.player.TimeBar '
+            'xmlns:android="http://schemas.android.com/apk/res/android" '
+            'xmlns:app="http://schemas.android.com/apk/res-auto" '
+            'android:src="@drawable/play" app:show="@id/scrubber"/>'),
+        '<com.example.ext.repacked.lib.player.TimeBar '
+        'xmlns:android="http://schemas.android.com/apk/res/android" '
+        'xmlns:app="http://schemas.android.com/apk/res-auto" '
+        'android:src="@drawable/com_example_ext_repacked_play" '
+        'app:show="@id/com_example_ext_repacked_scrubber"/>');
+    expect(
+        names.renameExtensionResource('<resources>'
+            '<style name="com_example_ext_card" parent="Player.Theme">'
+            '<item name="playerSize">@drawable/play</item>'
+            '<item name="android:textSize">12sp</item></style></resources>'),
+        '<resources>'
+        '<style name="com_example_ext_card" '
+        'parent="com_example_ext_repacked_Player.Theme">'
+        '<item name="com_example_ext_repacked_playerSize">'
+        '@drawable/com_example_ext_repacked_play</item>'
+        '<item name="android:textSize">12sp</item></style></resources>');
+  });
+
+  test('leaves extension resources without private references as written', () {
+    const xml = '<TextView  android:text="@string/com_example_ext_title"\n'
+        '  xmlns:android="http://schemas.android.com/apk/res/android" />';
+
+    expect(_names().renameExtensionResource(xml), xml);
   });
 }

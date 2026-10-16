@@ -62,13 +62,15 @@ Resources can reference each other and Android's own resources:
     android:background="?android:attr/selectableItemBackground"/>
 ```
 
-They can't reference AppCompat or other AndroidX resources (`?attr/colorAccent`,
-`@style/Theme.AppCompat`), nor those of the extension's dependencies, which aren't
-available when Rush compiles them.
+They can also use the resources and views of the extension's dependencies, such as
+Media3's `@drawable/exo_icon_play`, a style whose parent is a library's style, or
+`<androidx.media3.ui.PlayerView>`. When the library is private, Rush renames these
+references in the shipped resources along with the library, and keeps the views when it
+shrinks the code. The extension's `R` class lists only its own resources: use a
+library's resources from code through the library's `R` class.
 
-Layouts can use views from the extension's dependencies, such as
-`<androidx.media3.ui.PlayerView>`. When the library is private, Rush renames the view's
-class in the layout along with the library, and keeps it when it shrinks the code.
+They can't reference App Inventor's AndroidX resources (`?attr/colorAccent`,
+`@style/Theme.AppCompat`), which aren't available when Rush compiles them.
 
 ## How resources are shipped
 

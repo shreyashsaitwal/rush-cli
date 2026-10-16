@@ -130,6 +130,27 @@ void main() {
         contains('android:src="@drawable/play"'));
   });
 
+  test('resources follow the renamed resources of private libraries', () async {
+    final project = await TestProject.create('res_ext');
+    _useLibraryResources(project);
+
+    final result = await project.build();
+    expect(result.exitCode, 0, reason: result.output);
+    const renamed = 'com_example_resext_repacked_';
+    final aar = project.aix.library('com.example.resext.aar');
+    String text(String name) => utf8.decode(aar.findFile(name)!.content);
+    expect(
+        text('res/layout/com_example_resext_icon.xml'),
+        allOf(contains('android:src="@drawable/${renamed}play"'),
+            contains('app:${renamed}widgetSize="2dp"')));
+    expect(
+        text('res/values/styles.xml'),
+        '<resources>'
+        '<style name="com_example_resext_theme" '
+        'parent="${renamed}Widget.Theme">'
+        '<item name="${renamed}widgetSize">8dp</item></style></resources>');
+  });
+
   test('resources must be prefixed with the extension package', () async {
     final project = await TestProject.create('res_ext');
     _writeResources(project);

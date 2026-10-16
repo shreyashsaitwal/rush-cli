@@ -156,14 +156,22 @@ class PrivateNames {
           name.substring(0, colon + 1) + className(name.substring(colon + 1)),
       };
 
-  String renameClassReferences(String xml) {
+  String renameExtensionResource(String xml) {
     final original = parseAndroidXml(xml).toXmlString();
-    final renamed = _renamedClassReferences(xml);
+    final document = parseAndroidXml(xml);
+    _renameClassReferences(document);
+    resources.renameLibraryReferences(document);
+    final renamed = document.toXmlString();
     return renamed == original ? xml : renamed;
   }
 
   String _renamedClassReferences(String xml) {
     final document = parseAndroidXml(xml);
+    _renameClassReferences(document);
+    return document.toXmlString();
+  }
+
+  void _renameClassReferences(XmlDocument document) {
     for (final text in document.descendants.whereType<XmlText>()) {
       final name = text.value.trim();
       text.value = text.value.replaceFirst(name, className(name));
@@ -182,7 +190,6 @@ class PrivateNames {
         ));
       }
     }
-    return document.toXmlString();
   }
 
   static String _packageOf(Archive aar, String fileName) =>

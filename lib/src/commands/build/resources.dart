@@ -162,8 +162,8 @@ class ExtensionResources {
   Future<ArchiveFile> _packaged(File file, PrivateNames names) async {
     final entry = await fileEntry(file, from: _fs.resDir.parent.path);
     return _isXml(file)
-        ? ArchiveFile.string(
-            entry.name, names.renameClassReferences(utf8.decode(entry.content)))
+        ? ArchiveFile.string(entry.name,
+            names.renameExtensionResource(utf8.decode(entry.content)))
         : entry;
   }
 
