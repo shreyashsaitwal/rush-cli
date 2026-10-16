@@ -47,14 +47,14 @@ Future<String> createArtJar(Set<String> requiredJars) async {
           .files
           .whereNot((el) =>
               addedPaths.contains(el.name) ||
-              el.name.startsWith('META-INF') ||
+              el.name.startsWith('META-INF') && !_isServiceFile(el.name) ||
               el.name == 'module-info.class')
           // Do not include files other than .class files.
           .where((el) {
         if (!el.isFile) {
           return true;
         }
-        return p.extension(el.name) == '.class';
+        return p.extension(el.name) == '.class' || _isServiceFile(el.name);
       });
       for (final file in decodedJar) {
         entries.add(file..compression = CompressionType.none);
@@ -76,6 +76,8 @@ Future<String> createArtJar(Set<String> requiredJars) async {
   await writeZip(artJarPath, entries);
   return artJarPath;
 }
+
+bool _isServiceFile(String entry) => entry.startsWith('META-INF/services/');
 
 final _repackageRule = RegExp(r'^\s*-repackageclasses\b', multiLine: true);
 

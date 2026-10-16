@@ -431,6 +431,45 @@ class {className}(container: ComponentContainer) :
         contains('${project.package}.repacked.com.example.util.Missing'));
   });
 
+  test('optimized builds resolve service lookups of private libraries',
+      () async {
+    final project = await TestProject.create('private_services_ext');
+    final classes = await _compiled(project, {
+      'com/example/greet/Greeter': 'package com.example.greet; '
+          'public interface Greeter { String greet(); }',
+      'com/example/greet/English': 'package com.example.greet; '
+          'public class English implements Greeter { '
+          'public String greet() { return "hello"; } }',
+    });
+    project.file('deps/greet.jar')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(_jar({
+        ...classes,
+        'META-INF/services/com.example.greet.Greeter':
+            utf8.encode('com.example.greet.English\n'),
+      }));
+    project.addDependencies(['greet.jar']);
+    project.placeLibraries({'greet.jar': 'private'});
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public String Greet() {
+    return java.util.ServiceLoader.load(com.example.greet.Greeter.class,
+        com.example.greet.Greeter.class.getClassLoader())
+        .iterator().next().greet();
+  }
+''');
+
+    final build = await project.build(['--optimize']);
+    expect(build.exitCode, 0, reason: build.output);
+    final runtime = ZipDecoder()
+        .decodeBytes(project.aix.bytes('files/AndroidRuntime.jar'))
+        .files
+        .map((el) => latin1.decode(el.content))
+        .join();
+    expect(runtime,
+        allOf(contains('hello'), isNot(contains('java/util/ServiceLoader'))));
+  });
+
   test('private AARs ship only the code that is used or kept', () async {
     final project = await TestProject.create('private_shrunk_ext');
     final classes = await _compiled(project, {
