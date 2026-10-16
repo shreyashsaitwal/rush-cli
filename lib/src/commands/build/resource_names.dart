@@ -44,6 +44,9 @@ const _resAuto = 'http://schemas.android.com/apk/res-auto';
 final _reference = RegExp(r'^@(\+?)([a-z]+)/([\w.]+)$');
 final _themeReference = RegExp(r'^\?(attr/)?([A-Za-z_]\w*)$');
 
+String ownResourcePrefix(String package) =>
+    '${package.toLowerCase().replaceAll('.', '_')}_';
+
 String resourceField(String name) =>
     name.replaceAll('.', '_').replaceAll(':', '_');
 

@@ -91,7 +91,7 @@ class PrivateNames {
   final String? extensionSymbols;
 
   static String resourcePrefix(String package) =>
-      '${package.toLowerCase().replaceAll('.', '_')}_repacked_';
+      '${ownResourcePrefix(package)}repacked_';
 
   static String _classPrefix(String package) =>
       '${package.replaceAll('.', '/')}/repacked/';
@@ -116,7 +116,7 @@ class PrivateNames {
         'classes.jar' => classes,
         'AndroidManifest.xml' => utf8.encode(_renamedManifest(file)),
         final name when isResourceXml(name) =>
-          utf8.encode(_renamedClassReferences(utf8.decode(file.content))),
+          utf8.encode(_resourceWithRenamedClasses(utf8.decode(file.content))),
         _ => file.content,
       };
       if (content != null) {
@@ -184,15 +184,15 @@ class PrivateNames {
       };
 
   String renameExtensionResource(String xml) {
-    final original = parseAndroidXml(xml).toXmlString();
     final document = parseAndroidXml(xml);
+    final original = document.toXmlString();
     _renameClassReferences(document);
     resources.renameLibraryReferences(document);
     final renamed = document.toXmlString();
     return renamed == original ? xml : renamed;
   }
 
-  String _renamedClassReferences(String xml) {
+  String _resourceWithRenamedClasses(String xml) {
     final document = parseAndroidXml(xml);
     _renameClassReferences(document);
     return document.toXmlString();

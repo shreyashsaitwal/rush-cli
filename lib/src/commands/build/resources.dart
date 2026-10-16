@@ -127,7 +127,7 @@ class ExtensionResources {
   }
 
   Future<void> _checkNames() async {
-    final prefix = '${package.toLowerCase().replaceAll('.', '_')}_';
+    final prefix = ownResourcePrefix(package);
     final reserved = PrivateNames.resourcePrefix(package);
     final problems = {
       for (final line in await _symbols.asFile().readAsLines())
