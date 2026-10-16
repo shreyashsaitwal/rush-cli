@@ -36,8 +36,12 @@ class PrivateNames {
           (owner: '$owner\$${field.type}', name: field.from, to: field.to),
       ]);
     }
+    final prefix = _classPrefix(package);
     return PrivateNames._(
-        package, {...classes, ...rClasses}, rFields, resources);
+        package,
+        {...classes.whereNot((el) => el.startsWith(prefix)), ...rClasses},
+        rFields,
+        resources);
   }
 
   PrivateNames._(this.package, this._classes, this._rFields, this.resources);
@@ -47,10 +51,11 @@ class PrivateNames {
   final List<relocation.RenamedMember> _rFields;
   final ResourceRenaming resources;
 
-  String get _classPrefix => '${package.replaceAll('.', '/')}/repacked/';
+  static String _classPrefix(String package) =>
+      '${package.replaceAll('.', '/')}/repacked/';
 
   String get relocationSpec => relocation.relocationSpec(
-        _classPrefix,
+        _classPrefix(package),
         _classes.sorted(),
         fields: _rFields.sortedBy((el) => '${el.owner} ${el.name}'),
       );
@@ -61,18 +66,19 @@ class PrivateNames {
 
   String aarFileName(String fileName) => '$package.repacked.$fileName';
 
-  Archive renameAar(Archive aar, {required List<int> classes}) {
+  Archive renameAar(Archive aar, {required List<int>? classes}) {
     final renamed = Archive();
     for (final file in resources.rename(aar).files) {
-      renamed.add(ArchiveFile.bytes(
-          file.name,
-          switch (file.name) {
-            'classes.jar' => classes,
-            'AndroidManifest.xml' => utf8.encode(_renamedManifest(file)),
-            final name when name.startsWith('res/') && name.endsWith('.xml') =>
-              utf8.encode(_renamedViews(file)),
-            _ => file.content,
-          }));
+      final content = switch (file.name) {
+        'classes.jar' => classes,
+        'AndroidManifest.xml' => utf8.encode(_renamedManifest(file)),
+        final name when name.startsWith('res/') && name.endsWith('.xml') =>
+          utf8.encode(_renamedViews(file)),
+        _ => file.content,
+      };
+      if (content != null) {
+        renamed.add(ArchiveFile.bytes(file.name, content));
+      }
     }
     return renamed;
   }

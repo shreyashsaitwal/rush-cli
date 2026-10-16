@@ -46,6 +46,19 @@ List<int> _jar(Map<String, List<int>> entries) {
   return ZipEncoder().encode(archive);
 }
 
+void _writeAar(
+        TestProject project, String name, Map<String, List<int>> entries) =>
+    project.file('deps/$name')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(_jar(entries));
+
+List<String> _classesOf(Archive aar) => ZipDecoder()
+    .decodeBytes(aar.findFile('classes.jar')!.content)
+    .files
+    .where((el) => el.isFile)
+    .map((el) => el.name)
+    .toList();
+
 void main() {
   group('the Kotlin standard library', () {
     late TestProject project;
@@ -370,6 +383,12 @@ class {className}(container: ComponentContainer) :
             })))));
     project.addDependencies(['util.jar', 'player.aar']);
     project.placeLibraries({'util.jar': 'private', 'player.aar': 'private'});
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public String Label() {
+    return com.example.player.Label.text();
+  }
+''');
 
     final build = await project.build();
     expect(build.exitCode, 0, reason: build.output);
@@ -377,6 +396,197 @@ class {className}(container: ComponentContainer) :
         project.aix.classNames,
         contains(
             '${project.packagePath}/repacked/com/example/util/Formatter.class'));
+  });
+
+  test('private libraries rename strings naming their removed classes',
+      () async {
+    final project = await TestProject.create('private_strings_ext');
+    final classes = await _compiled(project, {
+      'com/example/util/Plugins': 'package com.example.util; '
+          'public class Plugins { public static String name() { '
+          'return "com.example.util.Missing"; } }',
+      'com/example/util/Missing':
+          'package com.example.util; public class Missing {}',
+    });
+    project.file('deps/util.jar')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(_jar(classes));
+    project.addDependencies(['util.jar']);
+    project.placeLibraries({'util.jar': 'private'});
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public String Plugin() {
+    return com.example.util.Plugins.name();
+  }
+''');
+
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+    final runtime = ZipDecoder()
+        .decodeBytes(project.aix.bytes('files/AndroidRuntime.jar'))
+        .files
+        .map((el) => latin1.decode(el.content))
+        .join();
+    expect(runtime,
+        contains('${project.package}.repacked.com.example.util.Missing'));
+  });
+
+  test('private AARs ship only the code that is used or kept', () async {
+    final project = await TestProject.create('private_shrunk_ext');
+    final classes = await _compiled(project, {
+      'com/example/player/Api': 'package com.example.player; '
+          'public class Api { public static int version() { return 2; } }',
+      'com/example/player/TimeBar':
+          'package com.example.player; public class TimeBar {}',
+      'com/example/player/Reflected':
+          'package com.example.player; public class Reflected {}',
+      'com/example/player/Unused':
+          'package com.example.player; public class Unused {}',
+    });
+    _writeAar(project, 'player.aar', {
+      'AndroidManifest.xml':
+          utf8.encode('<manifest package="com.example.player"/>'),
+      'res/layout/controls.xml': utf8.encode('<com.example.player.TimeBar/>'),
+      'R.txt': utf8.encode('int layout controls 0x0\n'),
+      'proguard.txt': utf8.encode('-keep class com.example.player.Reflected\n'),
+      'classes.jar': _jar(classes),
+    });
+    project.addDependencies(['player.aar']);
+    project.placeLibraries({'player.aar': 'private'});
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public int Version() {
+    return com.example.player.Api.version();
+  }
+''');
+
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+    final renamed = '${project.packagePath}/repacked/com/example/player';
+    expect(
+        _classesOf(
+            project.aix.library('${project.package}.repacked.player.aar')),
+        unorderedEquals([
+          '$renamed/Api.class',
+          '$renamed/TimeBar.class',
+          '$renamed/Reflected.class',
+        ]));
+  });
+
+  test('private AARs implement default methods of private jars', () async {
+    final project = await TestProject.create('private_defaults_ext');
+    final classes = await _compiled(project, {
+      'com/example/util/Greeter': 'package com.example.util; '
+          'public interface Greeter { '
+          'default String greet() { return "hi"; } }',
+      'com/example/player/Friendly': 'package com.example.player; '
+          'public class Friendly implements com.example.util.Greeter {}',
+    });
+    project.file('deps/util.jar')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(_jar({
+        'com/example/util/Greeter.class':
+            classes['com/example/util/Greeter.class']!,
+      }));
+    _writeAar(project, 'player.aar', {
+      'AndroidManifest.xml':
+          utf8.encode('<manifest package="com.example.player"/>'),
+      'res/drawable/play.xml': utf8.encode('<vector/>'),
+      'R.txt': utf8.encode('int drawable play 0x0\n'),
+      'classes.jar': _jar({
+        'com/example/player/Friendly.class':
+            classes['com/example/player/Friendly.class']!,
+      }),
+    });
+    project.addDependencies(['util.jar', 'player.aar']);
+    project.placeLibraries({'util.jar': 'private', 'player.aar': 'private'});
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public String Greet() {
+    return new com.example.player.Friendly().greet();
+  }
+''');
+
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+  });
+
+  test('private AARs whose code is unused ship without classes', () async {
+    final project = await TestProject.create('private_res_ext');
+    final classes = await _compiled(project, {
+      'com/example/icons/Icons':
+          'package com.example.icons; public class Icons {}',
+    });
+    _writeAar(project, 'icons.aar', {
+      'AndroidManifest.xml':
+          utf8.encode('<manifest package="com.example.icons"/>'),
+      'res/drawable/play.xml': utf8.encode('<vector/>'),
+      'R.txt': utf8.encode('int drawable play 0x0\n'),
+      'classes.jar': _jar(classes),
+    });
+    project.addDependencies(['icons.aar']);
+    project.placeLibraries({'icons.aar': 'private'});
+
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+    final aar = project.aix.library('${project.package}.repacked.icons.aar');
+    expect(aar.findFile('classes.jar'), isNull);
+    expect(
+        aar.findFile('res/drawable/${project.package.replaceAll('.', '_')}'
+            '_play.xml'),
+        isNotNull);
+  });
+
+  test('optimized builds optimize private AARs into the extension', () async {
+    final project = await TestProject.create('private_optimized_ext');
+    final classes = await _compiled(project, {
+      'com/example/player/PlaybackService': 'package com.example.player; '
+          'public class PlaybackService { '
+          'static int volume = Integer.getInteger("volume", 7); }',
+      'com/example/player/Mixer': 'package com.example.player; '
+          'class Mixer { public String toString() { '
+          'return "volume " + PlaybackService.volume; } }',
+      'com/example/player/Api': 'package com.example.player; '
+          'public class Api { public static Object mixer() { '
+          'return new Mixer(); } }',
+      'com/example/player/Unused':
+          'package com.example.player; public class Unused {}',
+    });
+    _writeAar(project, 'player.aar', {
+      'AndroidManifest.xml': utf8
+          .encode('<manifest xmlns:android="http://schemas.android.com/apk/res/'
+              'android" package="com.example.player"><application>'
+              '<service android:name=".PlaybackService"/>'
+              '</application></manifest>'),
+      'res/drawable/play.xml': utf8.encode('<vector/>'),
+      'R.txt': utf8.encode('int drawable play 0x0\n'),
+      'classes.jar': _jar(classes),
+    });
+    project.addDependencies(['player.aar']);
+    project.placeLibraries({'player.aar': 'private'});
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public String Mixer() {
+    return com.example.player.Api.mixer().toString();
+  }
+''');
+
+    final build = await project.build(['--optimize']);
+    expect(build.exitCode, 0, reason: build.output);
+    final aix = project.aix;
+    final shipped = [
+      ...aix.classNames.where((el) => el.endsWith('.class')),
+      ..._classesOf(aix.library('${project.package}.repacked.player.aar')),
+    ];
+    expect(shipped, everyElement(startsWith('${project.packagePath}/')));
+    expect(
+        shipped,
+        contains(
+            '${project.packagePath}/repacked/com/example/player/PlaybackService.class'));
+    expect(
+        project.file('out/${project.package}.mapping.txt').readAsStringSync(),
+        allOf(contains('com.example.player.Mixer ->'),
+            isNot(contains('com.example.player.Unused'))));
   });
 
   test('AAR manifests keep the app package for \${applicationId}', () async {

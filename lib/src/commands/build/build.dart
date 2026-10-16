@@ -90,49 +90,50 @@ class BuildCommand extends Command<int> {
       return (plan, resources);
     });
 
-    final (descriptor, libraries, artJarPath, privateLibraries) =
+    final (extension, artJarPath, privateLibraries) =
         await _task('Processing', () async {
       final extension = await _requireExtension();
       await removeMapping(extension.package);
-      final privateLibraries =
-          await PrivateLibraries.prepare(config, plan, extension.package);
-      final libraries = writeLongIdResources(await moveLibraryFontsToRaw([
-        ...await packageLibraries(config, plan, resources),
-        ...await privateLibraries.packageAars(),
-      ]));
       return (
-        extension.withBuildInfos(
-            privateLibraries.names.renameBuildInfos(extension.buildInfos)),
-        libraries,
+        extension,
         await createArtJar(plan.privateJars),
-        privateLibraries,
+        await PrivateLibraries.prepare(config, plan),
       );
     });
 
-    if (optimize || plan.privateJars.isNotEmpty) {
-      await _task(
-          optimize
-              ? 'Optimizing and obfuscating the bytecode'
-              : 'Shrinking bundled libraries',
-          () => shrinkRuntimeJar(
-              artJarPath, plan, resources, descriptor.package,
-              optimize: optimize,
-              privateAarClasses: privateLibraries.originalAarClasses));
-    }
+    final program = optimize || !privateLibraries.isEmpty
+        ? await _task(
+            optimize
+                ? 'Optimizing and obfuscating the bytecode'
+                : 'Shrinking bundled libraries',
+            () => shrinkProgram(
+                artJarPath, plan, resources, extension, privateLibraries,
+                optimize: optimize))
+        : PrivateProgram.none(config, extension.package);
 
-    if (plan.privateJars.isNotEmpty || plan.privateAars.isNotEmpty) {
-      await _task('Relocating private libraries',
-          () => relocatePrivateClasses(artJarPath, privateLibraries));
-    }
+    final (descriptor, libraries) =
+        await _task('Packaging libraries', () async {
+      if (!privateLibraries.isEmpty) {
+        await relocatePrivateClasses(artJarPath, program);
+      }
+      return (
+        extension.withBuildInfos(
+            program.names.renameBuildInfos(extension.buildInfos)),
+        writeLongIdResources(await moveLibraryFontsToRaw([
+          ...await packageLibraries(config, plan, resources),
+          ...await program.packageAars(artJarPath),
+        ])),
+      );
+    });
 
     await _task(
         'Desugaring Java 8+ language features',
         () => desugarArtJar(config, artJarPath, plan, descriptor.package,
-            privateLibraries.relocatedAarClasses));
+            program.relocatedAarClasses));
     await _task(
         'Generating DEX bytecode',
         () => _dex(config, artJarPath,
-            {...plan.libraryJars, ...privateLibraries.relocatedAarClasses}));
+            {...plan.libraryJars, ...program.relocatedAarClasses}));
     await _task('Packaging the extension',
         () => assembleAix(config, descriptor, libraries));
   }

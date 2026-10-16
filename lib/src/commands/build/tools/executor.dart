@@ -7,7 +7,6 @@ import 'package:rush/src/commands/build/tools/jdk_library.dart';
 import 'package:rush/src/commands/build/utils.dart';
 import 'package:rush/src/services/lib_service.dart';
 import 'package:rush/src/services/ai2_runtime.dart';
-import 'package:rush/src/utils/file_extension.dart';
 import 'package:rush/src/utils/process_runner.dart';
 
 class Executor {
@@ -162,12 +161,12 @@ class Executor {
               .toList());
 
   static Future<void> execR8(
-    String artJarPath, {
+    Iterable<String> program, {
+    required String output,
     required Set<String> libraryJars,
     required Set<String> rules,
-    String? mapping,
+    required String mapping,
   }) async {
-    final shrunk = p.join(p.dirname(artJarPath), 'AndroidRuntime.shrunk.jar');
     await _runR8Tool(
       'com.android.tools.r8.R8',
       [
@@ -176,13 +175,12 @@ class Executor {
         ...['--lib', await jdkLibrary()],
         for (final jar in libraryJars) ...['--lib', jar],
         for (final rule in rules) ...['--pg-conf', rule],
-        if (mapping != null) ...['--pg-map-output', mapping],
-        ...['--output', shrunk],
-        artJarPath,
+        ...['--pg-map-output', mapping],
+        ...['--output', output],
+        ...program,
       ],
       debugStdout: true,
     );
-    await shrunk.asFile().rename(artJarPath);
   }
 
   static Future<void> execManifMerger(

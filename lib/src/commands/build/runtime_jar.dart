@@ -6,6 +6,7 @@ import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 import 'package:tint/tint.dart';
 
+import 'package:rush/src/commands/build/descriptor.dart';
 import 'package:rush/src/commands/build/library_plan.dart';
 import 'package:rush/src/commands/build/private_libraries.dart';
 import 'package:rush/src/commands/build/proguard_rules.dart';
@@ -89,18 +90,26 @@ Future<void> checkProjectRules() async {
   }
 }
 
-Future<void> shrinkRuntimeJar(String artJarPath, LibraryPlan plan,
-    ExtensionResources? resources, String package,
-    {required bool optimize,
-    required Iterable<String> privateAarClasses}) async {
+Future<PrivateProgram> shrinkProgram(
+    String artJarPath,
+    LibraryPlan plan,
+    ExtensionResources? resources,
+    Descriptor extension,
+    PrivateLibraries privateLibraries,
+    {required bool optimize}) async {
+  final package = extension.package;
+  final program = [artJarPath, ...privateLibraries.aarClasses];
+  final output = p.join(_fs.buildFilesDir.path, 'program.shrunk.jar');
+  final mapping = optimize
+      ? _mapping(package).path
+      : p.join(_fs.buildFilesDir.path, 'program.mapping.txt');
   final projectRules = _projectRules;
-  final mapping = _mapping(package);
   try {
     await Executor.execR8(
-      artJarPath,
+      program,
+      output: output,
       libraryJars: {
         ...plan.libraryJars,
-        ...privateAarClasses,
         if (resources != null) resources.classesJar,
       },
       rules: {
@@ -108,11 +117,11 @@ Future<void> shrinkRuntimeJar(String artJarPath, LibraryPlan plan,
         ...await _bundledProguardRules(plan.privateJars),
         if (!optimize) ...await _shrinkOnlyRules(),
         if (optimize) await _repackageRules(package),
-        if (privateAarClasses.isNotEmpty)
-          await _keptForPrivateAars(artJarPath, privateAarClasses),
+        if (!privateLibraries.isEmpty)
+          await privateLibraries.keepRules(program, extension.buildInfos),
         if (await projectRules.exists()) projectRules.path,
       },
-      mapping: optimize ? mapping.path : null,
+      mapping: mapping,
     );
   } on ProcessException {
     _lgr.log(
@@ -124,16 +133,10 @@ Future<void> shrinkRuntimeJar(String artJarPath, LibraryPlan plan,
   }
   if (optimize) {
     _lgr.info('Wrote the mapping of renamed classes to '
-        '${p.relative(mapping.path, from: _fs.cwd)}');
+        '${p.relative(mapping, from: _fs.cwd)}');
   }
-}
-
-Future<String> _keptForPrivateAars(
-    String artJarPath, Iterable<String> privateAarClasses) async {
-  final rules = p.join(_fs.buildFilesDir.path, 'private-aar-keep.pro');
-  await Executor.execTraceReferences(
-      sources: privateAarClasses, target: artJarPath, output: rules);
-  return rules;
+  return privateLibraries.split(output,
+      mapping: mapping, artJarPath: artJarPath, package: package);
 }
 
 File _mapping(String package) =>
@@ -196,13 +199,12 @@ Future<String> _keepExtensionClassesRules() async {
 }
 
 Future<void> relocatePrivateClasses(
-    String artJarPath, PrivateLibraries privateLibraries) async {
+    String artJarPath, PrivateProgram program) async {
   final relocated =
       p.join(_fs.buildFilesDir.path, 'AndroidRuntime.relocated.jar');
-  await privateLibraries.relocate(artJarPath, relocated);
+  await program.relocate(artJarPath, relocated);
   await relocated.asFile().rename(artJarPath);
-  _lgr.info('Moved private libraries to '
-      '${privateLibraries.names.package}.repacked');
+  _lgr.info('Moved private libraries to ${program.names.package}.repacked');
 }
 
 Future<void> _relocateDesugarHelpers(String artJarPath, String package) async {
