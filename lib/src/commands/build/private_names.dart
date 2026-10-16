@@ -122,9 +122,15 @@ class PrivateNames {
     for (final attribute in root.descendantElements
         .expand((el) => el.attributes)
         .where((el) => el.name.qualified == 'android:name')) {
-      attribute.value = className(attribute.value);
+      attribute.value = _renamedName(attribute.value);
     }
   }
+
+  String _renamedName(String name) => switch (name.lastIndexOf(':')) {
+        -1 => className(name),
+        final colon =>
+          name.substring(0, colon + 1) + className(name.substring(colon + 1)),
+      };
 
   String _renamedViews(ArchiveFile file) {
     final document = parseAndroidXml(utf8.decode(file.content));

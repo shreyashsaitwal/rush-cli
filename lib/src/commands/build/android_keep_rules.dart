@@ -46,12 +46,15 @@ Iterable<String> _namedIn(XmlNode root, {String? package}) => [
       for (final element in root.descendantElements) ...[
         element.name.qualified,
         for (final attribute in element.attributes)
-          package != null && attribute.value.startsWith('.')
-              ? '$package${attribute.value}'
-              : attribute.value,
+          ..._namesIn(attribute.value, package),
       ],
       for (final text in root.descendants.whereType<XmlText>())
         text.value.trim(),
+    ];
+
+Iterable<String> _namesIn(String value, String? package) => [
+      package != null && value.startsWith('.') ? '$package$value' : value,
+      if (value.contains(':')) value.substring(value.lastIndexOf(':') + 1),
     ];
 
 bool _isResourceXml(ArchiveFile file) =>

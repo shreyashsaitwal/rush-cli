@@ -104,4 +104,15 @@ void main() {
           '-dontwarn lib.player.R\$*',
         ]));
   });
+
+  test('keeps classes named after a prefix in manifest names', () {
+    expect(
+        _lines(androidKeepRules(programClasses: {
+          'lib.vision.Registrar'
+        }, aars: [], manifestElements: [
+          '<meta-data android:name="lib.firebase.components:'
+              'lib.vision.Registrar"/>',
+        ])),
+        contains('-keep class lib.vision.Registrar { <init>(...); }'));
+  });
 }

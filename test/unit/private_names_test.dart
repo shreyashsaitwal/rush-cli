@@ -125,4 +125,28 @@ void main() {
       }
     ]);
   });
+
+  test('renames classes named after a prefix in manifest names', () {
+    final registrars = _aar({
+      'AndroidManifest.xml': '<manifest package="lib.vision" '
+          'xmlns:android="http://schemas.android.com/apk/res/android">'
+          '<application><service android:name="lib.firebase.Discovery">'
+          '<meta-data android:name="lib.firebase.components:lib.vision.Registrar" '
+          'android:value="lib.firebase.ComponentRegistrar"/>'
+          '</service></application></manifest>',
+      'res/values/values.xml': '<resources/>',
+      'classes.jar': '',
+    });
+    final names = PrivateNames(
+      package: 'com.example.ext',
+      classes: {'lib/vision/Registrar'},
+      aars: {'vision.aar': registrars},
+    );
+
+    expect(
+        _text(
+            names.renameAar(registrars, classes: null), 'AndroidManifest.xml'),
+        contains('android:name="lib.firebase.components:'
+            'com.example.ext.repacked.lib.vision.Registrar"'));
+  });
 }
