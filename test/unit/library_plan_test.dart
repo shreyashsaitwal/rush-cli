@@ -237,6 +237,8 @@ void main() {
         }),
         _library('g:camera:1',
             aar: true, originalContents: {OriginalContent.nativeLibraries}),
+        _library('g:vendor:1',
+            aar: true, originalContents: {OriginalContent.bundledJars}),
       ],
       placements: {'g:widget': LibraryPlacement.private},
     );
@@ -248,6 +250,9 @@ void main() {
       'g:camera:1 can\'t be private: its native libraries find classes by '
           'their original names. Place it as shared in rush.yml: '
           '`libraries: {g:camera: shared}`.',
+      'g:vendor:1 can\'t be private: the JARs in its libs/ folder keep '
+          'their original names. Place it as shared in rush.yml: '
+          '`libraries: {g:vendor: shared}`.',
     ]);
   });
 

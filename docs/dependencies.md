@@ -70,9 +70,9 @@ to one of:
   when its objects pass between extensions, or when it can't be private.
 - **`private`**, the default: the extension's own copy, renamed into it (see
   [How libraries are shipped](#how-libraries-are-shipped)). Rush refuses it, naming the
-  `shared` entry to add, for a library with assets (they keep their paths) or native
-  libraries (they find classes by their original names), and for a library a shared
-  library uses by its original name.
+  `shared` entry to add, for an AAR with assets (they keep their paths), native
+  libraries (they find classes by their original names) or JARs in `libs/` (they aren't
+  renamed), and for a library a shared library uses by its original name.
 
 A key that matches no library is a warning, as it's likely a typo.
 
@@ -130,8 +130,9 @@ Some names must stay as they are:
   manifests keep their value, in the manifest and in code, even when they equal a class
   name: other apps and the system send them. Media3's
   `androidx.media3.session.MediaSessionService` action is one.
-- **Native code and assets** find classes and files by their original names, which is
-  why libraries with them must be shared.
+- **Native code and assets** find classes and files by their original names, and JARs
+  bundled in an AAR's `libs/` aren't renamed, which is why AARs with them must be
+  shared.
 
 Renamed classes and resources change the app's code the first time an extension is
 rebuilt with private libraries. What an installed app stored under the old names, such

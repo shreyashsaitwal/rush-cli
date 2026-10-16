@@ -64,8 +64,9 @@ carefully. See [What App Inventor provides](dependencies.md#what-app-inventor-pr
 **`… and … are the same library (…). App Inventor includes only one of them in the
 app`.** Two shipped AARs have the same package. Keep one of them in `rush.yml`.
 
-**`… can't be private: its assets keep their original paths` or `its native libraries
-find classes by their original names`.** Add the `shared` entry the message names to
+**`… can't be private: its assets keep their original paths`, `its native libraries
+find classes by their original names` or `the JARs in its libs/ folder keep their
+original names`.** Add the `shared` entry the message names to
 `libraries` in `rush.yml`. What the library uses becomes shared too.
 
 **`Missing class androidx.annotation.…`.** Recent libraries use annotations App

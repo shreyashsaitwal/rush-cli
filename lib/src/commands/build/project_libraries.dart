@@ -56,6 +56,7 @@ Future<ResolvedLibrary> _library(Artifact artifact,
 Future<Set<OriginalContent>> _originalContents(Artifact aar) async => {
       if (await _hasFiles(aar, 'assets')) OriginalContent.assets,
       if (await _hasFiles(aar, 'jni')) OriginalContent.nativeLibraries,
+      if (await _hasFiles(aar, 'libs')) OriginalContent.bundledJars,
     };
 
 Future<bool> _hasResources(Artifact aar) async {

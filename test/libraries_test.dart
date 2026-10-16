@@ -1063,6 +1063,26 @@ class {className}(container: ComponentContainer) :
               'original names'));
     });
 
+    test('are refused as private when they bundle JARs', () async {
+      final project = await TestProject.create('private_bundled_ext');
+      project.file('deps/vendor.aar')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(_jar({
+          'AndroidManifest.xml':
+              utf8.encode('<manifest package="com.example.vendor"/>'),
+          'libs/sdk.jar': _jar({'sdk.txt': utf8.encode('sdk')}),
+          'classes.jar': _jar({}),
+        }));
+      project.addDependencies(['vendor.aar']);
+      final build = await project.build();
+      expect(build.exitCode, 1, reason: build.output);
+      expect(
+          build.output,
+          contains("vendor.aar can't be private: the JARs in its libs/ "
+              'folder keep their original names. Place it as shared in '
+              'rush.yml: `libraries: {vendor.aar: shared}`.'));
+    });
+
     test('are refused as private when a shared library uses them', () async {
       final project = await TestProject.create('private_used_ext');
       project.addDependencies(['androidx.media3:media3-common:1.11.1']);

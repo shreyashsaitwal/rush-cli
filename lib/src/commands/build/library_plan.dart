@@ -8,7 +8,8 @@ enum LibraryScope { compile, runtime, provided }
 
 enum OriginalContent {
   assets('its assets keep their original paths'),
-  nativeLibraries('its native libraries find classes by their original names');
+  nativeLibraries('its native libraries find classes by their original names'),
+  bundledJars('the JARs in its libs/ folder keep their original names');
 
   const OriginalContent(this.description);
 
