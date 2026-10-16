@@ -60,7 +60,7 @@ class ResourceDefinitions {
         defined.add((resource.type, resource.name));
       }
       if (isResourceXml(file.name)) {
-        final document = parseAndroidXml(utf8.decode(file.content));
+        final document = resourceDocument(file);
         if (_isValues(file.name)) {
           _collectValues(document.rootElement, defined, styleables, attributes);
         } else {
@@ -178,7 +178,9 @@ class ResourceRenaming {
     if (!resourceXml && file.name != 'AndroidManifest.xml') {
       return file.content;
     }
-    final document = parseAndroidXml(utf8.decode(file.content));
+    final document = resourceXml
+        ? resourceDocument(file)
+        : parseAndroidXml(utf8.decode(file.content));
     renameReferences(document);
     if (resourceXml && _isValues(file.name)) {
       _renameValues(document.rootElement);

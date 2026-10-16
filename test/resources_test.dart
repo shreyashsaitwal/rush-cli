@@ -151,6 +151,25 @@ void main() {
         '<item name="${renamed}widgetSize">8dp</item></style></resources>');
   });
 
+  test('raw resources ship as written, XML or not', () async {
+    final project = await TestProject.create('res_ext');
+    _writeResources(project);
+    _useLibraryResources(project);
+    const data = '<key>value without an end';
+    project.file('res/raw/com_example_resext_data.xml')
+      ..createSync(recursive: true)
+      ..writeAsStringSync(data);
+
+    final result = await project.build();
+    expect(result.exitCode, 0, reason: result.output);
+    expect(
+        utf8.decode(project.aix
+            .library('com.example.resext.aar')
+            .findFile('res/raw/com_example_resext_data.xml')!
+            .content),
+        data);
+  });
+
   test('resources must be prefixed with the extension package', () async {
     final project = await TestProject.create('res_ext');
     _writeResources(project);

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:archive/archive.dart';
 import 'package:collection/collection.dart';
 import 'package:xml/xml.dart';
@@ -40,7 +38,7 @@ Iterable<String> _namedInAar(Archive aar) => [
         ..._namedIn(parseAndroidXml(manifest), package: aar.package),
       for (final file
           in aar.files.where((el) => el.isFile && isResourceXml(el.name)))
-        ..._namedIn(parseAndroidXml(utf8.decode(file.content))),
+        ..._namedIn(resourceDocument(file)),
     ];
 
 Iterable<String> _namedIn(XmlNode root, {String? package}) => [

@@ -6,6 +6,7 @@ import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 import 'package:tint/tint.dart';
 
+import 'package:rush/src/commands/build/aar_contents.dart';
 import 'package:rush/src/commands/build/aix.dart';
 import 'package:rush/src/commands/build/android_manifest.dart';
 import 'package:rush/src/commands/build/private_names.dart';
@@ -147,7 +148,8 @@ class ExtensionResources {
   }
 
   Future<List<String>> xml() async => [
-        for (final file in _files.where(_isXml)) await file.readAsString(),
+        for (final entry in (await _archive()).files)
+          if (isResourceXml(entry.name)) utf8.decode(entry.content),
       ];
 
   Future<Library> packageAar(PrivateNames names) async => Library(
@@ -161,7 +163,7 @@ class ExtensionResources {
 
   Future<ArchiveFile> _packaged(File file, PrivateNames names) async {
     final entry = await fileEntry(file, from: _fs.resDir.parent.path);
-    return _isXml(file)
+    return isResourceXml(entry.name)
         ? ArchiveFile.string(entry.name,
             names.renameExtensionResource(utf8.decode(entry.content)))
         : entry;
@@ -169,6 +171,4 @@ class ExtensionResources {
 
   static Iterable<File> get _files =>
       _fs.resDir.listSync(recursive: true).whereType<File>();
-
-  static bool _isXml(File file) => p.extension(file.path) == '.xml';
 }
