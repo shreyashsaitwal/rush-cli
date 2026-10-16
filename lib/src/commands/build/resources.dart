@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' show File;
 
 import 'package:archive/archive_io.dart';
@@ -114,14 +115,29 @@ class ExtensionResources {
     throw Exception();
   }
 
-  Future<Library> packageAar() async => Library(
+  Future<List<String>> xml() async => [
+        for (final file in _files.where(_isXml)) await file.readAsString(),
+      ];
+
+  Future<Library> packageAar(PrivateNames names) async => Library(
       '$package.aar',
       zipBytes([
         ArchiveFile.bytes(
             'AndroidManifest.xml', await _manifest.asFile().readAsBytes()),
         ArchiveFile.bytes('R.txt', await _symbols.asFile().readAsBytes()),
-        for (final file
-            in _fs.resDir.listSync(recursive: true).whereType<File>())
-          await fileEntry(file, from: _fs.resDir.parent.path),
+        for (final file in _files) await _packaged(file, names),
       ]));
+
+  Future<ArchiveFile> _packaged(File file, PrivateNames names) async {
+    final entry = await fileEntry(file, from: _fs.resDir.parent.path);
+    return _isXml(file)
+        ? ArchiveFile.string(
+            entry.name, names.renameClassReferences(utf8.decode(entry.content)))
+        : entry;
+  }
+
+  Iterable<File> get _files =>
+      _fs.resDir.listSync(recursive: true).whereType<File>();
+
+  static bool _isXml(File file) => p.extension(file.path) == '.xml';
 }

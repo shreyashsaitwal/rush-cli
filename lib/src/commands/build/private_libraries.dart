@@ -37,8 +37,8 @@ class PrivateLibraries {
 
   Iterable<String> get aarClasses => _aars.keys.map((el) => el.classesJar);
 
-  Future<String> keepRules(
-      Iterable<String> program, Iterable<String> manifestElements) async {
+  Future<String> keepRules(Iterable<String> program,
+      Iterable<String> manifestElements, Iterable<String> resourceXml) async {
     final rules = p.join(_fs.buildFilesDir.path, 'private-libraries.pro');
     await rules.asFile().writeAsString(androidKeepRules(
           programClasses: {
@@ -47,6 +47,7 @@ class PrivateLibraries {
           },
           aars: _aars.values,
           manifestElements: manifestElements,
+          resourceXml: resourceXml,
         ));
     return rules;
   }

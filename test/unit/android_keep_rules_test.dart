@@ -54,7 +54,10 @@ void main() {
   test('keeps the classes Android creates by name from AAR files', () {
     expect(
         _lines(androidKeepRules(
-            programClasses: _program, aars: [_player], manifestElements: [])),
+            programClasses: _program,
+            aars: [_player],
+            manifestElements: [],
+            resourceXml: [])),
         containsAllInOrder([
           '-keep class lib.list.GridManager { <init>(...); }',
           '-keep class lib.player.ButtonReceiver { <init>(...); }',
@@ -71,6 +74,7 @@ void main() {
         _lines(androidKeepRules(
             programClasses: _program,
             aars: [],
+            resourceXml: [],
             manifestElements: [
               '<provider android:name="lib.startup.InitializationProvider">'
                   '<meta-data android:name="lib.startup.Initializer" '
@@ -81,7 +85,10 @@ void main() {
 
   test('keeps only program classes', () {
     final rules = androidKeepRules(
-        programClasses: _program, aars: [_player], manifestElements: []);
+        programClasses: _program,
+        aars: [_player],
+        manifestElements: [],
+        resourceXml: []);
 
     expect(
         rules,
@@ -96,7 +103,8 @@ void main() {
         _lines(androidKeepRules(
             programClasses: _program,
             aars: [_player, _empty],
-            manifestElements: [])),
+            manifestElements: [],
+            resourceXml: [])),
         containsAllInOrder([
           '-dontwarn lib.empty.R',
           '-dontwarn lib.empty.R\$*',
@@ -109,10 +117,20 @@ void main() {
     expect(
         _lines(androidKeepRules(programClasses: {
           'lib.vision.Registrar'
-        }, aars: [], manifestElements: [
+        }, aars: [], resourceXml: [], manifestElements: [
           '<meta-data android:name="lib.firebase.components:'
               'lib.vision.Registrar"/>',
         ])),
         contains('-keep class lib.vision.Registrar { <init>(...); }'));
+  });
+
+  test('keeps the classes the extension own resources name', () {
+    expect(
+        _lines(androidKeepRules(
+            programClasses: _program,
+            aars: [],
+            manifestElements: [],
+            resourceXml: ['<lib.player.TimeBar/>'])),
+        contains('-keep class lib.player.TimeBar { <init>(...); }'));
   });
 }

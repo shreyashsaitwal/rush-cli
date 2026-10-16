@@ -21,9 +21,11 @@ String androidKeepRules({
   required Set<String> programClasses,
   required Iterable<Archive> aars,
   required Iterable<String> manifestElements,
+  required Iterable<String> resourceXml,
 }) {
   final named = {
     for (final aar in aars) ..._namedInAar(aar),
+    for (final xml in resourceXml) ..._namedIn(parseAndroidXml(xml)),
     for (final element in manifestElements)
       ..._namedIn(parseAndroidXmlFragment(element)),
   }.where(programClasses.contains).sorted();

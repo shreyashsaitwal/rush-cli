@@ -645,6 +645,43 @@ class {className}(container: ComponentContainer) :
                 contains('${project.package}.repacked.com.example.session'))));
   });
 
+  test('extension layouts use the renamed views of private libraries',
+      () async {
+    final project = await TestProject.create('private_view_ext');
+    final classes = await _compiled(project, {
+      'com/example/player/TimeBar':
+          'package com.example.player; public class TimeBar {}',
+    });
+    _writeAar(project, 'player.aar', {
+      'AndroidManifest.xml':
+          utf8.encode('<manifest package="com.example.player"/>'),
+      'res/drawable/play.xml': utf8.encode('<vector/>'),
+      'R.txt': utf8.encode('int drawable play 0x0\n'),
+      'classes.jar': _jar(classes),
+    });
+    project.addDependencies(['player.aar']);
+    project.file('res/layout/com_example_privateviewext_bar.xml')
+      ..createSync(recursive: true)
+      ..writeAsStringSync('<com.example.player.TimeBar '
+          'xmlns:android="http://schemas.android.com/apk/res/android" '
+          'android:layout_width="match_parent" '
+          'android:layout_height="wrap_content"/>');
+
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+    final renamed = '${project.package}.repacked.com.example.player.TimeBar';
+    expect(
+        utf8.decode(project.aix
+            .library('${project.package}.aar')
+            .findFile('res/layout/com_example_privateviewext_bar.xml')!
+            .content),
+        startsWith('<$renamed '));
+    expect(
+        _classesOf(
+            project.aix.library('${project.package}.repacked.player.aar')),
+        contains('${renamed.replaceAll('.', '/')}.class'));
+  });
+
   test('private AARs ship only the code that is used or kept', () async {
     final project = await TestProject.create('private_shrunk_ext');
     final classes = await _compiled(project, {

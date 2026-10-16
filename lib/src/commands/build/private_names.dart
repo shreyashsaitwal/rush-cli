@@ -94,7 +94,7 @@ class PrivateNames {
         'classes.jar' => classes,
         'AndroidManifest.xml' => utf8.encode(_renamedManifest(file)),
         final name when name.startsWith('res/') && name.endsWith('.xml') =>
-          utf8.encode(_renamedClassReferences(file)),
+          utf8.encode(_renamedClassReferences(utf8.decode(file.content))),
         _ => file.content,
       };
       if (content != null) {
@@ -161,8 +161,14 @@ class PrivateNames {
           name.substring(0, colon + 1) + className(name.substring(colon + 1)),
       };
 
-  String _renamedClassReferences(ArchiveFile file) {
-    final document = parseAndroidXml(utf8.decode(file.content));
+  String renameClassReferences(String xml) {
+    final original = parseAndroidXml(xml).toXmlString();
+    final renamed = _renamedClassReferences(xml);
+    return renamed == original ? xml : renamed;
+  }
+
+  String _renamedClassReferences(String xml) {
+    final document = parseAndroidXml(xml);
     for (final text in document.descendants.whereType<XmlText>()) {
       final name = text.value.trim();
       text.value = text.value.replaceFirst(name, className(name));

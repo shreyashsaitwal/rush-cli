@@ -120,7 +120,7 @@ class BuildCommand extends Command<int> {
         extension.withBuildInfos(
             program.names.renameBuildInfos(extension.buildInfos)),
         writeLongIdResources(await moveLibraryFontsToRaw([
-          ...await packageLibraries(config, plan, resources),
+          ...await packageLibraries(config, plan, resources, program.names),
           ...await program.packageAars(artJarPath),
         ])),
       );

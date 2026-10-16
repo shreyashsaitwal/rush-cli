@@ -10,6 +10,7 @@ import 'package:rush/src/commands/build/fixes/id_resources.dart';
 import 'package:rush/src/commands/build/fixes/raw_fonts.dart';
 import 'package:rush/src/commands/build/libraries.dart';
 import 'package:rush/src/commands/build/library_plan.dart';
+import 'package:rush/src/commands/build/private_names.dart';
 import 'package:rush/src/commands/build/resources.dart';
 import 'package:rush/src/commands/build/tools/executor.dart';
 import 'package:rush/src/commands/build/tools/library_desugarer.dart';
@@ -23,8 +24,8 @@ import 'package:rush/src/utils/zip.dart';
 final _fs = GetIt.I<FileService>();
 final _lgr = GetIt.I<Logger>();
 
-Future<List<Library>> packageLibraries(
-    Config config, LibraryPlan plan, ExtensionResources? resources) async {
+Future<List<Library>> packageLibraries(Config config, LibraryPlan plan,
+    ExtensionResources? resources, PrivateNames names) async {
   final pool = Pool(Platform.numberOfProcessors.clamp(1, 4));
   final sharedClasses = await _sharedJarClasses(plan.sharedJars);
   final desugarer = LibraryDesugarer(config);
@@ -33,7 +34,7 @@ Future<List<Library>> packageLibraries(
         (aar) => pool.withResource(() => _packageAar(desugarer, aar, plan))),
     ...sharedClasses.entries.map((el) => pool.withResource(
         () => _packageSharedJar(config, desugarer, el.key, el.value, plan))),
-    if (resources != null) resources.packageAar(),
+    if (resources != null) resources.packageAar(names),
   ]);
 
   if (libraries.isNotEmpty) {

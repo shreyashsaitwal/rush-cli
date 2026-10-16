@@ -63,7 +63,12 @@ Resources can reference each other and Android's own resources:
 ```
 
 They can't reference AppCompat or other AndroidX resources (`?attr/colorAccent`,
-`@style/Theme.AppCompat`), which aren't available when Rush compiles them.
+`@style/Theme.AppCompat`), nor those of the extension's dependencies, which aren't
+available when Rush compiles them.
+
+Layouts can use views from the extension's dependencies, such as
+`<androidx.media3.ui.PlayerView>`. When the library is private, Rush renames the view's
+class in the layout along with the library, and keeps it when it shrinks the code.
 
 ## How resources are shipped
 

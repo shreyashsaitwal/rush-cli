@@ -123,7 +123,8 @@ Future<PrivateProgram> shrinkProgram(
         if (!optimize) ...await _shrinkOnlyRules(),
         if (optimize) await _repackageRules(package),
         if (!privateLibraries.isEmpty)
-          await privateLibraries.keepRules(program, extension.manifestElements),
+          await privateLibraries.keepRules(program, extension.manifestElements,
+              await resources?.xml() ?? []),
         if (await projectRules.exists()) projectRules.path,
       },
       mapping: mapping,
