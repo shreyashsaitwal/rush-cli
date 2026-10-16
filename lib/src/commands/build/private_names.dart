@@ -9,12 +9,15 @@ import 'package:rush/src/commands/build/android_xml.dart';
 import 'package:rush/src/commands/build/relocation.dart' as relocation;
 import 'package:rush/src/commands/build/resource_names.dart';
 
+typedef ExtensionSymbols = ({Archive resources, String symbols});
+
 class PrivateNames {
   factory PrivateNames({
     required String package,
     required Set<String> classes,
     required Map<String, Archive> aars,
     Iterable<String> manifestElements = const [],
+    ExtensionSymbols? extensionResources,
   }) {
     final resources =
         ResourceRenaming.of(aars.values, prefix: resourcePrefix(package));
@@ -30,6 +33,24 @@ class PrivateNames {
       rFields.addAll([
         for (final field in resources.renamedFields(rTxt))
           (owner: '$owner\$${field.type}', name: field.from, to: field.to),
+      ]);
+    }
+    final extension = switch (extensionResources) {
+      final symbols? => (
+          definitions: ResourceDefinitions.of([symbols.resources]),
+          symbols: symbols.symbols,
+        ),
+      null => null,
+    };
+    if (extension != null) {
+      rFields.addAll([
+        for (final field in resources.renamedExtensionFields(
+            extension.symbols, extension.definitions))
+          (
+            owner: '${_rClass(package)}\$${field.type}',
+            name: field.from,
+            to: field.to,
+          ),
       ]);
     }
     final prefix = _classPrefix(package);
@@ -51,17 +72,23 @@ class PrivateNames {
         intentNames
             .where((el) => renamed.contains(el.replaceAll('.', '/')))
             .toSet(),
-        resources);
+        resources,
+        switch (extension) {
+          final extension? => resources.renameExtensionSymbols(
+              extension.symbols, extension.definitions),
+          null => null,
+        });
   }
 
   PrivateNames._(this.package, this._classes, this._rFields, this._keptStrings,
-      this.resources);
+      this.resources, this.extensionSymbols);
 
   final String package;
   final Set<String> _classes;
   final List<relocation.RenamedMember> _rFields;
   final Set<String> _keptStrings;
   final ResourceRenaming resources;
+  final String? extensionSymbols;
 
   static String resourcePrefix(String package) =>
       '${package.toLowerCase().replaceAll('.', '_')}_repacked_';

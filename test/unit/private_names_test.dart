@@ -370,4 +370,60 @@ void main() {
 
     expect(_names().renameExtensionResource(xml), xml);
   });
+
+  test('renames the extension symbols that private libraries define', () {
+    final extension = _aar({
+      'res/layout/com_example_ext_controls.xml': '<FrameLayout '
+          'xmlns:android="http://schemas.android.com/apk/res/android">'
+          '<View android:id="@+id/scrubber"/>'
+          '<View android:id="@+id/com_example_ext_title"/></FrameLayout>',
+      'res/values/values.xml': '<resources>'
+          '<declare-styleable name="com_example_ext_Bar">'
+          '<attr name="playerSize"/>'
+          '<attr name="com_example_ext_size" format="dimension"/>'
+          '</declare-styleable></resources>',
+    });
+    const symbols = 'int attr com_example_ext_size 0x0\n'
+        'int id com_example_ext_title 0x0\n'
+        'int id scrubber 0x0\n'
+        'int layout com_example_ext_controls 0x0\n'
+        'int[] styleable com_example_ext_Bar { 0x0, 0x0 }\n'
+        'int styleable com_example_ext_Bar_com_example_ext_size 0\n'
+        'int styleable com_example_ext_Bar_playerSize 1\n';
+    final names = PrivateNames(
+      package: 'com.example.ext',
+      classes: {},
+      aars: {'lib.player-player-1.0.aar': _player},
+      extensionResources: (resources: extension, symbols: symbols),
+    );
+
+    expect(
+        names.relocationSpec,
+        allOf(
+            contains('field com/example/ext/R\$id scrubber '
+                'com_example_ext_repacked_scrubber\n'),
+            contains('field com/example/ext/R\$styleable '
+                'com_example_ext_Bar_playerSize '
+                'com_example_ext_Bar_com_example_ext_repacked_playerSize\n'),
+            isNot(contains('com_example_ext_title'))));
+    expect(
+        names.extensionSymbols,
+        'int attr com_example_ext_size 0x0\n'
+        'int id com_example_ext_title 0x0\n'
+        'int id com_example_ext_repacked_scrubber 0x0\n'
+        'int layout com_example_ext_controls 0x0\n'
+        'int[] styleable com_example_ext_Bar { 0x0, 0x0 }\n'
+        'int styleable com_example_ext_Bar_com_example_ext_size 0\n'
+        'int styleable com_example_ext_Bar_com_example_ext_repacked_playerSize 1\n');
+    expect(
+        names.renameExtensionResource('<resources>'
+            '<declare-styleable name="com_example_ext_Bar">'
+            '<attr name="playerSize"/>'
+            '<attr name="com_example_ext_size" format="dimension"/>'
+            '</declare-styleable></resources>'),
+        '<resources><declare-styleable name="com_example_ext_Bar">'
+        '<attr name="com_example_ext_repacked_playerSize"/>'
+        '<attr name="com_example_ext_size" format="dimension"/>'
+        '</declare-styleable></resources>');
+  });
 }

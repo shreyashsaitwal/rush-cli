@@ -147,6 +147,11 @@ class ExtensionResources {
     throw Exception();
   }
 
+  Future<ExtensionSymbols> symbols() async => (
+        resources: await _archive(),
+        symbols: await _symbols.asFile().readAsString(),
+      );
+
   Future<List<String>> xml() async => [
         for (final entry in (await _archive()).files)
           if (isResourceXml(entry.name)) utf8.decode(entry.content),
@@ -157,7 +162,8 @@ class ExtensionResources {
       zipBytes([
         ArchiveFile.bytes(
             'AndroidManifest.xml', await _manifest.asFile().readAsBytes()),
-        ArchiveFile.bytes('R.txt', await _symbols.asFile().readAsBytes()),
+        ArchiveFile.string('R.txt',
+            names.extensionSymbols ?? await _symbols.asFile().readAsString()),
         for (final file in _files) await _packaged(file, names),
       ]));
 

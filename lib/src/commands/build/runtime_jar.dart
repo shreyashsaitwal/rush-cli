@@ -146,7 +146,10 @@ Future<PrivateProgram> shrinkProgram(
         '${p.relative(mapping, from: _fs.cwd)}');
   }
   return privateLibraries.split(output,
-      mapping: mapping, artJarPath: artJarPath, extension: extension);
+      mapping: mapping,
+      artJarPath: artJarPath,
+      extension: extension,
+      resources: resources);
 }
 
 Future<Map<String, String>> _providerOfPackage(LibraryPlan plan) async => {

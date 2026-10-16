@@ -12,6 +12,7 @@ import 'package:rush/src/commands/build/library_plan.dart';
 import 'package:rush/src/commands/build/private_names.dart';
 import 'package:rush/src/commands/build/program_split.dart';
 import 'package:rush/src/commands/build/relocation.dart';
+import 'package:rush/src/commands/build/resources.dart';
 import 'package:rush/src/commands/build/tools/executor.dart';
 import 'package:rush/src/config/config.dart';
 import 'package:rush/src/services/file_service.dart';
@@ -55,7 +56,8 @@ class PrivateLibraries {
   Future<PrivateProgram> split(String output,
       {required String mapping,
       required String artJarPath,
-      required Descriptor extension}) async {
+      required Descriptor extension,
+      required ExtensionResources? resources}) async {
     final aarOf = {
       for (final aar in _aars.keys)
         for (final name in await _classes(aar.classesJar))
@@ -77,6 +79,7 @@ class PrivateLibraries {
         package: extension.package,
         classes: {...privateClasses, ...split.privateClasses},
         manifestElements: extension.manifestElements,
+        extensionResources: await resources?.symbols(),
         aars: {
           for (final MapEntry(key: aar, value: archive) in _aars.entries)
             aar.aarFileName: archive,

@@ -164,15 +164,41 @@ class ResourceRenaming {
     return renamed;
   }
 
-  List<RenamedField> renamedFields(String rTxt) => [
+  List<RenamedField> renamedFields(String rTxt) => _renamedRows(rTxt, _fields);
+
+  List<RenamedField> renamedExtensionFields(
+          String rTxt, ResourceDefinitions extension) =>
+      _renamedRows(rTxt, _extensionFields(extension));
+
+  String renameExtensionSymbols(String rTxt, ResourceDefinitions extension) =>
+      _renamedSymbols(rTxt, _extensionFields(extension));
+
+  Map<(String, String), String> _extensionFields(
+          ResourceDefinitions extension) =>
+      {
+        ..._fields,
+        for (final MapEntry(key: styleable, value: attrs)
+            in extension.styleables.entries)
+          for (final attr in attrs)
+            if (_defined.contains(('attr', attr)))
+              (
+                'styleable',
+                '${resourceField(styleable)}_${resourceField(attr)}'
+              ): '${resourceField(styleable)}_'
+                  '${resourceField(name('attr', attr))}',
+      };
+
+  static List<RenamedField> _renamedRows(
+          String rTxt, Map<(String, String), String> fields) =>
+      [
         for (final row in rTxtRows(rTxt))
-          if (_fields[(row.type, row.name)] case final to?)
+          if (fields[(row.type, row.name)] case final to?)
             (type: row.type, from: row.name, to: to),
       ];
 
   List<int> _renamedContent(ArchiveFile file) {
     if (file.name == 'R.txt') {
-      return utf8.encode(_renamedRTxt(utf8.decode(file.content)));
+      return utf8.encode(_renamedSymbols(utf8.decode(file.content), _fields));
     }
     final resourceXml = isResourceXml(file.name);
     if (!resourceXml && file.name != 'AndroidManifest.xml') {
@@ -188,18 +214,20 @@ class ResourceRenaming {
     return utf8.encode(document.toXmlString());
   }
 
-  String _renamedRTxt(String rTxt) => const LineSplitter()
-      .convert(rTxt)
-      .map((line) {
-        final parts = line.split(' ');
-        if (parts.length < 3) {
-          return line;
-        }
-        final field = _fields[(parts[1], parts[2])];
-        return field == null ? line : (parts..[2] = field).join(' ');
-      })
-      .map((line) => '$line\n')
-      .join();
+  static String _renamedSymbols(
+          String rTxt, Map<(String, String), String> fields) =>
+      const LineSplitter()
+          .convert(rTxt)
+          .map((line) {
+            final parts = line.split(' ');
+            if (parts.length < 3) {
+              return line;
+            }
+            final field = fields[(parts[1], parts[2])];
+            return field == null ? line : (parts..[2] = field).join(' ');
+          })
+          .map((line) => '$line\n')
+          .join();
 
   void renameReferences(XmlNode root) {
     for (final element in root.descendantElements) {
@@ -250,18 +278,27 @@ class ResourceRenaming {
         case 'style':
           _renameStyle(element, original);
         case 'declare-styleable':
-          for (final attr in element.findElements('attr')) {
-            attr.setAttribute('name', name('attr', attr.getAttribute('name')!));
-          }
+          _renameStyleableAttributes(element);
       }
     }
   }
 
   void renameLibraryReferences(XmlNode root) {
     renameReferences(root);
-    root.descendantElements
-        .where((el) => el.localName == 'style')
-        .forEach(_renameStyleReferences);
+    for (final element in root.descendantElements) {
+      switch (element.localName) {
+        case 'style':
+          _renameStyleReferences(element);
+        case 'declare-styleable':
+          _renameStyleableAttributes(element);
+      }
+    }
+  }
+
+  void _renameStyleableAttributes(XmlElement styleable) {
+    for (final attr in styleable.findElements('attr')) {
+      attr.setAttribute('name', name('attr', attr.getAttribute('name')!));
+    }
   }
 
   void _renameStyle(XmlElement style, String original) {

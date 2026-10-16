@@ -46,10 +46,13 @@ void _useLibraryResources(TestProject project) {
       ..addFile(ArchiveFile.string(
           'res/values/values.xml',
           '<resources><attr name="widgetSize" format="dimension"/>'
+              '<item type="id" name="exo_play"/>'
               '<style name="Widget.Theme" parent="Theme.AppCompat">'
               '<item name="widgetSize">4dp</item></style></resources>'))
-      ..addFile(ArchiveFile.string('R.txt',
-          'int attr widgetSize 0x0\nint drawable play 0x0\nint style Widget_Theme 0x0\n'))
+      ..addFile(ArchiveFile.string(
+          'R.txt',
+          'int attr widgetSize 0x0\nint drawable play 0x0\n'
+              'int id exo_play 0x0\nint style Widget_Theme 0x0\n'))
       ..addFile(
           ArchiveFile.bytes('classes.jar', ZipEncoder().encode(Archive())))));
   project.addDependencies(['widgets.aar']);
@@ -149,6 +152,56 @@ void main() {
         '<style name="com_example_resext_theme" '
         'parent="${renamed}Widget.Theme">'
         '<item name="${renamed}widgetSize">8dp</item></style></resources>');
+  });
+
+  test('resources share ids and attributes with private libraries', () async {
+    final project = await TestProject.create('res_ext');
+    _useLibraryResources(project);
+    project.file('res/layout/com_example_resext_row.xml')
+      ..createSync(recursive: true)
+      ..writeAsStringSync('<FrameLayout '
+          'xmlns:android="http://schemas.android.com/apk/res/android" '
+          'android:layout_width="match_parent" '
+          'android:layout_height="wrap_content">'
+          '<View android:id="@+id/exo_play" android:layout_width="0dp" '
+          'android:layout_height="0dp"/></FrameLayout>');
+    project.file('res/values/attrs.xml')
+      ..createSync(recursive: true)
+      ..writeAsStringSync('<resources>'
+          '<declare-styleable name="com_example_resext_Row">'
+          '<attr name="widgetSize"/></declare-styleable></resources>');
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public int Ids() {
+    return R.id.exo_play + R.styleable.com_example_resext_Row_widgetSize;
+  }
+''');
+
+    final result = await project.build();
+    expect(result.exitCode, 0, reason: result.output);
+    const renamed = 'com_example_resext_repacked_';
+    final aar = project.aix.library('com.example.resext.aar');
+    String text(String name) => utf8.decode(aar.findFile(name)!.content);
+    expect(
+        text('R.txt'),
+        allOf(
+            contains('int id ${renamed}exo_play '),
+            contains(
+                'int styleable com_example_resext_Row_${renamed}widgetSize 0'),
+            isNot(contains('int id exo_play '))));
+    expect(text('res/layout/com_example_resext_row.xml'),
+        contains('android:id="@+id/${renamed}exo_play"'));
+    expect(text('res/values/attrs.xml'),
+        contains('<attr name="${renamed}widgetSize"/>'));
+    final extension = ZipDecoder()
+        .decodeBytes(project.aix.bytes('files/AndroidRuntime.jar'))
+        .files
+        .map((el) => latin1.decode(el.content))
+        .join();
+    expect(
+        extension,
+        allOf(contains('${renamed}exo_play'),
+            contains('com_example_resext_Row_${renamed}widgetSize')));
   });
 
   test('raw resources ship as written, XML or not', () async {
