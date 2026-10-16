@@ -37,7 +37,7 @@ class ExtensionResources {
   String get _manifest => p.join(_dir, 'AndroidManifest.xml');
 
   static Future<ExtensionResources?> compile(
-      Config config, Iterable<Archive> libraries) async {
+      Config config, Iterable<String> libraries) async {
     if (!await _fs.resDir.exists()) {
       return null;
     }
@@ -60,7 +60,10 @@ class ExtensionResources {
     await Executor.execAapt2Link(
       manifest: resources._manifest,
       compiledResources: compiled,
-      librarySymbols: await _librarySymbols(dir.path, libraries),
+      librarySymbols: await _librarySymbols(dir.path, [
+        for (final library in libraries)
+          ZipDecoder().decodeBytes(await library.asFile().readAsBytes()),
+      ]),
       symbols: linkedSymbols,
       output: p.join(dir.path, 'resources.apk'),
     );

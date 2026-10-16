@@ -62,7 +62,8 @@ Resources can reference each other and Android's own resources:
     android:background="?android:attr/selectableItemBackground"/>
 ```
 
-They can also use the resources and views of the extension's dependencies, such as
+They can also use the resources and views of the extension's dependencies, provided
+ones included, such as
 Media3's `@drawable/exo_icon_play`, a style whose parent is a library's style, or
 `<androidx.media3.ui.PlayerView>`. When the library is private, Rush renames these
 references in the shipped resources along with the library, and keeps the views when it

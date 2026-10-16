@@ -133,6 +133,21 @@ void main() {
         contains('android:src="@drawable/play"'));
   });
 
+  test('resources can reference the resources of provided libraries', () async {
+    final project = await TestProject.create('res_ext');
+    _useLibraryResources(project);
+    project.placeLibraries({'widgets.aar': 'provided'});
+
+    final result = await project.build();
+    expect(result.exitCode, 0, reason: result.output);
+    expect(
+        utf8.decode(project.aix
+            .library('com.example.resext.aar')
+            .findFile('res/layout/com_example_resext_icon.xml')!
+            .content),
+        contains('android:src="@drawable/play"'));
+  });
+
   test('resources follow the renamed resources of private libraries', () async {
     final project = await TestProject.create('res_ext');
     _useLibraryResources(project);
