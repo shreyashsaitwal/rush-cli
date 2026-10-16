@@ -17,8 +17,9 @@ class Descriptor {
 
   Iterable<String> get manifestElements => [
         for (final info in buildInfos)
-          if (info['activities'] case final List<dynamic> elements)
-            ...elements.cast<String>(),
+          for (final key in const ['activities', 'queries'])
+            if (info[key] case final List<dynamic> elements)
+              ...elements.cast<String>(),
       ];
 
   String get package {

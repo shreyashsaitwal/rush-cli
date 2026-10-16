@@ -562,6 +562,89 @@ class {className}(container: ComponentContainer) :
             isNot(contains('$renamed.PlaybackService'))));
   });
 
+  test('private libraries rename manifest values naming their classes',
+      () async {
+    final project = await TestProject.create('private_registrar_ext');
+    final classes = await _compiled(project, {
+      'com/example/components/ComponentRegistrar':
+          'package com.example.components; '
+              'public interface ComponentRegistrar {}',
+      'com/example/components/Discovery': 'package com.example.components; '
+          'public class Discovery { public static boolean registers('
+          'String value) { return '
+          '"com.example.components.ComponentRegistrar".equals(value); } }',
+    });
+    _writeAar(project, 'components.aar', {
+      'AndroidManifest.xml': utf8
+          .encode('<manifest xmlns:android="http://schemas.android.com/apk/res/'
+              'android" package="com.example.components"><application>'
+              '<service android:name="com.example.components.Discovery">'
+              '<meta-data android:name="com.example.components:Registrar" '
+              'android:value="com.example.components.ComponentRegistrar"/>'
+              '</service></application></manifest>'),
+      'classes.jar': _jar(classes),
+    });
+    project.addDependencies(['components.aar']);
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public boolean Registers(String value) {
+    return com.example.components.Discovery.registers(value);
+  }
+''');
+
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+    final renamed =
+        '${project.package}.repacked.com.example.components.ComponentRegistrar';
+    expect(jsonEncode(project.aix.buildInfo['activities']),
+        contains('android:value=\\"$renamed\\"'));
+    final code = ZipDecoder()
+        .decodeBytes(project.aix.bytes('files/AndroidRuntime.jar'))
+        .files
+        .map((el) => latin1.decode(el.content))
+        .join();
+    expect(code, contains(renamed));
+  });
+
+  test('private libraries keep intent actions the extension queries', () async {
+    final project = await TestProject.create('private_query_ext');
+    final classes = await _compiled(project, {
+      'com/example/session/SessionService': 'package com.example.session; '
+          'public class SessionService { public static String action() { '
+          'return "com.example.session.SessionService"; } }',
+    });
+    project.file('deps/session.jar')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(_jar(classes));
+    project.addDependencies(['session.jar']);
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public String Action() {
+    return com.example.session.SessionService.action();
+  }
+''');
+    final manifest = project.file('src/AndroidManifest.xml');
+    manifest.writeAsStringSync(manifest.readAsStringSync().replaceFirst(
+        '<application>',
+        '<queries><intent><action '
+            'android:name="com.example.session.SessionService"/>'
+            '</intent></queries><application>'));
+
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+    final code = ZipDecoder()
+        .decodeBytes(project.aix.bytes('files/AndroidRuntime.jar'))
+        .files
+        .map((el) => latin1.decode(el.content))
+        .join();
+    expect(
+        code,
+        allOf(
+            contains('com.example.session.SessionService'),
+            isNot(
+                contains('${project.package}.repacked.com.example.session'))));
+  });
+
   test('private AARs ship only the code that is used or kept', () async {
     final project = await TestProject.create('private_shrunk_ext');
     final classes = await _compiled(project, {

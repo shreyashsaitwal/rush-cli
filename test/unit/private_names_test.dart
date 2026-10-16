@@ -188,4 +188,74 @@ void main() {
           '</intent-filter></service>',
     ]);
   });
+
+  test('renames private class names in every manifest attribute', () {
+    final firebase = _aar({
+      'AndroidManifest.xml': '<manifest package="lib.firebase" '
+          'xmlns:android="http://schemas.android.com/apk/res/android">'
+          '<application>'
+          '<activity android:name="lib.firebase.Settings" '
+          'android:parentActivityName="lib.firebase.Home"/>'
+          '<activity-alias android:name="lib.firebase.Launcher" '
+          'android:targetActivity="lib.firebase.Home"/>'
+          '<service android:name="lib.firebase.Discovery" '
+          'android:permission="lib.firebase.BIND">'
+          '<meta-data android:name="lib.firebase.components:lib.firebase.Registrar" '
+          'android:value="lib.firebase.ComponentRegistrar"/>'
+          '<meta-data android:name="lib.firebase.version" '
+          'android:value="https://example.com:8080"/>'
+          '</service>'
+          '<provider android:name="lib.firebase.Init" '
+          'android:authorities="\${applicationId}.lib.firebase.Init"/>'
+          '</application></manifest>',
+      'res/values/values.xml': '<resources/>',
+      'classes.jar': '',
+    });
+    final names = PrivateNames(
+      package: 'com.example.ext',
+      classes: {
+        'lib/firebase/Settings',
+        'lib/firebase/Home',
+        'lib/firebase/Discovery',
+        'lib/firebase/Registrar',
+        'lib/firebase/ComponentRegistrar',
+        'lib/firebase/Init',
+      },
+      aars: {'firebase.aar': firebase},
+    );
+
+    expect(
+        _text(names.renameAar(firebase, classes: null), 'AndroidManifest.xml'),
+        '<manifest package="com.example.ext.repacked.lib.firebase" '
+        'xmlns:android="http://schemas.android.com/apk/res/android">'
+        '<application>'
+        '<activity android:name="com.example.ext.repacked.lib.firebase.Settings" '
+        'android:parentActivityName="com.example.ext.repacked.lib.firebase.Home"/>'
+        '<activity-alias android:name="lib.firebase.Launcher" '
+        'android:targetActivity="com.example.ext.repacked.lib.firebase.Home"/>'
+        '<service android:name="com.example.ext.repacked.lib.firebase.Discovery" '
+        'android:permission="lib.firebase.BIND">'
+        '<meta-data android:name="lib.firebase.components:com.example.ext.repacked.lib.firebase.Registrar" '
+        'android:value="com.example.ext.repacked.lib.firebase.ComponentRegistrar"/>'
+        '<meta-data android:name="lib.firebase.version" '
+        'android:value="https://example.com:8080"/>'
+        '</service>'
+        '<provider android:name="com.example.ext.repacked.lib.firebase.Init" '
+        'android:authorities="\${applicationId}.lib.firebase.Init"/>'
+        '</application></manifest>');
+  });
+
+  test('keeps intent names the extension queries', () {
+    final names = PrivateNames(
+      package: 'com.example.ext',
+      classes: {'lib/session/SessionService'},
+      aars: {},
+      manifestElements: [
+        '<intent><action android:name="lib.session.SessionService"/></intent>',
+      ],
+    );
+
+    expect(names.relocationSpec,
+        contains('keep-string lib.session.SessionService\n'));
+  });
 }

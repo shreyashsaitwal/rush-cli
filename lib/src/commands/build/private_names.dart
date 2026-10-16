@@ -139,8 +139,7 @@ class PrivateNames {
   void _renameClassNames(XmlNode root) {
     for (final attribute in root.descendantElements
         .whereNot(_isIntentName)
-        .expand((el) => el.attributes)
-        .where((el) => el.name.qualified == 'android:name')) {
+        .expand((el) => el.attributes)) {
       attribute.value = _renamedName(attribute.value);
     }
   }
