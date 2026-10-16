@@ -14,6 +14,8 @@ const androidDefaultRules = '''
 -keepclassmembers public class * extends android.view.View { void set*(***); *** get*(); }
 -keepclassmembers class * extends android.app.Activity { public void *(android.view.View); }
 -keepclassmembers class * { @android.webkit.JavascriptInterface <methods>; }
+-dontwarn **.R
+-dontwarn **.R\$*
 ''';
 
 String androidKeepRules({
@@ -28,10 +30,7 @@ String androidKeepRules({
     for (final element in manifestElements)
       ..._namedIn(parseAndroidXmlFragment(element)),
   }.where(programClasses.contains).sorted();
-  final packages = aars.map((el) => el.package).nonNulls.toSet().sorted();
   return [
-    for (final package in packages)
-      '-dontwarn $package.R\n-dontwarn $package.R\$*\n',
     for (final name in named) '-keep class $name { <init>(...); }\n',
   ].join();
 }

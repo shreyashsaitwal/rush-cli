@@ -34,8 +34,6 @@ final _player = _aar({
   'R.txt': 'int layout controls 0x0\n',
 });
 
-final _empty = _aar({'AndroidManifest.xml': '<manifest package="lib.empty"/>'});
-
 const _program = {
   'lib.player.PlaybackService',
   'lib.player.ButtonReceiver',
@@ -98,19 +96,9 @@ void main() {
             isNot(contains('MEDIA_BUTTON'))));
   });
 
-  test('allows the R classes App Inventor generates for each AAR', () {
-    expect(
-        _lines(androidKeepRules(
-            programClasses: _program,
-            aars: [_player, _empty],
-            manifestElements: [],
-            resourceXml: [])),
-        containsAllInOrder([
-          '-dontwarn lib.empty.R',
-          '-dontwarn lib.empty.R\$*',
-          '-dontwarn lib.player.R',
-          '-dontwarn lib.player.R\$*',
-        ]));
+  test('allows the R classes App Inventor generates', () {
+    expect(androidDefaultRules,
+        allOf(contains('-dontwarn **.R\n'), contains('-dontwarn **.R\$*\n')));
   });
 
   test('keeps classes named after a prefix in manifest names', () {

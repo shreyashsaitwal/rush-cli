@@ -716,6 +716,34 @@ class {className}(container: ComponentContainer) :
         contains('${renamed.replaceAll('.', '/')}.class'));
   });
 
+  test('private libraries use the R classes App Inventor generates', () async {
+    final project = await TestProject.create('private_appcompat_ext');
+    final classes = await _compiled(project, {
+      'androidx/appcompat/R': 'package androidx.appcompat; public final class '
+          'R { public static final class attr { public static int '
+          'colorAccent; } }',
+      'com/example/themed/Accent': 'package com.example.themed; '
+          'public class Accent { public static int attr() { '
+          'return androidx.appcompat.R.attr.colorAccent; } }',
+    });
+    project.file('deps/themed.jar')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(_jar({
+        'com/example/themed/Accent.class':
+            classes['com/example/themed/Accent.class']!,
+      }));
+    project.addDependencies(['themed.jar']);
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public int Accent() {
+    return com.example.themed.Accent.attr();
+  }
+''');
+
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+  });
+
   test('private AARs ship only the code that is used or kept', () async {
     final project = await TestProject.create('private_shrunk_ext');
     final classes = await _compiled(project, {
