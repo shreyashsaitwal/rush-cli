@@ -118,7 +118,7 @@ under `<package>.repacked` (`com.example.counter.repacked.…`):
   strings that name a moved class, so reflection on them keeps working.
 - **AARs with resources** ship as renamed AARs (`com.example.counter.repacked.<file>.aar`):
   their manifest package, the classes their manifests and layouts name, and their
-  resources, prefixed with the package (`com_example_counter_…`), so another copy of the
+  resources, prefixed with `com_example_counter_repacked_`, so another copy of the
   same library, in any version, can't collide with them. An AAR without resources joins
   the extension's code.
 - **Shared libraries** ship unchanged as AARs, and JARs they depend on are wrapped into

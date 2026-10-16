@@ -37,7 +37,9 @@ error string/title must be named com_example_counter_title
 help  Resource names start with the extension package so they never clash with other extensions or App Inventor
 ```
 
-IDs (`@+id/title`) don't need the prefix: sharing them is harmless.
+IDs (`@+id/title`) don't need the prefix: sharing them is harmless. Names starting with
+`com_example_counter_repacked_` are reserved for the resources of [private
+libraries](dependencies.md#how-libraries-are-shipped).
 
 `src/AndroidManifest.xml` must declare the extension's package
 (`package="com.example.counter"`), which is the package of the `R` class.
