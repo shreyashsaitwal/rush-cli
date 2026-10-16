@@ -12,6 +12,40 @@ import 'support/aix.dart';
 import 'support/fixtures.dart';
 import 'support/project.dart';
 
+Future<Map<String, List<int>>> _compiled(
+    TestProject project, Map<String, String> sources) async {
+  final sourceDir = p.join(project.dir.path, 'library-src');
+  final classesDir = p.join(project.dir.path, 'library-classes');
+  final files = [
+    for (final MapEntry(key: name, value: source) in sources.entries)
+      File(p.join(sourceDir, '$name.java'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync(source),
+  ];
+  final javac = await Process.run('javac', [
+    '--release',
+    '8',
+    '-d',
+    classesDir,
+    for (final file in files) file.path
+  ]);
+  expect(javac.exitCode, 0, reason: '${javac.stderr}');
+  return {
+    for (final file
+        in Directory(classesDir).listSync(recursive: true).whereType<File>())
+      p.posix.joinAll(p.split(p.relative(file.path, from: classesDir))):
+          file.readAsBytesSync(),
+  };
+}
+
+List<int> _jar(Map<String, List<int>> entries) {
+  final archive = Archive();
+  for (final MapEntry(key: name, value: bytes) in entries.entries) {
+    archive.addFile(ArchiveFile.bytes(name, bytes));
+  }
+  return ZipEncoder().encode(archive);
+}
+
 void main() {
   group('the Kotlin standard library', () {
     late TestProject project;
@@ -231,37 +265,21 @@ class {className}(container: ComponentContainer) :
 
   test('private AARs are renamed into the extension', () async {
     final project = await TestProject.create('private_aar_ext');
-    final sources = Directory(p.join(project.dir.path, 'library-src'));
-    final player = p.join(sources.path, 'com', 'example', 'player');
-    for (final MapEntry(key: name, value: source) in {
-      'R.java': 'package com.example.player; public final class R { '
-          'public static final class drawable { public static int play; } }',
-      'PlaybackService.java': 'package com.example.player; '
+    final classes = await _compiled(project, {
+      'com/example/player/R':
+          'package com.example.player; public final class R { '
+              'public static final class drawable { public static int play; } }',
+      'com/example/player/PlaybackService': 'package com.example.player; '
           'public class PlaybackService { '
           'public static int icon() { return R.drawable.play; } }',
-      'TimeBar.java': 'package com.example.player; public class TimeBar {}',
-    }.entries) {
-      File(p.join(player, name))
-        ..createSync(recursive: true)
-        ..writeAsStringSync(source);
-    }
-    final classes = p.join(project.dir.path, 'library-classes');
-    final javac = await Process.run('javac', [
-      '--release',
-      '8',
-      '-d',
-      classes,
-      for (final name in ['R', 'PlaybackService', 'TimeBar'])
-        p.join(player, '$name.java'),
-    ]);
-    expect(javac.exitCode, 0, reason: '${javac.stderr}');
-    final classesJar = Archive();
-    for (final name in ['PlaybackService', 'TimeBar']) {
-      classesJar.addFile(ArchiveFile.bytes(
-          'com/example/player/$name.class',
-          File(p.join(classes, 'com', 'example', 'player', '$name.class'))
-              .readAsBytesSync()));
-    }
+      'com/example/player/TimeBar':
+          'package com.example.player; public class TimeBar {}',
+    });
+    final classesJar = _jar({
+      for (final name in ['PlaybackService', 'TimeBar'])
+        'com/example/player/$name.class':
+            classes['com/example/player/$name.class']!,
+    });
     project.file('deps/player.aar')
       ..createSync(recursive: true)
       ..writeAsBytesSync(ZipEncoder().encode(Archive()
@@ -276,8 +294,7 @@ class {className}(container: ComponentContainer) :
             'res/layout/controls.xml', '<com.example.player.TimeBar/>'))
         ..addFile(ArchiveFile.string(
             'R.txt', 'int drawable play 0x0\nint layout controls 0x0\n'))
-        ..addFile(ArchiveFile.bytes(
-            'classes.jar', ZipEncoder().encode(classesJar)))));
+        ..addFile(ArchiveFile.bytes('classes.jar', classesJar))));
     project.addDependencies(['player.aar']);
     project.placeLibraries({'player.aar': 'private'});
     project.writeJavaExtension('''
@@ -317,6 +334,49 @@ class {className}(container: ComponentContainer) :
         ]));
     expect(jsonEncode(aix.buildInfo['activities']),
         contains('$renamed.com.example.player.PlaybackService'));
+  });
+
+  test('private AARs keep the private code they use', () async {
+    final project = await TestProject.create('private_user_ext');
+    final classes = await _compiled(project, {
+      'com/example/util/Formatter': 'package com.example.util; '
+          'public class Formatter { '
+          'public static String format(int value) { return "#" + value; } }',
+      'com/example/player/R':
+          'package com.example.player; public final class R { '
+              'public static final class drawable { public static int play; } }',
+      'com/example/player/Label': 'package com.example.player; '
+          'public class Label { public static String text() { '
+          'return com.example.util.Formatter.format(R.drawable.play); } }',
+    });
+    project.file('deps/util.jar')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(_jar({
+        'com/example/util/Formatter.class':
+            classes['com/example/util/Formatter.class']!,
+      }));
+    project.file('deps/player.aar')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(ZipEncoder().encode(Archive()
+        ..addFile(ArchiveFile.string(
+            'AndroidManifest.xml', '<manifest package="com.example.player"/>'))
+        ..addFile(ArchiveFile.string('res/drawable/play.xml', '<vector/>'))
+        ..addFile(ArchiveFile.string('R.txt', 'int drawable play 0x0\n'))
+        ..addFile(ArchiveFile.bytes(
+            'classes.jar',
+            _jar({
+              'com/example/player/Label.class':
+                  classes['com/example/player/Label.class']!,
+            })))));
+    project.addDependencies(['util.jar', 'player.aar']);
+    project.placeLibraries({'util.jar': 'private', 'player.aar': 'private'});
+
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+    expect(
+        project.aix.classNames,
+        contains(
+            '${project.packagePath}/repacked/com/example/util/Formatter.class'));
   });
 
   test('AAR manifests keep the app package for \${applicationId}', () async {

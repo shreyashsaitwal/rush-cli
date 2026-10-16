@@ -108,6 +108,8 @@ Future<void> shrinkRuntimeJar(String artJarPath, LibraryPlan plan,
         ...await _bundledProguardRules(plan.privateJars),
         if (!optimize) ...await _shrinkOnlyRules(),
         if (optimize) await _repackageRules(package),
+        if (privateAarClasses.isNotEmpty)
+          await _keptForPrivateAars(artJarPath, privateAarClasses),
         if (await projectRules.exists()) projectRules.path,
       },
       mapping: optimize ? mapping.path : null,
@@ -124,6 +126,14 @@ Future<void> shrinkRuntimeJar(String artJarPath, LibraryPlan plan,
     _lgr.info('Wrote the mapping of renamed classes to '
         '${p.relative(mapping.path, from: _fs.cwd)}');
   }
+}
+
+Future<String> _keptForPrivateAars(
+    String artJarPath, Iterable<String> privateAarClasses) async {
+  final rules = p.join(_fs.buildFilesDir.path, 'private-aar-keep.pro');
+  await Executor.execTraceReferences(
+      sources: privateAarClasses, target: artJarPath, output: rules);
+  return rules;
 }
 
 File _mapping(String package) =>
@@ -265,7 +275,7 @@ Future<void> _addCoreLibrary(
   final keepRules =
       p.join(_fs.buildFilesDir.path, 'core-library-keep.pro').asFile();
   await Executor.execTraceReferences(
-    source: artJarPath,
+    sources: [artJarPath],
     target: library,
     output: keepRules.path,
   );

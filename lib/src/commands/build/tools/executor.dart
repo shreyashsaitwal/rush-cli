@@ -80,7 +80,7 @@ class Executor {
       ]);
 
   static Future<void> execTraceReferences({
-    required String source,
+    required Iterable<String> sources,
     required String target,
     required String output,
   }) async =>
@@ -88,7 +88,7 @@ class Executor {
         '--keep-rules',
         ...['--map-diagnostics:MissingDefinitionsDiagnostic', 'error', 'none'],
         ...['--lib', (await Ai2Runtime.load()).androidJar],
-        ...['--source', source],
+        for (final source in sources) ...['--source', source],
         ...['--target', target],
         ...['--output', output],
       ]);
