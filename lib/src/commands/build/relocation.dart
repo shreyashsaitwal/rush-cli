@@ -10,4 +10,9 @@ Iterable<String> desugarHelpers(Iterable<String> entries) => entries
     .where((el) => _desugarHelperPackages.any(el.startsWith) && _isClass(el))
     .map(p.posix.withoutExtension);
 
+String relocationSpec(String prefix, Iterable<String> classes) => [
+      'prefix $prefix',
+      for (final name in classes) 'class $name'
+    ].map((line) => '$line\n').join();
+
 bool _isClass(String entry) => p.posix.extension(entry) == '.class';

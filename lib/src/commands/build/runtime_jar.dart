@@ -207,19 +207,15 @@ Future<Iterable<String>> _fileEntries(String jar) async => ZipDecoder()
 
 Future<String> _relocate(
     String artJarPath, Iterable<String> classes, String package) async {
-  final classList =
-      p.join(_fs.buildFilesDir.path, 'relocated-classes.txt').asFile();
-  await classList.writeAsString(classes.join('\n'));
-
   final repackaged = '$package.repacked';
+  final spec = p.join(_fs.buildFilesDir.path, 'relocation.txt').asFile();
+  await spec.writeAsString(
+      relocationSpec('${repackaged.replaceAll('.', '/')}/', classes));
+
   final relocated =
       p.join(_fs.buildFilesDir.path, 'AndroidRuntime.relocated.jar');
   await Executor.execRelocator(
-    input: artJarPath,
-    output: relocated,
-    prefix: '${repackaged.replaceAll('.', '/')}/',
-    classList: classList.path,
-  );
+      input: artJarPath, output: relocated, spec: spec.path);
   await relocated.asFile().rename(artJarPath);
   return repackaged;
 }

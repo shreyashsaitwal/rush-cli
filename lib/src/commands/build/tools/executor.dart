@@ -153,12 +153,11 @@ class Executor {
   static Future<void> execRelocator({
     required String input,
     required String output,
-    required String prefix,
-    required String classList,
+    required String spec,
   }) =>
       _processRunner.runExecutable(
           BuildUtils.javaExe(),
-          ['-jar', _libService.relocatorJar, input, output, prefix, classList]
+          ['-jar', _libService.relocatorJar, input, output, spec]
               .map((el) => el.replaceAll('\\', '/'))
               .toList());
 

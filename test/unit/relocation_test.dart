@@ -24,4 +24,13 @@ void main() {
         ]),
         ['com/android/tools/r8/RecordTag', r'j$/time/LocalDate']);
   });
+
+  test('describes the relocation for the relocator', () {
+    expect(
+        relocationSpec('com/example/ext/repacked/',
+            ['com/google/gson/Gson', r'com/google/gson/internal/$Gson$Types']),
+        'prefix com/example/ext/repacked/\n'
+        'class com/google/gson/Gson\n'
+        'class com/google/gson/internal/\$Gson\$Types\n');
+  });
 }
