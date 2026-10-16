@@ -276,6 +276,44 @@ class {className}(container: ComponentContainer) :
     expect(allowed.exitCode, 0, reason: allowed.output);
   });
 
+  test('libraries missing classes from older provided ones name the rule',
+      () async {
+    final project = await TestProject.create('older_annotation_ext');
+    final classes = await _compiled(project, {
+      'androidx/annotation/DoNotInline':
+          'package androidx.annotation; public @interface DoNotInline {}',
+      'com/example/util/Clock': 'package com.example.util; '
+          'public class Clock { @androidx.annotation.DoNotInline '
+          'public static long now() { return 1L; } }',
+    });
+    project.file('deps/clock.jar')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(_jar({
+        'com/example/util/Clock.class':
+            classes['com/example/util/Clock.class']!,
+      }));
+    project.addDependencies(['clock.jar']);
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public long Now() {
+    return com.example.util.Clock.now();
+  }
+''');
+    final rules = project.file('src/proguard-rules.pro');
+    rules.writeAsStringSync(rules
+        .readAsStringSync()
+        .replaceFirst('-dontwarn androidx.annotation.**', ''));
+
+    final build = await project.build();
+    expect(build.exitCode, 1, reason: build.output);
+    expect(
+        build.output,
+        allOf(
+            contains('androidx.annotation.DoNotInline is missing from '
+                'androidx.annotation:annotation:'),
+            contains('add `-dontwarn androidx.annotation.**`')));
+  });
+
   test('private AARs are renamed into the extension', () async {
     final project = await TestProject.create('private_aar_ext');
     final classes = await _compiled(project, {

@@ -23,14 +23,21 @@ class ProcessRunner {
       rethrow;
     }
 
-    _lines(process.stdout).listen(debugStdout
-        ? _lgr.dbg
-        : (line) => _lgr.parseAndLog(line, debugLines: debugLines));
-    _lines(process.stderr)
-        .listen((line) => _lgr.parseAndLog(line, debugLines: debugLines));
+    final errors = <String>[];
+    final logged = Future.wait([
+      _lines(process.stdout).forEach(debugStdout
+          ? _lgr.dbg
+          : (line) => _lgr.parseAndLog(line, debugLines: debugLines)),
+      _lines(process.stderr).forEach((line) {
+        errors.add(line);
+        _lgr.parseAndLog(line, debugLines: debugLines);
+      }),
+    ]);
 
-    if (await process.exitCode != 0) {
-      throw ProcessException(exe, args);
+    final exitCode = await process.exitCode;
+    await logged;
+    if (exitCode != 0) {
+      throw ProcessException(exe, args, errors.join('\n'), exitCode);
     }
   }
 

@@ -9,6 +9,7 @@ import 'package:tint/tint.dart';
 import 'package:rush/src/commands/build/android_keep_rules.dart';
 import 'package:rush/src/commands/build/descriptor.dart';
 import 'package:rush/src/commands/build/library_plan.dart';
+import 'package:rush/src/commands/build/missing_classes.dart';
 import 'package:rush/src/commands/build/private_libraries.dart';
 import 'package:rush/src/commands/build/proguard_rules.dart';
 import 'package:rush/src/commands/build/relocation.dart';
@@ -127,12 +128,16 @@ Future<PrivateProgram> shrinkProgram(
       },
       mapping: mapping,
     );
-  } on ProcessException {
+  } on ProcessException catch (e) {
     _lgr.log(
         'If R8 reports missing classes, add the library that provides them '
         'to `dependencies`, or, if that code never runs, add -dontwarn rules '
         'for them to src/proguard-rules.pro',
         'help  '.green());
+    for (final help
+        in olderLibraryHelp(e.message, await _providerOfPackage(plan))) {
+      _lgr.log(help, 'help  '.green());
+    }
     rethrow;
   }
   if (optimize) {
@@ -142,6 +147,13 @@ Future<PrivateProgram> shrinkProgram(
   return privateLibraries.split(output,
       mapping: mapping, artJarPath: artJarPath, package: package);
 }
+
+Future<Map<String, String>> _providerOfPackage(LibraryPlan plan) async => {
+      for (final library in plan.provided)
+        for (final entry in await _fileEntries(library.classesJar))
+          if (p.posix.extension(entry) == '.class')
+            p.posix.dirname(entry).replaceAll('/', '.'): library.coordinate,
+    };
 
 File _mapping(String package) =>
     p.join(_fs.cwd, 'out', '$package.mapping.txt').asFile();
