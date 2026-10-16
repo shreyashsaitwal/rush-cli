@@ -6,6 +6,7 @@ import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 import 'package:tint/tint.dart';
 
+import 'package:rush/src/commands/build/android_keep_rules.dart';
 import 'package:rush/src/commands/build/descriptor.dart';
 import 'package:rush/src/commands/build/library_plan.dart';
 import 'package:rush/src/commands/build/private_libraries.dart';
@@ -117,6 +118,7 @@ Future<PrivateProgram> shrinkProgram(
       rules: {
         ...plan.consumerRules,
         ...await _bundledProguardRules(plan.privateJars),
+        await _androidDefaultRules(),
         if (!optimize) ...await _shrinkOnlyRules(),
         if (optimize) await _repackageRules(package),
         if (!privateLibraries.isEmpty)
@@ -178,6 +180,12 @@ Future<List<String>> _bundledProguardRules(Set<String> jars) async {
       rules.add(file.path);
     }
   }
+  return rules;
+}
+
+Future<String> _androidDefaultRules() async {
+  final rules = p.join(_fs.buildFilesDir.path, 'android-defaults.pro');
+  await rules.asFile().writeAsString(androidDefaultRules);
   return rules;
 }
 

@@ -8,14 +8,13 @@ import 'package:xml/xml.dart';
 import 'package:rush/src/commands/build/android_manifest.dart';
 import 'package:rush/src/commands/build/android_xml.dart';
 
-const _androidDefaults = '''
+const androidDefaultRules = '''
 -keepclassmembers enum * { public static **[] values(); public static ** valueOf(java.lang.String); }
 -keepclassmembers class * implements android.os.Parcelable { public static final ** CREATOR; }
 -keepclasseswithmembernames,includedescriptorclasses class * { native <methods>; }
 -keepclassmembers public class * extends android.view.View { void set*(***); *** get*(); }
 -keepclassmembers class * extends android.app.Activity { public void *(android.view.View); }
 -keepclassmembers class * { @android.webkit.JavascriptInterface <methods>; }
--keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
 ''';
 
 String androidKeepRules({
@@ -30,7 +29,6 @@ String androidKeepRules({
   }.where(programClasses.contains).sorted();
   final packages = aars.map(_package).nonNulls.toSet().sorted();
   return [
-    if (aars.isNotEmpty) _androidDefaults,
     for (final package in packages)
       '-dontwarn $package.R\n-dontwarn $package.R\$*\n',
     for (final name in named) '-keep class $name { <init>(...); }\n',

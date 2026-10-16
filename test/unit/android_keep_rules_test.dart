@@ -104,25 +104,4 @@ void main() {
           '-dontwarn lib.player.R\$*',
         ]));
   });
-
-  test('keeps what Android looks up by reflection in AAR code', () {
-    expect(
-        _lines(androidKeepRules(
-            programClasses: _program, aars: [_empty], manifestElements: [])),
-        containsAll([
-          '-keepclassmembers class * implements android.os.Parcelable '
-              '{ public static final ** CREATOR; }',
-          '-keepclassmembers public class * extends android.view.View '
-              '{ void set*(***); *** get*(); }',
-          '-keepattributes *Annotation*,Signature,InnerClasses,'
-              'EnclosingMethod',
-        ]));
-  });
-
-  test('leaves jar code to its own rules', () {
-    expect(
-        androidKeepRules(
-            programClasses: _program, aars: [], manifestElements: []),
-        isEmpty);
-  });
 }
