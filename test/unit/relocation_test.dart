@@ -33,4 +33,13 @@ void main() {
         'class com/google/gson/Gson\n'
         'class com/google/gson/internal/\$Gson\$Types\n');
   });
+
+  test('lists the strings that keep their value', () {
+    expect(
+        relocationSpec('com/example/ext/repacked/', ['lib/player/Service'],
+            keptStrings: ['lib.player.Service']),
+        'prefix com/example/ext/repacked/\n'
+        'class lib/player/Service\n'
+        'keep-string lib.player.Service\n');
+  });
 }

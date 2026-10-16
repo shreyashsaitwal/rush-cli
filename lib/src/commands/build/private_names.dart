@@ -14,6 +14,7 @@ class PrivateNames {
     required String package,
     required Set<String> classes,
     required Map<String, Archive> aars,
+    Iterable<String> manifestElements = const [],
   }) {
     final resources = ResourceRenaming.of(aars.values,
         prefix: '${package.replaceAll('.', '_')}_');
@@ -37,18 +38,34 @@ class PrivateNames {
       ]);
     }
     final prefix = _classPrefix(package);
+    final renamed = {
+      ...classes.whereNot((el) => el.startsWith(prefix)),
+      ...rClasses,
+    };
+    final intentNames = {
+      for (final aar in aars.values)
+        if (_text(aar, 'AndroidManifest.xml') case final manifest?)
+          ..._intentNames(parseAndroidXml(manifest)),
+      for (final element in manifestElements)
+        ..._intentNames(parseAndroidXmlFragment(element)),
+    };
     return PrivateNames._(
         package,
-        {...classes.whereNot((el) => el.startsWith(prefix)), ...rClasses},
+        renamed,
         rFields,
+        intentNames
+            .where((el) => renamed.contains(el.replaceAll('.', '/')))
+            .toSet(),
         resources);
   }
 
-  PrivateNames._(this.package, this._classes, this._rFields, this.resources);
+  PrivateNames._(this.package, this._classes, this._rFields, this._keptStrings,
+      this.resources);
 
   final String package;
   final Set<String> _classes;
   final List<relocation.RenamedMember> _rFields;
+  final Set<String> _keptStrings;
   final ResourceRenaming resources;
 
   static String _classPrefix(String package) =>
@@ -58,6 +75,7 @@ class PrivateNames {
         _classPrefix(package),
         _classes.sorted(),
         fields: _rFields.sortedBy((el) => '${el.owner} ${el.name}'),
+        keptStrings: _keptStrings.sorted(),
       );
 
   String className(String name) => _classes.contains(name.replaceAll('.', '/'))
@@ -120,11 +138,20 @@ class PrivateNames {
 
   void _renameClassNames(XmlNode root) {
     for (final attribute in root.descendantElements
+        .whereNot(_isIntentName)
         .expand((el) => el.attributes)
         .where((el) => el.name.qualified == 'android:name')) {
       attribute.value = _renamedName(attribute.value);
     }
   }
+
+  static bool _isIntentName(XmlElement element) =>
+      const {'action', 'category'}.contains(element.name.qualified);
+
+  static Iterable<String> _intentNames(XmlNode root) => root.descendantElements
+      .where(_isIntentName)
+      .map((el) => el.getAttribute('android:name'))
+      .nonNulls;
 
   String _renamedName(String name) => switch (name.lastIndexOf(':')) {
         -1 => className(name),

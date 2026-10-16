@@ -7,6 +7,7 @@ import 'package:pool/pool.dart';
 
 import 'package:rush/src/commands/build/aix.dart';
 import 'package:rush/src/commands/build/android_keep_rules.dart';
+import 'package:rush/src/commands/build/descriptor.dart';
 import 'package:rush/src/commands/build/library_plan.dart';
 import 'package:rush/src/commands/build/private_names.dart';
 import 'package:rush/src/commands/build/program_split.dart';
@@ -37,7 +38,7 @@ class PrivateLibraries {
   Iterable<String> get aarClasses => _aars.keys.map((el) => el.classesJar);
 
   Future<String> keepRules(
-      Iterable<String> program, List<Map<String, dynamic>> buildInfos) async {
+      Iterable<String> program, Iterable<String> manifestElements) async {
     final rules = p.join(_fs.buildFilesDir.path, 'private-libraries.pro');
     await rules.asFile().writeAsString(androidKeepRules(
           programClasses: {
@@ -45,11 +46,7 @@ class PrivateLibraries {
               for (final name in await _classes(jar)) name.replaceAll('/', '.'),
           },
           aars: _aars.values,
-          manifestElements: [
-            for (final info in buildInfos)
-              if (info['activities'] case final List<dynamic> elements)
-                ...elements.cast<String>(),
-          ],
+          manifestElements: manifestElements,
         ));
     return rules;
   }
@@ -57,7 +54,7 @@ class PrivateLibraries {
   Future<PrivateProgram> split(String output,
       {required String mapping,
       required String artJarPath,
-      required String package}) async {
+      required Descriptor extension}) async {
     final aarOf = {
       for (final aar in _aars.keys)
         for (final name in await _classes(aar.classesJar))
@@ -76,8 +73,9 @@ class PrivateLibraries {
       _config,
       _plan.libraryJars,
       PrivateNames(
-        package: package,
+        package: extension.package,
         classes: {...privateClasses, ...split.privateClasses},
+        manifestElements: extension.manifestElements,
         aars: {
           for (final MapEntry(key: aar, value: archive) in _aars.entries)
             aar.aarFileName: archive,

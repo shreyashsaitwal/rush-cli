@@ -510,6 +510,58 @@ class {className}(container: ComponentContainer) :
         allOf(contains('hello'), isNot(contains('java/util/ServiceLoader'))));
   });
 
+  test('private libraries keep intent actions named like their classes',
+      () async {
+    final project = await TestProject.create('private_action_ext');
+    final classes = await _compiled(project, {
+      'com/example/player/PlaybackService': 'package com.example.player; '
+          'public class PlaybackService { public static String action() { '
+          'return "com.example.player.PlaybackService"; } }',
+    });
+    _writeAar(project, 'player.aar', {
+      'AndroidManifest.xml':
+          utf8.encode('<manifest package="com.example.player"/>'),
+      'res/drawable/play.xml': utf8.encode('<vector/>'),
+      'R.txt': utf8.encode('int drawable play 0x0\n'),
+      'classes.jar': _jar(classes),
+    });
+    project.addDependencies(['player.aar']);
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public String Action() {
+    return com.example.player.PlaybackService.action();
+  }
+''');
+    final manifest = project.file('src/AndroidManifest.xml');
+    manifest.writeAsStringSync(manifest.readAsStringSync().replaceFirst(
+        '<application>',
+        '<application><service android:name="com.example.Playback">'
+            '<intent-filter><action '
+            'android:name="com.example.player.PlaybackService"/>'
+            '</intent-filter></service>'));
+
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+    final renamed = '${project.package}.repacked.com.example.player';
+    expect(
+        jsonEncode(project.aix.buildInfo['activities']),
+        allOf(contains('com.example.player.PlaybackService'),
+            isNot(contains('$renamed.PlaybackService'))));
+    final code = [
+      for (final file in ZipDecoder()
+          .decodeBytes(project.aix
+              .library('${project.package}.repacked.player.aar')
+              .findFile('classes.jar')!
+              .content)
+          .files)
+        latin1.decode(file.content),
+    ].join();
+    expect(
+        code,
+        allOf(contains('com.example.player.PlaybackService'),
+            isNot(contains('$renamed.PlaybackService'))));
+  });
+
   test('private AARs ship only the code that is used or kept', () async {
     final project = await TestProject.create('private_shrunk_ext');
     final classes = await _compiled(project, {

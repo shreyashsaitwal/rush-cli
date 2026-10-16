@@ -123,7 +123,7 @@ Future<PrivateProgram> shrinkProgram(
         if (!optimize) ...await _shrinkOnlyRules(),
         if (optimize) await _repackageRules(package),
         if (!privateLibraries.isEmpty)
-          await privateLibraries.keepRules(program, extension.buildInfos),
+          await privateLibraries.keepRules(program, extension.manifestElements),
         if (await projectRules.exists()) projectRules.path,
       },
       mapping: mapping,
@@ -145,7 +145,7 @@ Future<PrivateProgram> shrinkProgram(
         '${p.relative(mapping, from: _fs.cwd)}');
   }
   return privateLibraries.split(output,
-      mapping: mapping, artJarPath: artJarPath, package: package);
+      mapping: mapping, artJarPath: artJarPath, extension: extension);
 }
 
 Future<Map<String, String>> _providerOfPackage(LibraryPlan plan) async => {

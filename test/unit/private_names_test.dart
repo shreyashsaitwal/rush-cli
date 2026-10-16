@@ -64,7 +64,8 @@ void main() {
         'class lib/player/TimeBar\n'
         'field lib/player/R\$drawable play com_example_ext_play\n'
         'field lib/player/R\$id scrubber com_example_ext_scrubber\n'
-        'field lib/player/R\$layout controls com_example_ext_controls\n');
+        'field lib/player/R\$layout controls com_example_ext_controls\n'
+        'keep-string lib.player.PlaybackService\n');
   });
 
   test('names private AARs and their files under the extension', () {
@@ -87,7 +88,7 @@ void main() {
         '<application>'
         '<service android:name="com.example.ext.repacked.lib.player.PlaybackService" '
         'android:icon="@drawable/com_example_ext_play">'
-        '<intent-filter><action android:name="com.example.ext.repacked.lib.player.PlaybackService"/>'
+        '<intent-filter><action android:name="lib.player.PlaybackService"/>'
         '<action android:name="android.intent.action.MEDIA_BUTTON"/>'
         '</intent-filter></service>'
         '<receiver android:name=".ButtonReceiver"/>'
@@ -148,5 +149,43 @@ void main() {
             names.renameAar(registrars, classes: null), 'AndroidManifest.xml'),
         contains('android:name="lib.firebase.components:'
             'com.example.ext.repacked.lib.vision.Registrar"'));
+  });
+
+  test('keeps intent actions and categories named like private classes', () {
+    final buildInfos = [
+      {
+        'activities': [
+          '<service android:name="lib.player.PlaybackService">'
+              '<intent-filter><action android:name="lib.player.TimeBar"/>'
+              '<category android:name="lib.player.Scrubber"/>'
+              '</intent-filter></service>',
+        ],
+      }
+    ];
+    final names = PrivateNames(
+      package: 'com.example.ext',
+      classes: {
+        'lib/player/PlaybackService',
+        'lib/player/TimeBar',
+        'lib/player/Scrubber',
+      },
+      aars: {},
+      manifestElements: [
+        for (final info in buildInfos) ...info['activities'] as List<String>,
+      ],
+    );
+
+    expect(
+        names.relocationSpec,
+        allOf(
+            contains('keep-string lib.player.Scrubber\n'),
+            contains('keep-string lib.player.TimeBar\n'),
+            isNot(contains('keep-string lib.player.PlaybackService'))));
+    expect(names.renameBuildInfos(buildInfos).single['activities'], [
+      '<service android:name="com.example.ext.repacked.lib.player.PlaybackService">'
+          '<intent-filter><action android:name="lib.player.TimeBar"/>'
+          '<category android:name="lib.player.Scrubber"/>'
+          '</intent-filter></service>',
+    ]);
   });
 }

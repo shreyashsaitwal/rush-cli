@@ -13,12 +13,14 @@ Iterable<String> desugarHelpers(Iterable<String> entries) => entries
 typedef RenamedMember = ({String owner, String name, String to});
 
 String relocationSpec(String prefix, Iterable<String> classes,
-        {Iterable<RenamedMember> fields = const []}) =>
+        {Iterable<RenamedMember> fields = const [],
+        Iterable<String> keptStrings = const []}) =>
     [
       'prefix $prefix',
       for (final name in classes) 'class $name',
       for (final field in fields)
         'field ${field.owner} ${field.name} ${field.to}',
+      for (final value in keptStrings) 'keep-string $value',
     ].map((line) => '$line\n').join();
 
 bool _isClass(String entry) => p.posix.extension(entry) == '.class';
