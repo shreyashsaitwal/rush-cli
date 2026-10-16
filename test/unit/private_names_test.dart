@@ -62,9 +62,9 @@ void main() {
         'class lib/player/R\$layout\n'
         'class lib/player/Scrubber\n'
         'class lib/player/TimeBar\n'
-        'field lib/player/R\$drawable play com_example_ext_play\n'
-        'field lib/player/R\$id scrubber com_example_ext_scrubber\n'
-        'field lib/player/R\$layout controls com_example_ext_controls\n'
+        'field lib/player/R\$drawable play com_example_ext_repacked_play\n'
+        'field lib/player/R\$id scrubber com_example_ext_repacked_scrubber\n'
+        'field lib/player/R\$layout controls com_example_ext_repacked_controls\n'
         'keep-string lib.player.PlaybackService\n');
   });
 
@@ -87,18 +87,18 @@ void main() {
         'xmlns:android="http://schemas.android.com/apk/res/android">'
         '<application>'
         '<service android:name="com.example.ext.repacked.lib.player.PlaybackService" '
-        'android:icon="@drawable/com_example_ext_play">'
+        'android:icon="@drawable/com_example_ext_repacked_play">'
         '<intent-filter><action android:name="lib.player.PlaybackService"/>'
         '<action android:name="android.intent.action.MEDIA_BUTTON"/>'
         '</intent-filter></service>'
         '<receiver android:name=".ButtonReceiver"/>'
         '</application></manifest>');
     expect(
-        _text(renamed, 'res/layout/com_example_ext_controls.xml'),
+        _text(renamed, 'res/layout/com_example_ext_repacked_controls.xml'),
         '<com.example.ext.repacked.lib.player.TimeBar '
         'xmlns:android="http://schemas.android.com/apk/res/android">'
         '<view class="com.example.ext.repacked.lib.player.Scrubber" '
-        'android:id="@+id/com_example_ext_scrubber"/>'
+        'android:id="@+id/com_example_ext_repacked_scrubber"/>'
         '<TextView/></com.example.ext.repacked.lib.player.TimeBar>');
     expect(_text(renamed, 'classes.jar'), 'jar');
   });
@@ -120,7 +120,7 @@ void main() {
         'type': 'com.example.ext.Ext',
         'activities': [
           '<service android:name="com.example.ext.repacked.lib.player.PlaybackService" '
-              'android:icon="@drawable/com_example_ext_play">\n</service>',
+              'android:icon="@drawable/com_example_ext_repacked_play">\n</service>',
         ],
         'permissions': ['android.permission.INTERNET'],
       }
@@ -300,7 +300,7 @@ void main() {
     const ext = 'com.example.ext.repacked.lib.material';
 
     expect(
-        _text(renamed, 'res/layout/com_example_ext_sheet.xml'),
+        _text(renamed, 'res/layout/com_example_ext_repacked_sheet.xml'),
         '<FrameLayout '
         'xmlns:android="http://schemas.android.com/apk/res/android" '
         'xmlns:app="http://schemas.android.com/apk/res-auto">'
@@ -309,16 +309,30 @@ void main() {
         'android:contentDescription="lib.material.Unknown"/>'
         '</FrameLayout>');
     expect(
-        _text(renamed, 'res/menu/com_example_ext_actions.xml'),
+        _text(renamed, 'res/menu/com_example_ext_repacked_actions.xml'),
         contains('app:actionViewClass="$ext.Search" '
             'app:actionProviderClass="$ext.Share"'));
-    expect(_text(renamed, 'res/xml/com_example_ext_settings.xml'),
+    expect(_text(renamed, 'res/xml/com_example_ext_repacked_settings.xml'),
         contains('android:fragment="$ext.Picker"'));
     expect(
         _text(renamed, 'res/values/strings.xml'),
         '<resources>'
-        '<string name="com_example_ext_sheet_behavior">\n  $ext.Sheet\$Behavior\n</string>'
-        '<string name="com_example_ext_title">lib.material.Unknown</string>'
+        '<string name="com_example_ext_repacked_sheet_behavior">\n  $ext.Sheet\$Behavior\n</string>'
+        '<string name="com_example_ext_repacked_title">lib.material.Unknown</string>'
         '</resources>');
+  });
+
+  test('prefixes private resources apart from the extension own', () {
+    final names = PrivateNames(
+      package: 'com.Example.Ext',
+      classes: {},
+      aars: {'lib.player-player-1.0.aar': _player},
+    );
+    final renamed = names.renameAar(_player, classes: null);
+
+    expect(renamed.findFile('res/drawable/com_example_ext_repacked_play.xml'),
+        isNotNull);
+    expect(names.resources.name('drawable', 'play'),
+        'com_example_ext_repacked_play');
   });
 }

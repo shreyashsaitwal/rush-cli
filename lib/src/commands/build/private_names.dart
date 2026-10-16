@@ -16,8 +16,8 @@ class PrivateNames {
     required Map<String, Archive> aars,
     Iterable<String> manifestElements = const [],
   }) {
-    final resources = ResourceRenaming.of(aars.values,
-        prefix: '${package.replaceAll('.', '_')}_');
+    final resources =
+        ResourceRenaming.of(aars.values, prefix: resourcePrefix(package));
     final rClasses = <String>{};
     final rFields = <relocation.RenamedMember>[];
     for (final MapEntry(key: fileName, value: aar) in aars.entries) {
@@ -67,6 +67,9 @@ class PrivateNames {
   final List<relocation.RenamedMember> _rFields;
   final Set<String> _keptStrings;
   final ResourceRenaming resources;
+
+  static String resourcePrefix(String package) =>
+      '${package.toLowerCase().replaceAll('.', '_')}_repacked_';
 
   static String _classPrefix(String package) =>
       '${package.replaceAll('.', '/')}/repacked/';

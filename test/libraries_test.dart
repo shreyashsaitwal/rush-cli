@@ -360,7 +360,7 @@ class {className}(container: ComponentContainer) :
     final build = await project.build();
     expect(build.exitCode, 0, reason: build.output);
     final renamed = '${project.package}.repacked';
-    final prefix = '${project.package.replaceAll('.', '_')}_';
+    final prefix = '${project.package.replaceAll('.', '_')}_repacked_';
     final aix = project.aix;
     expect(aix.libraries, ['$renamed.player.aar']);
     final aar = aix.library('$renamed.player.aar');
@@ -747,7 +747,7 @@ class {className}(container: ComponentContainer) :
     expect(aar.findFile('classes.jar'), isNull);
     expect(
         aar.findFile('res/drawable/${project.package.replaceAll('.', '_')}'
-            '_play.xml'),
+            '_repacked_play.xml'),
         isNotNull);
   });
 
@@ -856,7 +856,7 @@ class {className}(container: ComponentContainer) :
 
     final build = await project.build();
     expect(build.exitCode, 0, reason: build.output);
-    final prefix = '${project.package.replaceAll('.', '_')}_';
+    final prefix = '${project.package.replaceAll('.', '_')}_repacked_';
     expect(
         utf8.decode(project.aix
             .library('${project.package}.repacked.owners.aar')
@@ -1090,7 +1090,7 @@ class {className}(container: ComponentContainer) :
 
     String renamed() => '${project.package}.repacked';
 
-    String prefix() => '${project.package.replaceAll('.', '_')}_';
+    String prefix() => '${project.package.replaceAll('.', '_')}_repacked_';
 
     Set<String> classNames(Archive aar) => {
           for (final file in ZipDecoder()
