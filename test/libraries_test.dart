@@ -824,6 +824,39 @@ class {className}(container: ComponentContainer) :
     expect(build.exitCode, 0, reason: build.output);
   });
 
+  test('private AARs keep the attributes App Inventor\'s AndroidX defines',
+      () async {
+    final project = await TestProject.create('private_attrs_ext');
+    _writeAar(project, 'chips.aar', {
+      'AndroidManifest.xml':
+          utf8.encode('<manifest package="com.example.chips"/>'),
+      'res/values/values.xml': utf8.encode('<resources>'
+          '<declare-styleable name="Chip">'
+          '<attr name="icon" format="reference"/>'
+          '<attr name="chipSize" format="dimension"/>'
+          '</declare-styleable></resources>'),
+      'R.txt': utf8.encode('int attr chipSize 0x0\nint attr icon 0x0\n'
+          'int[] styleable Chip { 0x0, 0x0 }\n'
+          'int styleable Chip_chipSize 0\nint styleable Chip_icon 1\n'),
+      'classes.jar': _jar({}),
+    });
+    project.addDependencies(['chips.aar']);
+
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+    final prefix = '${project.package.replaceAll('.', '_')}_repacked_';
+    final rTxt = utf8.decode(project.aix
+        .library('${project.package}.repacked.chips.aar')
+        .findFile('R.txt')!
+        .content);
+    expect(
+        rTxt,
+        allOf(
+            contains('int attr icon '),
+            contains('int attr ${prefix}chipSize '),
+            isNot(contains('${prefix}icon'))));
+  });
+
   test('private AARs whose code is unused ship without classes', () async {
     final project = await TestProject.create('private_res_ext');
     final classes = await _compiled(project, {

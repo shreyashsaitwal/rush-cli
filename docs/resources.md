@@ -72,8 +72,9 @@ references in the shipped resources along with the library, and keeps the views 
 shrinks the code. The extension's `R` class lists only its own resources: use a
 library's resources from code through the library's `R` class.
 
-They can't reference App Inventor's AndroidX resources (`?attr/colorAccent`,
-`@style/Theme.AppCompat`), which aren't available when Rush compiles them.
+They can also build on App Inventor's AndroidX resources (`?attr/colorAccent`,
+`parent="Theme.AppCompat.Light.Dialog"`): Rush downloads those libraries once from
+Google's Maven repository, in the versions every App Inventor app contains.
 
 ## How resources are shipped
 

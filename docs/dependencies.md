@@ -126,6 +126,9 @@ under `<package>.repacked` (`com.example.counter.repacked.…`):
 
 Some names must stay as they are:
 
+- **Resources App Inventor's AndroidX also defines**, such as the `icon` attribute that
+  AppCompat and Material both declare, keep their names, so both libraries keep using
+  one resource as in any Android app.
 - **Intent actions and categories** in the extension's manifest and in private AARs'
   manifests keep their value, in the manifest and in code, even when they equal a class
   name: other apps and the system send them. Media3's

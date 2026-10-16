@@ -80,11 +80,16 @@ class BuildCommand extends Command<int> {
       throw const _BuildFailed();
     }
 
-    final (plan, resources) = await _task('Compiling sources', () async {
+    final (plan, resources, appInventorAars) =
+        await _task('Compiling sources', () async {
       final plan = await planProjectLibraries(_libService, config);
       _reportProblems(plan.problems);
       final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
       final manifest = await _mergeManifests(config, plan.manifests);
+      final appInventorAars =
+          plan.privateAars.isNotEmpty || await _fs.resDir.exists()
+              ? await (await Ai2Runtime.load()).resourceAars
+              : const <String>[];
       final resources = await ExtensionResources.compile(config, [
         for (final library in [
           ...plan.shared,
@@ -92,9 +97,10 @@ class BuildCommand extends Command<int> {
           ...plan.provided
         ])
           if (library.isAar) library.file,
+        ...appInventorAars,
       ]);
       await _compile(config, plan, manifest, timestampBox, resources);
-      return (plan, resources);
+      return (plan, resources, appInventorAars);
     });
 
     final (extension, artJarPath, privateLibraries) =
@@ -104,7 +110,7 @@ class BuildCommand extends Command<int> {
       return (
         extension,
         await createArtJar(plan.privateJars),
-        await PrivateLibraries.prepare(config, plan),
+        await PrivateLibraries.prepare(config, plan, appInventorAars),
       );
     });
 

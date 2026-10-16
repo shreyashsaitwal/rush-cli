@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import 'package:rush/src/commands/build/utils.dart';
 import 'package:rush/src/resolver/artifact.dart';
+import 'package:rush/src/resolver/maven.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/constants.dart';
@@ -30,6 +31,22 @@ class Ai2Runtime {
   String get androidJar => p.join(dir, 'libs', 'android.jar');
 
   String get runtimeJar => p.join(dir, 'libs', 'AndroidRuntime.jar');
+
+  late final Future<List<String>> resourceAars = _fetchResourceAars();
+
+  Future<List<String>> _fetchResourceAars() async {
+    final resolver = MavenResolver();
+    try {
+      return [
+        for (final library in alwaysIncludedLibs)
+          if (library.coordinate.split(':').length == 3)
+            if (await resolver.fetchAar(library.coordinate) case final aar?)
+              aar,
+      ];
+    } finally {
+      await resolver.close();
+    }
+  }
 
   static String get _installDir =>
       p.join(_fs.rushHomeDir.path, 'ai2', ai2Version);

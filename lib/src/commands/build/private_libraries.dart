@@ -22,17 +22,22 @@ import 'package:rush/src/utils/zip.dart';
 final _fs = GetIt.I<FileService>();
 
 class PrivateLibraries {
-  PrivateLibraries._(this._config, this._plan, this._aars);
+  PrivateLibraries._(
+      this._config, this._plan, this._aars, this._appInventorAars);
 
-  static Future<PrivateLibraries> prepare(
-          Config config, LibraryPlan plan) async =>
-      PrivateLibraries._(config, plan, {
-        for (final aar in plan.privateAars) aar: await _archive(aar.file),
-      });
+  static Future<PrivateLibraries> prepare(Config config, LibraryPlan plan,
+          Iterable<String> appInventorAars) async =>
+      PrivateLibraries._(
+        config,
+        plan,
+        {for (final aar in plan.privateAars) aar: await _archive(aar.file)},
+        appInventorAars,
+      );
 
   final Config _config;
   final LibraryPlan _plan;
   final Map<ResolvedLibrary, Archive> _aars;
+  final Iterable<String> _appInventorAars;
 
   bool get isEmpty => _plan.privateJars.isEmpty && _aars.isEmpty;
 
@@ -80,6 +85,9 @@ class PrivateLibraries {
         classes: {...privateClasses, ...split.privateClasses},
         manifestElements: extension.manifestElements,
         extensionResources: await resources?.symbols(),
+        appInventorAars: [
+          for (final aar in _appInventorAars) await _archive(aar),
+        ],
         aars: {
           for (final MapEntry(key: aar, value: archive) in _aars.entries)
             aar.aarFileName: archive,

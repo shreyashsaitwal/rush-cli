@@ -219,6 +219,28 @@ void main() {
             contains('com_example_resext_Row_${renamed}widgetSize')));
   });
 
+  test('resources can build on App Inventor\'s AndroidX resources', () async {
+    final project = await TestProject.create('res_ext');
+    _writeResources(project);
+    project.file('res/values/themes.xml')
+      ..createSync(recursive: true)
+      ..writeAsStringSync('<resources>'
+          '<style name="com_example_resext_dialog" '
+          'parent="Theme.AppCompat.Light.Dialog">'
+          '<item name="colorAccent">#ff0000</item>'
+          '<item name="android:windowNoTitle">true</item></style>'
+          '</resources>');
+
+    final result = await project.build();
+    expect(result.exitCode, 0, reason: result.output);
+    expect(
+        utf8.decode(project.aix
+            .library('com.example.resext.aar')
+            .findFile('res/values/themes.xml')!
+            .content),
+        contains('parent="Theme.AppCompat.Light.Dialog"'));
+  });
+
   test('raw resources ship as written, XML or not', () async {
     final project = await TestProject.create('res_ext');
     _writeResources(project);

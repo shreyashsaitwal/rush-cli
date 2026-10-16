@@ -142,10 +142,13 @@ class ResourceRenaming {
       : _fields = _renamedFieldNames(_prefix, _defined, styleables);
 
   factory ResourceRenaming.of(Iterable<Archive> libraries,
-      {required String prefix}) {
+      {required String prefix, Iterable<Archive> appInventor = const []}) {
     final definitions = ResourceDefinitions.of(libraries);
     return ResourceRenaming._(
-        prefix, definitions.defined, definitions.styleables);
+        prefix,
+        definitions.defined
+            .difference(ResourceDefinitions.of(appInventor).defined),
+        definitions.styleables);
   }
 
   final String _prefix;

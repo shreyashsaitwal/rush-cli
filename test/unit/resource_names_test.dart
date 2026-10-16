@@ -216,4 +216,34 @@ void main() {
         ['AndroidManifest.xml', 'classes.jar']);
     expect(_text(renamed, 'AndroidManifest.xml'), _manifest);
   });
+
+  test('keeps the names App Inventor\'s AndroidX defines', () {
+    final library = _aar({
+      'AndroidManifest.xml': _manifest,
+      'res/values/values.xml': '<resources>'
+          '<declare-styleable name="Chip">'
+          '<attr name="icon" format="reference"/>'
+          '<attr name="chipSize" format="dimension"/>'
+          '</declare-styleable></resources>',
+      'R.txt': 'int attr chipSize 0x0\nint attr icon 0x0\n'
+          'int[] styleable Chip { 0x0, 0x0 }\n'
+          'int styleable Chip_chipSize 0\nint styleable Chip_icon 1\n',
+    });
+    final appCompat = _aar({
+      'AndroidManifest.xml': '<manifest package="androidx.appcompat"/>',
+      'res/values/values.xml':
+          '<resources><attr name="icon" format="reference"/></resources>',
+    });
+    final renaming = ResourceRenaming.of([library],
+        prefix: _prefix, appInventor: [appCompat]);
+
+    expect(renaming.name('attr', 'icon'), 'icon');
+    expect(renaming.name('attr', 'chipSize'), '${_prefix}chipSize');
+    expect(
+        _text(renaming.rename(library), 'R.txt'),
+        'int attr ${_prefix}chipSize 0x0\nint attr icon 0x0\n'
+        'int[] styleable ${_prefix}Chip { 0x0, 0x0 }\n'
+        'int styleable ${_prefix}Chip_${_prefix}chipSize 0\n'
+        'int styleable ${_prefix}Chip_icon 1\n');
+  });
 }

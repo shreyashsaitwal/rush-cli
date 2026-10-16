@@ -99,6 +99,13 @@ class MavenResolver {
         );
       }));
 
+  Future<String?> fetchAar(String coordinate) async {
+    final coord =
+        mvn.ArtifactCoordinate.parse(coordinate).copyWith(packaging: 'aar');
+    final path = _localPath(coord);
+    return await _fetch(coord, path) ? path : null;
+  }
+
   Future<void> close() => _repo.close();
 
   Artifact _toArtifact(
