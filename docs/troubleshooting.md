@@ -61,8 +61,9 @@ instead.`** A dependency needs a newer AndroidX library than App Inventor's. Use
 version of the dependency that works with App Inventor's, or test the features you use
 carefully. See [What App Inventor provides](dependencies.md#what-app-inventor-provides).
 
-**`… and … are the same library (…). App Inventor includes only one of them in the
-app`.** Two shipped AARs have the same package. Keep one of them in `rush.yml`.
+**`… and … are the same library (…), so only one of them can ship`.** Two AARs have the
+same package, such as a Maven library and a copy of it in `deps`. Keep one of them in
+`rush.yml`.
 
 **`… can't be private: its assets keep their original paths`, `its native libraries
 find classes by their original names` or `the JARs in its libs/ folder keep their

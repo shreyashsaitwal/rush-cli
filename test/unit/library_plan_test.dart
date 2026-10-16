@@ -192,11 +192,10 @@ void main() {
     expect([
       for (final problem in plan.problems) problem.message
     ], [
-      'g:core:1 and core.aar are the same library (androidx.core). App '
-          'Inventor includes only one of them in the app, so remove the '
-          'others from rush.yml.',
-      'g:ui:1 and ui.aar are the same library (g.ui). App Inventor includes '
-          'only one of them in the app, so remove the others from rush.yml.',
+      'g:core:1 and core.aar are the same library (androidx.core), so only '
+          'one of them can ship. Remove the others from rush.yml.',
+      'g:ui:1 and ui.aar are the same library (g.ui), so only one of them '
+          'can ship. Remove the others from rush.yml.',
     ]);
   });
 

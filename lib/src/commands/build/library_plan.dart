@@ -232,9 +232,8 @@ List<Problem> _duplicateAars(Iterable<ResolvedLibrary> aars) => [
           if (aar.package case final package?) aar: package,
       }).entries)
         Problem.warning(
-            '${copies.join(' and ')} are the same library ($package). '
-            'App Inventor includes only one of them in the app, so remove '
-            'the others from rush.yml.'),
+            '${copies.join(' and ')} are the same library ($package), so '
+            'only one of them can ship. Remove the others from rush.yml.'),
     ];
 
 Set<String> _classpath(ResolvedLibrary library, List<ResolvedLibrary> index) =>

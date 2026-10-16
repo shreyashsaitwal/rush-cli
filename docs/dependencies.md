@@ -174,8 +174,8 @@ services. If it does run:
   `kotlin-reflect`, for example, `typeOf<T>()` falls back to the standard library's own
   implementation.
 
-Rush warns when two shipped AARs are the same library, since App Inventor would keep an
-arbitrary one.
+Rush warns when two AARs are the same library, such as a Maven library and a copy of it
+in `deps`: only one of them can ship.
 
 ## Kotlin
 
