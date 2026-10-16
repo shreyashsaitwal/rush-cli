@@ -1,4 +1,5 @@
 import 'package:collection/collection.dart';
+import 'package:path/path.dart' as p;
 
 import 'package:rush/src/commands/build/libraries.dart';
 import 'package:rush/src/config/library_placement.dart';
@@ -6,10 +7,8 @@ import 'package:rush/src/config/library_placement.dart';
 enum LibraryScope { compile, runtime, provided }
 
 enum OriginalContent {
-  resources('its Android resources'),
-  assets('its assets'),
-  nativeLibraries('its native libraries'),
-  components('its manifest components');
+  assets('its assets keep their original paths'),
+  nativeLibraries('its native libraries find classes by their original names');
 
   const OriginalContent(this.description);
 
@@ -28,6 +27,7 @@ class ResolvedLibrary {
     this.consumerRules,
     this.package,
     this.inEveryApp = true,
+    this.hasResources = false,
     this.originalContents = const {},
   });
 
@@ -41,6 +41,7 @@ class ResolvedLibrary {
   final String? consumerRules;
   final String? package;
   final bool inEveryApp;
+  final bool hasResources;
   final Set<OriginalContent> originalContents;
 
   String get key => libraryKey(coordinate);
@@ -52,6 +53,10 @@ class ResolvedLibrary {
   bool get isMavenArtifact => coordinate.split(':').length >= 3;
 
   String get groupAndArtifactId => '$groupId:$artifactId';
+
+  String get aarFileName => isMavenArtifact
+      ? '${coordinate.replaceAll(':', '-')}.aar'
+      : p.basename(file);
 
   @override
   String toString() => coordinate;
@@ -93,7 +98,13 @@ class LibraryPlan {
 
   Iterable<ResolvedLibrary> get sharedJars => shared.whereNot((el) => el.isAar);
 
-  Set<String> get privateJars => {for (final jar in private) jar.classesJar};
+  Set<String> get privateJars =>
+      {for (final library in private.whereNot(_shipsAar)) library.classesJar};
+
+  Iterable<ResolvedLibrary> get privateAars => private.where(_shipsAar);
+
+  static bool _shipsAar(ResolvedLibrary library) =>
+      library.isAar && library.hasResources;
 }
 
 LibraryPlan planLibraries({
@@ -195,21 +206,9 @@ List<Problem> _misplacedPrivateLibraries(
       for (final library in private)
         if (library.originalContents.isNotEmpty)
           Problem.error('$library can\'t be private: '
-              '${_lostContents(library.originalContents)}. Place it as shared '
-              'or remove it from `libraries` in rush.yml.'),
+              '${_listed(library.originalContents.map((el) => el.description).toList())}. '
+              'Place it as shared or remove it from `libraries` in rush.yml.'),
     ];
-
-String _lostContents(Set<OriginalContent> contents) {
-  final leftOut = contents
-      .whereNot((el) => el == OriginalContent.components)
-      .map((el) => el.description)
-      .toList();
-  return [
-    if (leftOut.isNotEmpty) '${_listed(leftOut)} would be left out',
-    if (contents.contains(OriginalContent.components))
-      '${OriginalContent.components.description} would name renamed classes',
-  ].join(', and ');
-}
 
 String _listed(List<String> items) => items.length == 1
     ? items.single

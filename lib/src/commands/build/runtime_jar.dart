@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:tint/tint.dart';
 
 import 'package:rush/src/commands/build/library_plan.dart';
+import 'package:rush/src/commands/build/private_libraries.dart';
 import 'package:rush/src/commands/build/proguard_rules.dart';
 import 'package:rush/src/commands/build/relocation.dart';
 import 'package:rush/src/commands/build/resources.dart';
@@ -90,7 +91,8 @@ Future<void> checkProjectRules() async {
 
 Future<void> shrinkRuntimeJar(String artJarPath, LibraryPlan plan,
     ExtensionResources? resources, String package,
-    {required bool optimize}) async {
+    {required bool optimize,
+    required Iterable<String> privateAarClasses}) async {
   final projectRules = _projectRules;
   final mapping = _mapping(package);
   try {
@@ -98,6 +100,7 @@ Future<void> shrinkRuntimeJar(String artJarPath, LibraryPlan plan,
       artJarPath,
       libraryJars: {
         ...plan.libraryJars,
+        ...privateAarClasses,
         if (resources != null) resources.classesJar,
       },
       rules: {
@@ -183,13 +186,13 @@ Future<String> _keepExtensionClassesRules() async {
 }
 
 Future<void> relocatePrivateClasses(
-    String artJarPath, Set<String> privateJars, String package) async {
-  final classes = {
-    for (final jar in privateJars)
-      ...relocatableClasses(await _fileEntries(jar)),
-  };
-  _lgr.info('Moved ${privateJars.length} bundled libraries to '
-      '${await _relocate(artJarPath, classes, package)}');
+    String artJarPath, PrivateLibraries privateLibraries) async {
+  final relocated =
+      p.join(_fs.buildFilesDir.path, 'AndroidRuntime.relocated.jar');
+  await privateLibraries.relocate(artJarPath, relocated);
+  await relocated.asFile().rename(artJarPath);
+  _lgr.info('Moved private libraries to '
+      '${privateLibraries.names.package}.repacked');
 }
 
 Future<void> _relocateDesugarHelpers(String artJarPath, String package) async {
@@ -205,23 +208,22 @@ Future<Iterable<String>> _fileEntries(String jar) async => ZipDecoder()
     .where((el) => el.isFile)
     .map((el) => el.name);
 
-Future<String> _relocate(
+Future<void> _relocate(
     String artJarPath, Iterable<String> classes, String package) async {
-  final repackaged = '$package.repacked';
-  final spec = p.join(_fs.buildFilesDir.path, 'relocation.txt').asFile();
+  final spec =
+      p.join(_fs.buildFilesDir.path, 'desugar-helpers-relocation.txt').asFile();
   await spec.writeAsString(
-      relocationSpec('${repackaged.replaceAll('.', '/')}/', classes));
+      relocationSpec('${package.replaceAll('.', '/')}/repacked/', classes));
 
   final relocated =
       p.join(_fs.buildFilesDir.path, 'AndroidRuntime.relocated.jar');
   await Executor.execRelocator(
       input: artJarPath, output: relocated, spec: spec.path);
   await relocated.asFile().rename(artJarPath);
-  return repackaged;
 }
 
-Future<void> desugarArtJar(
-    Config config, String artJarPath, LibraryPlan plan, String package) async {
+Future<void> desugarArtJar(Config config, String artJarPath, LibraryPlan plan,
+    String package, Iterable<String> privateAarClasses) async {
   final coreLibraryConfig = config.minSdk >= _coreLibraryMinSdk
       ? await _extractCoreLibraryConfig()
       : null;
@@ -231,7 +233,7 @@ Future<void> desugarArtJar(
     config,
     input: artJarPath,
     output: desugared,
-    classpathJars: plan.libraryJars,
+    classpathJars: {...plan.libraryJars, ...privateAarClasses},
     coreLibraryConfig: coreLibraryConfig,
   );
   await desugared.asFile().rename(artJarPath);

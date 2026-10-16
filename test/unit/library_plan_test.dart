@@ -10,6 +10,7 @@ ResolvedLibrary _library(
   String? package,
   bool consumerRules = false,
   bool inEveryApp = true,
+  bool resources = false,
   Set<OriginalContent> originalContents = const {},
 }) =>
     ResolvedLibrary(
@@ -23,6 +24,7 @@ ResolvedLibrary _library(
       consumerRules: consumerRules ? '$coordinate/proguard.txt' : null,
       package: package,
       inEveryApp: inEveryApp,
+      hasResources: resources,
       originalContents: originalContents,
     );
 
@@ -217,18 +219,36 @@ void main() {
     final plan = _plan(
       dependencies: [
         _library('g:widget:1', aar: true, originalContents: {
-          OriginalContent.resources,
           OriginalContent.assets,
+          OriginalContent.nativeLibraries,
         }),
       ],
       placements: {'g:widget': LibraryPlacement.private},
     );
 
     expect(_errors(plan), [
-      'g:widget:1 can\'t be private: its Android resources and its assets '
-          'would be left out. Place it as shared or remove it from '
-          '`libraries` in rush.yml.',
+      'g:widget:1 can\'t be private: its assets keep their original paths '
+          'and its native libraries find classes by their original names. '
+          'Place it as shared or remove it from `libraries` in rush.yml.',
     ]);
+  });
+
+  test('ships private AARs with resources apart from private code', () {
+    final plan = _plan(
+      dependencies: [
+        _library('g:widget:1', aar: true, resources: true),
+        _library('g:codec:1', aar: true),
+        _library('g:json:1'),
+      ],
+      placements: {
+        'g:widget': LibraryPlacement.private,
+        'g:codec': LibraryPlacement.private,
+      },
+    );
+
+    expect(_errors(plan), isEmpty);
+    expect(plan.privateAars.map((el) => el.coordinate), ['g:widget:1']);
+    expect(plan.privateJars, {'g:codec:1.jar', 'g:json:1.jar'});
   });
 
   test('refuses private libraries a shared library uses', () {

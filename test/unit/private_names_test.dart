@@ -103,7 +103,7 @@ void main() {
   });
 
   test('renames classes and resources named in build infos', () {
-    final buildInfos = jsonEncode([
+    final buildInfos = [
       {
         'type': 'com.example.ext.Ext',
         'activities': [
@@ -112,9 +112,9 @@ void main() {
         ],
         'permissions': ['android.permission.INTERNET'],
       }
-    ]);
+    ];
 
-    expect(jsonDecode(_names().renameBuildInfos(buildInfos)), [
+    expect(_names().renameBuildInfos(buildInfos), [
       {
         'type': 'com.example.ext.Ext',
         'activities': [

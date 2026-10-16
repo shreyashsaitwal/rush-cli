@@ -77,8 +77,10 @@ class PrivateNames {
     return renamed;
   }
 
-  String renameBuildInfos(String buildInfos) => jsonEncode([
-        for (final Map<String, dynamic> info in jsonDecode(buildInfos))
+  List<Map<String, dynamic>> renameBuildInfos(
+          List<Map<String, dynamic>> buildInfos) =>
+      [
+        for (final info in buildInfos)
           {
             ...info,
             if (info['activities'] case final List<dynamic> elements)
@@ -87,7 +89,7 @@ class PrivateNames {
                   _renamedFragment(element),
               ],
           },
-      ]);
+      ];
 
   String _renamedManifest(ArchiveFile manifest) {
     final document = parseAndroidXml(utf8.decode(manifest.content));
@@ -100,10 +102,15 @@ class PrivateNames {
 
   String _renamedFragment(String element) {
     final fragment = parseAndroidXmlFragment(element);
+    final original = _serialized(fragment);
     _renameClassNames(fragment);
     resources.renameReferences(fragment);
-    return fragment.children.map((el) => el.toXmlString()).join();
+    final renamed = _serialized(fragment);
+    return renamed == original ? element : renamed;
   }
+
+  static String _serialized(XmlDocumentFragment fragment) =>
+      fragment.children.map((el) => el.toXmlString()).join();
 
   void _renameClassNames(XmlNode root) {
     for (final attribute in root.descendantElements

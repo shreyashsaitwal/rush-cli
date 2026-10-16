@@ -101,7 +101,7 @@ Future<void> _addFontShim(Archive aar, FontShim shim) async {
 
 Future<Library> _packageAar(
     LibraryDesugarer desugarer, ResolvedLibrary aar, LibraryPlan plan) async {
-  final name = _aarFileName(aar);
+  final name = aar.aarFileName;
   final desugaredClasses = await desugarer.desugar(
     name,
     input: aar.classesJar,
@@ -139,7 +139,7 @@ Future<Map<ResolvedLibrary, List<ArchiveFile>>> _sharedJarClasses(
 
 Future<Library> _packageSharedJar(Config config, LibraryDesugarer desugarer,
     ResolvedLibrary jar, List<ArchiveFile> classes, LibraryPlan plan) async {
-  final name = _aarFileName(jar);
+  final name = jar.aarFileName;
   final sharedJarsDir = p.join(_fs.buildFilesDir.path, 'shared-jars');
   final classesJar = p.join(sharedJarsDir, '$name.jar');
   await writeZip(classesJar, classes);
@@ -171,7 +171,3 @@ String _sharedJarManifest(ResolvedLibrary jar, int minSdk) {
 </manifest>
 ''';
 }
-
-String _aarFileName(ResolvedLibrary aar) => aar.isMavenArtifact
-    ? '${aar.coordinate.replaceAll(':', '-')}.aar'
-    : p.basename(aar.file);

@@ -12,6 +12,9 @@ class Descriptor {
 
   final List<Map<String, dynamic>> buildInfos;
 
+  Descriptor withBuildInfos(List<Map<String, dynamic>> buildInfos) =>
+      Descriptor._(components, buildInfos);
+
   String get package {
     final type = components.first['type'] as String;
     return type.substring(0, type.lastIndexOf('.'));

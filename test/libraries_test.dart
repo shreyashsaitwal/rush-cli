@@ -229,6 +229,96 @@ class {className}(container: ComponentContainer) :
     expect(allowed.exitCode, 0, reason: allowed.output);
   });
 
+  test('private AARs are renamed into the extension', () async {
+    final project = await TestProject.create('private_aar_ext');
+    final sources = Directory(p.join(project.dir.path, 'library-src'));
+    final player = p.join(sources.path, 'com', 'example', 'player');
+    for (final MapEntry(key: name, value: source) in {
+      'R.java': 'package com.example.player; public final class R { '
+          'public static final class drawable { public static int play; } }',
+      'PlaybackService.java': 'package com.example.player; '
+          'public class PlaybackService { '
+          'public static int icon() { return R.drawable.play; } }',
+      'TimeBar.java': 'package com.example.player; public class TimeBar {}',
+    }.entries) {
+      File(p.join(player, name))
+        ..createSync(recursive: true)
+        ..writeAsStringSync(source);
+    }
+    final classes = p.join(project.dir.path, 'library-classes');
+    final javac = await Process.run('javac', [
+      '--release',
+      '8',
+      '-d',
+      classes,
+      for (final name in ['R', 'PlaybackService', 'TimeBar'])
+        p.join(player, '$name.java'),
+    ]);
+    expect(javac.exitCode, 0, reason: '${javac.stderr}');
+    final classesJar = Archive();
+    for (final name in ['PlaybackService', 'TimeBar']) {
+      classesJar.addFile(ArchiveFile.bytes(
+          'com/example/player/$name.class',
+          File(p.join(classes, 'com', 'example', 'player', '$name.class'))
+              .readAsBytesSync()));
+    }
+    project.file('deps/player.aar')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(ZipEncoder().encode(Archive()
+        ..addFile(ArchiveFile.string(
+            'AndroidManifest.xml',
+            '<manifest xmlns:android="http://schemas.android.com/apk/res/'
+                'android" package="com.example.player"><application>'
+                '<service android:name="com.example.player.PlaybackService" '
+                'android:icon="@drawable/play"/></application></manifest>'))
+        ..addFile(ArchiveFile.string('res/drawable/play.xml', '<vector/>'))
+        ..addFile(ArchiveFile.string(
+            'res/layout/controls.xml', '<com.example.player.TimeBar/>'))
+        ..addFile(ArchiveFile.string(
+            'R.txt', 'int drawable play 0x0\nint layout controls 0x0\n'))
+        ..addFile(ArchiveFile.bytes(
+            'classes.jar', ZipEncoder().encode(classesJar)))));
+    project.addDependencies(['player.aar']);
+    project.placeLibraries({'player.aar': 'private'});
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public int Icon() {
+    return com.example.player.PlaybackService.icon();
+  }
+''');
+
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+    final renamed = '${project.package}.repacked';
+    final prefix = '${project.package.replaceAll('.', '_')}_';
+    final aix = project.aix;
+    expect(aix.libraries, ['$renamed.player.aar']);
+    final aar = aix.library('$renamed.player.aar');
+    String text(String name) => utf8.decode(aar.findFile(name)!.content);
+    expect(
+        text('AndroidManifest.xml'),
+        allOf(
+            contains('package="$renamed.com.example.player"'),
+            contains('android:name="$renamed.com.example.player.'
+                'PlaybackService"'),
+            contains('android:icon="@drawable/${prefix}play"')));
+    expect(text('res/drawable/${prefix}play.xml'), '<vector/>');
+    expect(text('res/layout/${prefix}controls.xml'),
+        '<$renamed.com.example.player.TimeBar/>');
+    expect(text('R.txt'), contains('int drawable ${prefix}play 0x0'));
+    expect(
+        ZipDecoder()
+            .decodeBytes(aar.findFile('classes.jar')!.content)
+            .files
+            .map((el) => el.name),
+        containsAll([
+          '${project.packagePath}/repacked/com/example/player/PlaybackService.class',
+          '${project.packagePath}/repacked/com/example/player/TimeBar.class',
+        ]));
+    expect(jsonEncode(aix.buildInfo['activities']),
+        contains('$renamed.com.example.player.PlaybackService'));
+  });
+
   test('AAR manifests keep the app package for \${applicationId}', () async {
     final project = await TestProject.create('app_id_ext');
     project.file('deps/files.aar')
@@ -464,17 +554,27 @@ class {className}(container: ComponentContainer) :
           contains('android.permission.VIBRATE'));
     });
 
-    test('are refused as private when their resources would be left out',
+    test('are refused as private when their assets or native code would break',
         () async {
-      final project = await TestProject.create('private_res_ext');
-      project.addDependencies(['androidx.cardview:cardview:1.0.0']);
-      project.placeLibraries({'androidx.cardview:cardview': 'private'});
+      final project = await TestProject.create('private_native_ext');
+      project.file('deps/native.aar')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(ZipEncoder().encode(Archive()
+          ..addFile(ArchiveFile.string('AndroidManifest.xml',
+              '<manifest package="com.example.native"/>'))
+          ..addFile(ArchiveFile.string('assets/model.bin', 'model'))
+          ..addFile(ArchiveFile.string('jni/arm64-v8a/libnative.so', 'elf'))
+          ..addFile(ArchiveFile.bytes(
+              'classes.jar', ZipEncoder().encode(Archive())))));
+      project.addDependencies(['native.aar']);
+      project.placeLibraries({'native.aar': 'private'});
       final build = await project.build();
       expect(build.exitCode, 1, reason: build.output);
       expect(
           build.output,
-          contains("androidx.cardview:cardview:1.0.0 can't be private: its "
-              'Android resources would be left out'));
+          contains("native.aar can't be private: its assets keep their "
+              'original paths and its native libraries find classes by their '
+              'original names'));
     });
 
     test('are refused as private when a shared library uses them', () async {

@@ -17,6 +17,7 @@ import 'package:rush/src/commands/build/aar_packager.dart';
 import 'package:rush/src/commands/build/aix_assembly.dart';
 import 'package:rush/src/commands/build/descriptor.dart';
 import 'package:rush/src/commands/build/library_plan.dart';
+import 'package:rush/src/commands/build/private_libraries.dart';
 import 'package:rush/src/commands/build/project_libraries.dart';
 import 'package:rush/src/commands/build/resources.dart';
 import 'package:rush/src/commands/build/runtime_jar.dart';
@@ -89,13 +90,23 @@ class BuildCommand extends Command<int> {
       return (plan, resources);
     });
 
-    final (descriptor, libraries, artJarPath) =
+    final (descriptor, libraries, artJarPath, privateLibraries) =
         await _task('Processing', () async {
-      final descriptor = await _requireExtension();
-      await removeMapping(descriptor.package);
-      final libraries = writeLongIdResources(await moveLibraryFontsToRaw(
-          await packageLibraries(config, plan, resources)));
-      return (descriptor, libraries, await createArtJar(plan.privateJars));
+      final extension = await _requireExtension();
+      await removeMapping(extension.package);
+      final privateLibraries =
+          await PrivateLibraries.prepare(config, plan, extension.package);
+      final libraries = writeLongIdResources(await moveLibraryFontsToRaw([
+        ...await packageLibraries(config, plan, resources),
+        ...await privateLibraries.packageAars(),
+      ]));
+      return (
+        extension.withBuildInfos(
+            privateLibraries.names.renameBuildInfos(extension.buildInfos)),
+        libraries,
+        await createArtJar(plan.privateJars),
+        privateLibraries,
+      );
     });
 
     if (optimize || plan.privateJars.isNotEmpty) {
@@ -105,20 +116,23 @@ class BuildCommand extends Command<int> {
               : 'Shrinking bundled libraries',
           () => shrinkRuntimeJar(
               artJarPath, plan, resources, descriptor.package,
-              optimize: optimize));
+              optimize: optimize,
+              privateAarClasses: privateLibraries.originalAarClasses));
     }
 
-    if (plan.privateJars.isNotEmpty) {
-      await _task(
-          'Relocating bundled libraries',
-          () => relocatePrivateClasses(
-              artJarPath, plan.privateJars, descriptor.package));
+    if (plan.privateJars.isNotEmpty || plan.privateAars.isNotEmpty) {
+      await _task('Relocating private libraries',
+          () => relocatePrivateClasses(artJarPath, privateLibraries));
     }
 
-    await _task('Desugaring Java 8+ language features',
-        () => desugarArtJar(config, artJarPath, plan, descriptor.package));
-    await _task('Generating DEX bytecode',
-        () => _dex(config, artJarPath, plan.libraryJars));
+    await _task(
+        'Desugaring Java 8+ language features',
+        () => desugarArtJar(config, artJarPath, plan, descriptor.package,
+            privateLibraries.relocatedAarClasses));
+    await _task(
+        'Generating DEX bytecode',
+        () => _dex(config, artJarPath,
+            {...plan.libraryJars, ...privateLibraries.relocatedAarClasses}));
     await _task('Packaging the extension',
         () => assembleAix(config, descriptor, libraries));
   }
