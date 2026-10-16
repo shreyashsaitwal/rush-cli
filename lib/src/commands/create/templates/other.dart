@@ -64,6 +64,10 @@ String pgRules() {
 -keepnames class * implements com.google.appinventor.components.common.OptionList {
   *;
 }
+
+# App Inventor ships an old androidx.annotation. Libraries built against newer
+# versions reference annotations it lacks, which are only needed to compile.
+-dontwarn androidx.annotation.**
 ''';
 }
 
