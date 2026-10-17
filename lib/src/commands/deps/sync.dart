@@ -294,7 +294,7 @@ class SyncSubCommand extends Command<int> {
       final provided = {
         for (final el in providedArtifacts)
           if (el.isMavenArtifact && !directCoords.contains(el.coordinate))
-            el.groupAndArtifactId: el,
+            for (final key in variantKeys(el.groupAndArtifactId)) key: el,
       };
 
       if (provided.isNotEmpty || placedLibraries.isNotEmpty) {

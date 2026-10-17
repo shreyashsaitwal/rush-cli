@@ -316,6 +316,25 @@ class {className}(container: ComponentContainer) :
             contains('add `-dontwarn androidx.annotation.DoNotInline`')));
   });
 
+  test('App Inventor\'s libraries stand in for their multiplatform variants',
+      () async {
+    final project = await TestProject.create('variants_ext');
+    project
+        .addDependencies(['androidx.datastore:datastore-core-android:1.1.7']);
+    project.placeLibraries(
+        {'androidx.datastore:datastore-core-android': 'shared'});
+    project.setMinSdk(24);
+
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+    expect(
+        project.aix.libraries, isNot(anyElement(contains('annotation-jvm'))));
+    expect(
+        build.output,
+        contains('androidx.annotation:annotation-jvm:1.7.0 is required, but '
+            'App Inventor provides an older version'));
+  });
+
   test('AARs without code are placed but add no code', () async {
     final project = await TestProject.create('codeless_ext');
     project.file('deps/umbrella.aar')
