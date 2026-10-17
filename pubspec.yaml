@@ -1,6 +1,6 @@
 name: rush
 description: A new and improved way of building MIT AI2 extensions.
-version: 2.0.0
+version: 2.1.0-beta.1
 homepage: https://github.com/shreyashsaitwal/rush-cli
 
 executables:
