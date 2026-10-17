@@ -38,6 +38,10 @@ Future<Map<String, List<int>>> _compiled(
   };
 }
 
+final _javapFields = RegExp(
+    r'^  (\S.*);\n    descriptor: [^(].*\n    flags: \(0x[0-9a-f]+\) (.*)$',
+    multiLine: true);
+
 List<int> _jar(Map<String, List<int>> entries) {
   final archive = Archive();
   for (final MapEntry(key: name, value: bytes) in entries.entries) {
@@ -313,7 +317,103 @@ class {className}(container: ComponentContainer) :
         allOf(
             contains('androidx.annotation.DoNotInline is missing from '
                 'androidx.annotation:annotation:'),
-            contains('add `-dontwarn androidx.annotation.**`')));
+            contains('add `-dontwarn androidx.annotation.DoNotInline`')));
+  });
+
+  test('App Inventor\'s libraries stand in for their multiplatform variants',
+      () async {
+    final project = await TestProject.create('variants_ext');
+    project
+        .addDependencies(['androidx.datastore:datastore-core-android:1.1.7']);
+    project.placeLibraries(
+        {'androidx.datastore:datastore-core-android': 'shared'});
+    project.setMinSdk(24);
+
+    final build = await project.build();
+    expect(build.exitCode, 0, reason: build.output);
+    expect(
+        project.aix.libraries, isNot(anyElement(contains('annotation-jvm'))));
+    expect(
+        build.output,
+        contains('androidx.annotation:annotation-jvm:1.7.0 is required, but '
+            'App Inventor provides an older version'));
+  });
+
+  test('desugared interfaces have fields every dex version accepts', () async {
+    final project = await TestProject.create('interfaces_ext');
+    project.setMinSdk(23);
+    project.file('deps/factory.jar')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(_jar(await _compiled(project, {
+        'com/example/factory/Factory': 'package com.example.factory; '
+            'public interface Factory { '
+            'Factory EMPTY = () -> new String[0]; '
+            'String[] create(); '
+            'default String[] create(String uri) { return create(); } }',
+        'com/example/factory/Single': 'package com.example.factory; '
+            'public class Single implements Factory { '
+            'public String[] create() { return new String[] {"one"}; } }',
+        'com/example/factory/Pair': 'package com.example.factory; '
+            'public class Pair implements Factory { '
+            'public String[] create() { return new String[] {"one", "two"}; } }',
+      })));
+    project.addDependencies(['factory.jar']);
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public int Count(String uri) {
+    com.example.factory.Factory factory = uri.isEmpty()
+        ? new com.example.factory.Single()
+        : new com.example.factory.Pair();
+    return factory.create(uri).length;
+  }
+''');
+
+    final build = await project.build(['--optimize']);
+    expect(build.exitCode, 0, reason: build.output);
+    final bytes = project.aix.bytes('files/AndroidRuntime.jar');
+    final runtime = p.join(project.dir.path, 'runtime.jar');
+    File(runtime).writeAsBytesSync(bytes);
+    final javap = await Process.run('javap', [
+      '-p',
+      '-v',
+      '-cp',
+      runtime,
+      for (final file in ZipDecoder().decodeBytes(bytes))
+        if (file.name.endsWith('.class'))
+          file.name.substring(0, file.name.length - '.class'.length),
+    ]);
+    expect(javap.exitCode, 0, reason: '${javap.stderr}');
+    final interfaceFields = [
+      for (final type in (javap.stdout as String)
+          .split(RegExp(r'^Classfile ', multiLine: true)))
+        if (type
+            .contains(RegExp(r'^  flags: .*ACC_INTERFACE', multiLine: true)))
+          for (final field in _javapFields.allMatches(type))
+            '${field[1]} ${field[2]}',
+    ];
+    expect(interfaceFields, contains(contains(r'$desugar$clinit')));
+    expect(interfaceFields,
+        everyElement(contains('ACC_PUBLIC, ACC_STATIC, ACC_FINAL')));
+  });
+
+  test('AARs without code are placed but add no code', () async {
+    final project = await TestProject.create('codeless_ext');
+    project.file('deps/umbrella.aar')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(_jar({
+        'AndroidManifest.xml':
+            utf8.encode('<manifest package="com.example.umbrella"/>'),
+      }));
+    project.addDependencies(['umbrella.aar']);
+
+    final private = await project.build();
+    expect(private.exitCode, 0, reason: private.output);
+    expect(private.output, isNot(contains('non-existent location')));
+
+    project.placeLibraries({'umbrella.aar': 'shared'});
+    final shared = await project.build();
+    expect(shared.exitCode, 0, reason: shared.output);
+    expect(project.aix.library('umbrella.aar').findFile('classes.jar'), isNull);
   });
 
   test('private AARs are renamed into the extension', () async {

@@ -49,6 +49,7 @@ Future<ResolvedLibrary> _library(Artifact artifact,
     package: manifest == null ? null : await _package(manifest),
     inEveryApp: inEveryApp,
     hasResources: isAar && await _hasResources(artifact),
+    hasCode: !isAar || await artifact.classesJar.asFile().exists(),
     originalContents: isAar ? await _originalContents(artifact) : const {},
   );
 }

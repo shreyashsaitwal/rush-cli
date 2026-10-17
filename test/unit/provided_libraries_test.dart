@@ -34,4 +34,12 @@ void main() {
   test('provides nothing without provided libraries', () {
     expect(provided({}), isEmpty);
   });
+
+  test('counts a multiplatform variant as its library', () {
+    expect(variantKeys('androidx.annotation:annotation'), [
+      'androidx.annotation:annotation',
+      'androidx.annotation:annotation-jvm',
+      'androidx.annotation:annotation-android',
+    ]);
+  });
 }

@@ -165,12 +165,10 @@ class SyncSubCommand extends Command<int> {
       await BuildUtils.extractAars(
         extensionDeps
             .where((el) => el.artifactFile.endsWith('.aar'))
-            .where((el) =>
-                !el.classesJar.asFile().existsSync() ||
-                !_fs
-                    .resourceFromExtractedAar(
-                        el.artifactFile, 'AndroidManifest.xml')
-                    .existsSync())
+            .where((el) => !_fs
+                .resourceFromExtractedAar(
+                    el.artifactFile, 'AndroidManifest.xml')
+                .existsSync())
             .map((el) => el.artifactFile),
       );
 
@@ -296,7 +294,7 @@ class SyncSubCommand extends Command<int> {
       final provided = {
         for (final el in providedArtifacts)
           if (el.isMavenArtifact && !directCoords.contains(el.coordinate))
-            el.groupAndArtifactId: el,
+            for (final key in variantKeys(el.groupAndArtifactId)) key: el,
       };
 
       if (provided.isNotEmpty || placedLibraries.isNotEmpty) {
@@ -374,7 +372,9 @@ class SyncSubCommand extends Command<int> {
 
     final classesJars = [
       ...providedDeps.map((el) => el.classesJar).whereNotNull(),
-      ...extensionDeps.map((el) => el.classesJar).whereNotNull(),
+      ...extensionDeps
+          .map((el) => el.classesJar)
+          .where((el) => el.asFile().existsSync()),
     ];
     final sourcesJars = [
       ...providedDeps.map((el) => el.sourcesJar).whereNotNull(),

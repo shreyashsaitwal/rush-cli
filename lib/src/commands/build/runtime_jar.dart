@@ -153,7 +153,7 @@ Future<PrivateProgram> shrinkProgram(
 }
 
 Future<Map<String, String>> _providerOfPackage(LibraryPlan plan) async => {
-      for (final library in plan.provided)
+      for (final library in plan.provided.where((el) => el.hasCode))
         for (final entry in await _fileEntries(library.classesJar))
           if (p.posix.extension(entry) == '.class')
             p.posix.dirname(entry).replaceAll('/', '.'): library.coordinate,

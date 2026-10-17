@@ -1,8 +1,10 @@
+import 'package:rush/src/version.dart';
+
 const buildLibsBoxName = 'build-libs';
 const extensionDepsBoxName = 'deps';
 
 const timestampBoxName = 'timestamps';
-const configTimestampKey = 'rush-yaml';
+const configTimestampKey = 'rush-yaml@$packageVersion';
 
 const defaultKtVersion = '2.4.20';
 

@@ -8,6 +8,7 @@ import 'package:rush/src/commands/build/utils.dart';
 import 'package:rush/src/services/lib_service.dart';
 import 'package:rush/src/services/ai2_runtime.dart';
 import 'package:rush/src/utils/process_runner.dart';
+import 'package:rush/src/utils/file_extension.dart';
 
 class Executor {
   static final _fs = GetIt.I<FileService>();
@@ -32,15 +33,33 @@ class Executor {
     required String output,
     required Set<String> classpathJars,
     String? coreLibraryConfig,
+  }) async {
+    final desugared = '$output.d8.jar';
+    await _runD8(
+      minSdk: config.minSdk,
+      input: input,
+      output: desugared,
+      classpathJars: classpathJars,
+      classfileOutput: true,
+      coreLibraryConfig: coreLibraryConfig,
+    );
+    await _correctInterfaceInitTriggers(input: desugared, output: output);
+    await desugared.asFile().delete();
+  }
+
+  static Future<void> _correctInterfaceInitTriggers({
+    required String input,
+    required String output,
   }) =>
-      _runD8(
-        minSdk: config.minSdk,
-        input: input,
-        output: output,
-        classpathJars: classpathJars,
-        classfileOutput: true,
-        coreLibraryConfig: coreLibraryConfig,
-      );
+      _processRunner.runExecutable(
+          BuildUtils.javaExe(),
+          [
+            '-cp',
+            _libService.relocatorJar,
+            'io.github.shreyashsaitwal.rush.relocator.DesugaredInterfaces',
+            input,
+            output,
+          ].map((el) => el.replaceAll('\\', '/')).toList());
 
   static Future<void> _runD8({
     required int minSdk,

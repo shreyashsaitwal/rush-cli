@@ -2,6 +2,11 @@ import 'package:collection/collection.dart';
 
 import 'package:rush/src/config/library_placement.dart';
 
+List<String> variantKeys(String groupAndArtifactId) => [
+      for (final suffix in const ['', '-jvm', '-android'])
+        '$groupAndArtifactId$suffix'
+    ];
+
 Set<String> providedOnly({
   required Iterable<String> roots,
   required Map<String, List<String>> dependencies,

@@ -17,13 +17,18 @@ void main() {
           'androidx.core.os': 'androidx.core:core:1.0.0',
         }),
         [
-          'androidx.annotation.ChecksSdkIntAtLeast and 1 more class are '
-              'missing from androidx.annotation:annotation:1.0.0, the version '
-              'apps get. If only annotations are missing, add '
-              '`-dontwarn androidx.annotation.**` to src/proguard-rules.pro',
+          'androidx.annotation.ChecksSdkIntAtLeast and '
+              'androidx.annotation.DoNotInline are missing from '
+              'androidx.annotation:annotation:1.0.0, the version apps get, so '
+              'code using them fails at runtime. If they\'re only annotations, '
+              'or that code never runs, add '
+              '`-dontwarn androidx.annotation.ChecksSdkIntAtLeast` and '
+              '`-dontwarn androidx.annotation.DoNotInline` to '
+              'src/proguard-rules.pro',
           'androidx.core.os.BuildCompat\$Api33 is missing from '
-              'androidx.core:core:1.0.0, the version apps get. If only '
-              'annotations are missing, add `-dontwarn androidx.core.os.**` '
+              'androidx.core:core:1.0.0, the version apps get, so code using '
+              'it fails at runtime. If it\'s only an annotation, or that code '
+              'never runs, add `-dontwarn androidx.core.os.BuildCompat\$Api33` '
               'to src/proguard-rules.pro',
         ]);
   });

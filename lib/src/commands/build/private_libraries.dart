@@ -41,7 +41,8 @@ class PrivateLibraries {
 
   bool get isEmpty => _plan.privateJars.isEmpty && _aars.isEmpty;
 
-  Iterable<String> get aarClasses => _aars.keys.map((el) => el.classesJar);
+  Iterable<String> get aarClasses =>
+      _aars.keys.where((el) => el.hasCode).map((el) => el.classesJar);
 
   Future<String> keepRules(Iterable<String> program,
       Iterable<String> manifestElements, Iterable<String> resourceXml) async {
@@ -64,7 +65,7 @@ class PrivateLibraries {
       required Descriptor extension,
       required ExtensionResources? resources}) async {
     final aarOf = {
-      for (final aar in _aars.keys)
+      for (final aar in _aars.keys.where((el) => el.hasCode))
         for (final name in await _classes(aar.classesJar))
           name: aar.aarFileName,
     };
