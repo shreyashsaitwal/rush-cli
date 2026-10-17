@@ -162,7 +162,9 @@ class MavenResolver {
     }
     if (!await file.exists()) {
       await file.parent.create(recursive: true);
-      await file.writeAsBytes(result.content);
+      final partial = File('$path.$pid.part');
+      await partial.writeAsBytes(result.content);
+      await partial.rename(path);
     }
     return true;
   }
