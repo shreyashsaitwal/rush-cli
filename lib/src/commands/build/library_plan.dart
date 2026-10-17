@@ -29,6 +29,7 @@ class ResolvedLibrary {
     this.package,
     this.inEveryApp = true,
     this.hasResources = false,
+    this.hasCode = true,
     this.originalContents = const {},
   });
 
@@ -43,6 +44,7 @@ class ResolvedLibrary {
   final String? package;
   final bool inEveryApp;
   final bool hasResources;
+  final bool hasCode;
   final Set<OriginalContent> originalContents;
 
   String get key => libraryKey(coordinate);
@@ -99,8 +101,10 @@ class LibraryPlan {
 
   Iterable<ResolvedLibrary> get sharedJars => shared.whereNot((el) => el.isAar);
 
-  Set<String> get privateJars =>
-      {for (final library in private.whereNot(_shipsAar)) library.classesJar};
+  Set<String> get privateJars => {
+        for (final library in private.whereNot(_shipsAar))
+          if (library.hasCode) library.classesJar,
+      };
 
   Iterable<ResolvedLibrary> get privateAars => private.where(_shipsAar);
 
@@ -121,7 +125,6 @@ LibraryPlan planLibraries({
     ...dependencies.where((el) => el.scope == LibraryScope.provided),
   ], shipped);
   final linkedAgainst = _inEveryApp(compileOnly);
-  final sharedAars = shared.where((el) => el.isAar);
   final everything = [...dependencies, ...appInventor];
   return LibraryPlan(
     shared: shared,
@@ -137,8 +140,8 @@ LibraryPlan planLibraries({
         .toSet(),
     libraryJars: {
       ...linkedAgainst.expand((el) => _classpath(el, linkedAgainst)),
-      ...sharedAars.map((el) => el.classesJar),
-      ...shared.whereNot((el) => el.isAar).map((el) => el.classesJar),
+      for (final library in shared)
+        if (library.hasCode) library.classesJar,
     },
     manifests: shipped
         .where((el) => el.isAar)
@@ -166,13 +169,11 @@ List<ResolvedLibrary> _shipped(List<ResolvedLibrary> dependencies) =>
 
 List<ResolvedLibrary> _shared(
     List<ResolvedLibrary> shipped, Map<String, LibraryPlacement> placements) {
-  final sharedClasspath = shipped
+  final sharedLibraries = shipped
       .where((el) => placements[el.key] == LibraryPlacement.shared)
-      .expand((el) => _classpath(el, shipped))
+      .expand((el) => _closure(el, shipped))
       .toSet();
-  return shipped
-      .where((el) => sharedClasspath.contains(el.classesJar))
-      .toList();
+  return shipped.where(sharedLibraries.contains).toList();
 }
 
 String _whyShared(ResolvedLibrary library, List<ResolvedLibrary> shared,
@@ -238,10 +239,17 @@ List<Problem> _duplicateAars(Iterable<ResolvedLibrary> aars) => [
 
 Set<String> _classpath(ResolvedLibrary library, List<ResolvedLibrary> index) =>
     {
-      library.classesJar,
+      for (final dependency in _closure(library, index))
+        if (dependency.hasCode) dependency.classesJar,
+    };
+
+Set<ResolvedLibrary> _closure(
+        ResolvedLibrary library, List<ResolvedLibrary> index) =>
+    {
+      library,
       ...library.dependencies
           .map((dependency) =>
               index.firstWhereOrNull((el) => el.coordinate == dependency))
           .nonNulls
-          .expand((el) => _classpath(el, index)),
+          .expand((el) => _closure(el, index)),
     };

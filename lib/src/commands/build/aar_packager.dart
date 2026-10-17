@@ -103,6 +103,9 @@ Future<void> _addFontShim(Archive aar, FontShim shim) async {
 Future<Library> _packageAar(
     LibraryDesugarer desugarer, ResolvedLibrary aar, LibraryPlan plan) async {
   final name = aar.aarFileName;
+  if (!aar.hasCode) {
+    return Library(name, await aar.file.asFile().readAsBytes());
+  }
   final desugaredClasses = await desugarer.desugar(
     name,
     input: aar.classesJar,

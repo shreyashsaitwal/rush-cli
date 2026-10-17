@@ -316,6 +316,26 @@ class {className}(container: ComponentContainer) :
             contains('add `-dontwarn androidx.annotation.**`')));
   });
 
+  test('AARs without code are placed but add no code', () async {
+    final project = await TestProject.create('codeless_ext');
+    project.file('deps/umbrella.aar')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(_jar({
+        'AndroidManifest.xml':
+            utf8.encode('<manifest package="com.example.umbrella"/>'),
+      }));
+    project.addDependencies(['umbrella.aar']);
+
+    final private = await project.build();
+    expect(private.exitCode, 0, reason: private.output);
+    expect(private.output, isNot(contains('non-existent location')));
+
+    project.placeLibraries({'umbrella.aar': 'shared'});
+    final shared = await project.build();
+    expect(shared.exitCode, 0, reason: shared.output);
+    expect(project.aix.library('umbrella.aar').findFile('classes.jar'), isNull);
+  });
+
   test('private AARs are renamed into the extension', () async {
     final project = await TestProject.create('private_aar_ext');
     final classes = await _compiled(project, {

@@ -11,6 +11,7 @@ ResolvedLibrary _library(
   bool consumerRules = false,
   bool inEveryApp = true,
   bool resources = false,
+  bool code = true,
   Set<OriginalContent> originalContents = const {},
 }) =>
     ResolvedLibrary(
@@ -25,6 +26,7 @@ ResolvedLibrary _library(
       package: package,
       inEveryApp: inEveryApp,
       hasResources: resources,
+      hasCode: code,
       originalContents: originalContents,
     );
 
@@ -317,5 +319,24 @@ void main() {
       'g:host:1': 'provided: rush.yml',
       'g:base:1': 'provided: only provided libraries need it',
     });
+  });
+
+  test('places AARs without code but keeps them off classpaths', () {
+    final dependencies = [
+      _library('g:store:1',
+          aar: true, code: false, dependencies: ['g:store-android:1']),
+      _library('g:store-android:1', aar: true),
+    ];
+    final private = _plan(dependencies: dependencies);
+    final shared = _plan(
+      dependencies: dependencies,
+      placements: {'g:store': LibraryPlacement.shared},
+    );
+
+    expect(_coordinates(private.private), ['g:store:1', 'g:store-android:1']);
+    expect(private.privateJars, {'g:store-android:1.jar'});
+    expect(private.compileClasspath, isNot(contains('g:store:1.jar')));
+    expect(_coordinates(shared.shared), ['g:store:1', 'g:store-android:1']);
+    expect(shared.libraryJars, {'g:store-android:1.jar'});
   });
 }
