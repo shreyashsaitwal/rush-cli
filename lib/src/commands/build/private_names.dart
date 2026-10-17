@@ -37,23 +37,18 @@ class PrivateNames {
       ]);
     }
     final extension = switch (extensionResources) {
-      final symbols? => (
-          definitions: ResourceDefinitions.of([symbols.resources]),
-          symbols: symbols.symbols,
-        ),
+      final extension? => resources.renameExtensionSymbols(
+          extension.symbols, ResourceDefinitions.of([extension.resources])),
       null => null,
     };
-    if (extension != null) {
-      rFields.addAll([
-        for (final field in resources.renamedExtensionFields(
-            extension.symbols, extension.definitions))
-          (
-            owner: '${_rClass(package)}\$${field.type}',
-            name: field.from,
-            to: field.to,
-          ),
-      ]);
-    }
+    rFields.addAll([
+      for (final field in extension?.fields ?? const <RenamedField>[])
+        (
+          owner: '${_rClass(package)}\$${field.type}',
+          name: field.from,
+          to: field.to,
+        ),
+    ]);
     final prefix = _classPrefix(package);
     final renamed = {
       ...classes.whereNot((el) => el.startsWith(prefix)),
@@ -74,11 +69,7 @@ class PrivateNames {
             .where((el) => renamed.contains(el.replaceAll('.', '/')))
             .toSet(),
         resources,
-        switch (extension) {
-          final extension? => resources.renameExtensionSymbols(
-              extension.symbols, extension.definitions),
-          null => null,
-        });
+        extension?.symbols);
   }
 
   PrivateNames._(this.package, this._classes, this._rFields, this._keptStrings,

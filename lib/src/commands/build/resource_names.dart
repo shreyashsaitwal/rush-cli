@@ -172,12 +172,14 @@ class ResourceRenaming {
 
   List<RenamedField> renamedFields(String rTxt) => _renamedRows(rTxt, _fields);
 
-  List<RenamedField> renamedExtensionFields(
-          String rTxt, ResourceDefinitions extension) =>
-      _renamedRows(rTxt, _extensionFields(extension));
-
-  String renameExtensionSymbols(String rTxt, ResourceDefinitions extension) =>
-      _renamedSymbols(rTxt, _extensionFields(extension));
+  ({String symbols, List<RenamedField> fields}) renameExtensionSymbols(
+      String rTxt, ResourceDefinitions extension) {
+    final fields = _extensionFields(extension);
+    return (
+      symbols: _renamedSymbols(rTxt, fields),
+      fields: _renamedRows(rTxt, fields),
+    );
+  }
 
   Map<(String, String), String> _extensionFields(
           ResourceDefinitions extension) =>
