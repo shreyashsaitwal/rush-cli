@@ -44,10 +44,10 @@ ${enableKt ? '- $kotlinGroupId:kotlin-stdlib:$defaultKtVersion\n' : ''}#- exampl
 # file or link to something hosted online.
 #license: LICENSE.txt
 
-# Where a library from dependencies goes, when Rush's choice doesn't fit:
-# exclude (never resolved), provided (compiled against, not shipped), shared
-# (shipped unchanged as an AAR) or private (relocated into the extension). Keys
-# are <groupId>:<artifactId>, or file names in the "deps" directory.
+# Where a library from dependencies goes: private (the default, renamed into
+# the extension), shared (shipped unchanged as an AAR), provided (compiled
+# against, not shipped) or exclude (never resolved). Keys are
+# <groupId>:<artifactId>, or file names in the "deps" directory.
 #libraries:
 #  com.example:foo-bar: provided
 ''';
@@ -64,6 +64,10 @@ String pgRules() {
 -keepnames class * implements com.google.appinventor.components.common.OptionList {
   *;
 }
+
+# App Inventor ships an old androidx.annotation. Libraries built against newer
+# versions reference annotations it lacks, which are only needed to compile.
+-dontwarn androidx.annotation.**
 ''';
 }
 

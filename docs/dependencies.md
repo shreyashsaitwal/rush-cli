@@ -30,14 +30,14 @@ own, and `rush deps tree` prints what was resolved, where each library goes and 
 
 ```
 counter
-└──┬ com.google.code.gson:gson:2.13.1 (private: jar)
-   └─── com.google.errorprone:error_prone_annotations:2.38.0 (private: jar)
+└──┬ com.google.code.gson:gson:2.13.1 (private: default)
+   └─── com.google.errorprone:error_prone_annotations:2.38.0 (private: default)
 ```
 
 ## Placing libraries
 
-Rush decides where each library goes. When its choice doesn't fit, `libraries` overrides
-it, for a library you depend on directly or one pulled in by another:
+Every library the extension ships is private unless `libraries` places it elsewhere,
+for a library you depend on directly or one pulled in by another:
 
 ```yaml
 dependencies:
@@ -66,12 +66,13 @@ to one of:
   libraries that are already present at runtime. The version comes from `dependencies`,
   so a compile-only library you don't otherwise depend on goes there too.
 - **`shared`**: shipped unchanged as an AAR; App Inventor keeps one copy for every
-  extension in the app. What it depends on is shared too.
-- **`private`**: the extension's own copy, moved under its package. Its manifest's
-  permissions, queries and meta-data are still merged. Rush refuses it when the result
-  can't work: for an AAR whose resources, assets or native libraries would be left out,
-  or whose manifest declares components, and for a library a shared library uses by its
-  original name.
+  extension in the app. What it depends on is shared too. Place a library as `shared`
+  when its objects pass between extensions, or when it can't be private.
+- **`private`**, the default: the extension's own copy, renamed into it (see
+  [How libraries are shipped](#how-libraries-are-shipped)). Rush refuses it, naming the
+  `shared` entry to add, for an AAR with assets (they keep their paths), native
+  libraries (they find classes by their original names) or JARs in `libs/` (they aren't
+  renamed), and for a library a shared library uses by its original name.
 
 A key that matches no library is a warning, as it's likely a typo.
 
@@ -93,7 +94,10 @@ swiperefreshlayout, vectordrawable, versionedparcelable and viewpager.
 
 These versions date from 2018 and always win: when a dependency needs a newer one, Rush
 warns that App Inventor's older version will be used, and calls into newer APIs fail at
-runtime. Libraries built on recent AndroidX, such as Jetpack Compose, can't work in App
+runtime. Annotations are the exception: recent libraries use ones App Inventor's
+`androidx.annotation` lacks, such as `DoNotInline`, which are needed only to compile.
+R8 reports them as missing; `rush create` adds `-dontwarn androidx.annotation.**` to new
+projects' `src/proguard-rules.pro`, and older projects need that line too. Libraries built on recent AndroidX, such as Jetpack Compose, can't work in App
 Inventor.
 
 Other libraries in App Inventor's runtime, such as Guava, Gson and RecyclerView, are on
@@ -103,31 +107,47 @@ in other apps. Declare every library your extension uses in `dependencies`.
 
 ## How libraries are shipped
 
-App Inventor puts every extension's code into one app, so two extensions bundling the
-same library would clash (`defined multiple times`). Rush avoids this:
+App Inventor puts every extension's code into one app, with its own libraries and those
+of other extensions, and Kodular adds its own. Two copies of a class clash
+(`defined multiple times`), and when two AARs share a package App Inventor keeps the
+first, whatever its version. So Rush renames private libraries into the extension,
+under `<package>.repacked` (`com.example.counter.repacked.…`):
 
-- **AARs** are shipped as AARs inside the AIX. App Inventor compiles their resources and
-  includes each one only once per app, by package name: when two extensions ship the
-  same library, the first copy wins, whatever its version.
-- **JARs that a shipped AAR depends on** are wrapped into their own small AARs, so they
-  are shared the same way.
-- **All other JARs** are merged into the extension, shrunk to the code it uses, and
-  moved under the extension's package (`com.example.counter.repacked.…`), so they can't
-  clash with another extension's copy. Rush also rewrites strings that name a moved
-  class.
+- **Code** of private JARs and AARs is shrunk with the extension's to what it uses (see
+  [Optimizing](building.md#optimizing)) and moved under that package. Rush also rewrites
+  strings that name a moved class, so reflection on them keeps working.
+- **AARs with resources** ship as renamed AARs (`com.example.counter.repacked.<file>.aar`):
+  their manifest package, the classes their manifests and layouts name, and their
+  resources, prefixed with `com_example_counter_repacked_`, so another copy of the
+  same library, in any version, can't collide with them. An AAR without resources joins
+  the extension's code.
+- **Shared libraries** ship unchanged as AARs, and JARs they depend on are wrapped into
+  their own small AARs. App Inventor keeps one copy of each per app.
 
-[`libraries`](#placing-libraries) overrides these choices.
+Some names must stay as they are:
+
+- **Resources App Inventor's AndroidX also defines**, such as the `icon` attribute that
+  AppCompat and Material both declare, keep their names, so both libraries keep using
+  one resource as in any Android app.
+- **Intent actions and categories** in the extension's manifest and in private AARs'
+  manifests keep their value, in the manifest and in code, even when they equal a class
+  name: other apps and the system send them. Media3's
+  `androidx.media3.session.MediaSessionService` action is one.
+- **Native code and assets** find classes and files by their original names, and JARs
+  bundled in an AAR's `libs/` aren't renamed, which is why AARs with them must be
+  shared.
+
+Renamed classes and resources change the app's code the first time an extension is
+rebuilt with private libraries. What an installed app stored under the old names, such
+as scheduled jobs or widgets naming a library's component, or data serialized with
+class names, isn't found after the update.
 
 App Inventor de-duplicates AARs against AARs only. Some of its own libraries, such as
 MPAndroidChart for the Chart component or Guava for Texting, are added as plain JARs to
-apps that use the matching built-in component. When a shared library has their classes,
-apps that use both fail with `defined multiple times`:
-
-- If nothing shared uses the library, place it as `private` under `libraries`: it moves
-  into the extension, and the clash is gone.
-- If a shared AAR uses it, it can't move. Apps can't combine the extension with that
-  component until App Inventor de-duplicates its libraries; say so in the extension's
-  documentation.
+apps that use the matching built-in component. A private copy can't clash with them. A
+shared one can: if a shared AAR uses such a library, apps can't combine the extension
+with that component until App Inventor de-duplicates its libraries; say so in the
+extension's documentation.
 
 Extensions that ship AARs work in built apps but not in the AI Companion, which can't
 load them.
@@ -141,7 +161,9 @@ either. AAR `assets/`, `jni/` and resources are packaged and work.
 Two kinds of libraries notice:
 
 - Libraries that find implementations with `ServiceLoader`, listed in
-  `META-INF/services/`. They find none.
+  `META-INF/services/`. They find none, except in [optimized](building.md#optimizing)
+  builds of private libraries that call `ServiceLoader.load(X.class,
+  X.class.getClassLoader())`, which R8 replaces with the implementations.
 - Libraries that read a file with `getResource`, such as OkHttp's public suffix list.
 
 To find them, list a library's JAR (or an AAR's `classes.jar`) and look for
@@ -155,8 +177,8 @@ services. If it does run:
   `kotlin-reflect`, for example, `typeOf<T>()` falls back to the standard library's own
   implementation.
 
-Rush warns when two shipped AARs are the same library, since App Inventor would keep an
-arbitrary one.
+Rush warns when two AARs are the same library, such as a Maven library and a copy of it
+in `deps`: only one of them can ship.
 
 ## Kotlin
 

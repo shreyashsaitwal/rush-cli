@@ -37,7 +37,9 @@ error string/title must be named com_example_counter_title
 help  Resource names start with the extension package so they never clash with other extensions or App Inventor
 ```
 
-IDs (`@+id/title`) don't need the prefix: sharing them is harmless.
+IDs (`@+id/title`) don't need the prefix: sharing them is harmless. Names starting with
+`com_example_counter_repacked_` are reserved for the resources of [private
+libraries](dependencies.md#how-libraries-are-shipped).
 
 `src/AndroidManifest.xml` must declare the extension's package
 (`package="com.example.counter"`), which is the package of the `R` class.
@@ -62,8 +64,17 @@ Resources can reference each other and Android's own resources:
     android:background="?android:attr/selectableItemBackground"/>
 ```
 
-They can't reference AppCompat or other AndroidX resources (`?attr/colorAccent`,
-`@style/Theme.AppCompat`), which aren't available when Rush compiles them.
+They can also use the resources and views of the extension's dependencies, provided
+ones included, such as
+Media3's `@drawable/exo_icon_play`, a style whose parent is a library's style, or
+`<androidx.media3.ui.PlayerView>`. When the library is private, Rush renames these
+references in the shipped resources along with the library, and keeps the views when it
+shrinks the code. The extension's `R` class lists only its own resources: use a
+library's resources from code through the library's `R` class.
+
+They can also build on App Inventor's AndroidX resources (`?attr/colorAccent`,
+`parent="Theme.AppCompat.Light.Dialog"`): `rush deps sync` downloads those libraries
+once, in the versions every App Inventor app contains, and builds use them offline.
 
 ## How resources are shipped
 

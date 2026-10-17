@@ -7,6 +7,7 @@ import 'dart:io'
         FileSystemEntityType,
         ProcessException;
 
+import 'package:archive/archive.dart';
 import 'package:args/command_runner.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
@@ -17,7 +18,9 @@ import 'package:rush/src/commands/build/aar_packager.dart';
 import 'package:rush/src/commands/build/aix_assembly.dart';
 import 'package:rush/src/commands/build/descriptor.dart';
 import 'package:rush/src/commands/build/library_plan.dart';
+import 'package:rush/src/commands/build/private_libraries.dart';
 import 'package:rush/src/commands/build/project_libraries.dart';
+import 'package:rush/src/commands/build/resource_names.dart';
 import 'package:rush/src/commands/build/resources.dart';
 import 'package:rush/src/commands/build/runtime_jar.dart';
 import 'package:rush/src/commands/build/toolchain.dart';
@@ -79,49 +82,82 @@ class BuildCommand extends Command<int> {
       throw const _BuildFailed();
     }
 
-    final (plan, resources) = await _task('Compiling sources', () async {
+    final (plan, resources, appInventor) =
+        await _task('Compiling sources', () async {
       final plan = await planProjectLibraries(_libService, config);
       _reportProblems(plan.problems);
       final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
       final manifest = await _mergeManifests(config, plan.manifests);
-      final resources = await ExtensionResources.compile(config);
+      final appInventor = await _appInventorResources(plan);
+      final resources = await ExtensionResources.compile(
+          config,
+          [
+            for (final library in [
+              ...plan.shared,
+              ...plan.private,
+              ...plan.provided
+            ])
+              if (library.isAar) library.file,
+          ],
+          appInventor);
       await _compile(config, plan, manifest, timestampBox, resources);
-      return (plan, resources);
+      return (plan, resources, appInventor);
     });
 
-    final (descriptor, libraries, artJarPath) =
+    final (extension, artJarPath, privateLibraries) =
         await _task('Processing', () async {
-      final descriptor = await _requireExtension();
-      await removeMapping(descriptor.package);
-      final libraries = writeLongIdResources(await moveLibraryFontsToRaw(
-          await packageLibraries(config, plan, resources)));
-      return (descriptor, libraries, await createArtJar(plan.privateJars));
+      final extension = await _requireExtension();
+      await removeMapping(extension.package);
+      return (
+        extension,
+        await createArtJar(plan.privateJars),
+        await PrivateLibraries.prepare(config, plan, appInventor),
+      );
     });
 
-    if (optimize || plan.privateJars.isNotEmpty) {
-      await _task(
-          optimize
-              ? 'Optimizing and obfuscating the bytecode'
-              : 'Shrinking bundled libraries',
-          () => shrinkRuntimeJar(
-              artJarPath, plan, resources, descriptor.package,
-              optimize: optimize));
-    }
+    final program = optimize || !privateLibraries.isEmpty
+        ? await _task(
+            optimize
+                ? 'Optimizing and obfuscating the bytecode'
+                : 'Shrinking bundled libraries',
+            () => shrinkProgram(
+                artJarPath, plan, resources, extension, privateLibraries,
+                optimize: optimize))
+        : PrivateProgram.none(config, extension.package);
 
-    if (plan.privateJars.isNotEmpty) {
-      await _task(
-          'Relocating bundled libraries',
-          () => relocatePrivateClasses(
-              artJarPath, plan.privateJars, descriptor.package));
-    }
+    final (descriptor, libraries) =
+        await _task('Packaging libraries', () async {
+      if (!privateLibraries.isEmpty) {
+        await relocatePrivateClasses(artJarPath, program);
+      }
+      return (
+        extension.withBuildInfos(
+            program.names.renameBuildInfos(extension.buildInfos)),
+        writeLongIdResources(await moveLibraryFontsToRaw([
+          ...await packageLibraries(config, plan, resources, program.names),
+          ...await program.packageAars(artJarPath),
+        ])),
+      );
+    });
 
-    await _task('Desugaring Java 8+ language features',
-        () => desugarArtJar(config, artJarPath, plan, descriptor.package));
-    await _task('Generating DEX bytecode',
-        () => _dex(config, artJarPath, plan.libraryJars));
+    await _task(
+        'Desugaring Java 8+ language features',
+        () => desugarArtJar(config, artJarPath, plan, descriptor.package,
+            program.relocatedAarClasses));
+    await _task(
+        'Generating DEX bytecode',
+        () => _dex(config, artJarPath,
+            {...plan.libraryJars, ...program.relocatedAarClasses}));
     await _task('Packaging the extension',
         () => assembleAix(config, descriptor, libraries));
   }
+
+  Future<ResourceDefinitions> _appInventorResources(LibraryPlan plan) async =>
+      ResourceDefinitions.of([
+        if (plan.privateAars.isNotEmpty || await _fs.resDir.exists())
+          for (final aar in (await Ai2Runtime.load()).resourceAars)
+            ZipDecoder().decodeBytes(await aar.asFile().readAsBytes()),
+      ]);
 
   Future<T> _task<T>(String title, Future<T> Function() body) async {
     _lgr.startTask(title);

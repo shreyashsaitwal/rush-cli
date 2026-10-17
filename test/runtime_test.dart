@@ -81,6 +81,66 @@ class {className}(container: ComponentContainer) : AndroidNonvisibleComponent(co
       expect(result.exitCode, 0, reason: result.output);
     });
 
+    test('keeps the creators Android finds parcelables by', () async {
+      final project = await TestProject.create('parcel_ext');
+      project.writeSource('helpers/Point.java', '''
+package {package}.helpers;
+
+import android.os.Parcel;
+import android.os.Parcelable;
+
+public class Point implements Parcelable {
+  public final int x;
+
+  public Point(int x) {
+    this.x = x;
+  }
+
+  public int describeContents() {
+    return 0;
+  }
+
+  public void writeToParcel(Parcel out, int flags) {
+    out.writeInt(x);
+  }
+
+  public static final Creator<Point> CREATOR = new Creator<Point>() {
+    public Point createFromParcel(Parcel in) {
+      return new Point(in.readInt());
+    }
+
+    public Point[] newArray(int size) {
+      return new Point[size];
+    }
+  };
+}
+''');
+      project.writeJavaExtension('''
+  @SimpleFunction
+  public int RoundTrip(int x) {
+    android.os.Bundle bundle = new android.os.Bundle();
+    bundle.putParcelable("point", new {package}.helpers.Point(x));
+    android.os.Parcel parcel = android.os.Parcel.obtain();
+    parcel.writeBundle(bundle);
+    parcel.setDataPosition(0);
+    android.os.Bundle read = parcel.readBundle(getClass().getClassLoader());
+    return (({package}.helpers.Point) read.getParcelable("point")).x;
+  }
+''');
+
+      final result = await project.build(['--optimize']);
+      expect(result.exitCode, 0, reason: result.output);
+      final point = RegExp(
+              '^${RegExp.escape(project.package)}'
+              r'\.helpers\.Point -> (\S+):$',
+              multiLine: true)
+          .firstMatch(project
+              .file('out/${project.package}.mapping.txt')
+              .readAsStringSync())![1]!;
+      expect(project.aix.fieldNames(point.replaceAll('.', '/')),
+          contains('CREATOR'));
+    });
+
     test('works with annotations that reference the Java compiler API',
         () async {
       final project = await TestProject.create('annotations_ext');
@@ -90,14 +150,16 @@ class {className}(container: ComponentContainer) : AndroidNonvisibleComponent(co
       expect(result.exitCode, 0, reason: result.output);
     });
 
-    group('of a Kotlin extension with AARs that depend on bundled libraries',
-        () {
+    group(
+        'of a Kotlin extension with shared AARs that depend on bundled '
+        'libraries', () {
       late TestProject project;
       late ProcessResult build;
 
       setUpAll(() async {
         project = await TestProject.create('ktx_ext', language: 'kotlin');
         project.addDependencies(['androidx.core:core-ktx:1.5.0']);
+        project.placeLibraries({'androidx.core:core-ktx': 'shared'});
         build = await project.build(['--optimize']);
         if (build.exitCode != 0) fail(build.output);
       });

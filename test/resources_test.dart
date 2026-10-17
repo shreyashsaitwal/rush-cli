@@ -2,7 +2,11 @@
 library;
 
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:archive/archive.dart';
+import 'package:path/path.dart' as p;
+import 'package:rush/src/utils/constants.dart';
 import 'package:test/test.dart';
 
 import 'support/fixtures.dart';
@@ -35,6 +39,41 @@ void _writeResources(TestProject project) {
 ''');
 }
 
+void _useLibraryResources(TestProject project) {
+  project.file('deps/widgets.aar')
+    ..createSync(recursive: true)
+    ..writeAsBytesSync(ZipEncoder().encode(Archive()
+      ..addFile(ArchiveFile.string(
+          'AndroidManifest.xml', '<manifest package="com.example.widgets"/>'))
+      ..addFile(ArchiveFile.string('res/drawable/play.xml', '<vector/>'))
+      ..addFile(ArchiveFile.string(
+          'res/values/values.xml',
+          '<resources><attr name="widgetSize" format="dimension"/>'
+              '<item type="id" name="exo_play"/>'
+              '<style name="Widget.Theme" parent="Theme.AppCompat">'
+              '<item name="widgetSize">4dp</item></style></resources>'))
+      ..addFile(ArchiveFile.string(
+          'R.txt',
+          'int attr widgetSize 0x0\nint drawable play 0x0\n'
+              'int id exo_play 0x0\nint style Widget_Theme 0x0\n'))
+      ..addFile(
+          ArchiveFile.bytes('classes.jar', ZipEncoder().encode(Archive())))));
+  project.addDependencies(['widgets.aar']);
+  project.file('res/layout/com_example_resext_icon.xml')
+    ..createSync(recursive: true)
+    ..writeAsStringSync('<ImageView '
+        'xmlns:android="http://schemas.android.com/apk/res/android" '
+        'xmlns:app="http://schemas.android.com/apk/res-auto" '
+        'android:layout_width="wrap_content" '
+        'android:layout_height="wrap_content" android:src="@drawable/play" '
+        'app:widgetSize="2dp"/>');
+  project.file('res/values/styles.xml')
+    ..createSync(recursive: true)
+    ..writeAsStringSync('<resources>'
+        '<style name="com_example_resext_theme" parent="Widget.Theme">'
+        '<item name="widgetSize">8dp</item></style></resources>');
+}
+
 void main() {
   test('resources ship in an AAR named after the extension package', () async {
     final project = await TestProject.create('res_ext');
@@ -60,6 +99,187 @@ void main() {
         aix.classNames
             .where((c) => c.contains('/R\$') || c.endsWith('/R.class')),
         isEmpty);
+  });
+
+  test('resources can\'t use the prefix of private libraries', () async {
+    final project = await TestProject.create('res_ext');
+    _writeResources(project);
+    project.file('res/values/greetings.xml').writeAsStringSync('''
+<resources>
+    <string name="com_example_resext_repacked_greeting">Hi</string>
+</resources>
+''');
+    final result = await project.build();
+    expect(result.exitCode, isNot(0));
+    expect(
+        result.output,
+        contains('string/com_example_resext_repacked_greeting can\'t start '
+            'with com_example_resext_repacked_, which Rush gives the '
+            'resources of private libraries'));
+  });
+
+  test('resources can reference the resources of shared libraries', () async {
+    final project = await TestProject.create('res_ext');
+    _useLibraryResources(project);
+    project.placeLibraries({'widgets.aar': 'shared'});
+
+    final result = await project.build();
+    expect(result.exitCode, 0, reason: result.output);
+    final aar = project.aix.library('com.example.resext.aar');
+    expect(
+        utf8.decode(aar.findFile('R.txt')!.content),
+        'int layout com_example_resext_icon 0x00000000\n'
+        'int style com_example_resext_theme 0x00000000\n');
+    expect(
+        utf8.decode(
+            aar.findFile('res/layout/com_example_resext_icon.xml')!.content),
+        contains('android:src="@drawable/play"'));
+  });
+
+  test('resources can reference the resources of provided libraries', () async {
+    final project = await TestProject.create('res_ext');
+    _useLibraryResources(project);
+    project.placeLibraries({'widgets.aar': 'provided'});
+
+    final result = await project.build();
+    expect(result.exitCode, 0, reason: result.output);
+    expect(
+        utf8.decode(project.aix
+            .library('com.example.resext.aar')
+            .findFile('res/layout/com_example_resext_icon.xml')!
+            .content),
+        contains('android:src="@drawable/play"'));
+  });
+
+  test('resources follow the renamed resources of private libraries', () async {
+    final project = await TestProject.create('res_ext');
+    _useLibraryResources(project);
+
+    final result = await project.build();
+    expect(result.exitCode, 0, reason: result.output);
+    const renamed = 'com_example_resext_repacked_';
+    final aar = project.aix.library('com.example.resext.aar');
+    String text(String name) => utf8.decode(aar.findFile(name)!.content);
+    expect(
+        text('res/layout/com_example_resext_icon.xml'),
+        allOf(contains('android:src="@drawable/${renamed}play"'),
+            contains('app:${renamed}widgetSize="2dp"')));
+    expect(
+        text('res/values/styles.xml'),
+        '<resources>'
+        '<style name="com_example_resext_theme" '
+        'parent="${renamed}Widget.Theme">'
+        '<item name="${renamed}widgetSize">8dp</item></style></resources>');
+  });
+
+  test('resources share ids and attributes with private libraries', () async {
+    final project = await TestProject.create('res_ext');
+    _useLibraryResources(project);
+    project.file('res/layout/com_example_resext_row.xml')
+      ..createSync(recursive: true)
+      ..writeAsStringSync('<FrameLayout '
+          'xmlns:android="http://schemas.android.com/apk/res/android" '
+          'android:layout_width="match_parent" '
+          'android:layout_height="wrap_content">'
+          '<View android:id="@+id/exo_play" android:layout_width="0dp" '
+          'android:layout_height="0dp"/></FrameLayout>');
+    project.file('res/values/attrs.xml')
+      ..createSync(recursive: true)
+      ..writeAsStringSync('<resources>'
+          '<declare-styleable name="com_example_resext_Row">'
+          '<attr name="widgetSize"/></declare-styleable></resources>');
+    project.writeJavaExtension('''
+  @SimpleFunction
+  public int Ids() {
+    return R.id.exo_play + R.styleable.com_example_resext_Row_widgetSize;
+  }
+''');
+
+    final result = await project.build();
+    expect(result.exitCode, 0, reason: result.output);
+    const renamed = 'com_example_resext_repacked_';
+    final aar = project.aix.library('com.example.resext.aar');
+    String text(String name) => utf8.decode(aar.findFile(name)!.content);
+    expect(
+        text('R.txt'),
+        allOf(
+            contains('int id ${renamed}exo_play '),
+            contains(
+                'int styleable com_example_resext_Row_${renamed}widgetSize 0'),
+            isNot(contains('int id exo_play '))));
+    expect(text('res/layout/com_example_resext_row.xml'),
+        contains('android:id="@+id/${renamed}exo_play"'));
+    expect(text('res/values/attrs.xml'),
+        contains('<attr name="${renamed}widgetSize"/>'));
+    final extension = ZipDecoder()
+        .decodeBytes(project.aix.bytes('files/AndroidRuntime.jar'))
+        .files
+        .map((el) => latin1.decode(el.content))
+        .join();
+    expect(
+        extension,
+        allOf(contains('${renamed}exo_play'),
+            contains('com_example_resext_Row_${renamed}widgetSize')));
+  });
+
+  test('resources can build on App Inventor\'s AndroidX resources', () async {
+    final project = await TestProject.create('res_ext');
+    _writeResources(project);
+    project.file('res/values/themes.xml')
+      ..createSync(recursive: true)
+      ..writeAsStringSync('<resources>'
+          '<style name="com_example_resext_dialog" '
+          'parent="Theme.AppCompat.Light.Dialog">'
+          '<item name="colorAccent">#ff0000</item>'
+          '<item name="android:windowNoTitle">true</item></style>'
+          '</resources>');
+
+    final result = await project.build();
+    expect(result.exitCode, 0, reason: result.output);
+    expect(
+        utf8.decode(project.aix
+            .library('com.example.resext.aar')
+            .findFile('res/values/themes.xml')!
+            .content),
+        contains('parent="Theme.AppCompat.Light.Dialog"'));
+  });
+
+  test('App Inventor\'s AndroidX resources are downloaded once, by sync',
+      () async {
+    final installed = Directory(p.join(
+        Platform.environment['RUSH_HOME']!, 'ai2', ai2Version, 'androidx'));
+    if (installed.existsSync()) {
+      installed.deleteSync(recursive: true);
+    }
+    const downloading = 'Downloading the resources of App Inventor\'s AndroidX';
+    final project = await TestProject.create('res_ext');
+    _writeResources(project);
+
+    final first = await project.build();
+    expect(first.exitCode, 0, reason: first.output);
+    expect(first.output, contains(downloading));
+    final second = await project.build();
+    expect(second.exitCode, 0, reason: second.output);
+    expect(second.output, isNot(contains(downloading)));
+  });
+
+  test('raw resources ship as written, XML or not', () async {
+    final project = await TestProject.create('res_ext');
+    _writeResources(project);
+    _useLibraryResources(project);
+    const data = '<key>value without an end';
+    project.file('res/raw/com_example_resext_data.xml')
+      ..createSync(recursive: true)
+      ..writeAsStringSync(data);
+
+    final result = await project.build();
+    expect(result.exitCode, 0, reason: result.output);
+    expect(
+        utf8.decode(project.aix
+            .library('com.example.resext.aar')
+            .findFile('res/raw/com_example_resext_data.xml')!
+            .content),
+        data);
   });
 
   test('resources must be prefixed with the extension package', () async {

@@ -27,6 +27,11 @@ void main() {
                 isNot(contains('-keeppackagenames'))));
       });
 
+      test('allow the annotations App Inventor\'s AndroidX lacks', () {
+        expect(project.file('src/proguard-rules.pro').readAsStringSync(),
+            contains('-dontwarn androidx.annotation.**'));
+      });
+
       test('target Android 5.0 (API 21)', () {
         expect(project.file('rush.yml').readAsStringSync(),
             contains('min_sdk: 21'));

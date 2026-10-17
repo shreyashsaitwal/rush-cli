@@ -24,4 +24,22 @@ void main() {
         ]),
         ['com/android/tools/r8/RecordTag', r'j$/time/LocalDate']);
   });
+
+  test('describes the relocation for the relocator', () {
+    expect(
+        relocationSpec('com/example/ext/repacked/',
+            ['com/google/gson/Gson', r'com/google/gson/internal/$Gson$Types']),
+        'prefix com/example/ext/repacked/\n'
+        'class com/google/gson/Gson\n'
+        'class com/google/gson/internal/\$Gson\$Types\n');
+  });
+
+  test('lists the strings that keep their value', () {
+    expect(
+        relocationSpec('com/example/ext/repacked/', ['lib/player/Service'],
+            keptStrings: ['lib.player.Service']),
+        'prefix com/example/ext/repacked/\n'
+        'class lib/player/Service\n'
+        'keep-string lib.player.Service\n');
+  });
 }

@@ -30,6 +30,9 @@ class Aix {
     for (final file in _runtime.files) file.name
   };
 
+  Set<String> fieldNames(String className) =>
+      class_file.fieldNames(_runtime.findFile('$className.class')!.content);
+
   Set<String> methodNames(String className) =>
       class_file.methodNames(_runtime.findFile('$className.class')!.content);
 

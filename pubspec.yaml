@@ -36,6 +36,7 @@ dependencies:
   pool: ^1.5.0
   recase: ^4.1.0
   tint: ^2.1.0
+  xml: ^6.6.1
   yaml_edit: ^2.2.4
 
 dependency_overrides:

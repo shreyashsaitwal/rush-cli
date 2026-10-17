@@ -12,8 +12,6 @@ import 'package:rush/src/services/lib_service.dart';
 import 'package:rush/src/utils/file_extension.dart';
 
 final _fs = GetIt.I<FileService>();
-final _component =
-    RegExp(r'<(activity|activity-alias|service|receiver|provider)[\s>]');
 
 Future<LibraryPlan> planProjectLibraries(
     LibService libService, Config config) async {
@@ -50,36 +48,29 @@ Future<ResolvedLibrary> _library(Artifact artifact,
     consumerRules: isAar ? await _extracted(artifact, 'proguard.txt') : null,
     package: manifest == null ? null : await _package(manifest),
     inEveryApp: inEveryApp,
+    hasResources: isAar && await _hasResources(artifact),
     originalContents: isAar ? await _originalContents(artifact) : const {},
   );
 }
 
 Future<Set<OriginalContent>> _originalContents(Artifact aar) async => {
-      if (await _hasFiles(aar, 'res') || await _hasSymbols(aar))
-        OriginalContent.resources,
       if (await _hasFiles(aar, 'assets')) OriginalContent.assets,
       if (await _hasFiles(aar, 'jni')) OriginalContent.nativeLibraries,
-      if (await _declaresComponents(aar)) OriginalContent.components,
+      if (await _hasFiles(aar, 'libs')) OriginalContent.bundledJars,
     };
+
+Future<bool> _hasResources(Artifact aar) async {
+  final symbols = _fs.resourceFromExtractedAar(aar.artifactFile, 'R.txt');
+  return await _hasFiles(aar, 'res') ||
+      await symbols.exists() &&
+          (await symbols.readAsString()).trim().isNotEmpty;
+}
 
 Future<bool> _hasFiles(Artifact aar, String directory) async {
   final dir =
       _fs.resourceFromExtractedAar(aar.artifactFile, directory).path.asDir();
   return await dir.exists() &&
       await dir.list(recursive: true).any((el) => el is File);
-}
-
-Future<bool> _hasSymbols(Artifact aar) async {
-  final symbols = _fs.resourceFromExtractedAar(aar.artifactFile, 'R.txt');
-  return await symbols.exists() &&
-      (await symbols.readAsString()).trim().isNotEmpty;
-}
-
-Future<bool> _declaresComponents(Artifact aar) async {
-  final manifest =
-      _fs.resourceFromExtractedAar(aar.artifactFile, 'AndroidManifest.xml');
-  return await manifest.exists() &&
-      _component.hasMatch(await manifest.readAsString());
 }
 
 Future<String?> _package(String manifest) async =>

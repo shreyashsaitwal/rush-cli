@@ -104,10 +104,8 @@ void main() {
 
     test('ship these entries in this order', () {
       expect(project.aix.entries.toList(), [
-        'aars/androidx.core-core-ktx-1.5.0.aar',
         'aars/com.example.reproducibleext.aar',
-        'aars/org.jetbrains-annotations-13.0.aar',
-        'aars/org.jetbrains.kotlin-kotlin-stdlib-1.4.31.aar',
+        'aars/com.example.reproducibleext.repacked.androidx.core-core-ktx-1.5.0.aar',
         'aiwebres/LICENSE',
         'aiwebres/icon.png',
         'assets/data.json',

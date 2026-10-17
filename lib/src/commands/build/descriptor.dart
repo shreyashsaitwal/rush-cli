@@ -12,6 +12,16 @@ class Descriptor {
 
   final List<Map<String, dynamic>> buildInfos;
 
+  Descriptor withBuildInfos(List<Map<String, dynamic>> buildInfos) =>
+      Descriptor._(components, buildInfos);
+
+  Iterable<String> get manifestElements => [
+        for (final info in buildInfos)
+          for (final key in const ['activities', 'queries'])
+            if (info[key] case final List<dynamic> elements)
+              ...elements.cast<String>(),
+      ];
+
   String get package {
     final type = components.first['type'] as String;
     return type.substring(0, type.lastIndexOf('.'));

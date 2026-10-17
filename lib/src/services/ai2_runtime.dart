@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import 'package:rush/src/commands/build/utils.dart';
 import 'package:rush/src/resolver/artifact.dart';
+import 'package:rush/src/resolver/maven.dart';
 import 'package:rush/src/services/file_service.dart';
 import 'package:rush/src/services/logger.dart';
 import 'package:rush/src/utils/constants.dart';
@@ -30,6 +31,58 @@ class Ai2Runtime {
   String get androidJar => p.join(dir, 'libs', 'android.jar');
 
   String get runtimeJar => p.join(dir, 'libs', 'AndroidRuntime.jar');
+
+  List<String> get resourceAars {
+    if (!hasResources) {
+      throw Exception('App Inventor\'s AndroidX resources aren\'t installed. '
+          'Run `rush deps sync`.');
+    }
+    return [
+      for (final file in _resourcesIndex.readAsLinesSync())
+        if (file.isNotEmpty) p.join(_resourcesDir, file),
+    ];
+  }
+
+  static String get _resourcesDir => p.join(_installDir, 'androidx');
+
+  static File get _resourcesIndex =>
+      p.join(_resourcesDir, 'index.txt').asFile();
+
+  static bool get hasResources => _resourcesIndex.existsSync();
+
+  static Future<void> installResources(Iterable<String> repositories) async {
+    _lgr.info('Downloading the resources of App Inventor\'s AndroidX...');
+    final runtime = await load();
+    final tmpDir = '$_resourcesDir.tmp';
+    if (await tmpDir.asDir().exists()) {
+      await tmpDir.asDir().delete(recursive: true);
+    }
+    tmpDir.asDir(true);
+    final resolver = MavenResolver(repositories: repositories);
+    final files = <String>[];
+    try {
+      for (final library in runtime.alwaysIncludedLibs) {
+        if (library.coordinate.split(':').length != 3) {
+          continue;
+        }
+        final aar = await resolver.fetchAar(library.coordinate);
+        if (aar != null) {
+          files.add(p.basename(aar));
+          await aar.asFile().copy(p.join(tmpDir, p.basename(aar)));
+        }
+      }
+    } finally {
+      await resolver.close();
+    }
+    await p
+        .join(tmpDir, 'index.txt')
+        .asFile()
+        .writeAsString(files.map((el) => '$el\n').join());
+    if (await _resourcesDir.asDir().exists()) {
+      await _resourcesDir.asDir().delete(recursive: true);
+    }
+    await tmpDir.asDir().rename(_resourcesDir);
+  }
 
   static String get _installDir =>
       p.join(_fs.rushHomeDir.path, 'ai2', ai2Version);

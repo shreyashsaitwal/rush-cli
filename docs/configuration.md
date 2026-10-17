@@ -59,8 +59,8 @@ names in the `deps` directory. See [Dependencies](dependencies.md).
 
 ## libraries
 
-Where a library goes, when Rush's choice doesn't fit: `exclude`, `provided`, `shared` or
-`private`, keyed by `group:artifact` or by file name in `deps`. See
+Where a library goes: `private` (the default), `shared`, `provided` or `exclude`, keyed
+by `group:artifact` or by file name in `deps`. See
 [Placing libraries](dependencies.md#placing-libraries).
 
 ## repositories

@@ -10,6 +10,7 @@ ResolvedLibrary _library(
   String? package,
   bool consumerRules = false,
   bool inEveryApp = true,
+  bool resources = false,
   Set<OriginalContent> originalContents = const {},
 }) =>
     ResolvedLibrary(
@@ -23,6 +24,7 @@ ResolvedLibrary _library(
       consumerRules: consumerRules ? '$coordinate/proguard.txt' : null,
       package: package,
       inEveryApp: inEveryApp,
+      hasResources: resources,
       originalContents: originalContents,
     );
 
@@ -59,19 +61,24 @@ void main() {
     expect(plan.libraryJars, {'g:provided:1.jar'});
   });
 
-  test('shares AARs and the jars they need, and relocates the other jars', () {
+  test('makes every library private unless rush.yml shares it', () {
     final plan = _plan(dependencies: [
-      _library('g:widget:1', aar: true, dependencies: ['g:model:1']),
+      _library('g:widget:1',
+          aar: true, resources: true, dependencies: ['g:model:1']),
       _library('g:model:1', dependencies: ['g:util:1']),
       _library('g:util:1'),
-      _library('g:json:1'),
+      _library('g:codec:1', aar: true),
       _library('helper.jar'),
     ]);
 
-    expect(_coordinates(plan.sharedAars), ['g:widget:1']);
-    expect(_coordinates(plan.sharedJars), ['g:model:1', 'g:util:1']);
-    expect(_coordinates(plan.private), ['g:json:1', 'helper.jar']);
-    expect(plan.privateJars, {'g:json:1.jar', 'helper.jar.jar'});
+    expect(plan.shared, isEmpty);
+    expect(_coordinates(plan.privateAars), ['g:widget:1']);
+    expect(plan.privateJars, {
+      'g:model:1.jar',
+      'g:util:1.jar',
+      'g:codec:1.jar',
+      'helper.jar.jar',
+    });
   });
 
   test('compiles against provided libraries the extension does not ship', () {
@@ -103,6 +110,7 @@ void main() {
         _library('g:other:1', scope: LibraryScope.provided),
         _library('g:base:1', scope: LibraryScope.provided),
       ],
+      placements: {'g:widget': LibraryPlacement.shared},
     );
 
     expect(plan.libraryJars.toList(), [
@@ -153,7 +161,7 @@ void main() {
     ]);
   });
 
-  test('merges shared AAR manifests and applies every AAR\'s rules', () {
+  test('merges shipped AAR manifests and applies every AAR\'s rules', () {
     final plan = _plan(
       dependencies: [
         _library('g:widget:1', aar: true, consumerRules: true),
@@ -169,19 +177,25 @@ void main() {
         {'g:widget:1/proguard.txt', 'g:host:1/proguard.txt'});
   });
 
-  test('reports shared AARs that are the same library', () {
-    final plan = _plan(dependencies: [
-      _library('g:core:1', aar: true, package: 'androidx.core'),
-      _library('core.aar', aar: true, package: 'androidx.core'),
-      _library('g:other:1', aar: true, package: 'g.other'),
-    ]);
+  test('reports AARs that are the same library', () {
+    final plan = _plan(
+      dependencies: [
+        _library('g:core:1', aar: true, package: 'androidx.core'),
+        _library('core.aar', aar: true, package: 'androidx.core'),
+        _library('g:other:1', aar: true, package: 'g.other'),
+        _library('g:ui:1', aar: true, package: 'g.ui'),
+        _library('ui.aar', aar: true, package: 'g.ui'),
+      ],
+      placements: {'g:core': LibraryPlacement.shared},
+    );
 
     expect([
       for (final problem in plan.problems) problem.message
     ], [
-      'g:core:1 and core.aar are the same library (androidx.core). App '
-          'Inventor includes only one of them in the app, so remove the '
-          'others from rush.yml.',
+      'g:core:1 and core.aar are the same library (androidx.core), so only '
+          'one of them can ship. Remove the others from rush.yml.',
+      'g:ui:1 and ui.aar are the same library (g.ui), so only one of them '
+          'can ship. Remove the others from rush.yml.',
     ]);
   });
 
@@ -217,18 +231,46 @@ void main() {
     final plan = _plan(
       dependencies: [
         _library('g:widget:1', aar: true, originalContents: {
-          OriginalContent.resources,
           OriginalContent.assets,
+          OriginalContent.nativeLibraries,
         }),
+        _library('g:camera:1',
+            aar: true, originalContents: {OriginalContent.nativeLibraries}),
+        _library('g:vendor:1',
+            aar: true, originalContents: {OriginalContent.bundledJars}),
       ],
       placements: {'g:widget': LibraryPlacement.private},
     );
 
     expect(_errors(plan), [
-      'g:widget:1 can\'t be private: its Android resources and its assets '
-          'would be left out. Place it as shared or remove it from '
-          '`libraries` in rush.yml.',
+      'g:widget:1 can\'t be private: its assets keep their original paths '
+          'and its native libraries find classes by their original names. '
+          'Place it as shared in rush.yml: `libraries: {g:widget: shared}`.',
+      'g:camera:1 can\'t be private: its native libraries find classes by '
+          'their original names. Place it as shared in rush.yml: '
+          '`libraries: {g:camera: shared}`.',
+      'g:vendor:1 can\'t be private: the JARs in its libs/ folder keep '
+          'their original names. Place it as shared in rush.yml: '
+          '`libraries: {g:vendor: shared}`.',
     ]);
+  });
+
+  test('ships private AARs with resources apart from private code', () {
+    final plan = _plan(
+      dependencies: [
+        _library('g:widget:1', aar: true, resources: true),
+        _library('g:codec:1', aar: true),
+        _library('g:json:1'),
+      ],
+      placements: {
+        'g:widget': LibraryPlacement.private,
+        'g:codec': LibraryPlacement.private,
+      },
+    );
+
+    expect(_errors(plan), isEmpty);
+    expect(plan.privateAars.map((el) => el.coordinate), ['g:widget:1']);
+    expect(plan.privateJars, {'g:codec:1.jar', 'g:json:1.jar'});
   });
 
   test('refuses private libraries a shared library uses', () {
@@ -237,7 +279,10 @@ void main() {
         _library('g:widget:1', aar: true, dependencies: ['g:util:1']),
         _library('g:util:1'),
       ],
-      placements: {'g:util': LibraryPlacement.private},
+      placements: {
+        'g:widget': LibraryPlacement.shared,
+        'g:util': LibraryPlacement.private,
+      },
     );
 
     expect(_errors(plan), [
@@ -258,16 +303,17 @@ void main() {
         _library('g:base:1', scope: LibraryScope.provided),
       ],
       placements: {
+        'g:widget': LibraryPlacement.shared,
         'g:gson': LibraryPlacement.shared,
         'g:host': LibraryPlacement.provided,
       },
     );
 
     expect(plan.placements, {
-      'g:widget:1': 'shared: AAR',
+      'g:widget:1': 'shared: rush.yml',
       'g:util:1': 'shared: used by g:widget:1',
       'g:gson:1': 'shared: rush.yml',
-      'g:json:1': 'private: jar',
+      'g:json:1': 'private: default',
       'g:host:1': 'provided: rush.yml',
       'g:base:1': 'provided: only provided libraries need it',
     });

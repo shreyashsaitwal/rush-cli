@@ -61,18 +61,27 @@ instead.`** A dependency needs a newer AndroidX library than App Inventor's. Use
 version of the dependency that works with App Inventor's, or test the features you use
 carefully. See [What App Inventor provides](dependencies.md#what-app-inventor-provides).
 
-**`… and … are the same library (…). App Inventor includes only one of them in the
-app`.** Two shipped AARs have the same package. Keep one of them in `rush.yml`.
+**`… and … are the same library (…), so only one of them can ship`.** Two AARs have the
+same package, such as a Maven library and a copy of it in `deps`. Keep one of them in
+`rush.yml`.
+
+**`… can't be private: its assets keep their original paths`, `its native libraries
+find classes by their original names` or `the JARs in its libs/ folder keep their
+original names`.** Add the `shared` entry the message names to
+`libraries` in `rush.yml`. What the library uses becomes shared too.
+
+**`Missing class androidx.annotation.…`.** Recent libraries use annotations App
+Inventor's AndroidX lacks. Add `-dontwarn androidx.annotation.**` to
+`src/proguard-rules.pro`; Rush names that rule in its help.
 
 ## In App Inventor
 
 **The app build fails with `defined multiple times`.** Two extensions contain the same
 class. This happens with extensions built by Rush 1, Rush 2.0 or other tools, which
-bundled libraries without moving them. Rebuild them with this Rush, or remove one. If
-only apps that also use a built-in component fail, the extension ships a library that
-App Inventor adds for that component. See
-[How libraries are shipped](dependencies.md#how-libraries-are-shipped) for when placing
-it as `private` fixes it.
+shipped libraries without renaming them, and with libraries placed as `shared`. Rebuild
+them with this Rush, or remove one. If only apps that also use a built-in component
+fail, a shared library of the extension is one App Inventor adds for that component. See
+[How libraries are shipped](dependencies.md#how-libraries-are-shipped).
 
 **The extension works in a built app but not in the AI Companion.** The Companion can't
 load AARs, so extensions with [resources](resources.md) or AAR dependencies only work in

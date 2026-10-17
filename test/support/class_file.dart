@@ -1,18 +1,24 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-Set<String> methodNames(List<int> classFile) {
+Set<String> fieldNames(List<int> classFile) => _memberNames(classFile).fields;
+
+Set<String> methodNames(List<int> classFile) => _memberNames(classFile).methods;
+
+({Set<String> fields, Set<String> methods}) _memberNames(List<int> classFile) {
   final reader = _Reader(Uint8List.fromList(classFile))..skip(8);
   final names = _constantPoolNames(reader);
   reader.skip(6);
   reader.skip(2 * reader.u2());
-  for (var fields = reader.u2(); fields > 0; fields--) {
-    _skipMember(reader);
-  }
-  return {
+  final fields = {
+    for (var fields = reader.u2(); fields > 0; fields--)
+      names[_skipMember(reader)]!,
+  };
+  final methods = {
     for (var methods = reader.u2(); methods > 0; methods--)
       names[_skipMember(reader)]!,
   };
+  return (fields: fields, methods: methods);
 }
 
 Map<int, String> _constantPoolNames(_Reader reader) {

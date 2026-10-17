@@ -6,7 +6,11 @@ import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 import 'package:tint/tint.dart';
 
+import 'package:rush/src/commands/build/android_keep_rules.dart';
+import 'package:rush/src/commands/build/descriptor.dart';
 import 'package:rush/src/commands/build/library_plan.dart';
+import 'package:rush/src/commands/build/missing_classes.dart';
+import 'package:rush/src/commands/build/private_libraries.dart';
 import 'package:rush/src/commands/build/proguard_rules.dart';
 import 'package:rush/src/commands/build/relocation.dart';
 import 'package:rush/src/commands/build/resources.dart';
@@ -45,14 +49,14 @@ Future<String> createArtJar(Set<String> requiredJars) async {
           .files
           .whereNot((el) =>
               addedPaths.contains(el.name) ||
-              el.name.startsWith('META-INF') ||
+              el.name.startsWith('META-INF') && !_isServiceFile(el.name) ||
               el.name == 'module-info.class')
           // Do not include files other than .class files.
           .where((el) {
         if (!el.isFile) {
           return true;
         }
-        return p.extension(el.name) == '.class';
+        return p.extension(el.name) == '.class' || _isServiceFile(el.name);
       });
       for (final file in decodedJar) {
         entries.add(file..compression = CompressionType.none);
@@ -75,6 +79,8 @@ Future<String> createArtJar(Set<String> requiredJars) async {
   return artJarPath;
 }
 
+bool _isServiceFile(String entry) => entry.startsWith('META-INF/services/');
+
 final _repackageRule = RegExp(r'^\s*-repackageclasses\b', multiLine: true);
 
 File get _projectRules =>
@@ -88,14 +94,24 @@ Future<void> checkProjectRules() async {
   }
 }
 
-Future<void> shrinkRuntimeJar(String artJarPath, LibraryPlan plan,
-    ExtensionResources? resources, String package,
+Future<PrivateProgram> shrinkProgram(
+    String artJarPath,
+    LibraryPlan plan,
+    ExtensionResources? resources,
+    Descriptor extension,
+    PrivateLibraries privateLibraries,
     {required bool optimize}) async {
+  final package = extension.package;
+  final program = [artJarPath, ...privateLibraries.aarClasses];
+  final output = p.join(_fs.buildFilesDir.path, 'program.shrunk.jar');
+  final mapping = optimize
+      ? _mapping(package).path
+      : p.join(_fs.buildFilesDir.path, 'program.mapping.txt');
   final projectRules = _projectRules;
-  final mapping = _mapping(package);
   try {
     await Executor.execR8(
-      artJarPath,
+      program,
+      output: output,
       libraryJars: {
         ...plan.libraryJars,
         if (resources != null) resources.classesJar,
@@ -103,25 +119,45 @@ Future<void> shrinkRuntimeJar(String artJarPath, LibraryPlan plan,
       rules: {
         ...plan.consumerRules,
         ...await _bundledProguardRules(plan.privateJars),
+        await _androidDefaultRules(),
         if (!optimize) ...await _shrinkOnlyRules(),
         if (optimize) await _repackageRules(package),
+        if (!privateLibraries.isEmpty)
+          await privateLibraries.keepRules(program, extension.manifestElements,
+              await resources?.xml() ?? []),
         if (await projectRules.exists()) projectRules.path,
       },
-      mapping: optimize ? mapping.path : null,
+      mapping: mapping,
     );
-  } on ProcessException {
+  } on ProcessException catch (e) {
     _lgr.log(
         'If R8 reports missing classes, add the library that provides them '
         'to `dependencies`, or, if that code never runs, add -dontwarn rules '
         'for them to src/proguard-rules.pro',
         'help  '.green());
+    for (final help
+        in olderLibraryHelp(e.message, await _providerOfPackage(plan))) {
+      _lgr.log(help, 'help  '.green());
+    }
     rethrow;
   }
   if (optimize) {
     _lgr.info('Wrote the mapping of renamed classes to '
-        '${p.relative(mapping.path, from: _fs.cwd)}');
+        '${p.relative(mapping, from: _fs.cwd)}');
   }
+  return privateLibraries.split(output,
+      mapping: mapping,
+      artJarPath: artJarPath,
+      extension: extension,
+      resources: resources);
 }
+
+Future<Map<String, String>> _providerOfPackage(LibraryPlan plan) async => {
+      for (final library in plan.provided)
+        for (final entry in await _fileEntries(library.classesJar))
+          if (p.posix.extension(entry) == '.class')
+            p.posix.dirname(entry).replaceAll('/', '.'): library.coordinate,
+    };
 
 File _mapping(String package) =>
     p.join(_fs.cwd, 'out', '$package.mapping.txt').asFile();
@@ -163,6 +199,12 @@ Future<List<String>> _bundledProguardRules(Set<String> jars) async {
   return rules;
 }
 
+Future<String> _androidDefaultRules() async {
+  final rules = p.join(_fs.buildFilesDir.path, 'android-defaults.pro');
+  await rules.asFile().writeAsString(androidDefaultRules);
+  return rules;
+}
+
 Future<String> _repackageRules(String package) async {
   final rules = p.join(_fs.buildFilesDir.path, 'repackage.pro').asFile();
   await rules.writeAsString('-repackageclasses $package.repacked\n');
@@ -183,13 +225,12 @@ Future<String> _keepExtensionClassesRules() async {
 }
 
 Future<void> relocatePrivateClasses(
-    String artJarPath, Set<String> privateJars, String package) async {
-  final classes = {
-    for (final jar in privateJars)
-      ...relocatableClasses(await _fileEntries(jar)),
-  };
-  _lgr.info('Moved ${privateJars.length} bundled libraries to '
-      '${await _relocate(artJarPath, classes, package)}');
+    String artJarPath, PrivateProgram program) async {
+  final relocated =
+      p.join(_fs.buildFilesDir.path, 'AndroidRuntime.relocated.jar');
+  await program.relocate(artJarPath, relocated);
+  await relocated.asFile().rename(artJarPath);
+  _lgr.info('Moved private libraries to ${program.names.package}.repacked');
 }
 
 Future<void> _relocateDesugarHelpers(String artJarPath, String package) async {
@@ -205,27 +246,22 @@ Future<Iterable<String>> _fileEntries(String jar) async => ZipDecoder()
     .where((el) => el.isFile)
     .map((el) => el.name);
 
-Future<String> _relocate(
+Future<void> _relocate(
     String artJarPath, Iterable<String> classes, String package) async {
-  final classList =
-      p.join(_fs.buildFilesDir.path, 'relocated-classes.txt').asFile();
-  await classList.writeAsString(classes.join('\n'));
+  final spec =
+      p.join(_fs.buildFilesDir.path, 'desugar-helpers-relocation.txt').asFile();
+  await spec.writeAsString(
+      relocationSpec('${package.replaceAll('.', '/')}/repacked/', classes));
 
-  final repackaged = '$package.repacked';
   final relocated =
       p.join(_fs.buildFilesDir.path, 'AndroidRuntime.relocated.jar');
   await Executor.execRelocator(
-    input: artJarPath,
-    output: relocated,
-    prefix: '${repackaged.replaceAll('.', '/')}/',
-    classList: classList.path,
-  );
+      input: artJarPath, output: relocated, spec: spec.path);
   await relocated.asFile().rename(artJarPath);
-  return repackaged;
 }
 
-Future<void> desugarArtJar(
-    Config config, String artJarPath, LibraryPlan plan, String package) async {
+Future<void> desugarArtJar(Config config, String artJarPath, LibraryPlan plan,
+    String package, Iterable<String> privateAarClasses) async {
   final coreLibraryConfig = config.minSdk >= _coreLibraryMinSdk
       ? await _extractCoreLibraryConfig()
       : null;
@@ -235,7 +271,7 @@ Future<void> desugarArtJar(
     config,
     input: artJarPath,
     output: desugared,
-    classpathJars: plan.libraryJars,
+    classpathJars: {...plan.libraryJars, ...privateAarClasses},
     coreLibraryConfig: coreLibraryConfig,
   );
   await desugared.asFile().rename(artJarPath);
@@ -267,7 +303,7 @@ Future<void> _addCoreLibrary(
   final keepRules =
       p.join(_fs.buildFilesDir.path, 'core-library-keep.pro').asFile();
   await Executor.execTraceReferences(
-    source: artJarPath,
+    sources: [artJarPath],
     target: library,
     output: keepRules.path,
   );

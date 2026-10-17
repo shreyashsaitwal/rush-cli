@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' show File;
 
 import 'package:archive/archive_io.dart';
@@ -5,8 +6,12 @@ import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 import 'package:tint/tint.dart';
 
+import 'package:rush/src/commands/build/aar_contents.dart';
 import 'package:rush/src/commands/build/aix.dart';
 import 'package:rush/src/commands/build/android_manifest.dart';
+import 'package:rush/src/commands/build/private_names.dart';
+import 'package:rush/src/commands/build/resource_names.dart';
+import 'package:rush/src/commands/build/resource_symbols.dart';
 import 'package:rush/src/commands/build/tools/executor.dart';
 import 'package:rush/src/config/config.dart';
 import 'package:rush/src/services/file_service.dart';
@@ -31,7 +36,8 @@ class ExtensionResources {
 
   String get _manifest => p.join(_dir, 'AndroidManifest.xml');
 
-  static Future<ExtensionResources?> compile(Config config) async {
+  static Future<ExtensionResources?> compile(Config config,
+      Iterable<String> libraries, ResourceDefinitions appInventor) async {
     if (!await _fs.resDir.exists()) {
       return null;
     }
@@ -49,15 +55,30 @@ class ExtensionResources {
 ''');
 
     final compiled = p.join(dir.path, 'compiled.zip');
-    final javaDir = p.join(dir.path, 'java');
     await Executor.execAapt2Compile(resDir: _fs.resDir.path, output: compiled);
+    final linkedSymbols = p.join(dir.path, 'linked-R.txt');
     await Executor.execAapt2Link(
       manifest: resources._manifest,
       compiledResources: compiled,
-      javaDir: javaDir,
-      symbols: resources._symbols,
+      librarySymbols: await _librarySymbols(
+          dir.path,
+          ResourceDefinitions.of([
+                for (final library in libraries)
+                  ZipDecoder()
+                      .decodeBytes(await library.asFile().readAsBytes()),
+              ]) +
+              appInventor),
+      symbols: linkedSymbols,
       output: p.join(dir.path, 'resources.apk'),
     );
+    final symbols = ownSymbols(await linkedSymbols.asFile().readAsString(),
+        ResourceDefinitions.of([await _archive()]));
+    await resources._symbols.asFile().writeAsString(symbols);
+    final javaDir = p.join(dir.path, 'java');
+    await p
+        .join(javaDir, 'R.java')
+        .asFile(true)
+        .writeAsString(rClass(resources.package, symbols));
     await resources._checkNames();
     await Executor.execJavac(
       sources: javaDir
@@ -78,6 +99,26 @@ class ExtensionResources {
     return resources;
   }
 
+  static Future<String> _librarySymbols(
+      String dir, ResourceDefinitions definitions) async {
+    final stubs = p.join(dir, 'library-symbols');
+    await p
+        .join(stubs, 'values', 'values.xml')
+        .asFile(true)
+        .writeAsString(definitions.stubs);
+    final compiled = p.join(dir, 'library-symbols.zip');
+    await Executor.execAapt2Compile(resDir: stubs, output: compiled);
+    return compiled;
+  }
+
+  static Future<Archive> _archive() async {
+    final archive = Archive();
+    for (final file in _files) {
+      archive.addFile(await fileEntry(file, from: _fs.resDir.parent.path));
+    }
+    return archive;
+  }
+
   static Future<String> _manifestPackage() async {
     final manifest = p.join(_fs.srcDir.path, 'AndroidManifest.xml').asFile();
     final package = manifestPackage(await manifest.readAsString());
@@ -90,19 +131,22 @@ class ExtensionResources {
   }
 
   Future<void> _checkNames() async {
-    final prefix = '${package.toLowerCase().replaceAll('.', '_')}_';
-    final misnamed = {
+    final prefix = ownResourcePrefix(package);
+    final reserved = PrivateNames.resourcePrefix(package);
+    final problems = {
       for (final line in await _symbols.asFile().readAsLines())
         if (line.split(' ') case [_, final type, final name, ...]
-            when type != 'id' && !name.startsWith(prefix))
-          (type, name),
+            when type != 'id')
+          if (!name.startsWith(prefix))
+            '$type/$name must be named $prefix$name'
+          else if (name.startsWith(reserved))
+            "$type/$name can't start with $reserved, which Rush gives the "
+                'resources of private libraries',
     };
-    if (misnamed.isEmpty) {
+    if (problems.isEmpty) {
       return;
     }
-    for (final (type, name) in misnamed) {
-      _lgr.err('$type/$name must be named $prefix$name');
-    }
+    problems.forEach(_lgr.err);
     _lgr.log(
         'Resource names start with the extension package so they never clash '
         'with other extensions or App Inventor',
@@ -110,14 +154,34 @@ class ExtensionResources {
     throw Exception();
   }
 
-  Future<Library> packageAar() async => Library(
+  Future<ExtensionSymbols> symbols() async => (
+        resources: await _archive(),
+        symbols: await _symbols.asFile().readAsString(),
+      );
+
+  Future<List<String>> xml() async => [
+        for (final entry in (await _archive()).files)
+          if (isResourceXml(entry.name)) utf8.decode(entry.content),
+      ];
+
+  Future<Library> packageAar(PrivateNames names) async => Library(
       '$package.aar',
       zipBytes([
         ArchiveFile.bytes(
             'AndroidManifest.xml', await _manifest.asFile().readAsBytes()),
-        ArchiveFile.bytes('R.txt', await _symbols.asFile().readAsBytes()),
-        for (final file
-            in _fs.resDir.listSync(recursive: true).whereType<File>())
-          await fileEntry(file, from: _fs.resDir.parent.path),
+        ArchiveFile.string('R.txt',
+            names.extensionSymbols ?? await _symbols.asFile().readAsString()),
+        for (final file in _files) await _packaged(file, names),
       ]));
+
+  Future<ArchiveFile> _packaged(File file, PrivateNames names) async {
+    final entry = await fileEntry(file, from: _fs.resDir.parent.path);
+    return isResourceXml(entry.name)
+        ? ArchiveFile.string(entry.name,
+            names.renameExtensionResource(utf8.decode(entry.content)))
+        : entry;
+  }
+
+  static Iterable<File> get _files =>
+      _fs.resDir.listSync(recursive: true).whereType<File>();
 }

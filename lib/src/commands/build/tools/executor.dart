@@ -7,7 +7,6 @@ import 'package:rush/src/commands/build/tools/jdk_library.dart';
 import 'package:rush/src/commands/build/utils.dart';
 import 'package:rush/src/services/lib_service.dart';
 import 'package:rush/src/services/ai2_runtime.dart';
-import 'package:rush/src/utils/file_extension.dart';
 import 'package:rush/src/utils/process_runner.dart';
 
 class Executor {
@@ -80,7 +79,7 @@ class Executor {
       ]);
 
   static Future<void> execTraceReferences({
-    required String source,
+    required Iterable<String> sources,
     required String target,
     required String output,
   }) async =>
@@ -88,7 +87,7 @@ class Executor {
         '--keep-rules',
         ...['--map-diagnostics:MissingDefinitionsDiagnostic', 'error', 'none'],
         ...['--lib', (await Ai2Runtime.load()).androidJar],
-        ...['--source', source],
+        for (final source in sources) ...['--source', source],
         ...['--target', target],
         ...['--output', output],
       ]);
@@ -116,7 +115,7 @@ class Executor {
   static Future<void> execAapt2Link({
     required String manifest,
     required String compiledResources,
-    required String javaDir,
+    required String librarySymbols,
     required String symbols,
     required String output,
   }) async =>
@@ -126,7 +125,7 @@ class Executor {
         '--non-final-ids',
         ...['-I', (await Ai2Runtime.load()).androidJar],
         ...['--manifest', manifest],
-        ...['--java', javaDir],
+        ...['--auto-add-overlay', '-R', librarySymbols],
         ...['--output-text-symbols', symbols],
         ...['-o', output],
         compiledResources,
@@ -153,22 +152,21 @@ class Executor {
   static Future<void> execRelocator({
     required String input,
     required String output,
-    required String prefix,
-    required String classList,
+    required String spec,
   }) =>
       _processRunner.runExecutable(
           BuildUtils.javaExe(),
-          ['-jar', _libService.relocatorJar, input, output, prefix, classList]
+          ['-jar', _libService.relocatorJar, input, output, spec]
               .map((el) => el.replaceAll('\\', '/'))
               .toList());
 
   static Future<void> execR8(
-    String artJarPath, {
+    Iterable<String> program, {
+    required String output,
     required Set<String> libraryJars,
     required Set<String> rules,
-    String? mapping,
+    required String mapping,
   }) async {
-    final shrunk = p.join(p.dirname(artJarPath), 'AndroidRuntime.shrunk.jar');
     await _runR8Tool(
       'com.android.tools.r8.R8',
       [
@@ -177,13 +175,12 @@ class Executor {
         ...['--lib', await jdkLibrary()],
         for (final jar in libraryJars) ...['--lib', jar],
         for (final rule in rules) ...['--pg-conf', rule],
-        if (mapping != null) ...['--pg-map-output', mapping],
-        ...['--output', shrunk],
-        artJarPath,
+        ...['--pg-map-output', mapping],
+        ...['--output', output],
+        ...program,
       ],
       debugStdout: true,
     );
-    await shrunk.asFile().rename(artJarPath);
   }
 
   static Future<void> execManifMerger(
