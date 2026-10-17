@@ -3,6 +3,7 @@ import 'package:path/path.dart' as p;
 
 import 'package:rush/src/commands/build/libraries.dart';
 import 'package:rush/src/config/library_placement.dart';
+import 'package:rush/src/utils/listed.dart';
 
 enum LibraryScope { compile, runtime, provided }
 
@@ -202,14 +203,10 @@ List<Problem> _misplacedPrivateLibraries(
       for (final library in private)
         if (library.originalContents.isNotEmpty)
           Problem.error('$library can\'t be private: '
-              '${_listed(library.originalContents.map((el) => el.description).toList())}. '
+              '${listed(library.originalContents.map((el) => el.description).toList())}. '
               'Place it as shared in rush.yml: '
               '`libraries: {${library.key}: shared}`.'),
     ];
-
-String _listed(List<String> items) => items.length == 1
-    ? items.single
-    : '${items.take(items.length - 1).join(', ')} and ${items.last}';
 
 List<ResolvedLibrary> _compileOnly(
     List<ResolvedLibrary> provided, List<ResolvedLibrary> shipped) {

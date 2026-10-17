@@ -313,7 +313,7 @@ class {className}(container: ComponentContainer) :
         allOf(
             contains('androidx.annotation.DoNotInline is missing from '
                 'androidx.annotation:annotation:'),
-            contains('add `-dontwarn androidx.annotation.**`')));
+            contains('add `-dontwarn androidx.annotation.DoNotInline`')));
   });
 
   test('AARs without code are placed but add no code', () async {
