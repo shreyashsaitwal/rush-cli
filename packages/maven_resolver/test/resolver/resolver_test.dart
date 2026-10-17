@@ -1296,6 +1296,26 @@ void main() {
     });
 
     group('relocation handling', () {
+      test('points dependency edges at the relocated artifact', () async {
+        repo.addRelocatedPom('old.group', 'lib-a', '1.0.0',
+            newGroupId: 'new.group');
+        repo.addSimplePom('new.group', 'lib-a', '1.0.0');
+        repo.addSimplePom('com.example', 'app', '1.0.0',
+            dependencies: ['old.group:lib-a:1.0.0']);
+
+        final result = await resolver.resolve(
+          directDependencies: [
+            const Dependency(
+              groupId: 'com.example',
+              artifactId: 'app',
+              version: '1.0.0',
+            ),
+          ],
+        );
+
+        expect(result.dependencyGraph['com.example:app'], {'new.group:lib-a'});
+      });
+
       test('follows relocation to new groupId', () async {
         // Old artifact relocates to new groupId
         repo.addRelocatedPom(
