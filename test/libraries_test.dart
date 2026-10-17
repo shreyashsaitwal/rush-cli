@@ -385,6 +385,7 @@ class {className}(container: ComponentContainer) :
     expect(javap.exitCode, 0, reason: '${javap.stderr}');
     final interfaceFields = [
       for (final type in (javap.stdout as String)
+          .replaceAll('\r\n', '\n')
           .split(RegExp(r'^Classfile ', multiLine: true)))
         if (type
             .contains(RegExp(r'^  flags: .*ACC_INTERFACE', multiLine: true)))
