@@ -21,7 +21,12 @@ else {
 New-Item $RushHome -ItemType Directory -Force | Out-Null
 
 $BinDir = "$RushHome\bin"
-$ZipUrl = "https://github.com/shreyashsaitwal/rush-cli/releases/latest/download/rush-x86_64-windows.zip"
+$ZipUrl = if ($env:RUSH_VERSION -and $env:RUSH_VERSION -ne "latest") {
+  "https://github.com/shreyashsaitwal/rush-cli/releases/download/v$($env:RUSH_VERSION.TrimStart('v'))/rush-x86_64-windows.zip"
+}
+else {
+  "https://github.com/shreyashsaitwal/rush-cli/releases/latest/download/rush-x86_64-windows.zip"
+}
 $ZipLocation = "$RushHome\rush-x86_64-windows.zip"
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12

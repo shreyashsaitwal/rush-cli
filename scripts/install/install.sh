@@ -26,10 +26,16 @@ case "$(uname -sm)" in
     ;;
 esac
 
+version="${RUSH_VERSION:-latest}"
+if [ "$version" = latest ]; then
+  url="https://github.com/$repo/releases/latest/download/rush-$target.zip"
+else
+  url="https://github.com/$repo/releases/download/v${version#v}/rush-$target.zip"
+fi
+
 mkdir -p "$rush_home"
 archive="$rush_home/rush-$target.zip"
-curl --fail --location --progress-bar -o "$archive" \
-  "https://github.com/$repo/releases/latest/download/rush-$target.zip"
+curl --fail --location --progress-bar -o "$archive" "$url"
 unzip -oq "$archive" -d "$rush_home"
 rm "$archive"
 chmod +x "$rush_home/bin/rush"

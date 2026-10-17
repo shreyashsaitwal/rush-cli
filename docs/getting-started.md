@@ -43,6 +43,18 @@ rush --version
 
 Run `rush upgrade` later to install new releases.
 
+To install a specific release, such as a beta, set `RUSH_VERSION` for the installer:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.sh | RUSH_VERSION=2.1.0-beta.1 bash
+```
+
+```ps1
+$env:RUSH_VERSION = "2.1.0-beta.1"; iwr https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.ps1 -useb | iex
+```
+
+`rush upgrade` only installs stable releases, so reinstall this way to move to a newer beta.
+
 ## Creating a project
 
 ```sh
