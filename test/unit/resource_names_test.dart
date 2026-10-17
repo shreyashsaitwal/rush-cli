@@ -235,7 +235,7 @@ void main() {
           '<resources><attr name="icon" format="reference"/></resources>',
     });
     final renaming = ResourceRenaming.of([library],
-        prefix: _prefix, appInventor: [appCompat]);
+        prefix: _prefix, appInventor: ResourceDefinitions.of([appCompat]));
 
     expect(renaming.name('attr', 'icon'), 'icon');
     expect(renaming.name('attr', 'chipSize'), '${_prefix}chipSize');

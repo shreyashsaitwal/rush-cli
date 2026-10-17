@@ -78,6 +78,12 @@ class ResourceDefinitions {
   final Map<String, List<String>> styleables;
   final Map<String, XmlElement> _attributes;
 
+  ResourceDefinitions operator +(ResourceDefinitions other) =>
+      ResourceDefinitions._(
+          {...defined, ...other.defined},
+          {...styleables, ...other.styleables},
+          {..._attributes, ...other._attributes});
+
   String get stubs => [
         '<resources>',
         for (final name in _attributes.keys.sorted())
@@ -142,12 +148,11 @@ class ResourceRenaming {
       : _fields = _renamedFieldNames(_prefix, _defined, styleables);
 
   factory ResourceRenaming.of(Iterable<Archive> libraries,
-      {required String prefix, Iterable<Archive> appInventor = const []}) {
+      {required String prefix, ResourceDefinitions? appInventor}) {
     final definitions = ResourceDefinitions.of(libraries);
     return ResourceRenaming._(
         prefix,
-        definitions.defined
-            .difference(ResourceDefinitions.of(appInventor).defined),
+        definitions.defined.difference(appInventor?.defined ?? const {}),
         definitions.styleables);
   }
 

@@ -18,10 +18,10 @@ class PrivateNames {
     required Map<String, Archive> aars,
     Iterable<String> manifestElements = const [],
     ExtensionSymbols? extensionResources,
-    Iterable<Archive> appInventorAars = const [],
+    ResourceDefinitions? appInventor,
   }) {
     final resources = ResourceRenaming.of(aars.values,
-        prefix: resourcePrefix(package), appInventor: appInventorAars);
+        prefix: resourcePrefix(package), appInventor: appInventor);
     final rClasses = <String>{};
     final rFields = <relocation.RenamedMember>[];
     for (final MapEntry(key: fileName, value: aar) in aars.entries) {

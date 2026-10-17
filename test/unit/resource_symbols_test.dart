@@ -113,4 +113,16 @@ void main() {
         '  }\n'
         '}\n');
   });
+
+  test('combines the definitions of several sources', () {
+    final combined = ResourceDefinitions.of([_library]) +
+        ResourceDefinitions.of([_extension]);
+
+    expect(
+        combined.defined,
+        containsAll(
+            [('drawable', 'play'), ('layout', 'com_example_ext_card')]));
+    expect(
+        combined.stubs, contains('<attr name="libSize" format="dimension"/>'));
+  });
 }

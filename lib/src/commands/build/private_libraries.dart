@@ -12,6 +12,7 @@ import 'package:rush/src/commands/build/library_plan.dart';
 import 'package:rush/src/commands/build/private_names.dart';
 import 'package:rush/src/commands/build/program_split.dart';
 import 'package:rush/src/commands/build/relocation.dart';
+import 'package:rush/src/commands/build/resource_names.dart';
 import 'package:rush/src/commands/build/resources.dart';
 import 'package:rush/src/commands/build/tools/executor.dart';
 import 'package:rush/src/config/config.dart';
@@ -22,22 +23,21 @@ import 'package:rush/src/utils/zip.dart';
 final _fs = GetIt.I<FileService>();
 
 class PrivateLibraries {
-  PrivateLibraries._(
-      this._config, this._plan, this._aars, this._appInventorAars);
+  PrivateLibraries._(this._config, this._plan, this._aars, this._appInventor);
 
   static Future<PrivateLibraries> prepare(Config config, LibraryPlan plan,
-          Iterable<String> appInventorAars) async =>
+          ResourceDefinitions appInventor) async =>
       PrivateLibraries._(
         config,
         plan,
         {for (final aar in plan.privateAars) aar: await _archive(aar.file)},
-        appInventorAars,
+        appInventor,
       );
 
   final Config _config;
   final LibraryPlan _plan;
   final Map<ResolvedLibrary, Archive> _aars;
-  final Iterable<String> _appInventorAars;
+  final ResourceDefinitions _appInventor;
 
   bool get isEmpty => _plan.privateJars.isEmpty && _aars.isEmpty;
 
@@ -85,9 +85,7 @@ class PrivateLibraries {
         classes: {...privateClasses, ...split.privateClasses},
         manifestElements: extension.manifestElements,
         extensionResources: await resources?.symbols(),
-        appInventorAars: [
-          for (final aar in _appInventorAars) await _archive(aar),
-        ],
+        appInventor: _appInventor,
         aars: {
           for (final MapEntry(key: aar, value: archive) in _aars.entries)
             aar.aarFileName: archive,

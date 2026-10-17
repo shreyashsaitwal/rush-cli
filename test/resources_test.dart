@@ -2,8 +2,11 @@
 library;
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:archive/archive.dart';
+import 'package:path/path.dart' as p;
+import 'package:rush/src/utils/constants.dart';
 import 'package:test/test.dart';
 
 import 'support/fixtures.dart';
@@ -239,6 +242,25 @@ void main() {
             .findFile('res/values/themes.xml')!
             .content),
         contains('parent="Theme.AppCompat.Light.Dialog"'));
+  });
+
+  test('App Inventor\'s AndroidX resources are downloaded once, by sync',
+      () async {
+    final installed = Directory(p.join(
+        Platform.environment['RUSH_HOME']!, 'ai2', ai2Version, 'androidx'));
+    if (installed.existsSync()) {
+      installed.deleteSync(recursive: true);
+    }
+    const downloading = 'Downloading the resources of App Inventor\'s AndroidX';
+    final project = await TestProject.create('res_ext');
+    _writeResources(project);
+
+    final first = await project.build();
+    expect(first.exitCode, 0, reason: first.output);
+    expect(first.output, contains(downloading));
+    final second = await project.build();
+    expect(second.exitCode, 0, reason: second.output);
+    expect(second.output, isNot(contains(downloading)));
   });
 
   test('raw resources ship as written, XML or not', () async {

@@ -36,8 +36,8 @@ class ExtensionResources {
 
   String get _manifest => p.join(_dir, 'AndroidManifest.xml');
 
-  static Future<ExtensionResources?> compile(
-      Config config, Iterable<String> libraries) async {
+  static Future<ExtensionResources?> compile(Config config,
+      Iterable<String> libraries, ResourceDefinitions appInventor) async {
     if (!await _fs.resDir.exists()) {
       return null;
     }
@@ -60,10 +60,14 @@ class ExtensionResources {
     await Executor.execAapt2Link(
       manifest: resources._manifest,
       compiledResources: compiled,
-      librarySymbols: await _librarySymbols(dir.path, [
-        for (final library in libraries)
-          ZipDecoder().decodeBytes(await library.asFile().readAsBytes()),
-      ]),
+      librarySymbols: await _librarySymbols(
+          dir.path,
+          ResourceDefinitions.of([
+                for (final library in libraries)
+                  ZipDecoder()
+                      .decodeBytes(await library.asFile().readAsBytes()),
+              ]) +
+              appInventor),
       symbols: linkedSymbols,
       output: p.join(dir.path, 'resources.apk'),
     );
@@ -96,12 +100,12 @@ class ExtensionResources {
   }
 
   static Future<String> _librarySymbols(
-      String dir, Iterable<Archive> libraries) async {
+      String dir, ResourceDefinitions definitions) async {
     final stubs = p.join(dir, 'library-symbols');
     await p
         .join(stubs, 'values', 'values.xml')
         .asFile(true)
-        .writeAsString(ResourceDefinitions.of(libraries).stubs);
+        .writeAsString(definitions.stubs);
     final compiled = p.join(dir, 'library-symbols.zip');
     await Executor.execAapt2Compile(resDir: stubs, output: compiled);
     return compiled;

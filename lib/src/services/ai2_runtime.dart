@@ -32,20 +32,56 @@ class Ai2Runtime {
 
   String get runtimeJar => p.join(dir, 'libs', 'AndroidRuntime.jar');
 
-  late final Future<List<String>> resourceAars = _fetchResourceAars();
+  List<String> get resourceAars {
+    if (!hasResources) {
+      throw Exception('App Inventor\'s AndroidX resources aren\'t installed. '
+          'Run `rush deps sync`.');
+    }
+    return [
+      for (final file in _resourcesIndex.readAsLinesSync())
+        if (file.isNotEmpty) p.join(_resourcesDir, file),
+    ];
+  }
 
-  Future<List<String>> _fetchResourceAars() async {
-    final resolver = MavenResolver();
+  static String get _resourcesDir => p.join(_installDir, 'androidx');
+
+  static File get _resourcesIndex =>
+      p.join(_resourcesDir, 'index.txt').asFile();
+
+  static bool get hasResources => _resourcesIndex.existsSync();
+
+  static Future<void> installResources(Iterable<String> repositories) async {
+    _lgr.info('Downloading the resources of App Inventor\'s AndroidX...');
+    final runtime = await load();
+    final tmpDir = '$_resourcesDir.tmp';
+    if (await tmpDir.asDir().exists()) {
+      await tmpDir.asDir().delete(recursive: true);
+    }
+    tmpDir.asDir(true);
+    final resolver = MavenResolver(repositories: repositories);
+    final files = <String>[];
     try {
-      return [
-        for (final library in alwaysIncludedLibs)
-          if (library.coordinate.split(':').length == 3)
-            if (await resolver.fetchAar(library.coordinate) case final aar?)
-              aar,
-      ];
+      for (final library in runtime.alwaysIncludedLibs) {
+        if (library.coordinate.split(':').length != 3) {
+          continue;
+        }
+        final aar = await resolver.fetchAar(library.coordinate);
+        if (aar != null) {
+          files.add(p.basename(aar));
+          await aar.asFile().copy(p.join(tmpDir, p.basename(aar)));
+        }
+      }
     } finally {
       await resolver.close();
     }
+    await p
+        .join(tmpDir, 'index.txt')
+        .asFile()
+        .writeAsString(files.map((el) => '$el\n').join());
+    if (await _resourcesDir.asDir().exists()) {
+      await _resourcesDir.asDir().delete(recursive: true);
+    }
+    await tmpDir.asDir().rename(_resourcesDir);
   }
 
   static String get _installDir =>

@@ -73,8 +73,8 @@ shrinks the code. The extension's `R` class lists only its own resources: use a
 library's resources from code through the library's `R` class.
 
 They can also build on App Inventor's AndroidX resources (`?attr/colorAccent`,
-`parent="Theme.AppCompat.Light.Dialog"`): Rush downloads those libraries once from
-Google's Maven repository, in the versions every App Inventor app contains.
+`parent="Theme.AppCompat.Light.Dialog"`): `rush deps sync` downloads those libraries
+once, in the versions every App Inventor app contains, and builds use them offline.
 
 ## How resources are shipped
 

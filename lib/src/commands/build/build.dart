@@ -7,6 +7,7 @@ import 'dart:io'
         FileSystemEntityType,
         ProcessException;
 
+import 'package:archive/archive.dart';
 import 'package:args/command_runner.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive/hive.dart';
@@ -19,6 +20,7 @@ import 'package:rush/src/commands/build/descriptor.dart';
 import 'package:rush/src/commands/build/library_plan.dart';
 import 'package:rush/src/commands/build/private_libraries.dart';
 import 'package:rush/src/commands/build/project_libraries.dart';
+import 'package:rush/src/commands/build/resource_names.dart';
 import 'package:rush/src/commands/build/resources.dart';
 import 'package:rush/src/commands/build/runtime_jar.dart';
 import 'package:rush/src/commands/build/toolchain.dart';
@@ -80,27 +82,26 @@ class BuildCommand extends Command<int> {
       throw const _BuildFailed();
     }
 
-    final (plan, resources, appInventorAars) =
+    final (plan, resources, appInventor) =
         await _task('Compiling sources', () async {
       final plan = await planProjectLibraries(_libService, config);
       _reportProblems(plan.problems);
       final timestampBox = await Hive.openLazyBox<DateTime>(timestampBoxName);
       final manifest = await _mergeManifests(config, plan.manifests);
-      final appInventorAars =
-          plan.privateAars.isNotEmpty || await _fs.resDir.exists()
-              ? await (await Ai2Runtime.load()).resourceAars
-              : const <String>[];
-      final resources = await ExtensionResources.compile(config, [
-        for (final library in [
-          ...plan.shared,
-          ...plan.private,
-          ...plan.provided
-        ])
-          if (library.isAar) library.file,
-        ...appInventorAars,
-      ]);
+      final appInventor = await _appInventorResources(plan);
+      final resources = await ExtensionResources.compile(
+          config,
+          [
+            for (final library in [
+              ...plan.shared,
+              ...plan.private,
+              ...plan.provided
+            ])
+              if (library.isAar) library.file,
+          ],
+          appInventor);
       await _compile(config, plan, manifest, timestampBox, resources);
-      return (plan, resources, appInventorAars);
+      return (plan, resources, appInventor);
     });
 
     final (extension, artJarPath, privateLibraries) =
@@ -110,7 +111,7 @@ class BuildCommand extends Command<int> {
       return (
         extension,
         await createArtJar(plan.privateJars),
-        await PrivateLibraries.prepare(config, plan, appInventorAars),
+        await PrivateLibraries.prepare(config, plan, appInventor),
       );
     });
 
@@ -150,6 +151,13 @@ class BuildCommand extends Command<int> {
     await _task('Packaging the extension',
         () => assembleAix(config, descriptor, libraries));
   }
+
+  Future<ResourceDefinitions> _appInventorResources(LibraryPlan plan) async =>
+      ResourceDefinitions.of([
+        if (plan.privateAars.isNotEmpty || await _fs.resDir.exists())
+          for (final aar in (await Ai2Runtime.load()).resourceAars)
+            ZipDecoder().decodeBytes(await aar.asFile().readAsBytes()),
+      ]);
 
   Future<T> _task<T>(String title, Future<T> Function() body) async {
     _lgr.startTask(title);

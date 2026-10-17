@@ -82,11 +82,18 @@ class SyncSubCommand extends Command<int> {
     _lgr.stopTask();
 
     final installRuntime = useForce || !Ai2Runtime.isInstalled;
-    if (!onlyExtDeps && (installRuntime || toolsToFetch.isNotEmpty)) {
+    final installResources = installRuntime || !Ai2Runtime.hasResources;
+    if (!onlyExtDeps && (installResources || toolsToFetch.isNotEmpty)) {
       _lgr.startTask('Syncing dev-dependencies');
       try {
         await Future.wait([
-          if (installRuntime) Ai2Runtime.install(),
+          if (installResources)
+            Future(() async {
+              if (installRuntime) {
+                await Ai2Runtime.install();
+              }
+              await Ai2Runtime.installResources(config?.repositories ?? []);
+            }),
           if (toolsToFetch.isNotEmpty)
             libService.updateBuildLibs((box) => sync(
                   cacheBox: box,
@@ -211,6 +218,7 @@ class SyncSubCommand extends Command<int> {
 
   static Future<bool> needsSync(Config config, LibService libService) async {
     if (!Ai2Runtime.isInstalled ||
+        !Ai2Runtime.hasResources ||
         _missingBuildTools(config, libService).isNotEmpty) {
       return true;
     }
