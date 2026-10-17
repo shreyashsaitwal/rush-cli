@@ -52,7 +52,7 @@ runs:
         else
           echo "$rush_home/bin" >> "$GITHUB_PATH"
         fi
-        echo "version=$("$rush_home/bin/rush" --version | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+')" >> "$GITHUB_OUTPUT"
+        echo "version=$("$rush_home/bin/rush" --version | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?')" >> "$GITHUB_OUTPUT"
 
     - uses: actions/cache@v6
       with:
