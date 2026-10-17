@@ -81,6 +81,16 @@ class TestProject {
           ].join('\n'),
           mode: FileMode.append);
 
+  void keepOriginalNames(List<String> packages) =>
+      file('rush.yml').writeAsStringSync(
+          [
+            '',
+            'original_names:',
+            for (final package in packages) '- $package',
+            ''
+          ].join('\n'),
+          mode: FileMode.append);
+
   Future<ProcessResult> depsTree() =>
       rush(['deps', 'tree'], workingDirectory: dir.path);
 

@@ -21,6 +21,7 @@ String androidKeepRules({
   required Iterable<Archive> aars,
   required Iterable<String> manifestElements,
   required Iterable<String> resourceXml,
+  Set<String> originalPackages = const {},
 }) {
   final named = {
     for (final aar in aars) ..._namedInAar(aar),
@@ -30,6 +31,8 @@ String androidKeepRules({
   }.where(programClasses.contains).sorted();
   return [
     for (final name in named) '-keep class $name { <init>(...); }\n',
+    for (final package in originalPackages.sorted())
+      '-keep class $package.* { *; }\n',
   ].join();
 }
 

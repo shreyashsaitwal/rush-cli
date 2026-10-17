@@ -81,6 +81,20 @@ void main() {
         contains('-keep class lib.startup.Initializer { <init>(...); }'));
   });
 
+  test('keeps listed packages whole, with their member names', () {
+    expect(
+        _lines(androidKeepRules(
+            programClasses: _program,
+            aars: [],
+            manifestElements: [],
+            resourceXml: [],
+            originalPackages: {'lib.player', 'lib.list'})),
+        containsAllInOrder([
+          '-keep class lib.list.* { *; }',
+          '-keep class lib.player.* { *; }',
+        ]));
+  });
+
   test('keeps only program classes', () {
     final rules = androidKeepRules(
         programClasses: _program,

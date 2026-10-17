@@ -98,6 +98,18 @@ class LibraryPlan {
   final Set<String> consumerRules;
   final Map<String, String> placements;
 
+  LibraryPlan withProblems(Iterable<Problem> more) => LibraryPlan(
+        shared: shared,
+        private: private,
+        provided: provided,
+        problems: [...problems, ...more],
+        compileClasspath: compileClasspath,
+        libraryJars: libraryJars,
+        manifests: manifests,
+        consumerRules: consumerRules,
+        placements: placements,
+      );
+
   Iterable<ResolvedLibrary> get sharedAars => shared.where((el) => el.isAar);
 
   Iterable<ResolvedLibrary> get sharedJars => shared.whereNot((el) => el.isAar);

@@ -80,6 +80,23 @@ A key that matches no library is a warning, as it's likely a typo.
 works but is deprecated: `rush migrate` moves its entries to `dependencies`, placed as
 `provided`.
 
+## Keeping original names
+
+Private libraries' classes are renamed into the extension. Code that finds a class by
+name from outside the bytecode, such as a native library binding its JNI functions, can't
+follow the new name. List the packages that must keep their names under
+`original_names`:
+
+```yaml
+original_names:
+- androidx.datastore.core
+```
+
+Their classes keep their names, and R8 keeps them whole, members included. Whole
+packages are kept because Java's package-private access works only inside one package.
+Kept classes can clash with another extension that ships the same ones, so keep as few
+packages as possible. A listed package that no private library has is an error.
+
 ## What App Inventor provides
 
 Every app contains App Inventor's runtime, Kawa and these AndroidX libraries, which Rush

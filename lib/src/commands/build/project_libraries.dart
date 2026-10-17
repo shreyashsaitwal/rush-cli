@@ -1,9 +1,12 @@
 import 'dart:io' show File;
 
+import 'package:archive/archive.dart';
 import 'package:get_it/get_it.dart';
 
 import 'package:rush/src/commands/build/android_manifest.dart';
 import 'package:rush/src/commands/build/library_plan.dart';
+import 'package:rush/src/commands/build/original_names.dart';
+import 'package:rush/src/commands/build/relocation.dart';
 import 'package:rush/src/config/config.dart';
 import 'package:rush/src/resolver/artifact.dart';
 import 'package:rush/src/services/ai2_runtime.dart';
@@ -18,14 +21,27 @@ Future<LibraryPlan> planProjectLibraries(
   final runtime = await Ai2Runtime.load();
   final conditional =
       {...runtime.libs}.difference({...runtime.alwaysIncludedLibs});
-  return planLibraries(
+  final plan = planLibraries(
     dependencies:
         await _resolved(await libService.extensionDependencies(config)),
     appInventor:
         await _resolved(await libService.providedDependencies(), conditional),
     placements: config.libraries,
   );
+  if (config.originalNames.isEmpty) return plan;
+  return plan.withProblems(originalNameProblems(
+    originalNames: config.originalNames,
+    privateClasses: await _classesOf(plan.private),
+  ));
 }
+
+Future<Set<String>> _classesOf(Iterable<ResolvedLibrary> libraries) async => {
+      for (final library in libraries.where((el) => el.hasCode))
+        ...relocatableClasses(ZipDecoder()
+            .decodeBytes(await library.classesJar.asFile().readAsBytes())
+            .files
+            .map((el) => el.name)),
+    };
 
 Future<List<ResolvedLibrary>> _resolved(List<Artifact> artifacts,
         [Set<Artifact> conditional = const {}]) =>

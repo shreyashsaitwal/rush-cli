@@ -339,6 +339,58 @@ class {className}(container: ComponentContainer) :
             'App Inventor provides an older version'));
   });
 
+  group('original names', () {
+    Future<TestProject> greeter(String name) async {
+      final project = await TestProject.create(name);
+      project.file('deps/greet.jar')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(_jar(await _compiled(project, {
+          'lib/greet/Greeter': 'package lib.greet; public class Greeter { '
+              'public String greet() { return Words.HELLO + lib.util.Names.name(); } }',
+          'lib/greet/Words': 'package lib.greet; class Words { '
+              'static final String HELLO = new String("hi "); }',
+          'lib/util/Names': 'package lib.util; public class Names { '
+              'public static String name() { return "there"; } }',
+        })));
+      project.addDependencies(['greet.jar']);
+      project.writeJavaExtension('''
+  @SimpleFunction
+  public String Greet() {
+    return new lib.greet.Greeter().greet();
+  }
+''');
+      return project;
+    }
+
+    for (final optimize in [false, true]) {
+      test('keep their classes and members${optimize ? ' when optimized' : ''}',
+          () async {
+        final project = await greeter('original_names_ext');
+        project.keepOriginalNames(['lib.greet']);
+
+        final build = await project.build([if (optimize) '--optimize']);
+        expect(build.exitCode, 0, reason: build.output);
+        final runtime = project.aix.classNames;
+        expect(runtime,
+            containsAll(['lib/greet/Greeter.class', 'lib/greet/Words.class']));
+        expect(runtime.where((el) => el.startsWith('lib/util/')), isEmpty);
+        expect(project.aix.methodNames('lib/greet/Greeter'), contains('greet'));
+      });
+    }
+
+    test('must name packages private libraries have', () async {
+      final project = await greeter('original_names_missing_ext');
+      project.keepOriginalNames(['lib.greet', 'lib.gone']);
+
+      final build = await project.build();
+      expect(build.exitCode, 1, reason: build.output);
+      expect(
+          build.output,
+          contains('original_names lists lib.gone, but no private library has '
+              'classes in it. Remove it from rush.yml.'));
+    });
+  });
+
   test('desugared interfaces have fields every dex version accepts', () async {
     final project = await TestProject.create('interfaces_ext');
     project.setMinSdk(23);

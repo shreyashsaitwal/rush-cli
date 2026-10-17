@@ -63,6 +63,12 @@ Where a library goes: `private` (the default), `shared`, `provided` or `exclude`
 by `group:artifact` or by file name in `deps`. See
 [Placing libraries](dependencies.md#placing-libraries).
 
+## original_names
+
+Packages whose classes keep their original names in every private library, for code
+that finds classes by name from outside the bytecode, such as native libraries. See
+[Keeping original names](dependencies.md#keeping-original-names).
+
 ## repositories
 
 Maven repositories to search besides Maven Central and Google's Maven repository.
