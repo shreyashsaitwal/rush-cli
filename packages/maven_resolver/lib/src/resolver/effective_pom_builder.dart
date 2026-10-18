@@ -6,7 +6,6 @@ library;
 
 import 'dart:convert';
 
-import '../gradle/gradle_module.dart';
 import '../pom/dependency.dart';
 import '../pom/pom.dart';
 import '../pom/pom_interpolator.dart';
@@ -117,9 +116,6 @@ final class EffectivePomBuilder {
       parentChain: effectivePom.parentChain,
       properties: effectivePom.properties,
       dependencyManagement: mergedMgmt,
-      dependencies: pom.publishedWithGradleMetadata
-          ? await _platformVariantDependencies(coord, context)
-          : null,
     );
 
     // Cache it
@@ -194,33 +190,6 @@ final class EffectivePomBuilder {
     }
 
     return result;
-  }
-
-  Future<List<Dependency>?> _platformVariantDependencies(
-    ArtifactCoordinate coord,
-    ResolutionContext context,
-  ) async {
-    try {
-      final module = await repository.fetchRaw(coord.modulePath);
-      return module == null
-          ? null
-          : platformVariantDependencies(utf8.decode(module.content));
-    } on FormatException catch (e) {
-      context.addWarning(
-        ResolutionWarning(
-          coordinate: coord,
-          message: 'Ignoring invalid Gradle module metadata: ${e.message}',
-        ),
-      );
-    } on RepositoryException catch (e) {
-      context.addWarning(
-        ResolutionWarning(
-          coordinate: coord,
-          message: 'Ignoring unavailable Gradle module metadata: ${e.message}',
-        ),
-      );
-    }
-    return null;
   }
 
   /// Fetches and parses a POM.

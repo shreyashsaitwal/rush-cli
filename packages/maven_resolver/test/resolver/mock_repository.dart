@@ -15,8 +15,6 @@ class MockRepository implements Repository {
   /// Available versions for each artifact (group:artifact -> versions).
   final Map<String, List<String>> versions = {};
 
-  final Map<String, String> files = {};
-
   @override
   final String id;
 
@@ -39,8 +37,6 @@ class MockRepository implements Repository {
     final versionKey = '$groupId:$artifactId';
     versions.putIfAbsent(versionKey, () => []).add(version);
   }
-
-  void addFile(String path, String content) => files[path] = content;
 
   /// Creates a simple POM with the given dependencies.
   void addSimplePom(
@@ -172,10 +168,7 @@ class MockRepository implements Repository {
 
   @override
   Future<FetchResult?> fetchRaw(String path) async {
-    final content = files[path];
-    return content == null
-        ? null
-        : FetchResult(content: Uint8List.fromList(content.codeUnits));
+    return null;
   }
 
   @override

@@ -39,6 +39,14 @@ what is supported, what is planned and what is deliberately out of scope.
 | AARs with font resources build on Kodular (fonts moved to `res/raw`, `R.font` kept working) | 2.0.0 |
 | Unchanged compile and DEX steps skipped; desugared libraries cached once for all projects | 2.0.0 |
 | A template repository that creates a project in the browser | 2.0.0 |
+| Every library private by default: AARs renamed with their resources, manifest and file name, so extensions don't clash with each other or with App Inventor's and Kodular's libraries | 2.1.0 |
+| `shared` as the explicit choice for libraries whose objects pass between extensions | 2.1.0 |
+| `original_names` keeps packages' names; AARs with native libraries can be private, and Rush names the packages their native code needs | 2.1.0 |
+| The extension and its private libraries shrunk by R8 as one program | 2.1.0 |
+| Extension resources referencing their libraries' resources and App Inventor's AndroidX (`Theme.AppCompat`) | 2.1.0 |
+| Kotlin Multiplatform libraries: AARs without code, and `-jvm` and `-android` artifacts of libraries App Inventor provides | 2.1.0 |
+| Extensions built for different `min_sdk` in one app (D8's desugared interface fields corrected) | 2.1.0 |
+| Prereleases installable by version (`RUSH_VERSION`, the setup action's `version`) | 2.1.0 |
 
 ## Not planned
 
@@ -52,5 +60,4 @@ what is supported, what is planned and what is deliberately out of scope.
 | Other JVM languages, Jetifier, AIDL, string obfuscation | Rarely needed |
 | Core library desugaring below `min_sdk` 24 | The backport adds `java.util.function` classes that can't be relocated, so two extensions would clash |
 | Several packages in one project | Packages would share one dependency set but each ship their own copy; separate projects stay clean, and one package can hold several components |
-| Referencing AppCompat and AndroidX resources from extension resources | Rush would need to bundle and link App Inventor's whole AndroidX resource set |
 | AI Companion support for AAR extensions | The Companion can't load AAR classes or resources |
