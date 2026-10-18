@@ -213,6 +213,45 @@ void main() {
     });
   });
 
+  group('without RUSH_HOME', () {
+    late Directory home;
+
+    Future<ProcessResult> rushInstalledAt(Directory home) async {
+      final bin = Directory('${home.path}/bin')..createSync();
+      final installed = File(rushBin)
+          .copySync('${bin.path}/${File(rushBin).uri.pathSegments.last}');
+      final elsewhere = Directory('${home.path}-elsewhere')..createSync();
+      addTearDown(() => elsewhere.delete(recursive: true));
+      final environment = Map.of(Platform.environment)
+        ..remove('RUSH_HOME')
+        ..['XDG_DATA_HOME'] = elsewhere.path
+        ..['LOCALAPPDATA'] = elsewhere.path;
+      return Process.run(installed.path, ['--no-color', '--version'],
+          environment: environment, includeParentEnvironment: false);
+    }
+
+    setUp(() async {
+      home = await Directory.systemTemp.createTemp('rush-home-');
+      addTearDown(() => home.delete(recursive: true));
+    });
+
+    test('finds the home the binary is installed in', () async {
+      Directory('${home.path}/libs').createSync();
+      final result = await rushInstalledAt(home);
+      expect(result.exitCode, 0, reason: result.output);
+      expect(result.output, contains('Running on version'));
+    });
+
+    test('names the install that lacks libs', () async {
+      final result = await rushInstalledAt(home);
+      expect(result.exitCode, 1);
+      expect(
+          result.output,
+          contains(
+              'Could not find Rush data directory at ${home.resolveSymbolicLinksSync()}'));
+    });
+  });
+
   test('clean works on a project that was never built', () async {
     final project = await TestProject.create('unbuilt_ext');
     final result = await rush(['clean'], workingDirectory: project.dir.path);

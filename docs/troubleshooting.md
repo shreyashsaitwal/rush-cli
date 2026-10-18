@@ -11,8 +11,8 @@ what failed.
 **`error: release version 17 not supported`.** The JDK is older than 17. Install JDK 17
 or newer, and point `JAVA_HOME` to it.
 
-**`Could not find Rush data directory at …`.** Rush isn't installed where it expects, or
-`RUSH_HOME` (if set) points to the wrong directory, or Rush is not installed in its default location. Re-run the installer.
+**`Could not find Rush data directory at …`.** The directory has no `libs`: `RUSH_HOME` (if set)
+points to the wrong directory, or Rush's install is incomplete. Re-run the installer.
 
 **`App Inventor runtime v206 is not installed.`** Run `rush deps sync --dev-deps`.
 
