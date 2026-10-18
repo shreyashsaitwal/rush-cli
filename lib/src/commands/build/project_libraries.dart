@@ -1,9 +1,13 @@
 import 'dart:io' show File;
 
+import 'package:archive/archive.dart';
 import 'package:get_it/get_it.dart';
 
 import 'package:rush/src/commands/build/android_manifest.dart';
 import 'package:rush/src/commands/build/library_plan.dart';
+import 'package:rush/src/commands/build/native_names.dart';
+import 'package:rush/src/commands/build/original_names.dart';
+import 'package:rush/src/commands/build/relocation.dart';
 import 'package:rush/src/config/config.dart';
 import 'package:rush/src/resolver/artifact.dart';
 import 'package:rush/src/services/ai2_runtime.dart';
@@ -18,14 +22,45 @@ Future<LibraryPlan> planProjectLibraries(
   final runtime = await Ai2Runtime.load();
   final conditional =
       {...runtime.libs}.difference({...runtime.alwaysIncludedLibs});
-  return planLibraries(
+  final plan = planLibraries(
     dependencies:
         await _resolved(await libService.extensionDependencies(config)),
     appInventor:
         await _resolved(await libService.providedDependencies(), conditional),
     placements: config.libraries,
   );
+  final nativeAars = plan.private.where((el) => el.hasNativeLibraries);
+  if (config.originalNames.isEmpty && nativeAars.isEmpty) return plan;
+  final privateClasses = await _classesOf(plan.private);
+  return plan.withProblems(originalNameProblems(
+    originalNames: config.originalNames,
+    privateClasses: privateClasses,
+    nativeNames: {
+      for (final aar in nativeAars)
+        aar.coordinate: await _nativeNames(aar, privateClasses),
+    },
+  ));
 }
+
+Future<Set<String>> _nativeNames(
+        ResolvedLibrary aar, Set<String> classes) async =>
+    {
+      await for (final file in _fs
+          .resourceFromExtractedAar(aar.file, 'jni')
+          .path
+          .asDir()
+          .list(recursive: true))
+        if (file is File && file.path.endsWith('.so'))
+          ...namedClasses(await file.readAsBytes(), classes),
+    };
+
+Future<Set<String>> _classesOf(Iterable<ResolvedLibrary> libraries) async => {
+      for (final library in libraries.where((el) => el.hasCode))
+        ...relocatableClasses(ZipDecoder()
+            .decodeBytes(await library.classesJar.asFile().readAsBytes())
+            .files
+            .map((el) => el.name)),
+    };
 
 Future<List<ResolvedLibrary>> _resolved(List<Artifact> artifacts,
         [Set<Artifact> conditional = const {}]) =>
@@ -50,13 +85,13 @@ Future<ResolvedLibrary> _library(Artifact artifact,
     inEveryApp: inEveryApp,
     hasResources: isAar && await _hasResources(artifact),
     hasCode: !isAar || await artifact.classesJar.asFile().exists(),
+    hasNativeLibraries: isAar && await _hasFiles(artifact, 'jni'),
     originalContents: isAar ? await _originalContents(artifact) : const {},
   );
 }
 
 Future<Set<OriginalContent>> _originalContents(Artifact aar) async => {
       if (await _hasFiles(aar, 'assets')) OriginalContent.assets,
-      if (await _hasFiles(aar, 'jni')) OriginalContent.nativeLibraries,
       if (await _hasFiles(aar, 'libs')) OriginalContent.bundledJars,
     };
 

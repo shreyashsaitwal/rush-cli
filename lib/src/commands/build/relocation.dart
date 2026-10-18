@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:path/path.dart' as p;
 
 const _desugarHelperPackages = ['com/android/tools/r8/', r'j$/'];
@@ -9,6 +11,10 @@ Iterable<String> relocatableClasses(Iterable<String> entries) => entries
 Iterable<String> desugarHelpers(Iterable<String> entries) => entries
     .where((el) => _desugarHelperPackages.any(el.startsWith) && _isClass(el))
     .map(p.posix.withoutExtension);
+
+String classPackage(String internalName) => internalName
+    .substring(0, max(internalName.lastIndexOf('/'), 0))
+    .replaceAll('/', '.');
 
 typedef RenamedMember = ({String owner, String name, String to});
 

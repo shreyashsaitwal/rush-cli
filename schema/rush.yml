@@ -80,6 +80,16 @@ properties:
         - const: private
           description: The extension's own copy, relocated under its package.
 
+  original_names:
+    description: |
+      Packages whose classes keep their original names in every private
+      library, for code that finds them by name outside the bytecode, such as
+      native libraries.
+    type: array
+    items:
+      type: string
+      pattern: '^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$'
+
   repositories:
     description: |
       Additional Maven repositories to resolve dependencies from. Maven Central

@@ -11,11 +11,31 @@ import 'package:rush/src/commands/build/resource_names.dart';
 
 typedef ExtensionSymbols = ({Archive resources, String symbols});
 
+const _componentElements = {
+  'application',
+  'activity',
+  'activity-alias',
+  'service',
+  'receiver',
+  'provider',
+  'instrumentation',
+};
+
+const _classNameAttributes = {
+  'android:name',
+  'android:targetActivity',
+  'android:parentActivityName',
+  'android:backupAgent',
+  'android:manageSpaceActivity',
+  'android:appComponentFactory',
+};
+
 class PrivateNames {
   factory PrivateNames({
     required String package,
     required Set<String> classes,
     required Map<String, Archive> aars,
+    Set<String> originalPackages = const {},
     Iterable<String> manifestElements = const [],
     ExtensionSymbols? extensionResources,
     ResourceDefinitions? appInventor,
@@ -51,7 +71,9 @@ class PrivateNames {
     ]);
     final prefix = _classPrefix(package);
     final renamed = {
-      ...classes.whereNot((el) => el.startsWith(prefix)),
+      ...classes.whereNot((el) =>
+          el.startsWith(prefix) ||
+          originalPackages.contains(relocation.classPackage(el))),
       ...rClasses,
     };
     final intentNames = {
@@ -135,10 +157,22 @@ class PrivateNames {
   String _renamedManifest(ArchiveFile manifest) {
     final document = parseAndroidXml(utf8.decode(manifest.content));
     final root = document.rootElement;
-    root.setAttribute(
-        'package', '$package.repacked.${root.getAttribute('package')}');
+    final original = root.getAttribute('package');
+    if (original != null) _expandRelativeNames(document, original);
+    root.setAttribute('package', '$package.repacked.$original');
     _renameClassNames(document);
     return document.toXmlString();
+  }
+
+  static void _expandRelativeNames(XmlNode root, String package) {
+    for (final attribute in root.descendantElements
+        .where((el) => _componentElements.contains(el.name.qualified))
+        .expand((el) => el.attributes)
+        .where((el) => _classNameAttributes.contains(el.name.qualified))) {
+      if (attribute.value.startsWith('.')) {
+        attribute.value = '$package${attribute.value}';
+      }
+    }
   }
 
   String _renamedFragment(String element) {

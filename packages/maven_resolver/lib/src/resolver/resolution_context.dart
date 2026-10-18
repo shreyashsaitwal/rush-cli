@@ -190,6 +190,17 @@ final class ResolutionContext {
 
   final Map<String, Set<String>> dependencyGraph = {};
 
+  final Map<String, String> resolvedKeys = {};
+
+  Map<String, Set<String>> get resolvedGraph => {
+        for (final MapEntry(key: artifact, value: dependencies)
+            in dependencyGraph.entries)
+          artifact: {
+            for (final dependency in dependencies)
+              resolvedKeys[dependency] ?? dependency,
+          },
+      };
+
   /// Cached effective POMs.
   final Map<String, EffectivePom> pomCache = {};
 

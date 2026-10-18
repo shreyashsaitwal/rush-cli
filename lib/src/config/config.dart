@@ -31,6 +31,9 @@ class Config {
   @JsonKey(disallowNullValue: true)
   final Map<String, LibraryPlacement> libraries;
 
+  @JsonKey(name: 'original_names', disallowNullValue: true)
+  final List<String> originalNames;
+
   @JsonKey(name: 'min_sdk', disallowNullValue: true)
   final int minSdk;
 
@@ -66,6 +69,7 @@ class Config {
     List<String> dependencies = const [],
     this.providedDependencies = const [],
     Map<String, LibraryPlacement> libraries = const {},
+    this.originalNames = const [],
     this.repositories = const [],
     this.kotlin = const Kotlin(compilerVersion: defaultKtVersion),
   })  : dependencies = [

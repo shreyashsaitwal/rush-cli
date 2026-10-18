@@ -55,6 +55,12 @@ class PrivateLibraries {
           aars: _aars.values,
           manifestElements: manifestElements,
           resourceXml: resourceXml,
+          originalPackages: _config.originalNames.toSet(),
+          wholeClasses: {
+            for (final aar in _aars.keys)
+              if (aar.hasNativeLibraries && aar.hasCode)
+                ...await _classes(aar.classesJar),
+          },
         ));
     return rules;
   }
@@ -84,6 +90,7 @@ class PrivateLibraries {
       PrivateNames(
         package: extension.package,
         classes: {...privateClasses, ...split.privateClasses},
+        originalPackages: _config.originalNames.toSet(),
         manifestElements: extension.manifestElements,
         extensionResources: await resources?.symbols(),
         appInventor: _appInventor,

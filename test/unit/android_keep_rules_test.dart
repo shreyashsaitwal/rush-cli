@@ -81,6 +81,34 @@ void main() {
         contains('-keep class lib.startup.Initializer { <init>(...); }'));
   });
 
+  test('keeps listed packages whole, with their member names', () {
+    expect(
+        _lines(androidKeepRules(
+            programClasses: _program,
+            aars: [],
+            manifestElements: [],
+            resourceXml: [],
+            originalPackages: {'lib.player', 'lib.list'})),
+        containsAllInOrder([
+          '-keep class lib.list.* { *; }',
+          '-keep class lib.player.* { *; }',
+        ]));
+  });
+
+  test('keeps the classes of native libraries whole', () {
+    expect(
+        _lines(androidKeepRules(
+            programClasses: _program,
+            aars: [],
+            manifestElements: [],
+            resourceXml: [],
+            wholeClasses: {'lib/jni/Bridge', 'lib/jni/Bridge\$Callback'})),
+        containsAllInOrder([
+          '-keep class lib.jni.Bridge { *; }',
+          '-keep class lib.jni.Bridge\$Callback { *; }',
+        ]));
+  });
+
   test('keeps only program classes', () {
     final rules = androidKeepRules(
         programClasses: _program,

@@ -271,7 +271,11 @@ final class DependencyResolver {
         );
 
         // Register as resolved
-        context.addResolved(ResolvedArtifact.fromNode(node));
+        final artifact = ResolvedArtifact.fromNode(node);
+        context.addResolved(artifact);
+        if (artifact.conflictKey != key) {
+          context.resolvedKeys[key] = artifact.conflictKey;
+        }
 
         // Add to roots if depth 1
         if (pending.depth == 1) {
@@ -346,7 +350,7 @@ final class DependencyResolver {
       conflicts: context.conflicts,
       warnings: context.warnings,
       errors: context.errors,
-      dependencyGraph: context.dependencyGraph,
+      dependencyGraph: context.resolvedGraph,
     );
   }
 

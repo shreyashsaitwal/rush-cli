@@ -70,6 +70,56 @@ void main() {
         'keep-string lib.player.PlaybackService\n');
   });
 
+  test('keeps the original names of classes in listed packages', () {
+    final names = PrivateNames(
+      package: 'com.example.ext',
+      classes: {'lib/player/TimeBar', 'lib/player/ui/Scrubber'},
+      originalPackages: {'lib.player'},
+      aars: {'lib.player-player-1.0.aar': _player},
+    );
+
+    expect(names.className('lib.player.TimeBar'), 'lib.player.TimeBar');
+    expect(names.className('lib.player.ui.Scrubber'),
+        'com.example.ext.repacked.lib.player.ui.Scrubber');
+    expect(names.relocationSpec, isNot(contains('class lib/player/TimeBar')));
+    expect(
+        _text(names.renameAar(_player, classes: null), 'AndroidManifest.xml'),
+        contains('<receiver android:name="lib.player.ButtonReceiver"/>'));
+  });
+
+  test('expands only relative class names in manifests', () {
+    final viewer = _aar({
+      'AndroidManifest.xml': '<manifest package="lib.viewer" '
+          'xmlns:android="http://schemas.android.com/apk/res/android">'
+          '<application android:name=".ViewerApp">'
+          '<activity android:name=".Viewer" '
+          'android:parentActivityName=".Home" android:taskAffinity=".tasks">'
+          '<intent-filter><data android:pathSuffix=".pdf"/></intent-filter>'
+          '</activity>'
+          '<meta-data android:name="viewer.mode" android:value=".Value"/>'
+          '</application></manifest>',
+    });
+    final names = PrivateNames(
+      package: 'com.example.ext',
+      classes: {'lib/viewer/ViewerApp', 'lib/viewer/Viewer', 'lib/viewer/Home'},
+      originalPackages: {'lib.viewer'},
+      aars: {'viewer.aar': viewer},
+    );
+
+    expect(
+        _text(names.renameAar(viewer, classes: null), 'AndroidManifest.xml'),
+        '<manifest package="com.example.ext.repacked.lib.viewer" '
+        'xmlns:android="http://schemas.android.com/apk/res/android">'
+        '<application android:name="lib.viewer.ViewerApp">'
+        '<activity android:name="lib.viewer.Viewer" '
+        'android:parentActivityName="lib.viewer.Home" '
+        'android:taskAffinity=".tasks">'
+        '<intent-filter><data android:pathSuffix=".pdf"/></intent-filter>'
+        '</activity>'
+        '<meta-data android:name="viewer.mode" android:value=".Value"/>'
+        '</application></manifest>');
+  });
+
   test('names private AARs and their files under the extension', () {
     final names = _names();
 
@@ -93,7 +143,7 @@ void main() {
         '<intent-filter><action android:name="lib.player.PlaybackService"/>'
         '<action android:name="android.intent.action.MEDIA_BUTTON"/>'
         '</intent-filter></service>'
-        '<receiver android:name=".ButtonReceiver"/>'
+        '<receiver android:name="com.example.ext.repacked.lib.player.ButtonReceiver"/>'
         '</application></manifest>');
     expect(
         _text(renamed, 'res/layout/com_example_ext_repacked_controls.xml'),
