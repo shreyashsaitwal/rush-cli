@@ -118,6 +118,8 @@ final class ArtifactCoordinate {
   /// Returns the full path to the POM file in the repository.
   String get pomPath => '$artifactPath/$pomFilename';
 
+  String get modulePath => '$artifactPath/$artifactId-$version.module';
+
   /// Returns the full path to the artifact file in the repository.
   String artifactFilePath([String? extension]) {
     return '$artifactPath/${artifactFilename(extension)}';

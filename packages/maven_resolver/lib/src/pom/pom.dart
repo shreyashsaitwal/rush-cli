@@ -149,6 +149,8 @@ final class Pom {
   /// Distribution management.
   final DistributionManagement? distributionManagement;
 
+  final bool publishedWithGradleMetadata;
+
   /// Creates a POM with the given attributes.
   const Pom({
     this.modelVersion,
@@ -167,6 +169,7 @@ final class Pom {
     this.licenses = const [],
     this.scm,
     this.distributionManagement,
+    this.publishedWithGradleMetadata = false,
   });
 
   /// Returns the effective group ID (from this POM or parent).
@@ -233,6 +236,7 @@ final class Pom {
       scm: scm ?? this.scm,
       distributionManagement:
           distributionManagement ?? this.distributionManagement,
+      publishedWithGradleMetadata: publishedWithGradleMetadata,
     );
   }
 
@@ -256,12 +260,16 @@ final class EffectivePom {
   /// Merged dependencyManagement from entire chain.
   final List<Dependency> dependencyManagement;
 
-  const EffectivePom({
+  /// The direct dependencies.
+  final List<Dependency> dependencies;
+
+  EffectivePom({
     required this.pom,
     this.parentChain = const [],
     this.properties = const {},
     this.dependencyManagement = const [],
-  });
+    List<Dependency>? dependencies,
+  }) : dependencies = dependencies ?? pom.dependencies;
 
   /// The group ID.
   String get groupId => pom.effectiveGroupId;
@@ -274,9 +282,6 @@ final class EffectivePom {
 
   /// The packaging.
   String get packaging => pom.packaging;
-
-  /// The direct dependencies.
-  List<Dependency> get dependencies => pom.dependencies;
 
   /// Returns the coordinate.
   ArtifactCoordinate get coordinate => pom.coordinate;
