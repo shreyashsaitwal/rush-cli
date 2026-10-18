@@ -32,10 +32,12 @@ On Windows, in PowerShell:
 iwr https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.ps1 -useb | iex
 ```
 
-The installer puts Rush in `~/.local/share/rush` on Linux and macOS (or `$XDG_DATA_HOME/rush`
-if that env var is set), and `%LOCALAPPDATA%\\rush` on Windows. It offers to download the App
-Inventor runtime and build tools (about 140 MB). Add the `bin` subdirectory to your `PATH` as
-it suggests, then check the installation:
+The installer updates an existing installation where it is. New installs go to
+`~/.local/share/rush` on Linux and macOS (or `$XDG_DATA_HOME/rush` if that env var is
+set), and `%LOCALAPPDATA%\rush` on Windows. It offers to download the App Inventor
+runtime and build tools (about 140 MB). On Linux and macOS, add the `bin` subdirectory to
+your `PATH` as it suggests; on Windows, the installer adds it, so open a new terminal.
+Then check the installation:
 
 ```sh
 rush --version
@@ -46,11 +48,11 @@ Run `rush upgrade` later to install new releases.
 To install a specific release, such as a beta, set `RUSH_VERSION` for the installer:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.sh | RUSH_VERSION=2.1.0-beta.1 bash
+curl -fsSL https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.sh | RUSH_VERSION=2.1.0-beta.3 bash
 ```
 
 ```ps1
-$env:RUSH_VERSION = "2.1.0-beta.1"; iwr https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.ps1 -useb | iex
+$env:RUSH_VERSION = "2.1.0-beta.3"; iwr https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.ps1 -useb | iex
 ```
 
 `rush upgrade` only installs stable releases, so reinstall this way to move to a newer beta.
@@ -70,7 +72,7 @@ counter/
 ├── rush.yml                  project configuration
 ├── src/
 │   ├── AndroidManifest.xml   manifest entries the extension adds to apps
-│   ├── proguard-rules.pro    rules for rush build --optimize
+│   ├── proguard-rules.pro    R8 rules for the extension and its libraries
 │   └── com/example/counter/
 │       └── Counter.java      the extension
 ├── assets/
@@ -82,6 +84,7 @@ counter/
 ├── .devcontainer/
 │   └── devcontainer.json     a ready-made environment for Codespaces and VS Code
 ├── .project, .classpath      project files for VS Code and Eclipse
+├── README.md                 the project's readme
 ├── AGENTS.md                 instructions for AI coding agents
 ├── CLAUDE.md
 └── .claude/skills/rush/

@@ -15,7 +15,7 @@ rush migrate
 - **`rush.yml`**: `version.name` becomes `version` (or `version.number` without a name,
   or `1.0.0` when the number was `auto`); `deps` becomes `dependencies`;
   `assets.other` becomes `assets`; `min_sdk`, `homepage` and `license` are kept, while
-  `authors` and `desugar`, which Rush 2 ignores, are dropped. JARs in `deps` that weren't
+  `authors` and `desugar`, which Rush 2 ignores, are dropped. JARs and AARs in `deps` that weren't
   listed in `deps` become `dependencies` placed as `provided` under `libraries`, as they
   were compile-only in Rush 1.
   Kotlin projects get `kotlin.compiler_version` and the Kotlin standard library as a

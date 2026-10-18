@@ -30,7 +30,8 @@ it with R8. See [Building](building.md#optimizing).
 
 ## rush clean
 
-Deletes the project's build files and caches in `.rush`.
+Deletes the project's build files and caches in `.rush`. It runs only in a Rush project
+(with `rush.yml`, `src` and `src/AndroidManifest.xml`).
 
 ## rush deps sync
 
@@ -62,7 +63,9 @@ subtree printed earlier is marked `*`.
 Converts a Rush 1 project in the current directory to Rush 2. See
 [Migrating from Rush 1](migrating.md). In a Rush 2 project, moves `provided_dependencies`
 to `dependencies` placed as `provided` under
-[`libraries`](dependencies.md#placing-libraries).
+[`libraries`](dependencies.md#placing-libraries), and removes the rules Rush applies
+itself (`-repackageclasses`, `-keeppackagenames gnu.kawa**, gnu.expr**`) from
+`src/proguard-rules.pro`, with the comments above them.
 
 ## rush upgrade
 
@@ -86,7 +89,7 @@ is hit.
 
 | Variable | |
 |---|---|
-| `RUSH_HOME` | Overrides where Rush is installed. Defaults to the directory holding Rush's `bin` |
+| `RUSH_HOME` | Overrides where Rush is installed, a directory with Rush's `libs`. Defaults to the directory holding Rush's `bin` |
 | `JAVA_HOME` | The JDK to use. Otherwise `java` and `javac` are taken from `PATH` |
 | `M2_HOME` | The local Maven repository is `$M2_HOME/repository` instead of `~/.m2/repository` |
 | `NO_COLOR` | Turns colors off |
