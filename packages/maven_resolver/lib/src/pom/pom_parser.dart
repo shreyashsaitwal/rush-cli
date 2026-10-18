@@ -12,8 +12,6 @@ import 'dependency.dart';
 import 'exclusion.dart';
 import 'pom.dart';
 
-const _gradleMetadataMarker = 'published-with-gradle-metadata';
-
 /// Exception thrown when POM parsing fails.
 final class PomParseException implements Exception {
   /// The error message.
@@ -130,9 +128,6 @@ final class PomParser {
       licenses: licenses,
       scm: scm,
       distributionManagement: distributionManagement,
-      publishedWithGradleMetadata: project.children
-          .whereType<XmlComment>()
-          .any((el) => el.value.contains(_gradleMetadataMarker)),
     );
   }
 
