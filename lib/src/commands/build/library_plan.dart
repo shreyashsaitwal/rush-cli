@@ -9,7 +9,6 @@ enum LibraryScope { compile, runtime, provided }
 
 enum OriginalContent {
   assets('its assets keep their original paths'),
-  nativeLibraries('its native libraries find classes by their original names'),
   bundledJars('the JARs in its libs/ folder keep their original names');
 
   const OriginalContent(this.description);
@@ -31,6 +30,7 @@ class ResolvedLibrary {
     this.inEveryApp = true,
     this.hasResources = false,
     this.hasCode = true,
+    this.hasNativeLibraries = false,
     this.originalContents = const {},
   });
 
@@ -46,6 +46,7 @@ class ResolvedLibrary {
   final bool inEveryApp;
   final bool hasResources;
   final bool hasCode;
+  final bool hasNativeLibraries;
   final Set<OriginalContent> originalContents;
 
   String get key => libraryKey(coordinate);
@@ -122,7 +123,7 @@ class LibraryPlan {
   Iterable<ResolvedLibrary> get privateAars => private.where(_shipsAar);
 
   static bool _shipsAar(ResolvedLibrary library) =>
-      library.isAar && library.hasResources;
+      library.isAar && (library.hasResources || library.hasNativeLibraries);
 }
 
 LibraryPlan planLibraries({

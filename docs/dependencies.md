@@ -70,9 +70,11 @@ to one of:
   when its objects pass between extensions, or when it can't be private.
 - **`private`**, the default: the extension's own copy, renamed into it (see
   [How libraries are shipped](#how-libraries-are-shipped)). Rush refuses it, naming the
-  `shared` entry to add, for an AAR with assets (they keep their paths), native
-  libraries (they find classes by their original names) or JARs in `libs/` (they aren't
-  renamed), and for a library a shared library uses by its original name.
+  `shared` entry to add, for an AAR with assets (they keep their paths) or JARs in
+  `libs/` (they aren't renamed), and for a library a shared library uses by its
+  original name. An AAR with native libraries can be private once the packages its
+  native code names keep their names (see
+  [Keeping original names](#keeping-original-names)).
 
 A key that matches no library is a warning, as it's likely a typo.
 
@@ -94,6 +96,13 @@ original_names:
 
 Their classes keep their names, and R8 keeps them whole, members included. Whole
 packages are kept because Java's package-private access works only inside one package.
+
+A private AAR with native libraries ships as an AAR, so its `.so` files ship with it, and
+R8 keeps its classes whole, since native code calls into classes R8 can't see used.
+Rush reads its `.so` files for the classes they name, by JNI function or by name, and
+stops the build when their packages aren't listed, printing the lines to add. Native
+code that builds class names at runtime can't be read this way; list those packages
+too.
 Kept classes can clash with another extension that ships the same ones, so keep as few
 packages as possible. A listed package that no private library has is an error.
 

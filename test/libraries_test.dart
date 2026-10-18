@@ -391,6 +391,80 @@ class {className}(container: ComponentContainer) :
     });
   });
 
+  group('native libraries', () {
+    Future<TestProject> bridge(String name) async {
+      final project = await TestProject.create(name);
+      _writeAar(project, 'bridge.aar', {
+        'AndroidManifest.xml': utf8.encode('<manifest package="lib.jni"/>'),
+        'jni/arm64-v8a/libbridge.so': [
+          0x7f,
+          0x45,
+          0x4c,
+          0x46,
+          0,
+          ...utf8.encode('Java_lib_jni_Bridge_add'),
+          0,
+          ...utf8.encode('lib/jni/Callback'),
+          0,
+        ],
+        'classes.jar': _jar(await _compiled(project, {
+          'lib/jni/Bridge': 'package lib.jni; public class Bridge { '
+              'public static native int add(int a, int b); '
+              'public static int twice(int a) { return Helper.twice(a); } }',
+          'lib/jni/Helper': 'package lib.jni; class Helper { '
+              'static int twice(int a) { return a * 2; } }',
+          'lib/jni/Callback': 'package lib.jni; public class Callback { '
+              'public void onResult(int value) {} }',
+          'lib/jni/internal/Registry': 'package lib.jni.internal; '
+              'public class Registry { public static void register() {} }',
+        })),
+      });
+      project.addDependencies(['bridge.aar']);
+      project.writeJavaExtension('''
+  @SimpleFunction
+  public int Twice(int a) {
+    return lib.jni.Bridge.twice(a);
+  }
+''');
+      return project;
+    }
+
+    test('name the packages they need kept', () async {
+      final project = await bridge('native_unlisted_ext');
+
+      final build = await project.build();
+      expect(build.exitCode, 1, reason: build.output);
+      expect(
+          build.output,
+          contains('bridge.aar has native libraries that '
+              'find classes in lib.jni by their original names.'));
+      expect(build.output, contains('- lib.jni'));
+    });
+
+    for (final optimize in [false, true]) {
+      test(
+          'ship private with their classes whole${optimize ? ' when optimized' : ''}',
+          () async {
+        final project = await bridge('native_private_ext');
+        project.keepOriginalNames(['lib.jni']);
+
+        final build = await project.build([if (optimize) '--optimize']);
+        expect(build.exitCode, 0, reason: build.output);
+        final aar =
+            project.aix.library('${project.package}.repacked.bridge.aar');
+        expect(aar.findFile('jni/arm64-v8a/libbridge.so'), isNotNull);
+        expect(
+            _classesOf(aar),
+            containsAll([
+              'lib/jni/Bridge.class',
+              'lib/jni/Helper.class',
+              'lib/jni/Callback.class',
+              '${project.packagePath}/repacked/lib/jni/internal/Registry.class',
+            ]));
+      });
+    }
+  });
+
   test('desugared interfaces have fields every dex version accepts', () async {
     final project = await TestProject.create('interfaces_ext');
     project.setMinSdk(23);
@@ -1325,8 +1399,7 @@ class {className}(container: ComponentContainer) :
           contains('android.permission.VIBRATE'));
     });
 
-    test('are refused as private when their assets or native code would break',
-        () async {
+    test('are refused as private when their assets would break', () async {
       final project = await TestProject.create('private_native_ext');
       project.file('deps/native.aar')
         ..createSync(recursive: true)
@@ -1344,8 +1417,7 @@ class {className}(container: ComponentContainer) :
       expect(
           build.output,
           contains("native.aar can't be private: its assets keep their "
-              'original paths and its native libraries find classes by their '
-              'original names'));
+              'original paths. Place it as shared'));
     });
 
     test('are refused as private when they bundle JARs', () async {

@@ -12,6 +12,7 @@ ResolvedLibrary _library(
   bool inEveryApp = true,
   bool resources = false,
   bool code = true,
+  bool nativeLibraries = false,
   Set<OriginalContent> originalContents = const {},
 }) =>
     ResolvedLibrary(
@@ -27,6 +28,7 @@ ResolvedLibrary _library(
       inEveryApp: inEveryApp,
       hasResources: resources,
       hasCode: code,
+      hasNativeLibraries: nativeLibraries,
       originalContents: originalContents,
     );
 
@@ -232,12 +234,8 @@ void main() {
   test('refuses private libraries whose contents need them shared', () {
     final plan = _plan(
       dependencies: [
-        _library('g:widget:1', aar: true, originalContents: {
-          OriginalContent.assets,
-          OriginalContent.nativeLibraries,
-        }),
-        _library('g:camera:1',
-            aar: true, originalContents: {OriginalContent.nativeLibraries}),
+        _library('g:widget:1',
+            aar: true, originalContents: {OriginalContent.assets}),
         _library('g:vendor:1',
             aar: true, originalContents: {OriginalContent.bundledJars}),
       ],
@@ -245,16 +243,22 @@ void main() {
     );
 
     expect(_errors(plan), [
-      'g:widget:1 can\'t be private: its assets keep their original paths '
-          'and its native libraries find classes by their original names. '
+      'g:widget:1 can\'t be private: its assets keep their original paths. '
           'Place it as shared in rush.yml: `libraries: {g:widget: shared}`.',
-      'g:camera:1 can\'t be private: its native libraries find classes by '
-          'their original names. Place it as shared in rush.yml: '
-          '`libraries: {g:camera: shared}`.',
       'g:vendor:1 can\'t be private: the JARs in its libs/ folder keep '
           'their original names. Place it as shared in rush.yml: '
           '`libraries: {g:vendor: shared}`.',
     ]);
+  });
+
+  test('ships private AARs with native libraries as AARs', () {
+    final plan = _plan(
+      dependencies: [_library('g:camera:1', aar: true, nativeLibraries: true)],
+    );
+
+    expect(_errors(plan), isEmpty);
+    expect(plan.privateAars.map((el) => el.coordinate), ['g:camera:1']);
+    expect(plan.privateJars, isEmpty);
   });
 
   test('ships private AARs with resources apart from private code', () {

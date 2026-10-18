@@ -95,6 +95,20 @@ void main() {
         ]));
   });
 
+  test('keeps the classes of native libraries whole', () {
+    expect(
+        _lines(androidKeepRules(
+            programClasses: _program,
+            aars: [],
+            manifestElements: [],
+            resourceXml: [],
+            wholeClasses: {'lib/jni/Bridge', 'lib/jni/Bridge\$Callback'})),
+        containsAllInOrder([
+          '-keep class lib.jni.Bridge { *; }',
+          '-keep class lib.jni.Bridge\$Callback { *; }',
+        ]));
+  });
+
   test('keeps only program classes', () {
     final rules = androidKeepRules(
         programClasses: _program,

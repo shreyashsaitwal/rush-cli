@@ -5,6 +5,7 @@ import 'package:get_it/get_it.dart';
 
 import 'package:rush/src/commands/build/android_manifest.dart';
 import 'package:rush/src/commands/build/library_plan.dart';
+import 'package:rush/src/commands/build/native_names.dart';
 import 'package:rush/src/commands/build/original_names.dart';
 import 'package:rush/src/commands/build/relocation.dart';
 import 'package:rush/src/config/config.dart';
@@ -28,12 +29,30 @@ Future<LibraryPlan> planProjectLibraries(
         await _resolved(await libService.providedDependencies(), conditional),
     placements: config.libraries,
   );
-  if (config.originalNames.isEmpty) return plan;
+  final nativeAars = plan.private.where((el) => el.hasNativeLibraries);
+  if (config.originalNames.isEmpty && nativeAars.isEmpty) return plan;
+  final privateClasses = await _classesOf(plan.private);
   return plan.withProblems(originalNameProblems(
     originalNames: config.originalNames,
-    privateClasses: await _classesOf(plan.private),
+    privateClasses: privateClasses,
+    nativeNames: {
+      for (final aar in nativeAars)
+        aar.coordinate: await _nativeNames(aar, privateClasses),
+    },
   ));
 }
+
+Future<Set<String>> _nativeNames(
+        ResolvedLibrary aar, Set<String> classes) async =>
+    {
+      await for (final file in _fs
+          .resourceFromExtractedAar(aar.file, 'jni')
+          .path
+          .asDir()
+          .list(recursive: true))
+        if (file is File && file.path.endsWith('.so'))
+          ...namedClasses(await file.readAsBytes(), classes),
+    };
 
 Future<Set<String>> _classesOf(Iterable<ResolvedLibrary> libraries) async => {
       for (final library in libraries.where((el) => el.hasCode))
@@ -66,13 +85,13 @@ Future<ResolvedLibrary> _library(Artifact artifact,
     inEveryApp: inEveryApp,
     hasResources: isAar && await _hasResources(artifact),
     hasCode: !isAar || await artifact.classesJar.asFile().exists(),
+    hasNativeLibraries: isAar && await _hasFiles(artifact, 'jni'),
     originalContents: isAar ? await _originalContents(artifact) : const {},
   );
 }
 
 Future<Set<OriginalContent>> _originalContents(Artifact aar) async => {
       if (await _hasFiles(aar, 'assets')) OriginalContent.assets,
-      if (await _hasFiles(aar, 'jni')) OriginalContent.nativeLibraries,
       if (await _hasFiles(aar, 'libs')) OriginalContent.bundledJars,
     };
 
