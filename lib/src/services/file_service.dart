@@ -12,22 +12,19 @@ class FileService {
   final _lgr = GetIt.I.get<Logger>();
 
   FileService(this.cwd) {
-    final Directory homeDir;
-    final env = Platform.environment;
+    final homeDir =
+        (Platform.environment['RUSH_HOME'] ?? _installedHomeDir).asDir();
 
-    if (env.containsKey('RUSH_HOME')) {
-      homeDir = env['RUSH_HOME']!.asDir();
-    } else {
-      homeDir = _defaultHomeDir(env).asDir();
-    }
-
-    if (!homeDir.existsSync() || homeDir.listSync().isEmpty) {
-      _lgr.err('Could not find Rush data directory at $homeDir.');
+    if (!p.join(homeDir.path, 'libs').asDir().existsSync()) {
+      _lgr.err('Could not find Rush data directory at ${homeDir.path}.');
       exit(1);
     }
 
     rushHomeDir = homeDir;
   }
+
+  static String get _installedHomeDir =>
+      p.dirname(p.dirname(Platform.resolvedExecutable));
 
   Directory get srcDir => p.join(cwd, 'src').asDir();
   Directory get resDir => p.join(cwd, 'res').asDir();
@@ -66,26 +63,4 @@ class FileService {
       p.join(buildFilesDir.path, 'kotlinc.args').asFile(true);
 
   File get kaptArgsFile => p.join(buildFilesDir.path, 'kapt.args').asFile(true);
-
-  /// Returns the default Rush home directory path using platform-appropriate
-  /// data directories:
-  ///
-  /// - **Linux / macOS**: `$XDG_DATA_HOME/rush` (defaults to `~/.local/share/rush`)
-  /// - **Windows**: `%LOCALAPPDATA%\rush` (defaults to `%USERPROFILE%\.local\share\rush`)
-  static String _defaultHomeDir(Map<String, String> env) {
-    if (Platform.isWindows) {
-      final localAppData = env['LOCALAPPDATA'];
-      if (localAppData != null && localAppData.isNotEmpty) {
-        return p.join(localAppData, 'rush');
-      }
-      return p.join(env['USERPROFILE']!, '.local', 'share', 'rush');
-    }
-
-    // Linux, macOS, and any other Unix-like platform: follow XDG Base Dir spec.
-    final xdgDataHome = env['XDG_DATA_HOME'];
-    if (xdgDataHome != null && xdgDataHome.isNotEmpty) {
-      return p.join(xdgDataHome, 'rush');
-    }
-    return p.join(env['HOME']!, '.local', 'share', 'rush');
-  }
 }
