@@ -54,6 +54,13 @@ void main() {
             startsWith('---\nname: rush\n'));
       });
 
+      test('tell agents how native libraries stay private', () {
+        final skill =
+            project.file('.claude/skills/rush/SKILL.md').readAsStringSync();
+        expect(skill, contains('original_names'));
+        expect(skill, isNot(contains('native code or JARs')));
+      });
+
       test('have a dev container and Copilot setup steps', () {
         final devcontainer = jsonDecode(project
             .file('.devcontainer/devcontainer.json')
