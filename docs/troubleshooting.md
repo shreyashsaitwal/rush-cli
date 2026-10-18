@@ -23,8 +23,8 @@ connection and run the command again.
 the coordinates in `rush.yml`, and add the library's repository under `repositories` if
 it isn't on Maven Central or Google's Maven repository.
 
-**`Unable to find components.json or component_build_infos.json`.** No class has
-`@Extension`. See [The extension class](writing-extensions.md#the-extension-class).
+**`No extension found`.** No class has `@Extension`. See
+[The extension class](writing-extensions.md#the-extension-class).
 
 **`All extensions in a project must be in the same package`.** Move the extension
 classes into one package.
@@ -51,8 +51,30 @@ rules for it to `src/proguard-rules.pro`. See [Optimizing](building.md#optimizin
 **`src/proguard-rules.pro sets -repackageclasses`.** Rush moves optimized classes under
 the extension's package itself. Remove the rule, or run `rush migrate`.
 
-**`Asset … does not exist`.** A file listed under `assets` in `rush.yml` is missing from
-the `assets` directory.
+**`… is listed in rush.yml but doesn't exist`.** A file listed under `assets` or
+`dependencies` in `rush.yml` is missing from the `assets` or `deps` directory.
+
+**`Functions with continuation must be void.`** A function that takes a `Continuation`
+delivers its result through it. See [Continuations](writing-extensions.md#continuations).
+
+**`… can't start with …_repacked_, which Rush gives the resources of private
+libraries`.** Rename the resource: names like `com_example_counter_repacked_icon` are
+reserved for private libraries. See [Resources](resources.md).
+
+**`… can't be private: its assets keep their original paths` or `the JARs in its libs/
+folder keep their original names`.** Add the `shared` entry the message names to
+`libraries` in `rush.yml`. What the library uses becomes shared too.
+
+**`… can't be private: … ships unchanged and uses it by its original name`.** A shared
+library uses this library, so it can't be private. Remove its entry from `libraries` in
+`rush.yml`.
+
+**`… has native libraries that find classes in … by their original names`.** Add the
+packages the message lists under `original_names` in `rush.yml`, or place the library as
+`shared`. See [Keeping original names](dependencies.md#keeping-original-names).
+
+**`original_names lists …, but no private library has classes in it`.** Remove the
+package from `original_names`.
 
 ## Warnings
 
@@ -65,11 +87,6 @@ carefully. See [What App Inventor provides](dependencies.md#what-app-inventor-pr
 same package, such as a Maven library and a copy of it in `deps`. Keep one of them in
 `rush.yml`.
 
-**`… can't be private: its assets keep their original paths`, `its native libraries
-find classes by their original names` or `the JARs in its libs/ folder keep their
-original names`.** Add the `shared` entry the message names to
-`libraries` in `rush.yml`. What the library uses becomes shared too.
-
 **`Missing class androidx.annotation.…`.** Recent libraries use annotations App
 Inventor's AndroidX lacks. Add `-dontwarn androidx.annotation.**` to
 `src/proguard-rules.pro`; Rush names that rule in its help.
@@ -77,8 +94,8 @@ Inventor's AndroidX lacks. Add `-dontwarn androidx.annotation.**` to
 ## In App Inventor
 
 **The app build fails with `defined multiple times`.** Two extensions contain the same
-class. This happens with extensions built by Rush 1, Rush 2.0 or other tools, which
-shipped libraries without renaming them, and with libraries placed as `shared`. Rebuild
+class. This happens with extensions built by Rush 1, by Rush 2.0 for libraries it didn't
+place as private, or by other tools, which shipped libraries without renaming them, and with libraries placed as `shared`. Rebuild
 them with this Rush, or remove one. If only apps that also use a built-in component
 fail, a shared library of the extension is one App Inventor adds for that component. See
 [How libraries are shipped](dependencies.md#how-libraries-are-shipped).
