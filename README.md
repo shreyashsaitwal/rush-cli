@@ -9,11 +9,15 @@
 * Newer Java APIs such as `java.time` work on older Android versions when `min_sdk` is 24
   or higher, using Google's backport library, trimmed to what the extension uses
 * Maven dependency management, resolved from Maven Central and Google's Maven repository
-* **AARs with resources:** AAR dependencies are shipped as-is, so App Inventor compiles
-  their layouts, drawables and styles and generates their `R` classes
+* **Private libraries:** every library is renamed into the extension, AARs with their
+  resources and manifests, so extensions don't clash with each other or with App
+  Inventor's and Kodular's libraries; `shared` opts out
+* **AARs with resources:** App Inventor compiles their layouts, drawables and styles and
+  generates their `R` classes
 * `AndroidManifest.xml` support, merged with the manifests of AAR dependencies
 * Builds against the latest App Inventor release (currently **v206**)
-* Optional shrinking and obfuscation with R8
+* R8 shrinks the extension and its libraries in every build, and optionally optimizes and
+  obfuscates them
 * Markdown documentation of every block and dropdown, generated with each build
 * Android resources (layouts, drawables, strings…) shipped with the extension
 * Ready for AI coding agents: new projects include instructions that teach them to write,
@@ -38,7 +42,7 @@ Rush requires JDK 17 or newer.
 curl -fsSL https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.sh | bash
 ```
 
-Then add `$HOME/.local/share/rush/bin` to your `PATH`.
+Then add the `bin` directory the installer prints to your `PATH`.
 
 ### Windows
 
@@ -47,6 +51,8 @@ In PowerShell, run:
 ```ps1
 iwr https://raw.githubusercontent.com/shreyashsaitwal/rush-cli/main/scripts/install/install.ps1 -useb | iex
 ```
+
+The installer adds Rush to your `PATH`; open a new terminal afterwards.
 
 ## Quick start
 
@@ -72,8 +78,11 @@ dart pub get
 dart run build_runner build
 dart compile exe bin/rush.dart -o build/rush
 
-cd processor && ./gradlew build :processor:shadowJar
+cd jvm && ./gradlew build :processor:shadowJar :relocator:shadowJar
 ```
+
+`tool/test.sh` does all of this, prepares a Rush home in `build/test-home` and runs the
+tests against the built binary.
 
 The App Inventor runtime bundle is built with `ai2/build-runtime.sh <ai2-tag>`, or by the
 *App Inventor runtime* workflow, which publishes it as a release asset.

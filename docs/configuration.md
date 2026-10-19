@@ -1,6 +1,6 @@
 # rush.yml
 
-`rush.yml` configures a project. It's also described by a [JSON schema](../schema/rush.yml).
+`rush.yml` configures a project (`rush.yaml` works too). It's also described by a [JSON schema](../schema/rush.yml).
 Unknown keys are an error.
 
 ```yaml

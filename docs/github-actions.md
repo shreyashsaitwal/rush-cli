@@ -24,7 +24,7 @@ git push origin v1.2.0
 The release fails if the tag doesn't match `version`, so a release can't ship the wrong
 version number.
 
-Projects created before Rush 2.2 can copy the workflow:
+Projects created by Rush 1 can copy the workflow:
 
 ```yaml
 name: Build

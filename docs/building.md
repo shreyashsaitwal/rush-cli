@@ -110,7 +110,8 @@ sources, assets, dependencies, `rush.yml`, the manifest, the JDK and Rush itself
 compares file contents, not modification times, so a skipped build produces exactly the
 same AIX as a clean one.
 
-Desugared libraries are cached in `cache/desugar` of Rush's home (where the installer put it) and shared by all your projects.
+Desugared libraries and the JDK classes R8 reads are cached in `cache` of Rush's home
+(where the installer put it) and shared by all your projects.
 `rush clean` keeps them; delete that folder to free the space. Resolved dependencies and
 the core library backport are kept in `.rush`. If a build behaves strangely after manual
 changes to these files, run `rush clean`.

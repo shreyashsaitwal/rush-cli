@@ -45,7 +45,8 @@ properties:
     description: |
       Libraries bundled with the extension: Maven coordinates
       (`group:artifact:version`), or JAR/AAR files in the `deps` directory.
-      AARs are shipped as-is, so their resources are available at runtime.
+      AARs ship with their resources, renamed into the extension unless
+      placed as shared.
     type: array
     items:
       type: string
@@ -61,7 +62,7 @@ properties:
 
   libraries:
     description: |
-      Where a library goes, overriding Rush's own choice. Keys are
+      Where a library goes; libraries not listed are private. Keys are
       `group:artifact` without a version, or the file name of a JAR/AAR in the
       `deps` directory.
     type: object

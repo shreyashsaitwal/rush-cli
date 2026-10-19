@@ -71,8 +71,8 @@ to one of:
 - **`private`**, the default: the extension's own copy, renamed into it (see
   [How libraries are shipped](#how-libraries-are-shipped)). Rush refuses it, naming the
   `shared` entry to add, for an AAR with assets (they keep their paths) or JARs in
-  `libs/` (they aren't renamed), and for a library a shared library uses by its
-  original name. An AAR with native libraries can be private once the packages its
+  `libs/` (they aren't renamed). A library that a shared library uses by its original
+  name can't be placed as `private` either: remove that entry. An AAR with native libraries can be private once the packages its
   native code names keep their names (see
   [Keeping original names](#keeping-original-names)).
 

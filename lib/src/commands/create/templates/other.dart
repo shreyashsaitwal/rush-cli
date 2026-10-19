@@ -19,8 +19,8 @@ kotlin:
 '''}
 # External libraries your extension depends on. These can be local JARs / AARs
 # stored in the "deps" directory or coordinates of remote Maven artifacts in
-# <groupId>:<artifactId>:<version> format. AARs are shipped as-is, so their
-# resources (layouts, drawables, etc.) are available at runtime.
+# <groupId>:<artifactId>:<version> format. AARs ship with their resources
+# (layouts, drawables, etc.), renamed into the extension unless placed as shared.
 ${enableKt ? 'dependencies:' : '#dependencies:'}
 ${enableKt ? '- $kotlinGroupId:kotlin-stdlib:$defaultKtVersion\n' : ''}#- example.jar                 # Local JAR or AAR file stored in "deps" directory
 #- com.example:foo-bar:1.2.3   # Coordinate of some remote Maven artifact
@@ -55,7 +55,7 @@ ${enableKt ? '- $kotlinGroupId:kotlin-stdlib:$defaultKtVersion\n' : ''}#- exampl
 
 String pgRules() {
   return '''
-# Prevents extension classes (annotated with `@Extension`) from being removed, renamed or repackged.
+# Prevents extension classes (annotated with `@Extension`) from being removed, renamed or repackaged.
 -keep @com.google.appinventor.components.annotations.Extension public class * {
   public *;
 }
@@ -135,7 +135,7 @@ String androidManifestXml(String org) {
         <!-- <service android:name="com.example.MyService"> ... </service> -->
     </application>
 
-    <!-- Other than <application> level tags, you can use <uses-permission> & <queries> tags -->
+    <!-- Other than <application> level tags, you can use <uses-permission>, <uses-feature> & <queries> tags -->
     <!-- <uses-permission android:name="android.permission.SEND_SMS"/> -->
     <!-- <queries> ... </queries> -->
 
