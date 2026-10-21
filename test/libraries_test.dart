@@ -1377,6 +1377,55 @@ class {className}(container: ComponentContainer) :
       expect(project.aix.libraries, ['com.google.code.gson-gson-2.8.9.aar']);
     });
 
+    test('ship local JARs as AARs when shared', () async {
+      final project = await TestProject.create('shared_local_jar_ext');
+      final classes = await _compiled(project, {
+        'com/example/vendor/Heavy':
+            'package com.example.vendor; public class Heavy {}',
+      });
+      project.file('deps/Heavy2530.jar')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(_jar(classes));
+      project.addDependencies(['Heavy2530.jar']);
+      project.placeLibraries({'Heavy2530.jar': 'shared'});
+      final build = await project.build();
+      expect(build.exitCode, 0, reason: build.output);
+      expect(project.aix.libraries, ['Heavy2530.aar']);
+      final aar = project.aix.library('Heavy2530.aar');
+      expect(
+          aar.findFile('AndroidManifest.xml')!.content,
+          isA<List<int>>()
+              .having(utf8.decode, 'text', contains('package="Heavy2530"')));
+      expect(
+          ZipDecoder()
+              .decodeBytes(aar.findFile('classes.jar')!.content)
+              .files
+              .map((el) => el.name),
+          contains('com/example/vendor/Heavy.class'));
+    });
+
+    test('give shared local JARs a valid package from their file name',
+        () async {
+      final project = await TestProject.create('shared_versioned_jar_ext');
+      final classes = await _compiled(project, {
+        'com/example/kit/Kit': 'package com.example.kit; public class Kit {}',
+      });
+      project.file('deps/2fa-kit-1.0.jar')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(_jar(classes));
+      project.addDependencies(['2fa-kit-1.0.jar']);
+      project.placeLibraries({'2fa-kit-1.0.jar': 'shared'});
+      final build = await project.build();
+      expect(build.exitCode, 0, reason: build.output);
+      expect(project.aix.libraries, ['2fa-kit-1.0.aar']);
+      expect(
+          utf8.decode(project.aix
+              .library('2fa-kit-1.0.aar')
+              .findFile('AndroidManifest.xml')!
+              .content),
+          contains('package="lib_2fa_kit_1_0"'));
+    });
+
     test('move into the extension when private, keeping their manifest',
         () async {
       final project = await TestProject.create('private_aar_ext');

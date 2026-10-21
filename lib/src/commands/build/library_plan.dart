@@ -61,7 +61,7 @@ class ResolvedLibrary {
 
   String get aarFileName => isMavenArtifact
       ? '${coordinate.replaceAll(':', '-')}.aar'
-      : p.basename(file);
+      : '${p.basenameWithoutExtension(file)}.aar';
 
   @override
   String toString() => coordinate;
