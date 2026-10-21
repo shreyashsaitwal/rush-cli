@@ -165,13 +165,21 @@ Future<Library> _packageSharedJar(Config config, LibraryDesugarer desugarer,
 }
 
 String _sharedJarManifest(ResolvedLibrary jar, int minSdk) {
-  final package = [...jar.groupId.split('.'), jar.artifactId]
-      .map((el) => el.replaceAll(RegExp('[^A-Za-z0-9_.]'), '_'))
-      .join('.');
+  final package = jar.isMavenArtifact
+      ? [...jar.groupId.split('.'), jar.artifactId]
+          .map((el) => el.replaceAll(RegExp('[^A-Za-z0-9_.]'), '_'))
+          .join('.')
+      : _localJarPackage(jar.file);
   return '''
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="$package">
   <uses-sdk android:minSdkVersion="$minSdk"/>
 </manifest>
 ''';
+}
+
+String _localJarPackage(String file) {
+  final name =
+      p.basenameWithoutExtension(file).replaceAll(RegExp('[^A-Za-z0-9_]'), '_');
+  return name.startsWith(RegExp('[A-Za-z]')) ? name : 'lib_$name';
 }
